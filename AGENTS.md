@@ -56,6 +56,32 @@ apply to every repo (`monkify-backend`, `monkify-front`, `monkify-meta`).
 > version-controlled — they are (re)generated from this file. `monkify-meta/AGENTS.md` remains the
 > single source of truth; keep the real rules here, not in the pointers.
 
+## Workspace setup — ensure the sibling repos are cloned (do this first too)
+
+When someone clones **`monkify-meta` on its own** for the first time, the application repos won't be
+present yet. The knowledge base assumes all three repos sit side by side under the workspace root.
+On your first task, make sure the siblings exist next to `monkify-meta`:
+
+1. Determine the workspace root (the parent directory of this `monkify-meta` repo).
+2. For each repo below, check whether `<workspace-root>/<folder>` already exists **and** is a git
+   repo (has a `.git` folder). If it does, leave it alone — never re-clone or overwrite it.
+3. If it's missing, clone it into the workspace root:
+
+   - `monkify-backend` → `https://github.com/marcusruas/monkify-backend.git`
+   - `monkify-front` → `https://github.com/VitorIsaacSM/monkify-front.git`
+
+   ```bash
+   # run from <workspace-root>
+   git clone https://github.com/marcusruas/monkify-backend.git monkify-backend
+   git clone https://github.com/VitorIsaacSM/monkify-front.git  monkify-front
+   ```
+
+4. If a clone fails (no access, auth required, offline), don't guess or fake it — tell the user which
+   repo couldn't be cloned and let them clone it manually.
+
+> These repos are independent and stay where the user cloned them; this step only fills in missing
+> siblings so the cross-repo rules and docs resolve. Never modify or reset an existing clone here.
+
 ## Skills — ensure installed (do this on first task too)
 
 The Monkify task pipeline ships as Agent Skills under `monkify-meta/skills/` (source of truth,
