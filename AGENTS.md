@@ -4,36 +4,57 @@ Guidance for AI agents working on Monkify (`monkify-backend`, `monkify-front`, a
 `monkify-meta` knowledge base). This file lives in the knowledge base; paths below are relative to
 the `monkify-meta` repo root unless a repo is named explicitly.
 
-## Workspace setup — bootstrap the root pointer (do this first)
+## Workspace setup — bootstrap the root pointers (do this first)
 
-This file is only auto-loaded by Cursor when working **inside `monkify-meta/`**. To make these
-rules apply across the whole workspace (so they're also active in `monkify-backend/` and
-`monkify-front/`), there must be a pointer `AGENTS.md` at the **workspace root** — the parent
-folder that contains the `monkify-meta`, `monkify-backend`, and `monkify-front` folders.
+This file is only auto-loaded when working **inside `monkify-meta/`**, and only by tools that read
+`AGENTS.md` at all. To make these rules apply across the whole workspace **and across different AI
+tools (Cursor, Claude Code, GitHub Copilot)**, there must be pointer files at the **workspace
+root** — the parent folder that contains the `monkify-meta`, `monkify-backend`, and `monkify-front`
+folders. Each pointer simply tells the agent to read the canonical rules here.
 
-On your first task in this workspace, ensure that pointer exists:
+On your first task in this workspace, ensure all three pointers below exist. For **each** target
+file: **if it does not exist, OR it does not contain the marker `<!-- monkify-agents-pointer -->`,**
+create or update it with the content shown (preserve any other existing content; just add the
+block). If the marker is already present, leave that file alone.
 
-1. Determine the workspace root (the parent directory of this `monkify-meta` repo).
-2. Look at `<workspace-root>/AGENTS.md`.
-3. **If it does not exist, OR it does not contain the marker `<!-- monkify-agents-pointer -->`,**
-   create or update it so it contains the pointer block below. Preserve any other existing content
-   in that file; just add the block if it's missing.
-4. Otherwise (marker already present), do nothing.
-
-Pointer block to write at `<workspace-root>/AGENTS.md`:
+**1. `<workspace-root>/AGENTS.md`** — for Cursor and Codex (and VS Code Copilot when AGENTS.md is enabled):
 
 ```markdown
 <!-- monkify-agents-pointer -->
 # AGENTS.md — Monkify workspace
 
-Before any task in this workspace, read `monkify-meta/AGENTS.md` and `monkify-meta/INDEX.md`.
-They hold the must-follow rules and the project knowledge base map that apply to every repo
-(`monkify-backend`, `monkify-front`, `monkify-meta`).
+Before any task in this workspace, read and follow `monkify-meta/AGENTS.md` and
+`monkify-meta/INDEX.md`. They hold the must-follow rules and the project knowledge base map that
+apply to every repo (`monkify-backend`, `monkify-front`, `monkify-meta`).
 ```
 
-> Note: the workspace root is not one of the git repos, so this pointer is intentionally not
-> version-controlled — it is (re)generated from this file. `monkify-meta/AGENTS.md` remains the
-> single source of truth; keep the real rules here, not in the pointer.
+**2. `<workspace-root>/CLAUDE.md`** — for Claude Code, which reads `CLAUDE.md`, **not** `AGENTS.md`.
+The `@import` is expanded into context at session start (path is relative to this `CLAUDE.md`):
+
+```markdown
+<!-- monkify-agents-pointer -->
+# CLAUDE.md — Monkify workspace
+
+@monkify-meta/AGENTS.md
+
+Also read `monkify-meta/INDEX.md` before any task.
+```
+
+**3. `<workspace-root>/.github/copilot-instructions.md`** — for GitHub Copilot, which auto-detects
+this file at the workspace root (create the `.github/` folder if it doesn't exist):
+
+```markdown
+<!-- monkify-agents-pointer -->
+# Copilot instructions — Monkify workspace
+
+Before any task in this workspace, read and follow `monkify-meta/AGENTS.md` and
+`monkify-meta/INDEX.md`. They hold the must-follow rules and the project knowledge base map that
+apply to every repo (`monkify-backend`, `monkify-front`, `monkify-meta`).
+```
+
+> Note: the workspace root is not one of the git repos, so these pointers are intentionally not
+> version-controlled — they are (re)generated from this file. `monkify-meta/AGENTS.md` remains the
+> single source of truth; keep the real rules here, not in the pointers.
 
 ## Skills — ensure installed (do this on first task too)
 
