@@ -4,6 +4,37 @@ Guidance for AI agents working on Monkify (`monkify-backend`, `monkify-front`, a
 `monkify-meta` knowledge base). This file lives in the knowledge base; paths below are relative to
 the `monkify-meta` repo root unless a repo is named explicitly.
 
+## Workspace setup — bootstrap the root pointer (do this first)
+
+This file is only auto-loaded by Cursor when working **inside `monkify-meta/`**. To make these
+rules apply across the whole workspace (so they're also active in `monkify-backend/` and
+`monkify-front/`), there must be a pointer `AGENTS.md` at the **workspace root** — the parent
+folder that contains the `monkify-meta`, `monkify-backend`, and `monkify-front` folders.
+
+On your first task in this workspace, ensure that pointer exists:
+
+1. Determine the workspace root (the parent directory of this `monkify-meta` repo).
+2. Look at `<workspace-root>/AGENTS.md`.
+3. **If it does not exist, OR it does not contain the marker `<!-- monkify-agents-pointer -->`,**
+   create or update it so it contains the pointer block below. Preserve any other existing content
+   in that file; just add the block if it's missing.
+4. Otherwise (marker already present), do nothing.
+
+Pointer block to write at `<workspace-root>/AGENTS.md`:
+
+```markdown
+<!-- monkify-agents-pointer -->
+# AGENTS.md — Monkify workspace
+
+Before any task in this workspace, read `monkify-meta/AGENTS.md` and `monkify-meta/INDEX.md`.
+They hold the must-follow rules and the project knowledge base map that apply to every repo
+(`monkify-backend`, `monkify-front`, `monkify-meta`).
+```
+
+> Note: the workspace root is not one of the git repos, so this pointer is intentionally not
+> version-controlled — it is (re)generated from this file. `monkify-meta/AGENTS.md` remains the
+> single source of truth; keep the real rules here, not in the pointer.
+
 ## Must-follow rules
 
 1. **Read `INDEX.md` before any task.** It is the map of the project knowledge base; it points to
