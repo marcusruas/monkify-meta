@@ -45,6 +45,17 @@ typer produces a matching sequence, the matching bets win and are paid out.
 | `features/payment-methods.md` | Multiple payment methods; distilled from `specs/payment-methods-feature.md` | TODO (stub) |
 | `specs/operator-feature.md` | Full implementation spec for Operators | Authoritative source |
 | `specs/payment-methods-feature.md` | Full implementation spec for Multiple Payment Methods | Authoritative source |
+| `skills/` | Agent Skills that power the Monkify task pipeline (see below) | Drafted |
+
+## Skills (the task pipeline)
+
+Reusable Agent Skills live in `skills/`. They are the source of truth, version-controlled here.
+Because this repo's `skills/` folder is **not** an auto-discovery path, AGENTS.md installs them into
+a Cursor-discovered location on first use — see "Skills — ensure installed" in `AGENTS.md`.
+
+| Skill | Invoke | Purpose |
+| --- | --- | --- |
+| `skills/monkify-refine-tasks` | `/monkify-refine-tasks` | Pick a card from the Trello **monkaify** board and refine it (Monkify-wide, both apps) into a clear, unambiguous, spec-ready task; write it back and move it to **Refined**. Needs the `trello` MCP + Superpowers. |
 
 ## The 60-second mental model
 

@@ -35,6 +35,27 @@ They hold the must-follow rules and the project knowledge base map that apply to
 > version-controlled — it is (re)generated from this file. `monkify-meta/AGENTS.md` remains the
 > single source of truth; keep the real rules here, not in the pointer.
 
+## Skills — ensure installed (do this on first task too)
+
+The Monkify task pipeline ships as Agent Skills under `monkify-meta/skills/` (source of truth,
+version-controlled). That folder is **not** an auto-discovery path, so Cursor won't load the skills
+from there directly. On your first task in this workspace, make sure each skill is installed into a
+discovered location:
+
+1. For every skill folder `monkify-meta/skills/<name>/` (each contains a `SKILL.md`), ensure a copy
+   exists at `<workspace-root>/.cursor/skills/<name>/` (Cursor auto-discovers `.cursor/skills/` at
+   the workspace root).
+2. If the target is missing **or** older than the source (`SKILL.md` differs), copy the whole skill
+   folder over (including its `references/`). Treat `monkify-meta/skills/` as authoritative.
+3. Some skills have prerequisites the agent must verify before running them:
+   - `monkify-refine-tasks` needs the **Trello MCP** (`trello` / `user-trello` server) and the
+     **Superpowers** plugin. If either is missing, tell the user how to install it and stop.
+
+> Like the root pointer above, the installed copies under `.cursor/skills/` are regenerated from
+> `monkify-meta/skills/` and are not the source of truth — edit skills in `monkify-meta/skills/`.
+
+Current skills: `monkify-refine-tasks` (see `INDEX.md` → "Skills (the task pipeline)").
+
 ## Must-follow rules
 
 1. **Read `INDEX.md` before any task.** It is the map of the project knowledge base; it points to
