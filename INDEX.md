@@ -17,6 +17,14 @@ typer produces a matching sequence, the matching bets win and are paid out.
 6. The authoritative, deep design docs are in `specs/`. The `features/` files are distilled
    summaries that point back into `specs/` and the live code.
 
+## Keeping the knowledge base current
+
+Every time a feature gets merged into `main`, this repository's knowledge base **must be updated**
+so it reflects the application's current business logic and behavior. That includes (as relevant)
+`features/`, `conventions/`, `glossary.md`, `architecture.md`, and any other docs that describe
+how the system works — not only `specs/`. Stale docs here mislead agents and humans alike; treat
+knowledge-base updates as part of shipping the feature, not optional follow-up work.
+
 ## Repositories (in this workspace, `e:\Monkify`)
 
 | Folder | What it is | Covered here |
