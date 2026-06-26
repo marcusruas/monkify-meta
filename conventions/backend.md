@@ -27,6 +27,11 @@
   rewards, refund invalid bets.
 - **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
+- **Application settings** live in **`Monkify.Common/monkifysettings.json`** — the single source
+  for backend configuration. Both `Monkify.Api` and `Monkify.Consumers` load it via
+  `AddMonkifySettings()` (environment variables can override keys at runtime). Do **not** add
+  `appsettings.json` / `appsettings.Development.json` overlays for app settings; put new keys in
+  `monkifysettings.json` under the appropriate `GeneralSettings` section.
 
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, logging
      (Serilog) patterns, and add concrete examples. -->
