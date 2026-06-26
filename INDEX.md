@@ -45,14 +45,12 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `INDEX.md` | This map. Read first. | Drafted |
 | `architecture.md` | Repos, services, RabbitMQ, PostgreSQL, Redis, SignalR, Solana, EF, payment processors | Drafted |
 | `constraints.md` | Non-negotiable rules: secrets, branches per repo, unit tests, migrations | Drafted |
-| `glossary.md` | Session, Bet, Operator, Typer, SessionParameters, PaymentMethod, etc. | TODO (stub) |
+| `glossary.md` | Session, Bet, Operator, Typer, SessionParameters, etc. | TODO (stub) |
 | `conventions/backend.md` | EF inline in DbContext, migrations in Consumers, MediatR handlers, MassTransit consumers | TODO (stub) |
 | `conventions/frontend.md` | Vue 3, composables (`src/hooks`), types in `src/types`, axios service layer | TODO (stub) |
 | `features/sessions.md` | Session lifecycle, the typer, rewards | TODO (stub) |
 | `features/operators.md` | Multi-tenant operators; distilled from `specs/operator-feature.md` | TODO (stub) |
-| `features/payment-methods.md` | Multiple payment methods; distilled from `specs/payment-methods-feature.md` | TODO (stub) |
 | `specs/operator-feature.md` | Full implementation spec for Operators | Authoritative source |
-| `specs/payment-methods-feature.md` | Full implementation spec for Multiple Payment Methods | Authoritative source |
 | `skills/` | Agent Skills that power the Monkify task pipeline (see below) | Drafted |
 
 ## Skills (the task pipeline)
@@ -70,24 +68,19 @@ a Cursor-discovered location on first use — see "Skills — ensure installed" 
 - **Backend** (`monkify-backend`) is a layered .NET 8 solution split into a web **API**
   (`Monkify.Api`) and a background worker host (`Monkify.Consumers`). They share `Monkify.Domain`,
   `Monkify.Infrastructure`, and `Monkify.Common`.
-- A **bet** is placed via `POST /sessions/{id}/bets`. The handler validates the inbound payment
-  (per payment method), persists the bet + payment + ledger row, and publishes a `BetPlacedEvent`.
+- A **bet** is placed via `POST /sessions/{id}/bets`. The handler validates the on-chain Solana
+  payment signature, persists the bet, and publishes a `BetPlacedEvent`.
 - **Sessions** progress through a state machine driven by **RabbitMQ events** (via MassTransit)
   consumed in `Monkify.Consumers`: `BetPlaced → RunSession → RewardSession`, with
   `RefundInvalidBet` for failures.
 - The **typer** (`MonkifyTyper`) runs the game: it emits random characters over **SignalR** until
-  a bet's choice appears; winners are then rewarded by a **payment processor** (Solana / PayPal /
-  Stripe / etc.).
+  a bet's choice appears; winners are then rewarded via **Solana** SPL token transfers.
 - **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters and backs
   SignalR. **Hangfire** (on PostgreSQL) schedules lottery sessions.
 - **Frontend** (`monkify-front`) is Vue 3 + TypeScript: composables in `src/hooks`, an axios
   service layer in `src/services`, and SignalR clients to stream the live typer + bets.
 
-## Two features currently in flight
-
-Both are already reflected in the live code (entities, handlers, processors, frontend types):
+## Feature currently in flight
 
 - **Operators** — multi-tenant scoping by an `operator-id` request header. See
   `specs/operator-feature.md` (branch `feature/operators`).
-- **Multiple Payment Methods** — N payment methods per game, a payment-processor strategy, and an
-  auditable money ledger. See `specs/payment-methods-feature.md` (branch `feature/payment-methods`).

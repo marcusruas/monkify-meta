@@ -30,8 +30,8 @@
                  └──────────────┘   └──────┬───────────────────┘
                                            │ pay out / refund
                                     ┌──────▼───────────────────┐
-                                    │ Payment processors        │
-                                    │ Solana / PayPal / Stripe… │
+                                    │ SolanaService             │
+                                    │ SPL token transfers       │
                                     └───────────────────────────┘
 ```
 
@@ -67,8 +67,7 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
-- **Provider:** PostgreSQL via `UseNpgsql`. `NpgsqlDataSourceBuilder.EnableDynamicJson()` maps
-  `jsonb` columns to strongly-typed POCOs (used by `BetPayment.Details`).
+- **Provider:** PostgreSQL via `UseNpgsql`.
 - **Single DbContext:** `Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs`.
 - **EF configuration is INLINE** in `OnModelCreating` — there are **no** `IEntityTypeConfiguration`
   classes. All entity mapping is in the `modelBuilder.Entity<T>(builder => { … })` blocks.
@@ -81,15 +80,12 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 ### Core entities (selected)
 
 - **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session`, `SessionParameters`
-  (a "game type"), `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`,
-  `SessionParameterPaymentMethod`.
-- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `BetPayment` (+ `BetPaymentDetails`
-  jsonb POCO), `TransactionLog` (the audit ledger), `BetStatusLog`.
+  (a "game type"), `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`.
+- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog`, `RefundLog`,
+  `BetStatusLog`.
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
-Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* BetPayment`, and
-`Bet 1—* TransactionLog`. `SessionParameters *—* PaymentMethod` via the
-`SessionParameterPaymentMethod` join entity.
+Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* TransactionLog`.
 
 ## 4. Messaging: RabbitMQ via MassTransit
 
@@ -103,8 +99,8 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* B
 | --- | --- | --- | --- |
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the session, then publishes `RunSessionEvent`. Refunds bets if a lottery lacks players. |
 | `RunSessionEvent` | `BetPlacedConsumer` | `RunSessionConsumer` | Marks session `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next session, publishes `RewardSessionEvent`. |
-| `RewardSessionEvent` | `RunSessionConsumer` | `RewardSessionConsumer` | For each winner, resolves the payment processor for the bet's inbound method and calls `Credit(...)`; updates statuses. |
-| `RefundInvalidBetEvent` | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet via the appropriate processor. Carries `PaymentMethod` + external reference (not a raw signature). |
+| `RewardSessionEvent` | `RunSessionConsumer` | `RewardSessionConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
+| `RefundInvalidBetEvent` | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet via `ISolanaService.RefundTokens`. Carries wallet, payment signature, amount, and reason. |
 | `BetNotificationEvent` | `SessionService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,
@@ -138,30 +134,14 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* B
 - Used to **schedule lottery sessions**: `SessionService.ScheduleLottery` enqueues a delayed
   `BetPlacedEvent` publish for the session's start time.
 
-## 8. Blockchain & payments
-
-### Solana
+## 8. Blockchain & payments (Solana)
 
 - `Solnet` (`Solnet.Rpc`, `Solnet.Programs`, `Solnet.Wallet`) talks to a Solana cluster.
-- `ISolanaService` / `SolanaService` handle SPL token transfers (SOL / USDC) and blockhash checks.
-- The house owner/sender token account is the funded float for crypto payouts.
-
-### Payment-method strategy (multiple payment methods)
-
-- `IPaymentMethodProcessor` is the per-method strategy with `ValidateInboundPayment`, `Credit`,
-  `Refund`. Resolved through **keyed DI** (.NET 8 `AddKeyedScoped<…>(PaymentMethod)`) via
-  `IPaymentMethodProcessorFactory`.
-- Implementations in `Monkify.Infrastructure/Services/Payments/Processors/`:
-  `SolanaPaymentProcessor` (SOL), `UsdtPaymentProcessor` (USDT/USDC), `FreeCoinPaymentProcessor`,
-  `PayPalPaymentProcessor`, `VenmoPaymentProcessor` (Braintree), `OnlineBankingPaymentProcessor`
-  (Stripe ACH), `CardPaymentProcessor` (Stripe cards). Shared bases:
-  `CryptoPaymentProcessorBase`, `StripePaymentProcessorBase`.
-- External SDKs are wrapped behind mockable seams in `Services/Payments/Providers/`
-  (`IPayPalClient`, `IBraintreeGateway`, `IStripeClientWrapper`).
-- **Money is audited as USD.** Each payment is a `BetPayment` (Inbound stake / Outbound
-  reward|refund) with method-specific JSONB `Details`; every movement also writes a
-  `TransactionLog` row (`Inbound` / `Credit` / `Refund`). Reward/refund math counts only
-  `TransactionType.Credit`.
+- `ISolanaService` / `SolanaService` validate bet payment signatures, transfer SPL tokens for
+  rewards, and refund invalid bets.
+- The house owner/sender token account is the funded float for payouts.
+- Bets carry a `PaymentSignature` (on-chain tx signature). `TransactionLog` rows track reward
+  credits per bet for idempotency in `BetDomainService`.
 
 ## 9. The game mechanic (the "Typer")
 
@@ -190,11 +170,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* B
   (`solana-wallets-vue`, `@solana/web3.js`, `@solana/spl-token`), axios, `vue3-toastify`.
 - **Structure** (`src/`):
   - `hooks/` — composables: `useSession` (session state, websockets, bet flow), `useConnection`
-    (Solana wallet/token transfer), `useOperator` (capture/persist `operator-id`, theming),
-    `useCurrency` (display FX).
+    (Solana wallet/token transfer), `useOperator` (capture/persist `operator-id`, theming).
   - `services/` — `mainService.ts` (axios instance + endpoints), interceptors, handlers.
-  - `types/` — shared TS types/enums (`ActiveSession`, `BodySessionBet`, `PaymentMethod`,
-    `OperatorBranding`, …).
+  - `types/` — shared TS types/enums (`ActiveSession`, `BodySessionBet`, `OperatorBranding`, …).
   - `pages/` — `SessionSelectPage`, `GamePage`, `HomePage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
 - **Routing:** `/` → `/game-select` (`SessionSelectPage`) → `/game` (`GamePage`).
@@ -205,9 +183,8 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* B
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, and incoming bets.
-- **Bet flow:** `useSession.bet()` branches by `PaymentMethod`. SOL/USDT use the on-chain
-  `sendToken` (the returned signature becomes `externalReference`); FreeCoin sends no reference;
-  PayPal/Venmo/Stripe branches are stubbed pending live keys.
+- **Bet flow:** `useSession.bet()` sends an on-chain SPL token transfer via `useConnection.sendToken`,
+  then POSTs the bet with the returned signature as `paymentSignature`.
 
 ## 12. Local environment (docker-compose)
 

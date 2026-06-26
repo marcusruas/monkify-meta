@@ -39,7 +39,6 @@ The fields on `SessionParameters` define how a type behaves:
 | `RequiredAmount`             | The exact stake per bet (USD; `decimal(18,9)`).                                            |
 | `PresetChoices`              | Optional fixed set of allowed choices → turns a type into a "pick from a list" game.       |
 | `LotteryParameters`          | Optional → turns a type into a scheduled, pot-based lottery.                               |
-| `PaymentMethods`             | Which `PaymentMethod`s this type accepts (`SessionParameterPaymentMethod` join).           |
 | `OperatorId` / `Operator`    | Optional tenant owner (null = "house"). See `operators.md`.                                |
 
 
@@ -76,7 +75,7 @@ seeded defaults don't combine them. The reward pot differs only for lottery (it 
 ### Seeded default games (non-production)
 
 `DefaultSessionParameters.GenerateDefaultParameters()` seeds these on startup (all: min 2 players,
-1-token entry, duplicates allowed, methods SOL/USDT/FreeCoin). In dev they are owned by the seeded
+1-token entry, duplicates allowed). In dev they are owned by the seeded
 "DEV Cassino" operator (see `operators.md`); see `constraints.md`/`architecture.md` for the
 production caveat.
 
@@ -102,9 +101,8 @@ production caveat.
   image by content:
   - `Number` → number art; `NumbersAndLetters` → "free" art; `> 1` `presetChoices` → horse/animal
   art; otherwise letters art.
-3. `**GameTypeCard.vue`** shows: name, description, the **price** (converted to the selected display
-  currency via `useCurrency`, with a `≈ $USD` hint), the **payment-method icons** (mapped by
-   `code → icon`), and a **LOTTERY badge** with formatted frequency when `lotteryParameters` is set.
+3. **`GameTypeCard.vue`** shows: name, description, the **price** (`${{ requiredAmount }} MONKI Per
+  Ticket`), and a **LOTTERY badge** with formatted frequency when `lotteryParameters` is set.
 4. **Select:** clicking a card → `chooseSession(session)` sets `selectedSession`, navigates to
   `/game?type=<sessionTypeId>`, then `updateNewSession(true)` loads the live session instance and
    opens the websockets.
@@ -112,8 +110,8 @@ production caveat.
   `GameMonkey`. `GamePage.onMounted` recovers `selectedSession` from the `?type=` query if the user
    deep-linked/reloaded.
 
-Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `paymentMethod[]`,
-`lotteryParameters`, `presetChoices`), `SessionInstance` + `AppliedBet`, `BodySessionBet`.
+Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `lotteryParameters`,
+`presetChoices`), `SessionInstance` + `AppliedBet`, `BodySessionBet`.
 
 ---
 
@@ -129,15 +127,13 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `paymentMethod
   - **Free-type race:** type a word into the terminal (`userWord`); the UI requires length ≥ 4
    before the lever is allowed, but the backend enforces the exact `ChoiceRequiredLength`.
   - **Preset race:** choose one of the listed preset choices.
-  - The bet pays **inbound** per the chosen `PaymentMethod`: SOL/USDT do an on-chain
-  `useConnection.sendToken` (the returned signature becomes `externalReference`); FreeCoin sends
-  no reference; PayPal/Venmo/Stripe branches are stubbed pending live keys.
+  - The bet pays via an on-chain SPL token transfer (`useConnection.sendToken`); the returned
+  signature becomes `paymentSignature`.
   - The frontend POSTs `BodySessionBet` to `POST /sessions/{id}/bets`.
-4. **Backend registers the bet** (`RegisterBetHandler`): builds the inbound `BetPayment`, checks the
-  external reference isn't reused, validates the inbound payment via the method's processor,
-   validates the choice (§9), persists `Bet + BetPayment + TransactionLog(Inbound)`, and — for
-   non-lottery types — publishes a `BetPlacedEvent`. A `BetNotificationEvent` pushes the bet to the
-   recent-bets feed.
+4. **Backend registers the bet** (`RegisterBetHandler`): checks the payment signature isn't reused,
+  validates the on-chain payment via `ISolanaService`, validates the choice (§9), persists the bet,
+  and — for non-lottery types — publishes a `BetPlacedEvent`. A `BetNotificationEvent` pushes the
+  bet to the recent-bets feed.
 5. **Try to start** (`BetPlacedConsumer`): once `MinimumWaitPeriodForBets` has elapsed and the
   distinct-player count ≥ `MinimumNumberOfPlayers`, it calls `TryStartSession`
    (`WaitingBets → SessionStarting`, sets `StartDate`) and, after the start delay, publishes
@@ -148,7 +144,7 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `paymentMethod
    choice appears, then status → `Ended`. Winning bets are flagged `NeedsRewarding`, the **next
    session is created**, and a `RewardSessionEvent` is published.
 7. **Reward winners** (`RewardSessionConsumer`): status → `RewardForWinnersInProgress`; for each
-  winner it computes the reward (§8) and calls the inbound method's `processor.Credit(...)`;
+  winner it computes the reward (§8) and calls `ISolanaService.TransferTokensForBet(...)`;
    bets become `Rewarded` (or `NeedsManualAnalysis` on failure); status →
    `RewardForWinnersCompleted` (or `ErrorWhenProcessingRewards`).
 8. **Next round:** the freshly created session is already `WaitingBets`; the UI invites the player to
@@ -202,7 +198,7 @@ instances. Clients join a per-session group via `JoinSession(sessionId)` (and `L
 |                                        | `<sessionId>/DisplaySpeed`                     | server→client | `{ typingSpeed }` (1–3, ramps during the run).                                                                           |
 |                                        | `<sessionId>/Status`                           | server→client | `SessionStatusUpdatedEvent` `{ status, startDate, result }`; `result` carries `winners` + `firstChoiceTyped` on `Ended`. |
 |                                        | `<ActiveSessionsEndpoint>` / `SessionReceived` | server→client | `SessionCreatedEvent` — the next session is available.                                                                   |
-| `RecentBetsHub` (`/Hubs/RecentBets`)   | `<sessionId>/Bets`                             | server→client | New bet `{ amount, choice, wallet, paymentReference }`.                                                                  |
+| `RecentBetsHub` (`/Hubs/RecentBets`)   | `<sessionId>/Bets`                             | server→client | New bet `{ amount, choice, wallet, paymentSignature }`.                                                                  |
 
 
 Endpoint name formats come from `GeneralSettings.Sessions` (`SessionTerminalEndpoint`,
@@ -252,14 +248,11 @@ then apply commission: `pot *= (1 - CommisionPercentage)`.
 - **Reward per winner (`CalculateRewardForBet`):**
   - `winnerReward = pot / winnerCount`.
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
-  - Subtract already-paid **credits** for this bet: `winnerReward -= Σ(TransactionLog where TransactionType == Credit)`.
+  - Subtract already-paid **credits** for this bet: `winnerReward -= Σ(TransactionLog amounts)`.
   If `≤ 0` → `BetHasAlreadyBeenRewarded` (idempotency guard for retries).
   - Round down to `TokenSettings.Decimals`; also compute the smallest-unit integer for the transfer.
 - **Refunds (`CalculateRefundForBet` / `CalculateRefundForInvalidBet`):** refund value = `bet.Amount`
-minus already-paid credits, rounded down; `≤ 0` → `BetHasAlreadyBeenRefunded`.
-- **Credits filter is critical:** `CalculateCreditsForBet` sums **only** `TransactionType.Credit`
-rows, so a player's `Inbound` stake and any `Refund` rows never corrupt reward/refund math
-(see `payment-methods.md`).
+minus already-paid credits (from `TransactionLog`), rounded down; `≤ 0` → `BetHasAlreadyBeenRefunded`.
 
 ---
 
@@ -276,14 +269,13 @@ rows, so a player's `Inbound` stake and any `Refund` rows never corrupt reward/r
 
 **Other guards in `RegisterBetHandler`:**
 
-- **Reused payment reference** → `PaymentSignatureHasBeenUsed` (skipped for FreeCoin / no reference).
-- **Inbound payment invalid** (per processor) → validation failure.
-- **Duplicate bet** (same session+wallet+choice): same external reference → `DuplicateBetError`;
-different reference → refund (`DuplicateBetRefundedError`).
+- **Reused payment signature** → `PaymentSignatureHasBeenUsed`.
+- **On-chain payment invalid** (`ISolanaService.ValidateBetPayment`) → validation failure.
+- **Duplicate bet** (same session+wallet+choice): same signature → `DuplicateBetError`;
+different signature → refund (`DuplicateBetRefundedError`).
 - **Session not accepting bets / not found / operator expired** → refund with the vague
 `SessionNotValidForBets` (never reveals operator/contract state — see `operators.md`,
 `constraints.md`).
-- **Method not allowed for the type** (not in `Parameters.PaymentMethods`) → refund.
 - Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning.
 
 **Lifecycle edge cases:**
@@ -309,15 +301,15 @@ sequenceDiagram
     participant API as Monkify.Api (RegisterBetHandler)
     participant MQ as RabbitMQ
     participant C as Monkify.Consumers
-    participant PROC as Payment processor
+    participant SOL as SolanaService
     participant WS as SignalR (Sessions/RecentBets)
 
     Player->>FE: Pick game type, connect wallet
     Player->>FE: Enter choice / pick preset, pull lever
-    FE->>PROC: Pay inbound (SOL/USDT on-chain, etc.)
-    FE->>API: POST /sessions/{id}/bets (BodySessionBet)
-    API->>API: Validate payment + choice
-    API->>API: Persist Bet + BetPayment + TransactionLog(Inbound)
+    FE->>SOL: sendToken (on-chain payment)
+    FE->>API: POST /sessions/{id}/bets (BodySessionBet + paymentSignature)
+    API->>API: Validate signature + choice
+    API->>API: Persist Bet
     API->>WS: Push new bet (RecentBets)
     API->>MQ: BetPlacedEvent (non-lottery)
     MQ->>C: BetPlacedConsumer
@@ -332,7 +324,7 @@ sequenceDiagram
     C->>C: Flag winners NeedsRewarding, create next session
     C->>MQ: RewardSessionEvent
     MQ->>C: RewardSessionConsumer
-    C->>PROC: Credit(winner, reward)
+    C->>SOL: TransferTokensForBet(winner, reward)
     C->>WS: Status: RewardForWinnersCompleted
 ```
 

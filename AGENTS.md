@@ -114,7 +114,7 @@ Current skills: `monkify-refine-tasks` (see `INDEX.md` → "Skills (the task pip
    the affected tests, add tests for new behavior, and **report which unit tests changed** at the end.
 4. **Multi-repo work:** create a feature branch in **EACH affected repository**
    (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature to a single repo only.
-   Use the agreed feature name (e.g. `feature/operators`, `feature/payment-methods`).
+   Use the agreed feature name (e.g. `feature/operators`).
 
 ## Quick context
 
@@ -131,6 +131,6 @@ Current skills: `monkify-refine-tasks` (see `INDEX.md` → "Skills (the task pip
   never real credentials, and never print/commit real secrets.
 - **EF config is inline** in `MonkifyDbContext.OnModelCreating`; **migrations are applied only by
   `Monkify.Consumers`** at startup.
-- **Do not run production queries or external/Unidas API requests** that could expose sensitive
+- **Do not run production queries or external API requests** that could expose sensitive
   data — ask the user to run them.
 - For expired/inactive operators, only ever surface a **vague** "not found / unavailable" message.

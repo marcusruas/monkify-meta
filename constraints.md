@@ -23,7 +23,7 @@
 
 - For a feature that spans repos, create and push a **new branch in EACH affected repository**
   (`monkify-backend` and `monkify-front`). Use the feature's agreed name, e.g.
-  `feature/operators`, `feature/payment-methods`.
+  `feature/operators`.
 - Never commit directly to the default branch. Only commit when the user asks; never push force or
   destructive git operations unless explicitly requested.
 - Never update git config. Never commit secrets/config files (see §1).
@@ -47,12 +47,10 @@
 - **Migrations are applied only by `Monkify.Consumers`** at startup (`Database.Migrate()`). The API
   does not migrate. Add new migrations under `Monkify.Infrastructure/Migrations/`.
 - Never hand-edit `MonkifyDbContextModelSnapshot.cs`; regenerate it with `dotnet ef migrations add`.
-- When two in-flight features both add migrations, merge **Operators first**, then rebase
-  **Payment Methods** and regenerate its migration on top (see the specs' reconciliation sections).
 
 ## 5. Production data, queries & external APIs
 
-- **Do not run database queries or external/Unidas API requests** that could touch or expose
+- **Do not run database queries or external API requests** that could touch or expose
   sensitive/production data. These may contain PII and must not pass through the agent. If a query
   or request is needed, **ask the user to run it** and share only what is safe.
 - Do not point tools at production endpoints. Local docker-compose is the safe environment.

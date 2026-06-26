@@ -22,10 +22,8 @@
   cache is operator-aware.
 - **Domain stays pure:** entities/value-objects/domain-services in `Monkify.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
-- **Money is USD** in the ledger; precision `decimal(18,9)`. Reward/refund math counts only
-  `TransactionType.Credit`.
-- **Payment methods** use keyed DI (`AddKeyedScoped<IPaymentMethodProcessor>(PaymentMethod)`),
-  resolved via `IPaymentMethodProcessorFactory`. External SDKs wrapped behind `…/Providers` seams.
+- **Solana payments** via `ISolanaService` / `SolanaService` — validate signatures, transfer
+  rewards, refund invalid bets.
 - **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
 
