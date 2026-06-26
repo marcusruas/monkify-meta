@@ -1,37 +1,32 @@
 # Feature — Operators (multi-tenancy)
 
-> Status: **stub / distilled.** Authoritative spec: `../specs/operator-feature.md`
-> (branch `feature/operators`). This page is the short version; trust the spec + live code for details.
+> Status: **distilled from spec.** Authoritative spec: `../specs/operator-feature.md`
+> (branch `feature/operators`). Revised 2026-06-25 (*Enhance operator feature*).
 
 ## What it does
 
-Introduces **Operators** (casino/betting platforms, e.g. BetMGM, BetFury). `SessionParameters`
-gains an optional `OperatorId`. Players arrive from an operator's site carrying an `operator-id`,
-which the frontend persists and sends as the **`operator-id` request header** on every API call.
-The backend partitions all read/write traffic by operator.
+Introduces **Operators** (casino/betting platforms, e.g. BetMGM, BetFury). Every `SessionParameters`
+row **must** have an `OperatorId`. Players arrive at **`/monkify/game/<operatorId>`**; the frontend sends
+**`x-operator-id`** on every operator-scoped API call. There is **no house / operator-less mode**.
 
 ## Core rules
 
-- **Scoping:** header present + parseable Guid → only that operator's data, **and only if the
-  contract is active (started, not expired)**. Header absent/invalid → only house data
-  (`OperatorId == null`).
-- **Expired/inactive operators go dark:** no new sessions, no sessions/bets shown, no new bets — and
-  the user only ever sees a **vague** "not found / unavailable" message. **Never reveal contract
-  status.** (See `constraints.md` §7.)
-- **Expiry is timestamp-precise:** `Operator.ContractHasExpired(utcNow)` = `ContractEndDate < utcNow`.
-  A future `ContractStartDate` means not-yet-active.
-- **Branding:** `GET /operators` returns branding (name, iconUrl, mainPageUrl, color) for active
-  operators only. The frontend matches the current `operator-id` and applies the operator color as
-  the **secondary** theme color.
+- **Scoping:** valid `x-operator-id` + active contract → only that operator's data. Missing header → **HTTP 400**.
+  Invalid/inactive operator in URL → redirect **`/error`** (vague; never reveal contract status).
+- **Required operator:** no sessions without an operator; `OperatorId` is non-nullable on `SessionParameters`.
+  Each operator owns **multiple** session types (not shared).
+- **Expiry:** timestamp-precise; future `ContractStartDate` = not active (same UX as expired).
+- **Mid-session expiry:** active session finishes; block new bets and new sessions.
+- **Bets:** `POST /sessions/{id}/bets` requires `x-operator-id` matching the session's `OperatorId`.
+- **Branding:** `GET /operators/{id}` only (no list). Color → secondary theme token.
+- **SignalR:** session id only — no operator header on hubs.
+- **Payments:** SOL only.
 
-## Key code touchpoints (live)
+## Key code touchpoints
 
-- Entity: `Monkify.Domain/Sessions/Entities/Operator.cs`; FK on `SessionParameters`.
-- DbContext inline config + indexes; `Operators` DbSet.
-- Header binding `[FromHeader(Name = "operator-id")]` on `SessionsController` GETs.
-- Operator-aware filtering + cache key in `SessionService` / `CacheHelper`.
-- `OperatorsController` + `Handlers/Operators/GetOperators`.
-- Seeding: `CreateDefaultOperatorAsync` ("DEV Cassino", non-prod only) in `Monkify.Consumers/Program.cs`.
-- Frontend: `src/hooks/useOperator.ts`, the axios interceptor header, `getOperators`, theming.
-
-<!-- TODO: extract the full enforcement table and decisions (§7, §13) from the spec into here. -->
+- Entity: `Operator.cs`; required FK on `SessionParameters`.
+- Header: `[FromHeader(Name = "x-operator-id")]` on session GETs and bet POST.
+- `GetOperatorById` handler + `OperatorsController` (`GET /operators/{id}`).
+- Operator-aware `SessionService` / cache (`ActiveParameters:{operatorId}`).
+- Seeding: DEV Cassino (non-prod) in `Monkify.Consumers/Program.cs`.
+- Frontend: route `/monkify/game/:operatorId`, `useOperator`, axios interceptor, `getOperator(id)`.
