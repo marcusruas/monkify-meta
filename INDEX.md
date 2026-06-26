@@ -51,10 +51,11 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `glossary.md`               | Session, Bet, Operator, Typer, SessionParameters, etc.                                   | Drafted              |
 | `conventions/backend.md`    | EF inline in DbContext, migrations in Consumers, MediatR handlers, MassTransit consumers | TODO (stub)          |
 | `conventions/frontend.md`   | Vue 3, composables (`src/hooks`), types in `src/types`, axios service layer              | TODO (stub)          |
-| `features/sessions.md`      | Session lifecycle, the typer, rewards                                                    | TODO (stub)          |
+| `features/sessions.md`      | Session lifecycle, the typer, rewards                                                    | Drafted              |
 | `features/operators.md`     | Multi-tenant operators; distilled from `specs/operator-feature.md`                       | Shipped              |
+| `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
-| `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Ready                |
+| `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -91,6 +92,4 @@ service layer in `src/services`, and SignalR clients to stream the live typer + 
 
 ## Feature currently in flight
 
-**Free bet mode** — spec: `specs/free-bet-mode.md` · Trello:
-[Add Free bet mode](https://trello.com/c/lFsFhIgR/16-add-free-bet-mode) · branches:
-`feature/free-bet-mode` in `monkify-backend` and `monkify-front`.
+_None._

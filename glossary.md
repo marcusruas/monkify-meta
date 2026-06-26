@@ -9,6 +9,14 @@
   min players, choice length, lottery params, **required** `OperatorId`). Entity: `SessionParameters`.
 - **Bet** — a player's wager on a `Session`: a `Choice` (the sequence they bet on), an `Amount`
   (USD), a crypto `Wallet`, `PaymentSignature` (on-chain tx proof), and seed. Entity: `Bet`.
+- **Free bet** — dev/QA-only bet with `Amount = 0` and empty `PaymentSignature`, allowed only when
+  backend `AllowFreeBets`, session `AllowFreeBet`, and (for UI) the frontend flag are all enabled.
+  No Solana payment, payout, or refund. Detected via `BetExtensions.IsFreeBet`. See
+  `features/free-bet-mode.md`.
+- **AllowFreeBet** — bool on `SessionParameters` (DB default `false`). Per session type; exposed as
+  `allowFreeBet` on active-types API responses.
+- **AllowFreeBets** — bool on `GeneralSettings.Sessions` in `monkifysettings.json`. Global backend
+  gate; must be `true` for the API to accept free bets.
 - **Typer / MonkifyTyper** — the domain service that "types" random characters until a bet's choice
   appears; determines winners. `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`.
 - **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row

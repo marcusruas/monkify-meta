@@ -37,6 +37,7 @@ The fields on `SessionParameters` define how a type behaves:
 | `AcceptDuplicatedCharacters` | Whether a choice may repeat characters (e.g. `"aabbcc"`).                                  |
 | `MinimumNumberOfPlayers`     | Distinct players required before a round can start.                                        |
 | `RequiredAmount`             | The exact stake per bet (USD; `decimal(18,9)`).                                            |
+| `AllowFreeBet`               | When `true`, session type accepts free bets if backend/frontend dev flags allow. Default `false`. See `free-bet-mode.md`. |
 | `PresetChoices`              | Optional fixed set of allowed choices → turns a type into a "pick from a list" game.       |
 | `LotteryParameters`          | Optional → turns a type into a scheduled, pot-based lottery.                               |
 | `OperatorId` / `Operator`    | Optional tenant owner (null = "house"). See `operators.md`.                                |
@@ -121,19 +122,23 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `lotteryParame
 > (`Monkify.Consumers`) runs the state machine, the typer, and payouts. See `architecture.md`.
 
 1. **Pick a game type** in the lobby (§3) and land on `/game`.
-2. **Connect a Solana wallet** (`solana-wallets-vue`). The terminal status nudges
-  "CONNECT WALLET TO PLAY" until connected.
+2. **Connect a Solana wallet** (`solana-wallets-vue`) — **unless** free bet mode is active (see
+   `free-bet-mode.md`). The terminal status nudges "CONNECT WALLET TO PLAY" until connected or free
+   bet mode is on.
 3. **Place a bet** (`GameTerminal.placeBet` → `useSession.bet(seed)`):
+  - **Free bet mode** (dev/QA): toggle on → POST with `amount: 0`, empty signature, optional wallet;
+    no `sendToken`.
+  - **Paid bet** (default): on-chain SPL transfer via `useConnection.sendToken`; signature becomes
+    `paymentSignature`.
+  - The frontend POSTs `BodySessionBet` to `POST /sessions/{id}/bets`.
   - **Free-type race:** type a word into the terminal (`userWord`); the UI requires length ≥ 4
    before the lever is allowed, but the backend enforces the exact `ChoiceRequiredLength`.
   - **Preset race:** choose one of the listed preset choices.
-  - The bet pays via an on-chain SPL token transfer (`useConnection.sendToken`); the returned
-  signature becomes `paymentSignature`.
-  - The frontend POSTs `BodySessionBet` to `POST /sessions/{id}/bets`.
-4. **Backend registers the bet** (`RegisterBetHandler`): checks the payment signature isn't reused,
-  validates the on-chain payment via `ISolanaService`, validates the choice (§9), persists the bet,
-  and — for non-lottery types — publishes a `BetPlacedEvent`. A `BetNotificationEvent` pushes the
-  bet to the recent-bets feed.
+4. **Backend registers the bet** (`RegisterBetHandler`): for paid bets, checks payment signature
+  reuse and on-chain payment via `ISolanaService`; for free bets, skips payment validation when
+  flags allow (see `free-bet-mode.md`). Validates choice (§9), persists the bet, and — for
+  non-lottery types — publishes a `BetPlacedEvent`. A `BetNotificationEvent` pushes the bet to the
+  recent-bets feed.
 5. **Try to start** (`BetPlacedConsumer`): once `MinimumWaitPeriodForBets` has elapsed and the
   distinct-player count ≥ `MinimumNumberOfPlayers`, it calls `TryStartSession`
    (`WaitingBets → SessionStarting`, sets `StartDate`) and, after the start delay, publishes
@@ -144,8 +149,9 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `lotteryParame
    choice appears, then status → `Ended`. Winning bets are flagged `NeedsRewarding`, the **next
    session is created**, and a `RewardSessionEvent` is published.
 7. **Reward winners** (`RewardSessionConsumer`): status → `RewardForWinnersInProgress`; for each
-  winner it computes the reward (§8) and calls `ISolanaService.TransferTokensForBet(...)`;
-   bets become `Rewarded` (or `NeedsManualAnalysis` on failure); status →
+  paid winner it computes the reward (§8) and calls `ISolanaService.TransferTokensForBet(...)`;
+  free-bet winners are marked `Rewarded` with no Solana call (see `free-bet-mode.md`). Bets become
+  `Rewarded` (or `NeedsManualAnalysis` on failure); status →
    `RewardForWinnersCompleted` (or `ErrorWhenProcessingRewards`).
 8. **Next round:** the freshly created session is already `WaitingBets`; the UI invites the player to
   pull the lever again (or shows the lottery's next-draw countdown).
@@ -243,7 +249,8 @@ sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes,
 
 Constructed per session with `TokenSettings`. `Winners` = bets with `Status == NeedsRewarding`.
 
-- **Pot (`SetPotAmount`):** `pot = Σ(all bet amounts)`; for lottery types, add `LotteryParameters.LotteryPot`;
+- **Pot (`SetPotAmount`):** `pot = Σ(all bet amounts)` — zero-amount (free) bets contribute nothing;
+  for lottery types, add `LotteryParameters.LotteryPot`;
 then apply commission: `pot *= (1 - CommisionPercentage)`.
 - **Reward per winner (`CalculateRewardForBet`):**
   - `winnerReward = pot / winnerCount`.
@@ -262,7 +269,7 @@ minus already-paid credits (from `TransactionLog`), rounded down; `≤ 0` → `B
 
 1. `WrongChoiceLength` — empty, or length ≠ `ChoiceRequiredLength`.
 2. `UnacceptedDuplicateCharacters` — duplicates present when `AcceptDuplicatedCharacters == false`.
-3. `InvalidAmount` — `bet.Amount != RequiredAmount`.
+3. `InvalidAmount` — paid: `bet.Amount != RequiredAmount`; free (`isFreeBet`): `bet.Amount != 0`.
 4. `InvalidChoice` — presets exist and the choice isn't one of them.
 5. `InvalidCharacters` — choice contains characters outside `AllowedCharacters`.
 6. otherwise `Valid`.
@@ -276,7 +283,8 @@ different signature → refund (`DuplicateBetRefundedError`).
 - **Session not accepting bets / not found / operator expired** → refund with the vague
 `SessionNotValidForBets` (never reveals operator/contract state — see `operators.md`,
 `constraints.md`).
-- Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning.
+- Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning
+  (**except free bets** — log only, no refund event; see `free-bet-mode.md`).
 
 **Lifecycle edge cases:**
 

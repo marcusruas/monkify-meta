@@ -122,6 +122,11 @@ Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-fea
 4. **Multi-repo work:** create a feature branch in **EACH affected repository**
    (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature to a single repo only.
    Use the agreed feature name (e.g. `feature/operators`).
+5. **Push after branch work (Monkify skills):** when a skill **creates or updates** a git branch
+   (new feature branch, new commits on a feature branch, or merge to `main`), **push to `origin`
+   immediately after** — `git push -u origin HEAD` on first push, then `git push origin <branch>`.
+   Never force-push. Commits on `main` still require explicit user approval unless the skill step
+   includes committing as part of its workflow.
 
 ## Quick context
 

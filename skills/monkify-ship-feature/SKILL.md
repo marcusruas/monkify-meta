@@ -122,7 +122,8 @@ to other repos or KB updates until the user resolves conflicts (or asks you to a
 
 - Never `git push --force`, never reset `--hard`, never skip hooks.
 - Never update git config.
-- Do not push unless the user explicitly asks.
+- After each successful merge, **`git push origin main`** in that repo (see `AGENTS.md` → push after
+  branch work).
 
 After all merges succeed locally, summarize: repo, commits merged, any notable files touched.
 
@@ -190,11 +191,7 @@ Show the user a concise summary of KB diffs (files changed + bullet list of rule
 
 - **Do not commit** meta changes until the user asks (workspace rule).
 - When they ask, commit in `monkify-meta` with a message focused on *why* (e.g. "Sync KB after
-  shipping operators feature").
-- Push only when explicitly requested.
-
-If code repos were merged locally but not pushed, remind the user to push `main` in each repo when
-ready — do not push without being asked.
+  shipping operators feature"), then **`git push origin main`**.
 
 ### Step 9: Trello — move card to Implemented
 
@@ -212,12 +209,12 @@ Do **not** rename the card — only move it to **Implemented**. Preserve the car
 Tell the user:
 
 1. **Card** — name + link; branch and spec read from **Implementation** section.
-2. **Merged:** `<branch>` → `main` per repo (and whether push is still pending).
+2. **Merged:** `<branch>` → `main` per repo (**pushed** to `origin`).
 3. **Verified:** test run result (backend).
 4. **KB updated:** list of files and the headline business-rule changes.
 5. **Drift:** any code vs spec vs Trello mismatches worth a follow-up.
 6. **Trello:** moved to **Implemented** (or skipped if move failed).
-7. **Next:** push remotes or deploy — only if relevant.
+7. **Next:** deploy or manual QA — only if relevant.
 
 ## Hard rules
 

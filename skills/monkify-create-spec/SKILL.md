@@ -163,13 +163,16 @@ git fetch origin
 git checkout main
 git pull origin main
 git checkout -b feature/<slug>
+git push -u origin feature/<slug>
 ```
 
 **Hard rules:**
 
 - Never commit directly on `main`.
 - Never update git config; never force-push; never skip hooks.
-- Do **not** push unless the user explicitly asks (note in report that branches are local-only).
+- **Push** each new branch to `origin` right after creation (see `AGENTS.md` → push after branch work).
+- After any later commit on the feature branch (when the user asks you to commit), **push again**
+  before moving on.
 
 If `main` is missing or branch already exists, stop and report — ask how to proceed.
 
@@ -246,7 +249,7 @@ Tell the user:
 
 1. **Card** — name + link; moved to **Specs created**; **Implementation** section written.
 2. **Spec** — full path `monkify-meta/specs/<slug>.md` (brief summary of what it covers).
-3. **Branch** — `feature/<slug>` on the card and created in which repos (local only unless pushed).
+3. **Branch** — `feature/<slug>` created and **pushed** in which repos.
 4. **INDEX** — updated "Feature currently in flight".
 5. **Code findings** — any non-obvious blockers documented in the spec.
 6. **Next** — implement on the feature branches; run `/monkify-ship-feature <card name>` when merged.
@@ -263,7 +266,8 @@ Tell the user:
 - Honor `constraints.md` — mock secrets, vague operator messaging, branch-per-repo.
 - Follow **`specs/operator-feature.md`** structure; use **`specs/free-bet-mode.md`** as a recent
   example of a card-sourced spec.
-- Never push or commit unless the user explicitly asks.
+- Never commit unless the user explicitly asks. **Always push** after creating or updating a branch
+  (see `AGENTS.md`).
 
 ## References
 

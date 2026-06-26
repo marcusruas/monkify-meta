@@ -100,7 +100,7 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the session, then publishes `RunSessionEvent`. Refunds bets if a lottery lacks players. |
 | `RunSessionEvent` | `BetPlacedConsumer` | `RunSessionConsumer` | Marks session `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next session, publishes `RewardSessionEvent`. |
 | `RewardSessionEvent` | `RunSessionConsumer` | `RewardSessionConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
-| `RefundInvalidBetEvent` | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet via `ISolanaService.RefundTokens`. Carries wallet, payment signature, amount, and reason. |
+| `RefundInvalidBetEvent` | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet via `ISolanaService.RefundTokens`. Skipped for free bets (`Value == 0`). |
 | `BetNotificationEvent` | `SessionService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,

@@ -1,7 +1,7 @@
 # Monkify — "Free Bet Mode" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Add Free bet mode](https://trello.com/c/lFsFhIgR/16-add-free-bet-mode) (2026-06-26).
+> **Status: Shipped** — merged to `main` via branch `feature/free-bet-mode` on 2026-06-26.
+> Refined via Trello card [Add Free bet mode](https://trello.com/c/lFsFhIgR/16-add-free-bet-mode).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Dev/QA testing only. Players (developers) can place bets without Solana wallet
