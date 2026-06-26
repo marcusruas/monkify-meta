@@ -10,7 +10,8 @@ Turn a **Refined** Trello card into an authoritative **`monkify-meta/specs/<feat
 implementation spec, create **`feature/<slug>`** branches in every affected repo, and move the card
 to **Specs created**.
 
-This skill **writes the spec and creates branches only** — it does **not** implement code.
+This skill **writes the spec, commits and pushes it on `monkify-meta`, and creates branches** — it
+does **not** implement application code.
 
 Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
 
@@ -56,9 +57,10 @@ Copy this checklist and track progress:
 - [ ] Step 8: Create feature branches (each affected repo)
 - [ ] Step 9: Write spec file
 - [ ] Step 10: Update INDEX.md (feature in flight)
-- [ ] Step 11: Update card with spec path + branch name
-- [ ] Step 12: Move card to Specs created
-- [ ] Step 13: Report
+- [ ] Step 11: Commit and push spec artifacts (`monkify-meta`)
+- [ ] Step 12: Update card with spec path + branch name
+- [ ] Step 13: Move card to Specs created
+- [ ] Step 14: Report
 ```
 
 ### Step 1: Load Monkify context
@@ -171,8 +173,6 @@ git push -u origin feature/<slug>
 - Never commit directly on `main`.
 - Never update git config; never force-push; never skip hooks.
 - **Push** each new branch to `origin` right after creation (see `AGENTS.md` → push after branch work).
-- After any later commit on the feature branch (when the user asks you to commit), **push again**
-  before moving on.
 
 If `main` is missing or branch already exists, stop and report — ask how to proceed.
 
@@ -214,10 +214,38 @@ On the same `monkify-meta` branch, edit `INDEX.md`:
 2. Update **Feature currently in flight** with: feature name, spec path, Trello link, branch name
    in each affected repo.
 
-Do **not** commit unless the user asks (workspace rule). The spec file and INDEX edit should be
-ready to commit together when requested.
+### Step 11: Commit and push spec artifacts (`monkify-meta`)
 
-### Step 11: Update card with spec path + branch name
+After Steps 9–10, **commit and push** all files this skill created or changed on
+`feature/<slug>` in **`monkify-meta`** (spec + `INDEX.md`; include skill edits only when this
+run modified a skill file the user asked for).
+
+From `<workspace-root>/monkify-meta`:
+
+```bash
+git status
+git add specs/<slug>.md INDEX.md
+git commit -m "$(cat <<'EOF'
+Add implementation spec for <short feature title>.
+
+EOF
+)"
+git push origin feature/<slug>
+```
+
+**Hard rules:**
+
+- Commit **only** spec-pipeline artifacts from this run (`specs/<slug>.md`, `INDEX.md`, and
+  skill files when explicitly requested). Do not commit unrelated local changes.
+- Never commit on `main`; never skip hooks; never force-push.
+- If the commit fails (hook rejection), fix and create a **new** commit — do not amend unless
+  hook rules allow.
+- **`monkify-backend` / `monkify-front`:** no code commits in this skill — branches were pushed
+  empty in Step 8. Implementation commits happen later on those repos.
+- Do **not** move the Trello card (Steps 12–13) until this push succeeds — the remote branch
+  must contain the spec before the card says "Spec created".
+
+### Step 12: Update card with spec path + branch name
 
 Before moving the card, persist implementation metadata **in the card description** so
 `/monkify-ship-feature` can read branch and spec without the user re-entering them.
@@ -231,9 +259,9 @@ Before moving the card, persist implementation metadata **in the card descriptio
    - Set **`## Status`** to `Spec created — ready for implementation.` (replace
      `Refined — ready for spec.` if present).
 
-Do **not** move the card if Step 9 failed or the spec file was not written.
+Do **not** move the card if Step 9 failed, Step 11 push failed, or the spec file was not written.
 
-### Step 12: Move card to Specs created
+### Step 13: Move card to Specs created
 
 1. `get_lists` → **`Specs created`** list id.
 2. `move_card` with `cardId`, target list id, and `boardId`.
@@ -243,13 +271,14 @@ Do **not** move the card if Step 9 failed or the spec file was not written.
    **Spec created (YYYY-MM-DD)** — see **Implementation** section in description.
    ```
 
-### Step 13: Report
+### Step 14: Report
 
 Tell the user:
 
 1. **Card** — name + link; moved to **Specs created**; **Implementation** section written.
 2. **Spec** — full path `monkify-meta/specs/<slug>.md` (brief summary of what it covers).
-3. **Branch** — `feature/<slug>` created and **pushed** in which repos.
+3. **Branch** — `feature/<slug>` created and **pushed** in which repos; confirm
+   **`monkify-meta` spec + INDEX are committed and pushed** (not left local-only).
 4. **INDEX** — updated "Feature currently in flight".
 5. **Code findings** — any non-obvious blockers documented in the spec.
 6. **Next** — implement on the feature branches; run `/monkify-ship-feature <card name>` when merged.
@@ -266,8 +295,9 @@ Tell the user:
 - Honor `constraints.md` — mock secrets, vague operator messaging, branch-per-repo.
 - Follow **`specs/operator-feature.md`** structure; use **`specs/free-bet-mode.md`** as a recent
   example of a card-sourced spec.
-- Never commit unless the user explicitly asks. **Always push** after creating or updating a branch
-  (see `AGENTS.md`).
+- **Commit + push on `monkify-meta`** is part of this skill (Step 11) — not optional. Other repos:
+  branch creation push only; no implementation commits.
+- **Always push** after creating or updating a branch (see `AGENTS.md`).
 
 ## References
 

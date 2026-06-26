@@ -56,6 +56,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
+| `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -92,4 +93,12 @@ service layer in `src/services`, and SignalR clients to stream the live typer + 
 
 ## Feature currently in flight
 
-_None._
+**Typer pacing scalability** — retune `MonkifyTyper` wall-clock pacing for consistent session
+duration across choice length, charset, bet count, and server hardware (pacing-only; fairness
+unchanged).
+
+| Item | Value |
+| --- | --- |
+| Spec | `specs/typer-pacing-scalability.md` |
+| Trello | [Check monkify typer logic to make more scallable](https://trello.com/c/uCTNtBDe/10-check-monkify-typer-logic-to-make-more-scallable) |
+| Branch | `feature/typer-pacing-scalability` in `monkify-backend`, `monkify-front`, `monkify-meta` |
