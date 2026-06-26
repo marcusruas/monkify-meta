@@ -113,7 +113,8 @@ When the user confirms refinement is complete:
 ### Step 7: Report
 
 Tell the user: the card name + link, what changed (description, N acceptance criteria), the
-decisions captured, and confirm it was moved to **Refined** and is ready for a spec.
+decisions captured, and confirm it was moved to **Refined** and is ready for a spec via
+`/monkify-create-spec`.
 
 ## Trello tools used (server `trello` / `user-trello`)
 

@@ -1,6 +1,6 @@
 ---
 name: monkify-ship-feature
-description: Merge a Monkify feature branch into main and sync the monkify-meta knowledge base from the spec, linked Trello task, and merged code. Use when the user wants to ship, land, or merge a feature and update architecture, features, glossary, conventions, and business rules so agents reflect current behavior. Takes a branch name and a spec file under monkify-meta/specs/. Optionally ingests the monkaify Trello card and moves it to Implemented.
+description: Merge a Monkify feature branch into main and sync the monkify-meta knowledge base from the spec, linked Trello task, and merged code. Use when the user wants to ship, land, or merge a feature. Takes a Trello card name on the monkaify board; reads branch and spec path from the card's Implementation section. Moves the card to Implemented when done.
 disable-model-invocation: true
 ---
 
@@ -12,16 +12,18 @@ before.
 
 This skill **merges code and rewrites docs**; it does not implement features.
 
-## Inputs (required — ask if missing)
+## Input (required)
 
-| Input | Example | Notes |
-| --- | --- | --- |
-| **Branch** | `feature/operators` | Same branch name in each affected repo (per `constraints.md`). |
-| **Spec file** | `specs/operator-feature.md` | Path relative to `monkify-meta/`. Authoritative design source. |
-| **Trello card** | *(optional)* `Enhance operator feature` | Card name on the **monkaify** board. Used when ingesting feature knowledge and when moving to **Implemented**. Ask in Step 5 if not provided upfront. |
+The user names the **Trello card** (exact title or unambiguous substring), e.g.:
 
-Resolve both before Step 1. If the user only gave a feature name, infer the spec from
-`monkify-meta/specs/` and confirm.
+> `/monkify-ship-feature Add Free bet mode`
+
+**Branch** and **spec file** are **not** asked separately — read them from the card's
+**`## Implementation`** section (written by `/monkify-create-spec`). See
+`../monkify-create-spec/references/spec-card-metadata.md`.
+
+If the card has no **Implementation** block or **Branch** line, **stop** and tell the user to run
+`/monkify-create-spec` or add the block manually.
 
 ## Prerequisites (verify FIRST — stop if missing)
 
@@ -29,7 +31,10 @@ Resolve both before Step 1. If the user only gave a feature name, infer the spec
    (see `AGENTS.md` → "ensure the sibling repos are cloned").
 2. **Clean working trees** — in every repo you will touch, `git status` must show no uncommitted
    changes. If dirty, **stop** and ask the user to commit, stash, or discard first.
-3. **Spec file exists** — read `monkify-meta/<spec-file>`. If missing, **stop**.
+3. **Trello MCP** — server `user-trello`. Verify with `list_boards`. If missing, **stop**:
+   > "The Trello MCP is not available. Install/enable the `trello` MCP server, then re-run
+   > `/monkify-ship-feature`."
+   (Branch and spec are read from the card; shipping without Trello is not supported.)
 
 Do not merge until prerequisites pass.
 
@@ -39,33 +44,56 @@ Copy this checklist and track progress:
 
 ```
 - [ ] Step 0: Verify prerequisites
-- [ ] Step 1: Load context (INDEX, spec, constraints, current KB)
-- [ ] Step 2: Determine affected repos and confirm with user
-- [ ] Step 3: Merge branch → main (each affected repo)
-- [ ] Step 4: Verify merged code (backend tests)
-- [ ] Step 5: Extract feature knowledge (spec + Trello + code on main)
-- [ ] Step 6: Update the knowledge base
-- [ ] Step 7: Review with user; commit meta when asked
-- [ ] Step 8: Trello — move card to Implemented (optional)
-- [ ] Step 9: Report
+- [ ] Step 1: Resolve board, find card, read everything + parse Implementation
+- [ ] Step 2: Load context (INDEX, spec, constraints, current KB)
+- [ ] Step 3: Determine affected repos and confirm with user
+- [ ] Step 4: Merge branch → main (each affected repo)
+- [ ] Step 5: Verify merged code (backend tests)
+- [ ] Step 6: Extract feature knowledge (spec + Trello + code on main)
+- [ ] Step 7: Update the knowledge base
+- [ ] Step 8: Review with user; commit meta when asked
+- [ ] Step 9: Trello — move card to Implemented
+- [ ] Step 10: Report
 ```
 
-### Step 1: Load context
+### Step 1: Resolve board, find card, read everything + parse Implementation
+
+Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
+
+1. `list_boards` → find `monkaify`; `set_active_board` with its `boardId`.
+2. **Find the card** by name across lists (`get_cards_by_list_id`). Match **exact name first**; if
+   ambiguous, show matches and ask the user to pick one. Capture `cardId` and `cardUrl`.
+3. Read **everything** on the card:
+   - `get_card` (`includeMarkdown: true`) — full description
+   - `get_card_comments`
+   - `get_acceptance_criteria`
+4. **Parse `## Implementation`** from the description (see
+   `../monkify-create-spec/references/spec-card-metadata.md`):
+   - **`branch`** — from `**Branch:**` (value inside backticks, e.g. `feature/free-bet-mode`)
+   - **`specPath`** — from `**Spec:**` (e.g. `monkify-meta/specs/free-bet-mode.md`); use path
+     relative to `monkify-meta/` for reads: `specs/free-bet-mode.md`
+   - **`repos`** — from `**Repos:**` (comma-separated list; default all three if line missing)
+5. Verify `monkify-meta/<specPath-relative>` exists on disk. If missing, **stop**.
+
+Keep `cardId`, `branch`, `specPath`, and `repos` for the rest of the workflow.
+
+### Step 2: Load context
 
 Read, in order:
 
 1. `monkify-meta/INDEX.md` → follow links to `constraints.md`, `architecture.md`, `glossary.md`,
    `conventions/`, and all of `features/`.
-2. The **spec file** the user named — note affected repos, summary, constraints, data model, API
-   surface, and business rules.
+2. The **spec file** from the card (`specs/<name>.md`) — note affected repos, summary, constraints,
+   data model, API surface, and business rules.
 3. Any existing `features/<name>.md` that already distills this spec (may be a stub).
 
 The goal: know what the KB claims **today** vs what the spec says the feature **should** do after
 merge.
 
-### Step 2: Determine affected repos and confirm
+### Step 3: Determine affected repos and confirm
 
-From the spec (and branch name), list every repo that will be merged:
+From the card **`repos`** line and the spec, list every repo that will be merged (intersect with
+what the feature actually needs — prefer the card's **Repos** list when present):
 
 - `monkify-backend` — almost always for behavioral features.
 - `monkify-front` — when the UI or client API usage changes.
@@ -73,11 +101,11 @@ From the spec (and branch name), list every repo that will be merged:
 
 Present the user a short plan **before any merge**:
 
-> Branch `feature/…` → `main` in: [repos]. Spec: `specs/….md`. KB files to update: [list].
+> Branch `<branch>` → `main` in: [repos]. Spec: `<specPath>`. Card: [title + link]. KB files to update: [list].
 
-**Wait for explicit confirmation** before Step 3. Merging is not reversible from this skill.
+**Wait for explicit confirmation** before Step 4. Merging is not reversible from this skill.
 
-### Step 3: Merge branch → main (each affected repo)
+### Step 4: Merge branch → main (each affected repo)
 
 For **each** repo in the plan, run from `<workspace-root>/<repo>`:
 
@@ -85,7 +113,7 @@ For **each** repo in the plan, run from `<workspace-root>/<repo>`:
 2. `git checkout main`
 3. `git pull origin main`
 4. `git merge origin/<branch>` (or `git merge <branch>` if the branch is local-only — prefer the
-   remote tracking branch when it exists)
+   remote tracking branch when it exists). Use the **`branch`** value parsed from the card.
 
 **On merge conflict:** stop immediately. Report the repo, conflicting files, and do **not** continue
 to other repos or KB updates until the user resolves conflicts (or asks you to abort).
@@ -98,7 +126,7 @@ to other repos or KB updates until the user resolves conflicts (or asks you to a
 
 After all merges succeed locally, summarize: repo, commits merged, any notable files touched.
 
-### Step 4: Verify merged code
+### Step 5: Verify merged code
 
 When `monkify-backend` was merged:
 
@@ -110,40 +138,14 @@ When `monkify-backend` was merged:
 When only frontend/meta merged, smoke-check that the spec's API routes and types still match what
 you read on `main` (spot-check controllers/handlers and front services/types).
 
-### Step 5: Extract feature knowledge
+### Step 6: Extract feature knowledge
 
-Build a **feature digest** the KB update will draw from.
+Build a **feature digest** the KB update will draw from. The Trello card was already loaded in
+Step 1 — use it for product intent, edge cases, acceptance criteria, and scope boundaries. Do
+**not** treat unchecked acceptance criteria as shipped behavior unless **code on `main`** confirms
+them.
 
-#### 5a. Trello card (optional but recommended)
-
-At the start of this step, if the user has not already named a Trello card, ask:
-
-> Do you have a Trello card for this feature? If so, what is the **card name**?
-
-- If **no card**, continue with spec + code only; Step 8 will ask again only if the user wants to
-  move a card later.
-- If the user **names a card**, load the full task from the **monkaify** board
-  (`https://trello.com/b/Yi42y6Xy/monkaify`, short id `Yi42y6Xy`):
-
-1. **Trello MCP** — server `user-trello` (serverName `trello`). Verify with `list_boards`. If
-   missing, **stop** and tell the user:
-   > "The Trello MCP is not available. Install/enable the `trello` MCP server, then re-run this step
-   > with the card name — or continue without Trello if you prefer."
-   Allow the user to proceed without Trello (spec + code only) if they choose.
-2. `list_boards` → find `monkaify`; `set_active_board` with its `boardId`.
-3. **Find the card** by name: `get_cards_by_list_id` across the board's lists. Match **exact name
-   first**; if ambiguous, show matches and ask the user to pick one. **Keep `cardId`** for Step 8.
-4. Read **everything** on the card (same as `monkify-refine-tasks` Step 3):
-   - `get_card` (`includeMarkdown: true`) — name + description (Problem, Decisions, Backend/
-     Frontend impact, Edge cases, Out of scope, etc.).
-   - `get_card_comments` — prior discussion and decisions.
-   - `get_acceptance_criteria` — Given/When/Then checklist items.
-
-Use the Trello task for **product intent, edge cases, acceptance criteria, and scope boundaries**
-that may not be spelled out in the spec or obvious from the diff. Do **not** treat unchecked
-acceptance criteria as shipped behavior unless **code on `main`** confirms them.
-
-#### 5b. Sources for the digest
+#### Sources for the digest
 
 | Source | What to extract |
 | --- | --- |
@@ -158,7 +160,7 @@ between **code**, **spec**, and **Trello**; prefer **code on `main`** for "what 
 note drift in the report. When Trello and spec disagree, prefer spec for design intent unless code
 clearly followed the Trello refinement.
 
-### Step 6: Update the knowledge base
+### Step 7: Update the knowledge base
 
 Edit `monkify-meta` on `main` (after merging the meta branch if needed). Treat shipped behavior as
 **current truth** — see INDEX.md → "Keeping the knowledge base current".
@@ -182,7 +184,7 @@ survived in code.
 
 Do **not** delete the spec — `features/` summarizes; `specs/` stays authoritative history.
 
-### Step 7: Review with user; commit meta when asked
+### Step 8: Review with user; commit meta when asked
 
 Show the user a concise summary of KB diffs (files changed + bullet list of rule changes).
 
@@ -194,52 +196,41 @@ Show the user a concise summary of KB diffs (files changed + bullet list of rule
 If code repos were merged locally but not pushed, remind the user to push `main` in each repo when
 ready — do not push without being asked.
 
-### Step 8: Trello — move card to Implemented (optional)
+### Step 9: Trello — move card to Implemented
 
-If a card was loaded in Step 5 (`cardId` already captured), **move it now** — do not ask for the name
-again unless the user asks to use a different card.
+Using the `cardId` from Step 1:
 
-If **no card** was loaded in Step 5, ask once:
-
-> Should I move a Trello card to **Implemented**? If so, what is the **card name**?
-
-Then on the **monkaify** board:
-
-1. If Trello MCP was not verified in Step 5, verify now (`list_boards`). If missing, skip and tell
-   the user how to enable it.
-2. If `cardId` is not yet known: `set_active_board`, find the card by name (same search rules as
-   Step 5a), capture `cardId`.
-3. `get_lists` → capture the **`Implemented`** list id. If no list is named exactly `Implemented`,
+1. `get_lists` → capture the **`Implemented`** list id. If no list is named exactly `Implemented`,
    ask the user which list to use.
-4. `move_card` with the `cardId`, the **`Implemented`** list id, and `boardId`.
-5. Optionally `add_comment` with a one-line ship note (branch merged, spec file, date) — skip if a
-   similar comment was already added.
+2. `move_card` with the `cardId`, the **`Implemented`** list id, and `boardId`.
+3. Optionally `add_comment` with a one-line ship note (branch merged, spec file, date).
 
 Do **not** rename the card — only move it to **Implemented**. Preserve the card title and description.
 
-### Step 9: Report
+### Step 10: Report
 
 Tell the user:
 
-1. **Merged:** branch → `main` per repo (and whether push is still pending).
-2. **Verified:** test run result (backend).
-3. **KB updated:** list of files and the headline business-rule changes.
-4. **Ingested from:** spec; Trello card (if any); code on `main`.
+1. **Card** — name + link; branch and spec read from **Implementation** section.
+2. **Merged:** `<branch>` → `main` per repo (and whether push is still pending).
+3. **Verified:** test run result (backend).
+4. **KB updated:** list of files and the headline business-rule changes.
 5. **Drift:** any code vs spec vs Trello mismatches worth a follow-up.
-6. **Trello:** card name + link if moved to **Implemented**; skipped if none.
+6. **Trello:** moved to **Implemented** (or skipped if move failed).
 7. **Next:** push remotes or deploy — only if relevant.
 
 ## Hard rules
 
-- **Confirm before merge** — never merge without explicit user approval of the plan in Step 2.
+- **Confirm before merge** — never merge without explicit user approval of the plan in Step 3.
 - **Stop on conflict or test failure** — partial KB updates that contradict failing tests are worse
   than stopping.
 - Honor `constraints.md` — vague operator messaging, mock-only secrets, branch-per-repo history.
 - **Code on `main` wins** for runtime behavior; the spec wins for *design intent*; the **Trello card**
   captures refinement decisions and acceptance criteria — use all three when ingesting, reconcile in
   the digest.
-- This skill does **not** implement features or write new specs — use `monkify-refine-tasks` earlier
-  in the pipeline. It only **moves** an existing card to **Implemented** when the user names one.
+- This skill does **not** implement features or write new specs — use `monkify-refine-tasks` and
+  `monkify-create-spec` earlier in the pipeline. **Branch and spec come from the Trello card**, not
+  from the user at ship time.
 
 ## Trello tools used (server `trello` / `user-trello`)
 
@@ -248,5 +239,6 @@ Tell the user:
 
 ## References
 
+- `../monkify-create-spec/references/spec-card-metadata.md` — **Implementation** block format on the card.
 - `references/knowledge-update-checklist.md` — which KB files to update and what to pull from each.
 - `references/feature-doc-template.md` — structure for `features/<name>.md` after shipping.
