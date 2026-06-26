@@ -14,7 +14,8 @@
   `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **Controllers are thin:** extend `BaseController`, build a MediatR request, return
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
-  `IMessaging.ReturnValidationFailureMessage(...)`.
+  `IMessaging.ReturnValidationFailureMessage(...)`. Operator-scoped session endpoints bind
+  `[FromHeader(Name = "x-operator-id")]` and reject missing values with HTTP 400 before MediatR.
 - **Async messaging via MassTransit/RabbitMQ:** consumers in `Monkify.Infrastructure/Consumers/…`
   (one receive endpoint each), registered in `Monkify.Consumers/Program.cs`. Publish via
   `IRabbitMQService`.

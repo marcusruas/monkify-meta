@@ -45,11 +45,11 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `INDEX.md` | This map. Read first. | Drafted |
 | `architecture.md` | Repos, services, RabbitMQ, PostgreSQL, Redis, SignalR, Solana, EF, payment processors | Drafted |
 | `constraints.md` | Non-negotiable rules: secrets, branches per repo, unit tests, migrations | Drafted |
-| `glossary.md` | Session, Bet, Operator, Typer, SessionParameters, etc. | TODO (stub) |
+| `glossary.md` | Session, Bet, Operator, Typer, SessionParameters, etc. | Drafted |
 | `conventions/backend.md` | EF inline in DbContext, migrations in Consumers, MediatR handlers, MassTransit consumers | TODO (stub) |
 | `conventions/frontend.md` | Vue 3, composables (`src/hooks`), types in `src/types`, axios service layer | TODO (stub) |
 | `features/sessions.md` | Session lifecycle, the typer, rewards | TODO (stub) |
-| `features/operators.md` | Multi-tenant operators; distilled from `specs/operator-feature.md` | TODO (stub) |
+| `features/operators.md` | Multi-tenant operators; distilled from `specs/operator-feature.md` | Shipped |
 | `specs/operator-feature.md` | Full implementation spec for Operators | Authoritative source |
 | `skills/` | Agent Skills that power the Monkify task pipeline (see below) | Drafted |
 
@@ -83,5 +83,4 @@ a Cursor-discovered location on first use — see "Skills — ensure installed" 
 
 ## Feature currently in flight
 
-- **Operators** — multi-tenant scoping by an `operator-id` request header. See
-  `specs/operator-feature.md` (branch `feature/operators`).
+_None — update this section when a new feature branch is active._

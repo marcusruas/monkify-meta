@@ -1,21 +1,23 @@
 # Monkify — Glossary
 
-> Status: **stub** — to be fully drafted. Quick definitions of the core domain vocabulary.
-> Source of truth: `monkify-backend/src/Monkify.Domain`. See `architecture.md` for how they fit.
+> Domain vocabulary for agents. Source of truth: `monkify-backend/src/Monkify.Domain`.
+> See `architecture.md` for how terms fit together; `features/operators.md` for operator rules.
 
 - **Session** — one round of the game for a given game type. Has a status lifecycle
   (`WaitingBets → SessionStarting → InProgress → Ended → RewardForWinners…`). Entity: `Session`.
 - **SessionParameters** — a "game type" / configuration (name, required amount, allowed characters,
-  min players, choice length, lottery params, operator). Entity: `SessionParameters`.
+  min players, choice length, lottery params, **required** `OperatorId`). Entity: `SessionParameters`.
 - **Bet** — a player's wager on a `Session`: a `Choice` (the sequence they bet on), an `Amount`
   (USD), a crypto `Wallet`, `PaymentSignature` (on-chain tx proof), and seed. Entity: `Bet`.
 - **Typer / MonkifyTyper** — the domain service that "types" random characters until a bet's choice
   appears; determines winners. `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`.
-- **Operator** — a casino/betting platform tenant. `SessionParameters.OperatorId` (nullable = house).
-  Scoped via the `operator-id` header. Entity: `Operator`.
+- **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row
+  belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
+  **`x-operator-id`** request header; players enter at `/monkify/game/<operatorId>`. Contract
+  fields: `ContractStartDate`, optional `ContractEndDate` (null = never expires). Entity: `Operator`.
+- **ContractIsActive** — domain helper on `Operator`: true when `ContractStartDate <= UtcNow` and
+  contract has not expired. Inactive operators return empty data or redirect to `/error` (vague).
 - **TransactionLog** — reward credit rows per bet (used for idempotency in reward/refund math).
 - **RefundLog** — audit row for refunded invalid bets.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.
-
-<!-- TODO: expand each term with fields, invariants, and links to code. -->

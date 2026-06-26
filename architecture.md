@@ -63,7 +63,7 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `IMessaging.ReturnValidationFailureMessage(...)`.
 - Handlers live under `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/` as a
   `Request` + `Handler` pair (e.g. `RegisterBet`, `GetActiveParameters`, `GetSessionHistory`,
-  `GetActiveSessionForParameter`, `Operators/GetOperators`).
+  `GetActiveSessionForParameter`, `Operators/GetOperatorById`).
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
@@ -111,8 +111,8 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - `ICacheService` with two impls: `RedisCacheService` (when a Redis connection string is present)
   and `MemoryCacheService` (fallback). `StackExchange.Redis` `IConnectionMultiplexer` is a singleton.
 - `CacheHelper` builds cache keys/TTLs. The active-parameters cache is **operator-aware**:
-  the key is namespaced per operator (house vs. each operator id), so one operator's game types
-  never leak into another's.
+  keys are `ActiveParameters:{operatorId}` and `Operator:{operatorId}` so one operator's game types
+  and branding never leak into another's.
 - Redis is also the **SignalR backplane** (`AddStackExchangeRedis`) so hub messages fan out across
   instances.
 
@@ -154,14 +154,21 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 
 ## 10. Multi-tenancy: Operators
 
-- `Operator` rows represent casino/betting platforms. `SessionParameters.OperatorId` is a nullable
-  FK (null = "house").
-- Requests carry an optional **`operator-id` HTTP header**. Read GET handlers and bet creation
-  scope data by it: header present → that operator's data (only if the contract is active/not
-  expired); absent → house data (`OperatorId == null`).
-- Expired/inactive operators are hidden behind generic "not found / unavailable" messaging
-  (never "contract expired"). Branding is served by `GET /operators` (active operators only).
-- See `specs/operator-feature.md` for full rules; `features/operators.md` for the distilled version.
+- `Operator` rows represent casino/betting platforms. `SessionParameters.OperatorId` is a **required**
+  FK — there is no house / operator-less mode.
+- Players enter at **`/monkify/game/<operatorId>`**. The frontend sends a required **`x-operator-id`**
+  HTTP header on every operator-scoped REST call (session GETs and bet POST). Missing header →
+  **HTTP 400** with a generic message.
+- Read handlers and bet creation scope data to the header operator (only if `ContractIsActive`).
+  Cross-operator bet attempts are refunded with vague errors.
+- Expired, not-yet-started, or unknown operators are hidden behind generic "not found / unavailable"
+  messaging (never "contract expired"). Branding is served by **`GET /operators/{id}`** only (no list).
+- Mid-session contract expiry: the running session finishes; new bets and new sessions for that
+  operator are blocked.
+- SignalR hubs use session id only — no operator header validation on websockets.
+- Non-prod: `Monkify.Consumers` seeds **DEV Cassino** and default session parameters when no operators
+  exist.
+- See `specs/operator-feature.md` for full design; `features/operators.md` for the distilled version.
 
 ## 11. Frontend (`monkify-front`)
 
@@ -170,16 +177,19 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   (`solana-wallets-vue`, `@solana/web3.js`, `@solana/spl-token`), axios, `vue3-toastify`.
 - **Structure** (`src/`):
   - `hooks/` — composables: `useSession` (session state, websockets, bet flow), `useConnection`
-    (Solana wallet/token transfer), `useOperator` (capture/persist `operator-id`, theming).
+    (Solana wallet/token transfer), `useOperator` (load branding from route param, theming, `/error`
+    redirect).
   - `services/` — `mainService.ts` (axios instance + endpoints), interceptors, handlers.
   - `types/` — shared TS types/enums (`ActiveSession`, `BodySessionBet`, `OperatorBranding`, …).
-  - `pages/` — `SessionSelectPage`, `GamePage`, `HomePage`. `components/` — UI, game, header,
+  - `utils/` — `operatorRoute.ts` (GUID validation, path-based operator id for the interceptor).
+  - `pages/` — `SessionSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing:** `/` → `/game-select` (`SessionSelectPage`) → `/game` (`GamePage`).
+- **Routing:** `/monkify/game/:operatorId` → session select; `/monkify/game/:operatorId/play` → live
+  game; invalid/missing operator id or `/` → `/error`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
-  `VUE_APP_API_BASE_URL` and attaches the `operator-id` header from `sessionStorage` when present.
+  `VUE_APP_API_BASE_URL` and attaches **`x-operator-id`** from the current route path when present.
   Endpoints: `GET /sessions/active-types`, `GET /sessions/{id}`, `POST /sessions/{id}/bets`,
-  `GET /operators`.
+  `GET /operators/{id}`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, and incoming bets.

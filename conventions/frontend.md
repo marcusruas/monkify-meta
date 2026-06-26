@@ -11,16 +11,22 @@
 - **Shared types & enums live in `src/types/`** (`ActiveSession`, `BodySessionBet`,
   `OperatorBranding`, `DefaultResponse<T>`, …). Mirror backend enums exactly (codes must match).
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
-  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches the `operator-id` header
-  from `sessionStorage`. Add new endpoints here and export them from the default object.
+  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches **`x-operator-id`** from
+  the current route path (`src/utils/operatorRoute.ts`). Add new endpoints here and export them
+  from the default object.
+- **Operator entry:** game routes live under `/monkify/game/:operatorId` (and `/play` for the live
+  game). Invalid GUID or inactive operator → `/error`. `useOperator.loadOperator()` fetches
+  `GET /operators/{id}` and applies `--color-secondary` when branding includes a color.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
   `…/Status`, `…/Bets`, `SessionReceived`.
 - **Solana wallet** via `solana-wallets-vue` + `@solana/web3.js` + `@solana/spl-token`
   (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
-- **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime.
-- **Routing:** `src/routes.ts` — `/` → `/game-select` → `/game`.
+- **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
+  (see `useOperator.applyOperatorTheme`).
+- **Routing:** `src/routes.ts` — `/monkify/game/:operatorId`, `/monkify/game/:operatorId/play`,
+  `/error`; root `/` redirects to `/error`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
