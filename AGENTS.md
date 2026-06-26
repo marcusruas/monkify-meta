@@ -97,11 +97,15 @@ discovered location:
 3. Some skills have prerequisites the agent must verify before running them:
    - `monkify-refine-tasks` needs the **Trello MCP** (`trello` / `user-trello` server) and the
      **Superpowers** plugin. If either is missing, tell the user how to install it and stop.
+   - `monkify-ship-feature` optionally uses the **Trello MCP** to **ingest** the linked monkaify card
+     (description, comments, acceptance criteria) when building the KB digest, and to **move** that
+     card to **Implemented** after shipping. If Trello is missing at Step 5, the user may continue
+     with spec + code only; Step 8 can still move a card once MCP is available.
 
 > Like the root pointer above, the installed copies under `.cursor/skills/` are regenerated from
 > `monkify-meta/skills/` and are not the source of truth — edit skills in `monkify-meta/skills/`.
 
-Current skills: `monkify-refine-tasks` (see `INDEX.md` → "Skills (the task pipeline)").
+Current skills: `monkify-refine-tasks`, `monkify-ship-feature` (see `INDEX.md` → "Skills (the task pipeline)").
 
 ## Must-follow rules
 

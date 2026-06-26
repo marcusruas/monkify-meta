@@ -62,6 +62,7 @@ a Cursor-discovered location on first use — see "Skills — ensure installed" 
 | Skill | Invoke | Purpose |
 | --- | --- | --- |
 | `skills/monkify-refine-tasks` | `/monkify-refine-tasks` | Pick a card from the Trello **monkaify** board and refine it (Monkify-wide, both apps) into a clear, unambiguous, spec-ready task; write it back and move it to **Refined**. Needs the `trello` MCP + Superpowers. |
+| `skills/monkify-ship-feature` | `/monkify-ship-feature` | Merge a feature branch into `main` (each affected repo), verify backend tests, sync the knowledge base from the named spec, **linked Trello task**, and merged code, and optionally move that card to **Implemented** on the monkaify board. |
 
 ## The 60-second mental model
 
