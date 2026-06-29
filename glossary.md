@@ -8,7 +8,13 @@
 - **SessionParameters** — a "game type" / configuration (name, required amount, allowed characters,
   min players, choice length, lottery params, **required** `OperatorId`). Entity: `SessionParameters`.
 - **Bet** — a player's wager on a `Session`: a `Choice` (the sequence they bet on), an `Amount`
-  (USD), a crypto `Wallet`, `PaymentSignature` (on-chain tx proof), and seed. Entity: `Bet`.
+  (USD), optional `OperatorPlayerId` FK (NULL for anonymous free bets), `PaymentSignature`
+  (on-chain tx proof for paid bets), and seed. Entity: `Bet`. On-chain payout/refund address is
+  resolved from linked `OperatorPlayer.ExternalPlayerId`, not stored on the bet row.
+- **OperatorPlayer** — operator-scoped player identity. Fields include `ExternalPlayerId` (Solana
+  wallet pubkey or casino player id), `IsCrypto`, optional `DisplayName`, `Currency` (defaults to
+  USD), `LastSeenAt`. Unique on `(OperatorId, ExternalPlayerId)`. No PII. Entity: `OperatorPlayer`.
+  See `features/operator-player-identity.md`.
 - **Free bet** — dev/QA-only bet with `Amount = 0` and empty `PaymentSignature`, allowed only when
   backend `AllowFreeBets`, session `AllowFreeBet`, and (for UI) the frontend flag are all enabled.
   No Solana payment, payout, or refund. Detected via `BetExtensions.IsFreeBet`. See

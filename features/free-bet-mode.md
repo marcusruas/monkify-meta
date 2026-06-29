@@ -17,7 +17,9 @@ bets at the API and hide the UI toggle.
 - **Detection:** a free bet is inferred at runtime — `amount == 0` **and** empty/missing
   `paymentSignature`. No `isFreeBet` request field. Mixed signals (`amount == 0` with a signature, or
   `amount > 0` with empty signature) are **invalid**, not free bets.
-- **Wallet:** optional for free bets (`Wallet` may be `""`). Required for paid bets (unchanged).
+- **Wallet (register-bet body):** optional for free bets. Required for paid bets (unchanged). When
+  provided, backend upserts `OperatorPlayer` and sets `Bet.OperatorPlayerId`; anonymous free bets
+  omit wallet and keep `OperatorPlayerId` NULL.
 - **UI toggle:** when the frontend flag is on and `allowFreeBet` is true on the session type, the
   game shows **"Free bet mode"** (off by default). Toggle on skips wallet connect and `sendToken`
   even if a wallet is connected.
@@ -30,10 +32,10 @@ bets at the API and hide the UI toggle.
 - **Refunds:** invalid free bets, lottery under-subscription, and duplicate free bets do **not**
   publish `RefundInvalidBetEvent` or append `RefundWarning`. `RefundInvalidBetConsumer` skips when
   `Value == 0`.
-- **Duplicates:** paid bets — `(sessionId, wallet, choice)`. Free bet without wallet —
-  `(sessionId, choice)` only. Free bet with wallet connected — `(sessionId, wallet, choice)`.
-- **Lottery min players:** each free bet without a wallet counts as a distinct player
-  (`free:{betId}` identity in `BetPlacedConsumer`); empty wallets no longer collapse to one player.
+- **Duplicates:** when `OperatorPlayerId` set — `(sessionId, operatorPlayerId, choice)`. Anonymous
+  free (NULL FK) — `(sessionId, choice)` only.
+- **Lottery min players:** distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` per bet
+  in `BetPlacedConsumer`.
 - **Session types:** all types (race + lottery). Dev seed sets `AllowFreeBet = true` on all six
   default session types; DB default for new rows remains `false`.
 - **Operators:** unchanged — `x-operator-id` still required; operator must match session.

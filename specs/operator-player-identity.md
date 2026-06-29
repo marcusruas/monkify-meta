@@ -1,7 +1,8 @@
 # Monkify — "OperatorPlayer identity (unified player model)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG) (2026-06-29).
+> **Status: Shipped** — merged to `main` via `feature/operator-player-identity` (2026-06-29).
+> Trello: [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG).
+> Design archive — runtime behavior is summarized in `features/operator-player-identity.md`.
 > Conversation context in the same chat session is authoritative for the unified-model decisions.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
@@ -63,7 +64,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 7 | **Regulated path** — request body `externalPlayerId` required when no wallet; upsert with `IsCrypto=false` |
 | 8 | **Duplicate bets** — with FK: `(SessionId, OperatorPlayerId, Choice)`; anonymous: `(SessionId, Choice)` only |
 | 9 | **Min-player count** — distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` (preserves free-bet behaviour in `BetPlacedConsumer`) |
-| 10 | **Register-bet API** — keep sending `wallet` for crypto UX; add `externalPlayerId`, optional `displayName`, `currency` for regulated |
+| 10 | **Register-bet API** — keep sending `wallet` for crypto UX; add `externalPlayerId`, optional `displayName` for regulated; currency defaults to USD (not in request body) |
 | 11 | **Response DTOs** — expose `externalPlayerId` (nullable) from joined `OperatorPlayer`; drop `wallet` on persisted bet DTOs |
 | 12 | **`RefundLog.Wallet`** — unchanged (audit log of on-chain refund destination; populated from resolved wallet at refund time) |
 

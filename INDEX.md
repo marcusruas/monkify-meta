@@ -54,9 +54,10 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/sessions.md`      | Session lifecycle, the typer, rewards                                                    | Drafted              |
 | `features/operators.md`     | Multi-tenant operators; distilled from `specs/operator-feature.md`                       | Shipped              |
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
+| `features/operator-player-identity.md` | Unified `OperatorPlayer` model; remove `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
-| `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Ready                |
+| `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -90,11 +91,3 @@ a bet's choice appears; winners are then rewarded via **Solana** SPL token trans
 SignalR. **Hangfire** (on PostgreSQL) schedules lottery sessions.
 - **Frontend** (`monkify-front`) is Vue 3 + TypeScript: composables in `src/hooks`, an axios
 service layer in `src/services`, and SignalR clients to stream the live typer + bets.
-
-## Feature currently in flight
-
-**OperatorPlayer identity (unified player model)**
-
-- **Spec:** `monkify-meta/specs/operator-player-identity.md`
-- **Trello:** [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG)
-- **Branch:** `feature/operator-player-identity` in `monkify-backend`, `monkify-front`, `monkify-meta`

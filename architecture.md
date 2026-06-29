@@ -85,7 +85,8 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `BetStatusLog`.
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
-Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* TransactionLog`.
+Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* TransactionLog`;
+`Operator 1—* OperatorPlayer 1—* Bet` (nullable FK — anonymous free bets have no `OperatorPlayer`).
 
 ## 4. Messaging: RabbitMQ via MassTransit
 
