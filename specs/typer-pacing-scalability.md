@@ -154,6 +154,33 @@ Recommended approach (implementer may refine constants but must honour decisions
 3. **Reproducibility guard:** delays must **never** branch on wall-clock randomness or thread timing for
    character selection — only **after** the character is determined.
 
+### 6.2.1 Search-space cap + deterministic fallback winner (implemented)
+
+> **Decision added during implementation (2026-06-29), approved by product.** Pure pacing can only
+> *add* delay; it cannot make a CPU-bound loop emit characters faster. For large search spaces the
+> expected characters-to-win is enormous — e.g. `NumbersAndLetters` length 8 averages **~10⁹–10¹²**
+> characters, and a 7-letter lottery at mid bet counts averages **~4×10⁸**. No timing change can
+> reach a natural sliding-window match for those in target time. So a **character cap with a
+> deterministic, seed-derived fallback winner** was added:
+
+- The typer counts characters. If it reaches `MaxTyperCharacters` (config; default **5,000,000**)
+  **without** a natural win, it stops and picks the winner with `new Random(SessionSeed)` over the
+  **ordinally-sorted** set of choices (`Bets.Keys`). `NumberOfWinners = Bets[winningChoice]`.
+- **Reproducibility is preserved.** The trigger is a fixed character count (not wall-clock), and the
+  draw depends only on the already-audited `SessionSeed` and the choice set. The same seed + bets
+  therefore yield the same character stream **and** the same winner on any host — `MonkifyTyper`
+  exposes `WinnerDecidedByFallback` for observability.
+- **Fairness is preserved in distribution.** A natural first-match is ~uniform over the distinct
+  choices; the fallback draw is uniform over the same choices, so no bias is introduced.
+- **Why the cap is small.** The generation loop runs `CheckForWinners` (a per-character
+  `string.Concat`) every character, so the cap also bounds CPU. Keeping it at ~5M means the loop
+  finishes well under the pacing budget on any hardware and under concurrent load (pacing is then
+  delay-bound, not CPU-bound) — satisfying the cross-server / load-stability criteria (§3 #9, ACs
+  #8–#9). It can be raised on capable hosts to let large configs resolve naturally more often.
+- **Effect by config:** small configs (6-digit, low-complexity letters) still resolve **naturally**;
+  large configs (`NumbersAndLetters`, 7L lottery) resolve via the seed fallback at the cap and land
+  at a near-deterministic mode mean. Validated mean/p95 hold for the full 2–400 bet sweep.
+
 4. **`SessionService.RunSession`:** keep batching contract. Optionally flush terminal batch when pacing
    delay exceeds a threshold so clients receive chunks during long waits. Do not change SignalR payload
    shapes (`{ TypingSpeed }`, terminal string batches).
@@ -377,3 +404,4 @@ Implementation tip: extract package-private helper to drain typer without Signal
 | Date | Change |
 | --- | --- |
 | 2026-06-26 | Initial spec from refined Trello card + refinement conversation |
+| 2026-06-29 | Implemented on `feature/typer-pacing-scalability`. Time-budget (`Stopwatch`) pacing replaces the modulo 1 ms delay; added `SessionSettings` pacing targets + `MaxTyperCharacters`; added deterministic seed-based fallback winner at the character cap (§6.2.1) to bound otherwise-unreachable large search spaces while preserving reproducibility and fairness. Test harness reworked: Monte-Carlo `RunCount` (default 100, `MONKIFY_TEST_RUNCOUNT` override), p95 + mode-specific validators, lottery / `NumbersAndLetters` theories, reproducibility + fallback unit tests. Frontend `GameTyper.vue` refresh tied to `DisplaySpeed`, crop tuned, duplicate `clearInterval` fixed. |
