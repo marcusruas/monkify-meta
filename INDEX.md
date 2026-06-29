@@ -17,6 +17,27 @@ typer produces a matching sequence, the matching bets win and are paid out.
 6. The authoritative, deep design docs are in `specs/`. The `features/` files are distilled
   summaries that point back into `specs/` and the live code.
 
+## Implementing from a spec
+
+When you are **implementing** a feature from a spec in `specs/` (not just reading for context):
+
+1. Read the **target spec** end to end, plus its matching `features/` summary if one exists.
+2. Read **every other doc in `features/`** — and skim related shipped specs — so you know what
+   already exists in production (sessions, operators, payment flows, player identity, free-bet mode,
+   etc.). The spec you are building is one piece of a shared system, not an isolated module.
+3. While designing and coding, actively look for **cross-feature interactions**: shared entities
+   and tables, request headers, payment and payout paths, session/bet lifecycle, operator scoping,
+   frontend state and composables, migrations, SignalR contracts, and public API shape.
+4. If you find a **conflict, ambiguity, or gap** between the spec you are implementing and
+   **existing behavior documented elsewhere** — and the target spec does **not** already resolve
+   it — **stop and ask the user**. Do not guess, silently pick one behavior, or paper over the
+   mismatch with a local workaround.
+5. When you ask, be concrete: name the existing feature, describe the conflicting behavior, quote
+   or summarize what the spec says (or omits), and offer one or two sensible resolution options if
+   you have them. Wait for an answer before proceeding on that point.
+
+Treat unresolved cross-feature conflicts as **blockers**, not implementation details you can defer.
+
 ## Keeping the knowledge base current
 
 Every time a feature gets merged into `main`, this repository's knowledge base **must be updated**
