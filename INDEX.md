@@ -64,7 +64,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 
 Reusable Agent Skills live in `skills/`. They are the source of truth, version-controlled here.
 Because this repo's `skills/` folder is **not** an auto-discovery path, AGENTS.md installs them into
-a Cursor-discovered location on first use — see "Skills — ensure installed" in `AGENTS.md`.
+the Cursor- and Claude-discovered locations (`.cursor/skills/` and `.claude/skills/`) on first use —
+see "Skills — ensure installed" in `AGENTS.md`.
 
 
 | Skill                         | Invoke                  | Purpose                                                                                                                                                                                                                                      |

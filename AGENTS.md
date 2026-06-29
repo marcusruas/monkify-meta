@@ -85,15 +85,20 @@ On your first task, make sure the siblings exist next to `monkify-meta`:
 ## Skills — ensure installed (do this on first task too)
 
 The Monkify task pipeline ships as Agent Skills under `monkify-meta/skills/` (source of truth,
-version-controlled). That folder is **not** an auto-discovery path, so Cursor won't load the skills
-from there directly. On your first task in this workspace, make sure each skill is installed into a
-discovered location:
+version-controlled). That folder is **not** an auto-discovery path, so neither Cursor nor Claude
+will load the skills from there directly. On your first task in this workspace, make sure each
+skill is installed into **every** discovered location below (install into all that apply — both if
+the user works in both tools):
 
 1. For every skill folder `monkify-meta/skills/<name>/` (each contains a `SKILL.md`), ensure a copy
-   exists at `<workspace-root>/.cursor/skills/<name>/` (Cursor auto-discovers `.cursor/skills/` at
-   the workspace root).
-2. If the target is missing **or** older than the source (`SKILL.md` differs), copy the whole skill
-   folder over (including its `references/`). Treat `monkify-meta/skills/` as authoritative.
+   exists at **each** of these workspace-root locations:
+   - `<workspace-root>/.cursor/skills/<name>/` — Cursor auto-discovers `.cursor/skills/` at the
+     workspace root.
+   - `<workspace-root>/.claude/skills/<name>/` — Claude Code / Cowork auto-discovers
+     `.claude/skills/` at the workspace root.
+2. For **each** target location, if it is missing **or** older than the source (`SKILL.md` differs),
+   copy the whole skill folder over (including its `references/`). Treat `monkify-meta/skills/` as
+   authoritative and keep both mirrors in sync with it.
 3. Some skills have prerequisites the agent must verify before running them:
    - `monkify-refine-tasks` needs the **Trello MCP** (`trello` / `user-trello` server) and the
      **Superpowers** plugin. If either is missing, tell the user how to install it and stop.
@@ -104,8 +109,9 @@ discovered location:
      card to **Implemented** after shipping. If Trello is missing at Step 5, the user may continue
      with spec + code only; Step 8 can still move a card once MCP is available.
 
-> Like the root pointer above, the installed copies under `.cursor/skills/` are regenerated from
-> `monkify-meta/skills/` and are not the source of truth — edit skills in `monkify-meta/skills/`.
+> Like the root pointer above, the installed copies under `.cursor/skills/` and `.claude/skills/`
+> are regenerated from `monkify-meta/skills/` and are not the source of truth — edit skills in
+> `monkify-meta/skills/`.
 
 Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-feature` (see
 `INDEX.md` → "Skills (the task pipeline)").
