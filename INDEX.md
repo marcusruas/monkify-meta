@@ -56,6 +56,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
+| `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -92,4 +93,8 @@ service layer in `src/services`, and SignalR clients to stream the live typer + 
 
 ## Feature currently in flight
 
-_None._
+**OperatorPlayer identity (unified player model)**
+
+- **Spec:** `monkify-meta/specs/operator-player-identity.md`
+- **Trello:** [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG)
+- **Branch:** `feature/operator-player-identity` in `monkify-backend`, `monkify-front`, `monkify-meta`
