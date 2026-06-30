@@ -336,9 +336,10 @@ File: `monkify-backend/src/Monkify.Infrastructure/Handlers/Sessions/RegisterBet/
 Current handler infers `isCrypto` from whether the body `Wallet` is present (lines 74–83). Replace
 with **operator-driven** logic:
 
-1. Load the operator (or read `PaymentModel` via a lightweight lookup / from the session's
-   `Parameters.Operator`, already loaded in `ValidateBetParameters`). Determine
-   `isCrypto = operator.PaymentModel == OperatorPaymentModel.Crypto`.
+1. Load the operator via **`IOperatorService.GetActiveOperatorById(request.OperatorId)`** (§6.2a) —
+   the same cached, contract-active lookup the middleware used on this request (normally a cache hit).
+   If null (inactive/unknown — the middleware blocks this in production), reject with the vague
+   `SessionNotValidForBets`. Otherwise `isCrypto = operator.PaymentModel == OperatorPaymentModel.Crypto`.
 2. **Crypto operator:** identity = body `Wallet` (post wallet-connect), `externalId = wallet`. Paid
    bets require `paymentSignature` (unchanged). Free bets keep anonymous `OperatorPlayerId = null`.
 3. **Regulated operator:** identity = `request.ExternalPlayerId` (from token `sub`); **ignore** body
@@ -619,7 +620,7 @@ flowchart TD
 | 15 | `Monkify.Api/Controllers/PlayersController.cs` | **New** `PATCH /players/preferences` |
 | 16 | `Monkify.Infrastructure/Handlers/Players/UpdatePlayerPreferences/*` | **New** request/body/handler |
 | 17 | `Monkify.Api/Controllers/DevController.cs` | **New** dev-only `POST /dev/launch-token` |
-| 18 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel`; drop `isCrypto` |
+| 18 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel` via `IOperatorService` (cached); drop `isCrypto` |
 | 19 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetRequest.cs` | Add `ExternalPlayerId` (from token sub) |
 | 20 | `Monkify.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs` | Expose `PaymentModel` |
 | 20b | `Monkify.Infrastructure/Handlers/Operators/GetOperatorById/GetOperatorByIdHandler.cs` | Delegate to `IOperatorService` (cached) |
