@@ -12,6 +12,26 @@
   never hand-edit the snapshot.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
   `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
+- **Single-responsibility classes read top-down — isolate behaviours into named methods.** When a
+  class exists to do one thing (a MediatR handler, a MassTransit consumer, a domain service entry
+  point), the **main method should orchestrate, not implement**. Pull each distinct behaviour /
+  branch into a **well-named private method** and have the main method call it, so the main method
+  reads like a summary of what the class does. Don't inline a multi-statement branch (resolve a
+  service → call it → persist → log) directly in the main method.
+
+  ```csharp
+  // Prefer — the main method shows the shape of the work:
+  if (paymentModel == OperatorPaymentModel.Regulated)
+      await ProcessRegulatedRefund(scope, dbContext, bet, refundAmount, message.Reason);
+  else
+      await solanaService.RefundTokens(message.Wallet, refundAmount, message.Reason, bet.Id);
+
+  // Avoid — the whole regulated branch (resolve + call + persist + log) inlined in the main method.
+  ```
+
+  Each extracted method should have one clear purpose and a name that says what it does
+  (`ProcessRegulatedRefund`, `DebitOperatorWallet`, `CreditWinner`). This keeps the entry method
+  short and the behaviours independently readable/testable.
 - **Controllers are thin:** extend `BaseController`, build a MediatR request, return
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
   `IMessaging.ReturnValidationFailureMessage(...)`.
