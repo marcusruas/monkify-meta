@@ -93,7 +93,7 @@ existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
     files are **git-ignored** (ops/deploy-managed); the committed template is **`.env.example`**, which
     documents `VUE_APP_DEV_LAUNCH`. The **production deploy must set `VUE_APP_DEV_LAUNCH=false`** in its
     `.env.production` (so `/monkify/game` → `/error`).
-  - **Local docker env:** `scripts/create_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true`
+  - **Local docker env:** `scripts/refresh_containers.bat` materialises `VUE_APP_DEV_LAUNCH=true`
     into the generated `.env.production.local` (Vue CLI's highest-priority file → overrides
     `.env.production`). The api/consumers containers run `ASPNETCORE_ENVIRONMENT=Development`, so the
     `/dev/launch-token` endpoint the buttons call is available there.
@@ -405,7 +405,7 @@ sequenceDiagram
 | 5 | `src/Monkify.Api/Program.cs` & `src/Monkify.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
 | 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_session_tests.bat`) |
 | 7 | `src/Monkify.sln` | Add the new project + build configs |
-| 8 | `scripts/create_local_environment.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
+| 8 | `scripts/refresh_containers.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
 | 9 | `src/Monkify.Api/Dockerfile` & `src/Monkify.Consumers/Dockerfile` | Add `COPY` for `Monkify.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
 
 ### 10.2 Frontend (`monkify-front`)
@@ -523,7 +523,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
 4. Click **Regulated** (fresh tab) → branded for `DEV Regulated Cassino`; bet without a wallet.
 5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/monkify/game` →
    redirected to `/error`, no buttons. (The docker local env sets it back to `true` via
-   `create_local_environment.bat`, so the buttons appear there.)
+   `refresh_containers.bat`, so the buttons appear there.)
 6. `cd backend && scripts/run_tests.bat` → passes, integration suite **not** run.
 7. `scripts/run_integration_tests.bat` → containers spin up, sessions run, suite passes.
 
