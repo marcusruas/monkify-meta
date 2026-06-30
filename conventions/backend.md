@@ -60,6 +60,15 @@
   `features/operator-wallet-api.md`.
 - **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
+- **Session-flow changes MUST update the integration tests.** End-to-end coverage of the session
+  lifecycle lives in the separate **`Monkify.Tests.Integration`** project (Testcontainers:
+  PostgreSQL + RabbitMQ + Redis; boots the `Monkify.Api` + `Monkify.Consumers` hosts and runs real
+  sessions bet→run→reward with Solana/operator-wallet mocked). It is **excluded** from the default
+  fast suite (`scripts/run_tests.bat`, which scopes to `Monkify.Tests` / `~UnitTests`) and runs on
+  demand via **`scripts/run_integration_tests.bat`**. **Any change to the session lifecycle/flow**
+  (consumers `BetPlaced`/`RunSession`/`RewardSession`/`RefundInvalidBet`, `SessionService`,
+  `MonkifyTyper`, session/bet state machine, reward/refund/ledger paths, or the register-bet handler)
+  **must also update `Monkify.Tests.Integration`** so the end-to-end assertions still reflect reality.
 - **Running tests — always use `scripts/run_tests.bat`.** Whenever you need to run the test suite to
   assert changes made to `monkify-backend`, run `scripts/run_tests.bat` (it executes
   `dotnet test` over the unit tests). It **excludes the `ProductionSessions` metrics tests** on

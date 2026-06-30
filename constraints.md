@@ -35,6 +35,9 @@
   `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus; in-memory EF).
 - At the **end of the work, report exactly which unit tests were changed or added.**
 - Run the full suite before declaring done.
+- **Session-flow changes also update the integration tests.** Any change to the session
+  lifecycle/flow must update the separate **`Monkify.Tests.Integration`** (Testcontainers) project,
+  run via `scripts/run_integration_tests.bat`. See `conventions/backend.md` → Tests.
 
 > Note on the team rule "always run unit tests for Central de Reservas": that rule is for **CR**,
 > a different app. For **Monkify** the equivalent expectation is the test discipline above
