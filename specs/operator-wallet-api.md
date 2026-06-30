@@ -1,8 +1,9 @@
 # Monkify — "Operator wallet API (debit / credit / refund for Model A)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Operator wallet API (debit / credit / refund for Model A)](https://trello.com/c/pJUcsSHo) (2026-06-30).
+> **Status: Shipped** — merged via `feature/operator-wallet-api` on 2026-06-30. Refined via Trello card
+> [Operator wallet API (debit / credit / refund for Model A)](https://trello.com/c/pJUcsSHo).
 > Repos affected: `monkify-backend` and this doc in `monkify-meta`. **Not** `monkify-front`.
+> Distilled summary: `../features/operator-wallet-api.md`.
 >
 > **Purpose:** On **regulated (Model A / `Operator.PaymentModel = Regulated`)** operators, Monkify
 > holds no player float. Bet **stakes are debited**, **winnings credited**, and **invalid/cancelled

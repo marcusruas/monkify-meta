@@ -258,16 +258,22 @@ sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes,
 Constructed per session with `TokenSettings`. `Winners` = bets with `Status == NeedsRewarding`.
 
 - **Pot (`SetPotAmount`):** `pot = Σ(all bet amounts)` — zero-amount (free) bets contribute nothing;
-  for lottery types, add `LotteryParameters.LotteryPot`;
-then apply commission: `pot *= (1 - CommisionPercentage)`.
+  for lottery types, add `LotteryParameters.LotteryPot`. **No commission is applied** — the full pot is
+  paid to winners (the old `CommisionPercentage` was removed; see `features/operator-wallet-api.md`).
 - **Reward per winner (`CalculateRewardForBet`):**
   - `winnerReward = pot / winnerCount`.
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
-  - Subtract already-paid **credits** for this bet: `winnerReward -= Σ(TransactionLog amounts)`.
+  - Subtract this bet's already-paid **`Credit`** ledger rows: `winnerReward -= Σ(Credit-type TransactionLog amounts)`.
   If `≤ 0` → `BetHasAlreadyBeenRewarded` (idempotency guard for retries).
   - Round down to `TokenSettings.Decimals`; also compute the smallest-unit integer for the transfer.
 - **Refunds (`CalculateRefundForBet` / `CalculateRefundForInvalidBet`):** refund value = `bet.Amount`
-minus already-paid credits (from `TransactionLog`), rounded down; `≤ 0` → `BetHasAlreadyBeenRefunded`.
+minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down; `≤ 0` →
+`BetHasAlreadyBeenRefunded`. (`Debit` rows are never subtracted.)
+
+> **Payout/refund routing is per payment model.** Crypto operators (Model B) move money on-chain via
+> `ISolanaService`; regulated operators (Model A) instruct the operator's wallet API (debit at bet time,
+> credit on reward, refund on cancellation). Every movement is recorded in the unified `TransactionLog`
+> (`Credit`/`Debit`/`Refund`); the `RefundLog` table was removed. See `features/operator-wallet-api.md`.
 
 ---
 

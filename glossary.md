@@ -50,7 +50,18 @@
 - **ContractIsActive** — domain helper on `Operator`: true when `ContractStartDate <= UtcNow` and
   contract has not expired. Inactive operators return empty data or redirect to `/error` (vague). The
   active-operator lookup is cached via `IOperatorService.GetActiveOperatorById`.
-- **TransactionLog** — reward credit rows per bet (used for idempotency in reward/refund math).
-- **RefundLog** — audit row for refunded invalid bets.
+- **TransactionLog** — the **unified money-movement ledger** per bet. Each row has a `TransactionLogType`
+  (`Credit | Debit | Refund`), `Amount`, nullable `Signature` (Solana, crypto only), nullable
+  `ExternalTransactionReference` (operator wallet ref, regulated only), and nullable `Reason`. Used for
+  reward/refund idempotency: reward subtraction reads `Credit` rows, the already-refunded guard reads
+  `Refund` rows. (The separate `RefundLog` table was removed and folded in here.) See
+  `features/operator-wallet-api.md`.
+- **TransactionLogType** — enum on `TransactionLog` (`Credit = 0`, `Debit = 1`, `Refund = 2`); `Credit` is
+  the default so legacy reward rows keep their meaning.
+- **Operator wallet API** — for regulated (Model A) operators, the operator's own wallet that Monkify
+  instructs to **debit** stakes, **credit** winnings, and **refund** cancelled bets (Monkify holds no
+  float). Integrated via a per-operator adapter (`IOperatorWalletService`) selected by a named provider in
+  config (`IOperatorWalletResolver`). Crypto (Model B) operators are unaffected (Solana). See
+  `features/operator-wallet-api.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.

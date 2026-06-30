@@ -51,8 +51,13 @@
   cache is operator-aware.
 - **Domain stays pure:** entities/value-objects/domain-services in `Monkify.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
-- **Solana payments** via `ISolanaService` / `SolanaService` — validate signatures, transfer
-  rewards, refund invalid bets.
+- **Money movement routes by `Operator.PaymentModel`.** Crypto (Model B) pays on-chain via
+  `ISolanaService` / `SolanaService` (validate signatures, transfer rewards, refund invalid bets);
+  regulated (Model A) instructs the operator wallet via `IOperatorWalletService` (resolved per operator by
+  `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`). Every movement is recorded in the
+  **unified `TransactionLog`** ledger (`TransactionLogType` = `Credit`/`Debit`/`Refund`), which also backs
+  reward/refund idempotency (subtract by type). There is **no commission** in pot math. See
+  `features/operator-wallet-api.md`.
 - **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
 - **Running tests — always use `scripts/run_tests.bat`.** Whenever you need to run the test suite to

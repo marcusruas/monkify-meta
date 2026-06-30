@@ -78,12 +78,13 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/operator-player-identity.md` | Unified `OperatorPlayer` model; remove `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
 | `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
 | `features/launch-token-validation.md` | Signed casino launch flow (`X-Launch-Token`); `Operator.PaymentModel`; replaces `x-operator-id` | Shipped              |
+| `features/operator-wallet-api.md` | Regulated (Model A) operator wallet debit/credit/refund; unified `TransactionLog`; commission removed | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
 | `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
 | `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Shipped              |
-| `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Ready                |
+| `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -104,14 +105,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **Operator wallet API (Model A / Regulated)** — spec `specs/operator-wallet-api.md`
-  (Ready for implementation). Trello: https://trello.com/c/pJUcsSHo #19.
-  Branch `feature/operator-wallet-api` in `monkify-backend` and `monkify-meta` (frontend not affected).
-  Adds per-operator wallet debit/credit/refund adapters (+ mock); unifies `TransactionLog`
-  (Debit/Credit/Refund, drops `RefundLog`); removes commission (winners get full pot).
-  Follow-up in Backlog: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26.
-  (Last shipped: **Launch token validation** — `feature/launch-token-validation`, 2026-06-30.
-  Also in Backlog: currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.)
+- _None._ (Last shipped: **Operator wallet API (Model A / Regulated)** —
+  `feature/operator-wallet-api`, 2026-06-30; per-operator wallet debit/credit/refund adapters + mock,
+  unified `TransactionLog` (`RefundLog` dropped), commission removed. Trello #19.)
+  Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26;
+  currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.
 
 ## The 60-second mental model
 

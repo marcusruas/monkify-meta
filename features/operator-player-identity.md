@@ -20,7 +20,9 @@ distinguished by the owning **`Operator.PaymentModel`**. Identified bets link vi
 - **Unified identity:** one `OperatorPlayer` row per `(OperatorId, ExternalPlayerId)`; unique index
   enforces no duplicates. No PII columns on `OperatorPlayer`. (`IsCrypto` removed — see banner.)
 - **`Bet.Wallet` removed:** persisted player identity is only via `OperatorPlayerId` (nullable).
-  `RefundLog.Wallet` remains for on-chain refund audit rows.
+  On-chain refund/payout addresses resolve from `OperatorPlayer.ExternalPlayerId` via
+  `Bet.GetWalletAddress()`. (The `RefundLog` table was later removed — refund audit now lives in the
+  unified `TransactionLog`; see `features/operator-wallet-api.md`.)
 - **Crypto path** (`Operator.PaymentModel == Crypto`): register-bet body sends `wallet`; backend
   upserts `OperatorPlayer(ExternalPlayerId=wallet)` and sets `Bet.OperatorPlayerId`.
 - **Regulated path** (`Operator.PaymentModel == Regulated`): player id is the launch-token `sub`

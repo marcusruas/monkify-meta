@@ -83,8 +83,9 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 
 - **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session`, `SessionParameters`
   (a "game type"), `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`.
-- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog`, `RefundLog`,
-  `BetStatusLog`.
+- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog` (unified money-movement
+  ledger — `Credit`/`Debit`/`Refund`), `BetStatusLog`. (`RefundLog` was removed; refund audit now lives
+  in `TransactionLog`.)
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
 Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* TransactionLog`;
@@ -103,7 +104,7 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the session, then publishes `RunSessionEvent`. Refunds bets if a lottery lacks players. |
 | `RunSessionEvent` | `BetPlacedConsumer` | `RunSessionConsumer` | Marks session `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next session, publishes `RewardSessionEvent`. |
 | `RewardSessionEvent` | `RunSessionConsumer` | `RewardSessionConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
-| `RefundInvalidBetEvent` | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet via `ISolanaService.RefundTokens`. Skipped for free bets (`Value == 0`). |
+| `RefundInvalidBetEvent` (carries `BetId`) | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet — crypto via `ISolanaService.RefundTokens`, regulated via the operator wallet adapter. Skipped for free bets (`Value == 0`). |
 | `BetNotificationEvent` | `SessionService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,
@@ -137,14 +138,22 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - Used to **schedule lottery sessions**: `SessionService.ScheduleLottery` enqueues a delayed
   `BetPlacedEvent` publish for the session's start time.
 
-## 8. Blockchain & payments (Solana)
+## 8. Blockchain & payments
 
+- **Payment model per operator** (`Operator.PaymentModel`): **Crypto (Model B)** pays on-chain via
+  Solana; **Regulated (Model A)** holds no Monkify float and settles through the **operator's wallet
+  API** (debit/credit/refund) — see `features/operator-wallet-api.md`.
 - `Solnet` (`Solnet.Rpc`, `Solnet.Programs`, `Solnet.Wallet`) talks to a Solana cluster.
 - `ISolanaService` / `SolanaService` validate bet payment signatures, transfer SPL tokens for
-  rewards, and refund invalid bets.
-- The house owner/sender token account is the funded float for payouts.
-- Bets carry a `PaymentSignature` (on-chain tx signature). `TransactionLog` rows track reward
-  credits per bet for idempotency in `BetDomainService`.
+  rewards, and refund invalid bets (crypto operators). The house owner/sender token account is the
+  funded float for on-chain payouts.
+- **Regulated payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
+  ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
+  **debit** runs synchronously in `Monkify.Api` at bet time; **credit** and **refund** run in
+  `Monkify.Consumers`.
+- **Money ledger:** `TransactionLog` records every movement (`Credit`/`Debit`/`Refund`) per bet, with an
+  optional Solana `Signature` or operator `ExternalTransactionReference`; `BetDomainService` reads it for
+  reward/refund idempotency. There is **no Monkify commission** — winners receive the full pot.
 
 ## 9. The game mechanic (the "Typer")
 
