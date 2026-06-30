@@ -85,6 +85,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
 | `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Shipped              |
 | `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
+| `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -105,9 +106,18 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _None._ (Last shipped: **Operator wallet API (Model A / Regulated)** —
-  `feature/operator-wallet-api`, 2026-06-30; per-operator wallet debit/credit/refund adapters + mock,
-  unified `TransactionLog` (`RefundLog` dropped), commission removed. Trello #19.)
+- **DEV QOL Stuff** — spec `specs/dev-qol-stuff.md` (Ready for implementation). Trello:
+  https://trello.com/c/dHExBJHg #28. Branch `feature/dev-qol-stuff` in `monkify-backend`,
+  `monkify-front`, and `monkify-meta`. Three things: (A) remove `operatorId` from the game URL — the
+  frontend decodes the operator from the launch token's `iss`; the dev mint endpoint returns `{ token }`
+  only; (B) replace the silent dev auto-mint with two dev-only Crypto/Regulated launch buttons on a
+  token-less `/monkify/game` landing; (C) new `Monkify.Tests.Integration` project (Testcontainers:
+  Postgres/RabbitMQ/Redis) running representative session types end-to-end with free + paid (Solana
+  mocked) bets. On ship, the launch-URL example in `features/launch-token-validation.md` must drop the
+  `/<operatorId>` segment.
+  (Last shipped: **Operator wallet API (Model A / Regulated)** — `feature/operator-wallet-api`,
+  2026-06-30; per-operator wallet debit/credit/refund adapters + mock, unified `TransactionLog`
+  (`RefundLog` dropped), commission removed. Trello #19.)
   Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26;
   currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.
 
