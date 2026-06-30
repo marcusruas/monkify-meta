@@ -263,9 +263,9 @@ Algorithm:
 
 1. Read header `X-Launch-Token`. Missing/empty → **401 generic**.
 2. Parse JWT without trusting it; read `iss` (operator id). Unparseable → 401.
-3. Load operator (`Operators.FirstOrDefaultAsync(Id == iss)`); if not found, no `LaunchPublicKey`,
-   or `!ContractIsActive(UtcNow)` → 401. (Reuse the active-contract semantics; do **not** reveal
-   which check failed.)
+3. Load the operator via **`IOperatorService.GetActiveOperatorById(iss)`** — a **cached**,
+   contract-active lookup shared with the branding endpoint (§6.2a). If null or no `LaunchPublicKey`
+   → 401. (The service already filters to active contracts; do **not** reveal which check failed.)
 4. Validate signature (RS256) against `LaunchPublicKey`, and `exp`/`iat` with
    `ClockSkew = LaunchTokens.ClockSkewSeconds`. Any failure → 401.
 5. If the request path contains an operatorId segment that does **not** equal `iss` → 401.
@@ -277,9 +277,41 @@ shape, status 401) and `Log.Warning` the **real** reason + a correlation id. Nev
 to the client.
 
 > Validation uses `System.IdentityModel.Tokens.Jwt` / `Microsoft.IdentityModel.Tokens`
-> (`JwtSecurityTokenHandler` + `RsaSecurityKey` built from the PEM via
-> `RSA.ImportFromPem(...)`). Add the package to `Monkify.Api` (or `Monkify.Infrastructure` if the
-> handler logic is factored there for unit testing).
+> (`JwtSecurityTokenHandler` + `RsaSecurityKey`). Build the key from exported `RSAParameters` with
+> signature-provider caching **disabled** — caching a self-owned `RSA` causes an intermittent
+> `ObjectDisposedException` once that `RSA` is disposed (see `LaunchTokenService.CreateRsaKey`).
+
+### 6.2a Shared operator lookup — `IOperatorService` (cached)
+
+`monkify-backend/src/Monkify.Infrastructure/Services/Operators/{IOperatorService,OperatorService}.cs`
+(new). Extracts the operator-by-id lookup so it runs once per operator and is **cached** (the
+middleware runs on every operator-scoped request, so a per-request DB hit would be wasteful):
+
+```csharp
+public async Task<Operator?> GetActiveOperatorById(Guid operatorId)
+{
+    var key = CacheHelper.GenerateOperatorCacheSettings(operatorId);
+    if (_cache.TryGet<Operator>(key, out var cached) && cached != null) return cached;
+    var now = DateTime.UtcNow;
+    var op = await _context.Operators.AsNoTracking()
+        .FirstOrDefaultAsync(x => x.Id == operatorId
+            && x.ContractStartDate <= now
+            && (x.ContractEndDate == null || x.ContractEndDate.Value > now));
+    if (op == null) return null;
+    _cache.Set(key, op);
+    return op;
+}
+```
+
+- **`GetOperatorByIdHandler`** now delegates to this service and projects `OperatorDto` from the
+  returned entity (it no longer touches `ICacheService` / `MonkifyDbContext` directly).
+- The **middleware** uses it for the per-request operator load — the entity carries `LaunchPublicKey`
+  for signature validation.
+- Registered **scoped** in `DependencyInjection`. Uses the same `GenerateOperatorCacheSettings` key as
+  before (TTL ~3h), so there is one cached operator entry serving both branding and validation.
+- **Cache invalidation:** the dev seeding (`EnsureDevOperator`) calls `cache.Remove(...)` after it
+  creates/patches an operator, so a previously-cached operator without a `LaunchPublicKey` doesn't
+  linger and 401 every request until TTL.
 
 ### 6.3 Controllers — drop `x-operator-id`
 
@@ -578,8 +610,9 @@ flowchart TD
 | 7 | `Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs` | Operator mapping (PaymentModel/keys); remove `IsCrypto` map |
 | 8 | `Monkify.Infrastructure/Migrations/*AddOperatorLaunchAndPaymentModel*` | Add columns + backfill Crypto; drop `IsCrypto` |
 | 9 | `Monkify.Infrastructure/Services/Launch/ILaunchContext.cs` (+ impl) | **New** scoped accessor |
-| 10 | `Monkify.Infrastructure/DependencyInjection.cs` | Register `ILaunchContext` (scoped) |
-| 11 | `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **New** RS256 validation, 401 generic |
+| 9b | `Monkify.Infrastructure/Services/Operators/{I,}OperatorService.cs` | **New** cached `GetActiveOperatorById` (shared by middleware + branding) |
+| 10 | `Monkify.Infrastructure/DependencyInjection.cs` | Register `ILaunchContext`, `IOperatorService` (scoped) |
+| 11 | `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **New** RS256 validation via `IOperatorService`; 401 generic |
 | 12 | `Monkify.Api/Program.cs` | Register middleware before `MapControllers` |
 | 13 | `Monkify.Api/Controllers/SessionsController.cs` | Drop `x-operator-id`/`RequireOperatorId`; read `ILaunchContext` |
 | 14 | `Monkify.Api/Controllers/OperatorsController.cs` | (token-guarded by MW; no body change) |
@@ -589,6 +622,7 @@ flowchart TD
 | 18 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel`; drop `isCrypto` |
 | 19 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetRequest.cs` | Add `ExternalPlayerId` (from token sub) |
 | 20 | `Monkify.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs` | Expose `PaymentModel` |
+| 20b | `Monkify.Infrastructure/Handlers/Operators/GetOperatorById/GetOperatorByIdHandler.cs` | Delegate to `IOperatorService` (cached) |
 | 21 | `Monkify.Consumers/Program.cs` | Seed DEV Cassino (Crypto) + DEV Regulated Cassino + LaunchPublicKey; idempotent self-heal |
 | 22 | `Monkify.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Free bets count individually; wait out remaining window before start (§6.5b) |
 | 23 | `Monkify.Api/Launch/LaunchTokenService.cs` | RS256 sign/validate; key from `RSAParameters`, caching off (no disposed-RSA) |
