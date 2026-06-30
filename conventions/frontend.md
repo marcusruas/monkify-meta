@@ -11,12 +11,16 @@
 - **Shared types & enums live in `src/types/`** (`ActiveSession`, `BodySessionBet`,
   `OperatorBranding`, `DefaultResponse<T>`, …). Mirror backend enums exactly (codes must match).
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
-  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches **`x-operator-id`** from
-  the current route path (`src/utils/operatorRoute.ts`). Add new endpoints here and export them
-  from the default object.
+  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches the **`X-Launch-Token`**
+  (from the `src/utils/launchToken.ts` store); a response interceptor routes any `401` to `/error`.
+  Add new endpoints here and export them from the default object.
+- **Launch token:** `src/hooks/useLaunch.ts` captures the token from the launch URL fragment
+  (`…#launch_token=<jwt>`), strips it from the URL, and persists it per-tab in `sessionStorage`
+  (a fresh fragment overrides a stored one). In dev it can mint one via `POST /dev/launch-token`.
 - **Operator entry:** game routes live under `/monkify/game/:operatorId` (and `/play` for the live
-  game). Invalid GUID or inactive operator → `/error`. `useOperator.loadOperator()` fetches
-  `GET /operators/{id}` and applies `--color-secondary` when branding includes a color.
+  game). Invalid GUID, inactive operator, or any token `401` → `/error`. `useOperator.loadOperator()`
+  ensures a launch token, fetches `GET /operators/{id}`, exposes `paymentModel` (wallet UX is gated on
+  it), and applies `--color-secondary` when branding includes a color.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,

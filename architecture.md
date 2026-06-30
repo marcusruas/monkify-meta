@@ -55,9 +55,11 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 
 ### Layering & request pattern
 
-- HTTP request → **Controller** (e.g. `SessionsController`, `OperatorsController`) → constructs a
-  **MediatR request** → **handler** that extends `BaseRequestHandler` → **services**
-  (`SessionService`, payment processors) → **`MonkifyDbContext`**.
+- HTTP request → **`LaunchTokenValidationMiddleware`** (validates `X-Launch-Token`, sets
+  `ILaunchContext`) → **Controller** (`SessionsController`, `OperatorsController`, `PlayersController`,
+  dev-only `DevController`) → constructs a **MediatR request** → **handler** that extends
+  `BaseRequestHandler` → **services** (`SessionService`, `IOperatorService`, payment processors) →
+  **`MonkifyDbContext`**.
 - Controllers extend `BaseController`; responses are wrapped by `ProcessRequest(...)` into a
   standard `ApiResult<T>` shape (`{ data, messages }`). Validation failures bubble up via
   `IMessaging.ReturnValidationFailureMessage(...)`.
@@ -160,20 +162,28 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 ## 10. Multi-tenancy: Operators
 
 - `Operator` rows represent casino/betting platforms. `SessionParameters.OperatorId` is a **required**
-  FK — there is no house / operator-less mode.
-- Players enter at **`/monkify/game/<operatorId>`**. The frontend sends a required **`x-operator-id`**
-  HTTP header on every operator-scoped REST call (session GETs and bet POST). Missing header →
-  **HTTP 400** with a generic message.
-- Read handlers and bet creation scope data to the header operator (only if `ContractIsActive`).
-  Cross-operator bet attempts are refunded with vague errors.
+  FK — there is no house / operator-less mode. Operators carry `PaymentModel` (`Regulated` | `Crypto`)
+  and a `LaunchPublicKey`.
+- Players enter at **`/monkify/game/<operatorId>`**. Operator + player identity arrive in a
+  casino-signed **launch token** (`X-Launch-Token`, RS256), validated by
+  `LaunchTokenValidationMiddleware` in `Monkify.Api` on every operator-scoped REST call
+  (`/sessions/*`, `/operators/*`, `/players/*`). The old `x-operator-id` header is **removed**; any
+  token failure → generic **HTTP 401** (real reason logged server-side only). See
+  `features/launch-token-validation.md`.
+- Read handlers and bet creation scope data to the token's operator (only if `ContractIsActive`; the
+  active-operator lookup is cached via `IOperatorService`). Cross-operator attempts are rejected with
+  vague errors. Player identity: regulated = token `sub`; crypto = wallet in the body.
 - Expired, not-yet-started, or unknown operators are hidden behind generic "not found / unavailable"
-  messaging (never "contract expired"). Branding is served by **`GET /operators/{id}`** only (no list).
+  messaging (never "contract expired"). Branding is served by **`GET /operators/{id}`** only (no list;
+  token-guarded; also returns `paymentModel`).
 - Mid-session contract expiry: the running session finishes; new bets and new sessions for that
   operator are blocked.
-- SignalR hubs use session id only — no operator header validation on websockets.
-- Non-prod: `Monkify.Consumers` seeds **DEV Cassino** and default session parameters when no operators
-  exist.
-- See `specs/operator-feature.md` for full design; `features/operators.md` for the distilled version.
+- SignalR hubs use session id only — no token validation on websockets.
+- Non-prod: `Monkify.Consumers` seeds **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
+  (Regulated) with a mock launch keypair; a dev-only `POST /dev/launch-token` mints tokens (disabled in
+  production).
+- See `specs/operator-feature.md` + `specs/launch-token-validation.md` for full design;
+  `features/operators.md` and `features/launch-token-validation.md` for the distilled versions.
 
 ## 11. Frontend (`monkify-front`)
 
@@ -192,9 +202,10 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - **Routing:** `/monkify/game/:operatorId` → session select; `/monkify/game/:operatorId/play` → live
   game; invalid/missing operator id or `/` → `/error`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
-  `VUE_APP_API_BASE_URL` and attaches **`x-operator-id`** from the current route path when present.
-  Endpoints: `GET /sessions/active-types`, `GET /sessions/{id}`, `POST /sessions/{id}/bets`,
-  `GET /operators/{id}`.
+  `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
+  `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:
+  `GET /sessions/active-types`, `GET /sessions/{id}`, `POST /sessions/{id}/bets`, `GET /operators/{id}`,
+  `PATCH /players/preferences`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, and incoming bets.

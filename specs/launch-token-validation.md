@@ -1,7 +1,9 @@
 # Monkify — "Launch token validation (signed casino launch flow)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Launch token validation (signed casino launch flow)](https://trello.com/c/LPNm2l1C) (2026-06-30).
+> **Status: Shipped** — merged to `main` via `feature/launch-token-validation` on 2026-06-30.
+> Runtime behaviour is summarized in `features/launch-token-validation.md`; this doc is the
+> authoritative design archive. (Refined via Trello card
+> [Launch token validation](https://trello.com/c/LPNm2l1C).)
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Replace the trust-on-URL-params model — where any caller can claim any operator via

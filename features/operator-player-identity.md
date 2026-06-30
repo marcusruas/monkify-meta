@@ -2,24 +2,30 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/operator-player-identity.md`
 > (merged via `feature/operator-player-identity` on 2026-06-29).
+>
+> **Updated (2026-06-30) by `features/launch-token-validation.md`:** `OperatorPlayer.IsCrypto` is
+> **removed** (column dropped). Crypto-ness is now a property of the operator — `Operator.PaymentModel`
+> (`Regulated` | `Crypto`) — and player identity arrives via the signed launch token (regulated: token
+> `sub`; crypto: wallet in the body), not from trusted body fields.
 
 ## What it does
 
 Introduces **operator-scoped player identity** for crypto-native and regulated B2B deployments.
 Crypto wallet pubkeys and casino external player ids both live on `OperatorPlayer.ExternalPlayerId`,
-distinguished by `IsCrypto`. Identified bets link via `Bet.OperatorPlayerId`; anonymous free bets
-(with no wallet) keep a NULL FK.
+distinguished by the owning **`Operator.PaymentModel`**. Identified bets link via
+`Bet.OperatorPlayerId`; anonymous free bets (with no wallet) keep a NULL FK.
 
 ## Core rules
 
 - **Unified identity:** one `OperatorPlayer` row per `(OperatorId, ExternalPlayerId)`; unique index
-  enforces no duplicates. No PII columns on `OperatorPlayer`.
+  enforces no duplicates. No PII columns on `OperatorPlayer`. (`IsCrypto` removed — see banner.)
 - **`Bet.Wallet` removed:** persisted player identity is only via `OperatorPlayerId` (nullable).
   `RefundLog.Wallet` remains for on-chain refund audit rows.
-- **Crypto path:** register-bet body still sends `wallet`; backend upserts
-  `OperatorPlayer(ExternalPlayerId=wallet, IsCrypto=true)` and sets `Bet.OperatorPlayerId`.
-- **Regulated path:** body sends `externalPlayerId` (and optional `displayName`); upsert with
-  `IsCrypto=false`. Currency defaults to **USD** on create/backfill — not accepted on register-bet.
+- **Crypto path** (`Operator.PaymentModel == Crypto`): register-bet body sends `wallet`; backend
+  upserts `OperatorPlayer(ExternalPlayerId=wallet)` and sets `Bet.OperatorPlayerId`.
+- **Regulated path** (`Operator.PaymentModel == Regulated`): player id is the launch-token `sub`
+  (body identity ignored); upsert by that id. `DisplayName`/`Currency` are set via the token-gated
+  prefs endpoint, not register-bet. Currency defaults to **USD**.
 - **Anonymous free bet:** no wallet and no `externalPlayerId` → no `OperatorPlayer` row;
   `Bet.OperatorPlayerId` stays NULL.
 - **Paid bet without identity:** rejected (unchanged).

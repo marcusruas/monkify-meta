@@ -41,7 +41,9 @@ bets at the API and hide the UI toggle.
   `MinimumNumberOfPlayers` on their own with several free bets.
 - **Session types:** all types (race + lottery). Dev seed sets `AllowFreeBet = true` on all six
   default session types; DB default for new rows remains `false`.
-- **Operators:** unchanged — `x-operator-id` still required; operator must match session.
+- **Operators:** a valid **launch token** (`X-Launch-Token`) is required and its operator must match
+  the session; anonymous free bets in dev use a DEV-minted token (see
+  `features/launch-token-validation.md`). Wallet-skip/free logic is keyed on `Operator.PaymentModel`.
 
 ## Key code touchpoints
 

@@ -14,8 +14,16 @@
   `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **Controllers are thin:** extend `BaseController`, build a MediatR request, return
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
-  `IMessaging.ReturnValidationFailureMessage(...)`. Operator-scoped session endpoints bind
-  `[FromHeader(Name = "x-operator-id")]` and reject missing values with HTTP 400 before MediatR.
+  `IMessaging.ReturnValidationFailureMessage(...)`.
+- **Operator/player identity comes from the launch token, not headers.**
+  `LaunchTokenValidationMiddleware` (`Monkify.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
+  on operator-scoped paths and populates the scoped `ILaunchContext` (`{ operatorId, externalPlayerId }`);
+  controllers read it instead of binding a header. Any token failure → generic **HTTP 401** (vague;
+  real reason logged with a correlation id). The old `x-operator-id` `[FromHeader]` binding is gone.
+- **Cached operator lookups:** use `IOperatorService.GetActiveOperatorById` (cached under the
+  per-operator key) rather than querying `Operators` directly — it's shared by the middleware,
+  `GetOperatorByIdHandler`, and `RegisterBetHandler`. When signing/validating JWTs, build the
+  `RsaSecurityKey` from exported `RSAParameters` with provider caching off (avoids a disposed-RSA error).
 - **Async messaging via MassTransit/RabbitMQ:** consumers in `Monkify.Infrastructure/Consumers/…`
   (one receive endpoint each), registered in `Monkify.Consumers/Program.cs`. Publish via
   `IRabbitMQService`.

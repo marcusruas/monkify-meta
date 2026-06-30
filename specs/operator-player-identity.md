@@ -3,6 +3,10 @@
 > **Status: Shipped** — merged to `main` via `feature/operator-player-identity` (2026-06-29).
 > Trello: [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG).
 > Design archive — runtime behavior is summarized in `features/operator-player-identity.md`.
+>
+> **Partially superseded (2026-06-30):** `OperatorPlayer.IsCrypto` (referenced throughout this spec)
+> was **removed** by the launch-token feature; crypto-ness is now `Operator.PaymentModel`, and player
+> identity arrives via the launch token. See `specs/launch-token-validation.md`.
 > Conversation context in the same chat session is authoritative for the unified-model decisions.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >

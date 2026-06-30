@@ -2,6 +2,11 @@
 
 > **Status: Shipped** — merged to `main` via branch `feature/operators` on 2026-06-26.
 > This document is the authoritative design archive; runtime behavior is summarized in `features/operators.md`.
+>
+> **Partially superseded (2026-06-30):** the `x-operator-id` header described below was **removed** by
+> the launch-token feature. Operator/player identity now comes from a signed `X-Launch-Token`
+> (see `specs/launch-token-validation.md` / `features/launch-token-validation.md`). Operators also
+> gained `PaymentModel` and `LaunchPublicKey`. The tenancy/contract/branding design here still applies.
 
 > Status: Design / Implementation spec. This document describes **what to build**. It is not the implementation.
 > Repos affected: `monkify-backend` (.NET), `monkify-front` (Vue 3), and this doc in `monkify-meta`.

@@ -77,11 +77,12 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
 | `features/operator-player-identity.md` | Unified `OperatorPlayer` model; remove `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
 | `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
+| `features/launch-token-validation.md` | Signed casino launch flow (`X-Launch-Token`); `Operator.PaymentModel`; replaces `x-operator-id` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
 | `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
-| `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Ready                |
+| `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -102,14 +103,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **Launch token validation (signed casino launch flow)** — RS256 signed launch token replaces the
-  trusted `x-operator-id` header; adds `Operator.PaymentModel` (Regulated | Crypto), drops
-  `OperatorPlayer.IsCrypto`, and a token-gated player-preferences endpoint.
-  - **Spec:** `specs/launch-token-validation.md` (Ready for implementation)
-  - **Trello:** https://trello.com/c/LPNm2l1C (list: Specs created)
-  - **Branch:** `feature/launch-token-validation` in `monkify-backend`, `monkify-front`,
-    `monkify-meta`.
-  - **Spun-off:** currency conversion / FX rendering → https://trello.com/c/ZyJViMKI (#25, Backlog).
+- _None._ (Last shipped: **Launch token validation** — `feature/launch-token-validation`, 2026-06-30.
+  Follow-up in Backlog: currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.)
 
 ## The 60-second mental model
 
