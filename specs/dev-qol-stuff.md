@@ -406,6 +406,7 @@ sequenceDiagram
 | 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_session_tests.bat`) |
 | 7 | `src/Monkify.sln` | Add the new project + build configs |
 | 8 | `scripts/create_local_environment.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
+| 9 | `src/Monkify.Api/Dockerfile` & `src/Monkify.Consumers/Dockerfile` | Add `COPY` for `Monkify.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
 
 ### 10.2 Frontend (`monkify-front`)
 
