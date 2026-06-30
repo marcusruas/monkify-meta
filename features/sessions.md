@@ -139,11 +139,15 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `lotteryParame
   flags allow (see `free-bet-mode.md`). Validates choice (§9), persists the bet, and — for
   non-lottery types — publishes a `BetPlacedEvent`. A `BetNotificationEvent` pushes the bet to the
   recent-bets feed.
-5. **Try to start** (`BetPlacedConsumer`): once `MinimumWaitPeriodForBets` has elapsed and the
-  distinct-player count ≥ `MinimumNumberOfPlayers`, it calls `TryStartSession`
-   (`WaitingBets → SessionStarting`, sets `StartDate`) and, after the start delay, publishes
-   `RunSessionEvent`. If a **lottery** is under-subscribed at draw time, every bet is refunded
-   (`RefundInvalidBetEvent`) and the session is marked `NotEnoughPlayersToStart`.
+5. **Try to start** (`BetPlacedConsumer`): **player validation runs first** — it counts distinct
+  players (free bets each count **individually**; paid/identified bets de-duplicate by
+  `OperatorPlayerId`). If the count ≥ `MinimumNumberOfPlayers`, the consumer **waits out the remaining
+  `MinimumWaitPeriodForBets`** (so the session always honours its full betting window even when it
+  fills early) and then calls `TryStartSession` (`WaitingBets → SessionStarting`, sets `StartDate`,
+  via a concurrency-safe conditional update so only one caller wins); after the start delay it
+  publishes `RunSessionEvent`. If players are still short while the window is open, it waits for more
+  bets. If a **lottery** is under-subscribed once the window has elapsed, every paid bet is refunded
+  (`RefundInvalidBetEvent`) and the session is marked `NotEnoughPlayersToStart`.
 6. **Run the round** (`RunSessionConsumer` → `SessionService.RunSession`): status → `InProgress`,
   the `MonkifyTyper` streams characters over SignalR (`…/Terminal`, `…/DisplaySpeed`) until a bet's
    choice appears, then status → `Ended`. Winning bets are flagged `NeedsRewarding`, the **next

@@ -26,7 +26,8 @@ distinguished by `IsCrypto`. Identified bets link via `Bet.OperatorPlayerId`; an
 - **Duplicate bets:** when `OperatorPlayerId` set → `(SessionId, OperatorPlayerId, Choice)`;
   when NULL (anonymous free) → `(SessionId, Choice)` only.
 - **Min-player count:** distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` per bet
-  (`BetPlacedConsumer`).
+  (`BetPlacedConsumer`). **Exception — free bets always count individually** (`Bet.Id`), even when they
+  resolve to the same `OperatorPlayer`, so a single tester can start a session (see `free-bet-mode.md`).
 - **Solana validate/reward/refund:** resolve payout address from `OperatorPlayer.ExternalPlayerId`
   via `Bet.GetWalletAddress()` — not from a bet column.
 - **API/DTOs:** bet responses and SignalR events expose `externalPlayerId` (nullable). Register-bet

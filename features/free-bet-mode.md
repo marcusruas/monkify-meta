@@ -34,8 +34,11 @@ bets at the API and hide the UI toggle.
   `Value == 0`.
 - **Duplicates:** when `OperatorPlayerId` set — `(sessionId, operatorPlayerId, choice)`. Anonymous
   free (NULL FK) — `(sessionId, choice)` only.
-- **Lottery min players:** distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` per bet
-  in `BetPlacedConsumer`.
+- **Min players (free bets count individually):** in `BetPlacedConsumer` every **free** bet counts as
+  an **individual player** (distinct key = `Bet.Id`), even when the bets resolve to the **same**
+  `OperatorPlayer` (e.g. a regulated operator's token `sub`, or one wallet placing several free bets).
+  Paid/identified bets still de-duplicate by `OperatorPlayerId`. So one user can satisfy
+  `MinimumNumberOfPlayers` on their own with several free bets.
 - **Session types:** all types (race + lottery). Dev seed sets `AllowFreeBet = true` on all six
   default session types; DB default for new rows remains `false`.
 - **Operators:** unchanged — `x-operator-id` still required; operator must match session.
@@ -50,8 +53,8 @@ bets at the API and hide the UI toggle.
 - Handler: `RegisterBetHandler` — gate, skip payment validation, alternate duplicate keys, no refund
   event for invalid free bets.
 - Domain: `BetDomainService.ChoiceIsValidForSession(..., isFreeBet)` — amount rules for free vs paid.
-- Consumers: `BetPlacedConsumer` (player count + skip lottery refund events),
-  `RewardSessionConsumer` (skip Solana for free winners),
+- Consumers: `BetPlacedConsumer` (free bets counted individually for min-players; skip lottery refund
+  events), `RewardSessionConsumer` (skip Solana for free winners),
   `RefundInvalidBetConsumer` (skip when amount 0).
 - DTO: `SessionParametersDto.AllowFreeBet` on `GET /sessions/active-types`.
 - Migration: `AddAllowFreeBetToSessionParameters`. Seed: `DefaultSessionParameters.cs`.

@@ -329,6 +329,30 @@ with **operator-driven** logic:
   handler never calls Solana validation (no `paymentSignature`). Free-bet gating
   (`_settings.Sessions.AllowFreeBets`, `Parameters.AllowFreeBet`) is unchanged.
 
+### 6.5b `BetPlacedConsumer` — free-bet player count & start timing
+
+File: `monkify-backend/src/Monkify.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`
+
+Two changes (surfaced when testing the regulated dev operator, whose token `sub` makes every bet
+resolve to the **same** `OperatorPlayer`):
+
+- **Free bets count as individual players.** The distinct-player key becomes
+  `IsFreeBet(bet) ? "free:{Bet.Id}" : (OperatorPlayerId?.ToString() ?? Bet.Id)`. Previously free bets
+  with a resolved `OperatorPlayerId` collapsed into one player, so a solo tester could never reach
+  `MinimumNumberOfPlayers`. Now each free bet is its own player; paid/identified bets still
+  de-duplicate by `OperatorPlayerId`.
+- **Wait out the remaining window instead of returning early.** Player validation now runs **first**.
+  When the count meets `MinimumNumberOfPlayers`, the consumer waits the remaining
+  `MinimumWaitPeriodForBets` (if any) and then calls `TryStartSession`, rather than returning when the
+  window hasn't elapsed (the old behaviour relied on a *later* bet to trigger the start, so a session
+  that filled early but received no further bets never started). Under-subscribed handling (and the
+  lottery refund + recreate path) still only fires once the window has elapsed. `TryStartSession` is a
+  concurrency-safe conditional update, so multiple bet events that each wait-then-start are idempotent.
+
+Tests: `BetPlacedHandlerTests` — add "free bets sharing an OperatorPlayer count individually" and
+"enough players but window not elapsed → waits then starts"; the old "min time not elapsed → no start"
+test is replaced.
+
 ### 6.6 `OperatorDto` — expose payment model
 
 File: `monkify-backend/src/Monkify.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs`
@@ -565,14 +589,17 @@ flowchart TD
 | 18 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel`; drop `isCrypto` |
 | 19 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetRequest.cs` | Add `ExternalPlayerId` (from token sub) |
 | 20 | `Monkify.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs` | Expose `PaymentModel` |
-| 21 | `Monkify.Consumers/Program.cs` | Seed DEV Cassino (Crypto) + DEV Regulated Cassino + LaunchPublicKey |
-| 22 | `Monkify.Tests/**` | Update `BetTestFactory`, register-bet, add middleware/prefs/dev tests |
+| 21 | `Monkify.Consumers/Program.cs` | Seed DEV Cassino (Crypto) + DEV Regulated Cassino + LaunchPublicKey; idempotent self-heal |
+| 22 | `Monkify.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Free bets count individually; wait out remaining window before start (§6.5b) |
+| 23 | `Monkify.Api/Launch/LaunchTokenService.cs` | RS256 sign/validate; key from `RSAParameters`, caching off (no disposed-RSA) |
+| 24 | `Monkify.Tests/**` | Update `BetTestFactory`, register-bet, bet-placed; add middleware/prefs/dev/launch-token tests |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/hooks/useLaunch.ts` | **New** — capture/store/strip fragment token; dev mint fallback |
+| 1 | `src/hooks/useLaunch.ts` | **New** — capture/store/strip fragment token; fragment overrides stored; dev mint fallback |
+| 1b | `src/utils/launchToken.ts` | **New** — token store (memory + `sessionStorage`, per-tab) read lazily by the interceptor |
 | 2 | `src/services/mainService.ts` | Send `X-Launch-Token`; add `updatePlayerPreferences`; 401 → `/error` |
 | 3 | `src/hooks/useOperator.ts` | Surface `paymentModel`; 401 handling |
 | 4 | `src/hooks/useSession.ts` | Gate wallet/`sendToken` on `paymentModel`; regulated bet body |
