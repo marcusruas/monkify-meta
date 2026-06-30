@@ -29,11 +29,16 @@
   changed tests on every behavior change (see `constraints.md`).
 - **Running tests — always use `scripts/run_tests.bat`.** Whenever you need to run the test suite to
   assert changes made to `monkify-backend`, run `scripts/run_tests.bat` (it executes
-  `dotnet test` over the unit tests). It **excludes `ProductionSessionTests`** on purpose — that is
-  the long-running typer-pacing Monte Carlo suite, which paces each simulated session in real
-  wall-clock time and is not part of the normal change-assertion loop.
-- **Typer-pacing metrics suite:** run `ProductionSessionTests` on demand via
-  `scripts/run_production_session_tests.bat`. It runs only that suite with the detailed console
+  `dotnet test` over the unit tests). It **excludes the `ProductionSessions` metrics tests** on
+  purpose — that is the long-running typer-pacing Monte Carlo suite, which paces each simulated
+  session in real wall-clock time and is not part of the normal change-assertion loop.
+- **Typer-pacing metrics suite:** lives under the `…Domain.ProductionSessions` namespace as **one
+  test class per default session parameter** (named for the parameters they exercise — character
+  count, charset, race/preset/lottery). These tests measure each session's real paced wall-clock
+  duration, so xUnit **collection parallelization is disabled** (`xunit.runner.json`): running games
+  in parallel oversubscribes the CPU and inflates the measured durations past the bounds. The safe
+  concurrency (the `RunCount` sessions within each case) still runs concurrently. Run it on demand
+  via `scripts/run_production_session_tests.bat`. It runs only that suite with the detailed console
   logger, captures a `.trx`, and (via `scripts/generate_production_report.ps1`) renders a **PDF
   report** that opens automatically when the run finishes. The report lists, per case, pass/fail +
   duration, the per-session metrics (duration, characters typed, average char/s, winner) and the
