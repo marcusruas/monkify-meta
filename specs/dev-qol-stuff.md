@@ -83,9 +83,20 @@ existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
   - `ConnectionStrings__Redis` → the Redis container.
   Lower `GeneralSettings:Sessions:MinimumWaitPeriodForBets` (and related worker intervals) in the test
   config so race sessions start promptly instead of waiting the production window.
-- **Frontend:** no new env var. Dev gating reuses `process.env.NODE_ENV !== 'production'` (same guard
-  the current `mintDevToken` uses). Codebase convention is **`VUE_APP_*`** (Vue CLI), not `VITE_*` —
-  not needed here but keep in mind if a flag is added.
+- **Frontend:** new env flag **`VUE_APP_DEV_LAUNCH`** (codebase convention is **`VUE_APP_*`**, Vue CLI,
+  not `VITE_*`) gates the dev landing/buttons — `devLaunchEnabled = process.env.VUE_APP_DEV_LAUNCH !==
+  'false'` in `src/constants/featureFlags.ts`, mirroring `allowFreeBets`. Default **on** (so local
+  `yarn serve` works with zero config). **Do not gate on `NODE_ENV`** — the docker local environment
+  builds the SPA in production mode (`yarn build`), so a `NODE_ENV` guard would hide the buttons
+  exactly where they are needed.
+  - **Env files (same convention as `VUE_APP_ALLOW_FREE_BETS`):** `.env.production` and the `*.local`
+    files are **git-ignored** (ops/deploy-managed); the committed template is **`.env.example`**, which
+    documents `VUE_APP_DEV_LAUNCH`. The **production deploy must set `VUE_APP_DEV_LAUNCH=false`** in its
+    `.env.production` (so `/monkify/game` → `/error`).
+  - **Local docker env:** `scripts/create_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true`
+    into the generated `.env.production.local` (Vue CLI's highest-priority file → overrides
+    `.env.production`). The api/consumers containers run `ASPNETCORE_ENVIRONMENT=Development`, so the
+    `/dev/launch-token` endpoint the buttons call is available there.
 
 ---
 
@@ -274,8 +285,8 @@ New routes:
 - **Remove** the `requireValidOperator` `beforeEnter` guard (there is no `:operatorId` to validate).
   Operator/token presence is already enforced by `useOperator.loadOperator` (it redirects to `/error`
   when no token / no operator resolves).
-- The dev-landing route must be reachable **without** a token; gate its content on
-  `process.env.NODE_ENV !== 'production'` and redirect to `/error` in production.
+- The dev-landing route must be reachable **without** a token; gate it on the **`devLaunchEnabled`**
+  flag (`VUE_APP_DEV_LAUNCH !== 'false'`, see §5) and redirect to `/error` when disabled (production).
 - **Production casino launch landing.** Because `/monkify/game` is the dev landing (prod → `/error`),
   the real casino launch lands on the **session-select route**: the new launch URL is
   **`…/monkify/game/sessions#launch_token=<jwt>`** (replacing `…/monkify/game/<operatorId>#launch_token=<jwt>`).
@@ -325,8 +336,8 @@ New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component ren
   setLaunchToken(data.token);            // from launchToken.ts
   router.push({ name: 'Session' });      // session-select; useOperator decodes iss + loads branding
   ```
-- Guard: if `process.env.NODE_ENV === 'production'`, the route redirects to `/error` and the buttons
-  are never rendered.
+- Guard: when `devLaunchEnabled` is false (production — `VUE_APP_DEV_LAUNCH=false`), `/monkify/game`
+  redirects to `/error` and the buttons are never rendered/shipped (see §5).
 
 ---
 
@@ -394,6 +405,7 @@ sequenceDiagram
 | 5 | `src/Monkify.Api/Program.cs` & `src/Monkify.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
 | 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_session_tests.bat`) |
 | 7 | `src/Monkify.sln` | Add the new project + build configs |
+| 8 | `scripts/create_local_environment.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -407,6 +419,8 @@ sequenceDiagram
 | 6 | `src/pages/GamePage.vue` | `router.push({ name: 'Session' })` (no params) |
 | 7 | `src/components/game-selection/GameTypes.vue` | `chooseSession` push without `operatorId` param |
 | 8 | `src/pages/DevLandingPage.vue` | **New** dev-only landing with Crypto/Regulated buttons |
+| 9 | `src/constants/featureFlags.ts` | Add `devLaunchEnabled` (`VUE_APP_DEV_LAUNCH !== 'false'`) |
+| 10 | `.env.example` (committed) | Document `VUE_APP_DEV_LAUNCH`. NB `.env.production` is git-ignored/ops-managed — production deploy must set `VUE_APP_DEV_LAUNCH=false` there |
 
 ### 10.3 New integration csproj (mirror of `Monkify.Tests.csproj`)
 
@@ -506,7 +520,9 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
 3. Click **Crypto** → lands on the session-select page, branded for `DEV Cassino`, with a token in
    `sessionStorage` and **no** `operatorId` in the URL. Play a session.
 4. Click **Regulated** (fresh tab) → branded for `DEV Regulated Cassino`; bet without a wallet.
-5. Open `/monkify/game` with `NODE_ENV=production` build → redirected to `/error`, no buttons.
+5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/monkify/game` →
+   redirected to `/error`, no buttons. (The docker local env sets it back to `true` via
+   `create_local_environment.bat`, so the buttons appear there.)
 6. `cd backend && scripts/run_tests.bat` → passes, integration suite **not** run.
 7. `scripts/run_integration_tests.bat` → containers spin up, sessions run, suite passes.
 
