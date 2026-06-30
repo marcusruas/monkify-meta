@@ -86,7 +86,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 16 | **All token failures → generic 401** + vague message; real reason + correlationId → server logs only. FE routes to `/error`. Token expiring mid-play → same path (re-launch). |
 | 17 | **SignalR unchanged** — no token on websockets (session-id scoping only). |
 | 18 | **Migration backfills `PaymentModel = Crypto`** for all existing operators; DEV Cassino = Crypto. New operators must be provisioned explicitly with `PaymentModel` + `LaunchPublicKey`. |
-| 19 | **Dev convenience (assumption E):** seed a second dev operator `DEV Regulated Cassino` (`PaymentModel = Regulated`) so the regulated path is testable locally; the dev mint endpoint can mint for either dev operator. |
+| 19 | **Dev convenience (assumption E):** seed a second dev operator `DEV Regulated Cassino` (`PaymentModel = Regulated`) so the regulated path is testable locally. The dev mint endpoint takes **no parameters** — it resolves the `DEV Cassino` (crypto) operator from the DB and returns `{ token, operatorId }`. |
 
 ---
 
@@ -368,19 +368,24 @@ New controller `monkify-backend/src/Monkify.Api/Controllers/DevController.cs`
 
 ```csharp
 [HttpPost("launch-token")]
-public IActionResult MintLaunchToken([FromBody] DevMintRequest body)
+public async Task<IActionResult> MintLaunchToken()
 {
     if (env.IsProduction()) return NotFound();
-    // body: { Guid OperatorId; string? ExternalPlayerId; int? TtlSeconds; }
+    // Takes NO parameters — resolve the seeded dev operator ("DEV Cassino") from the DB.
+    var op = await context.Operators.AsNoTracking().FirstOrDefaultAsync(x => x.Name == "DEV Cassino");
+    if (op == null) return NotFound();
     // Sign an RS256 JWT with LaunchTokens.DevSigningPrivateKeyPem:
-    //   iss = OperatorId, sub = ExternalPlayerId ?? "", iat = now, exp = now + (TtlSeconds ?? 3600), jti = Guid
-    // Return { token }.
+    //   iss = op.Id, sub = "" (crypto), iat = now, exp = now + 3600, jti = Guid
+    // Return { token, operatorId = op.Id }.
 }
 ```
 
-The dev operators (DEV Cassino = Crypto; DEV Regulated Cassino = Regulated) are seeded with
-`LaunchPublicKey = LaunchTokens.DevOperatorPublicKeyPem`, so middleware validates dev-minted tokens
-against the seeded public key. Inject `IHostEnvironment` + `GeneralSettings`.
+The endpoint **takes no request body** — it looks up the seeded dev operator and returns **both the
+token and that operator's id** (`{ token, operatorId }`). The dev operators (DEV Cassino = Crypto;
+DEV Regulated Cassino = Regulated) are seeded with
+`LaunchPublicKey = LaunchTokens.DevOperatorPublicKeyPem`, so the middleware validates dev-minted
+tokens against the seeded public key. Inject `IHostEnvironment`, `GeneralSettings`, and
+`MonkifyDbContext`.
 
 ### 6.9 Seeding — `Monkify.Consumers/Program.cs`
 
@@ -420,8 +425,8 @@ New `monkify-front/src/hooks/useLaunch.ts` + module-level `ref` store (singleton
 - **Strip** the token from the URL: `history.replaceState(null, '', window.location.pathname + window.location.search)`.
 - Expose `launchToken` (getter) and `setLaunchToken`.
 - **Dev fallback:** when `process.env.NODE_ENV !== 'production'` and no token is present, call the
-  dev mint endpoint (`POST /dev/launch-token` with the dev operator id from the route) to obtain one,
-  so local dev works without a real casino redirect.
+  dev mint endpoint (`POST /dev/launch-token`, **no body** — it returns `{ token, operatorId }` for
+  the seeded dev operator) so local dev works without a real casino redirect.
 
 ### 7.2 `mainService.ts` interceptor — send `X-Launch-Token`
 
