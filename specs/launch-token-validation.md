@@ -420,16 +420,20 @@ File: `monkify-backend/src/Monkify.Consumers/Program.cs` → `CreateDefaultOpera
 
 ### 7.1 Launch token capture — new `useLaunch` composable
 
-New `monkify-front/src/hooks/useLaunch.ts` + module-level `ref` store (singleton, like other hooks):
+New `monkify-front/src/hooks/useLaunch.ts` + a small token store (`src/utils/launchToken.ts`):
 
 - On game-route entry, read `window.location.hash` for `launch_token=<jwt>` (the fragment never hits
-  the server). Store it in a module-level `ref<string | null>` held **in memory only** (not
-  localStorage).
+  the server). A **fresh fragment token always wins** over any previously stored token (new launch /
+  possibly a different operator).
+- Persist the token in **`sessionStorage`** (per-tab, cleared on tab close — not `localStorage`), so
+  it survives reloads / hard navigations within the launch session. The token is short-lived. The
+  request interceptor reads it lazily, so it's attached regardless of composable timing.
 - **Strip** the token from the URL: `history.replaceState(null, '', window.location.pathname + window.location.search)`.
-- Expose `launchToken` (getter) and `setLaunchToken`.
-- **Dev fallback:** when `process.env.NODE_ENV !== 'production'` and no token is present, call the
-  dev mint endpoint (`POST /dev/launch-token`, **no body** — it returns `{ token, operatorId }` for
-  the seeded dev operator) so local dev works without a real casino redirect.
+- Expose `getLaunchToken` / `setLaunchToken`.
+- **Dev fallback:** when `process.env.NODE_ENV !== 'production'` and no token is present (no fragment,
+  none stored), call the dev mint endpoint (`POST /dev/launch-token?paymentModel=Crypto|Regulated` —
+  it returns `{ token, operatorId }`) so local dev works without a real casino redirect. Defaults to
+  Crypto; a mismatched operator id in the path still yields a vague 401 (→ `/error`).
 
 ### 7.2 `mainService.ts` interceptor — send `X-Launch-Token`
 
