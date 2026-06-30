@@ -81,6 +81,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
 | `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
+| `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -98,6 +99,17 @@ see "Skills — ensure installed" in `AGENTS.md`.
 | `skills/monkify-create-spec`  | `/monkify-create-spec`  | From a **Refined** card: ingest card + chat context, explore code, create `feature/<slug>` branches, write `specs/<slug>.md`, update INDEX, move card to **Specs created**. Needs Trello MCP.                                              |
 | `skills/monkify-ship-feature` | `/monkify-ship-feature` | Merge a feature branch into `main` (each affected repo), verify backend tests, sync the knowledge base from the linked Trello card (**branch + spec read from card Implementation section**), spec, and merged code; move card to **Implemented**. |
 
+
+## Feature currently in flight
+
+- **Launch token validation (signed casino launch flow)** — RS256 signed launch token replaces the
+  trusted `x-operator-id` header; adds `Operator.PaymentModel` (Regulated | Crypto), drops
+  `OperatorPlayer.IsCrypto`, and a token-gated player-preferences endpoint.
+  - **Spec:** `specs/launch-token-validation.md` (Ready for implementation)
+  - **Trello:** https://trello.com/c/LPNm2l1C (list: Specs created)
+  - **Branch:** `feature/launch-token-validation` in `monkify-backend`, `monkify-front`,
+    `monkify-meta`.
+  - **Spun-off:** currency conversion / FX rendering → https://trello.com/c/ZyJViMKI (#25, Backlog).
 
 ## The 60-second mental model
 
