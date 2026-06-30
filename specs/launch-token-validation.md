@@ -86,7 +86,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 16 | **All token failures → generic 401** + vague message; real reason + correlationId → server logs only. FE routes to `/error`. Token expiring mid-play → same path (re-launch). |
 | 17 | **SignalR unchanged** — no token on websockets (session-id scoping only). |
 | 18 | **Migration backfills `PaymentModel = Crypto`** for all existing operators; DEV Cassino = Crypto. New operators must be provisioned explicitly with `PaymentModel` + `LaunchPublicKey`. |
-| 19 | **Dev convenience (assumption E):** seed a second dev operator `DEV Regulated Cassino` (`PaymentModel = Regulated`) so the regulated path is testable locally. The dev mint endpoint takes **no parameters** — it resolves the `DEV Cassino` (crypto) operator from the DB and returns `{ token, operatorId }`. |
+| 19 | **Dev convenience (assumption E):** seed a second dev operator `DEV Regulated Cassino` (`PaymentModel = Regulated`) so the regulated path is testable locally. The dev mint endpoint takes a `paymentModel` query param (`Crypto` default \| `Regulated`) to pick which dev operator to mint for, and returns `{ token, operatorId }`. |
 
 ---
 
@@ -368,21 +368,24 @@ New controller `monkify-backend/src/Monkify.Api/Controllers/DevController.cs`
 
 ```csharp
 [HttpPost("launch-token")]
-public async Task<IActionResult> MintLaunchToken()
+public async Task<IActionResult> MintLaunchToken([FromQuery] OperatorPaymentModel paymentModel = OperatorPaymentModel.Crypto)
 {
     if (env.IsProduction()) return NotFound();
-    // Takes NO parameters — resolve the seeded dev operator ("DEV Cassino") from the DB.
-    var op = await context.Operators.AsNoTracking().FirstOrDefaultAsync(x => x.Name == "DEV Cassino");
+    // Pick the seeded dev operator by payment model (default Crypto).
+    var name = paymentModel == OperatorPaymentModel.Regulated ? "DEV Regulated Cassino" : "DEV Cassino";
+    var op = await context.Operators.AsNoTracking().FirstOrDefaultAsync(x => x.Name == name);
     if (op == null) return NotFound();
     // Sign an RS256 JWT with LaunchTokens.DevSigningPrivateKeyPem:
-    //   iss = op.Id, sub = "" (crypto), iat = now, exp = now + 3600, jti = Guid
+    //   iss = op.Id, sub = (regulated ? "dev-player" : ""), iat = now, exp = now + 3600, jti = Guid
     // Return { token, operatorId = op.Id }.
 }
 ```
 
-The endpoint **takes no request body** — it looks up the seeded dev operator and returns **both the
-token and that operator's id** (`{ token, operatorId }`). The dev operators (DEV Cassino = Crypto;
-DEV Regulated Cassino = Regulated) are seeded with
+The endpoint takes a single optional **`paymentModel`** query parameter (`Crypto` default, or
+`Regulated`) to choose which seeded dev operator to mint for, and returns **both the token and that
+operator's id** (`{ token, operatorId }`). Regulated tokens carry a default `sub` (`dev-player`) so
+the regulated register-bet/prefs paths are exercised; crypto tokens have an empty `sub` (the wallet
+identifies the player). Both dev operators are seeded with
 `LaunchPublicKey = LaunchTokens.DevOperatorPublicKeyPem`, so the middleware validates dev-minted
 tokens against the seeded public key. Inject `IHostEnvironment`, `GeneralSettings`, and
 `MonkifyDbContext`.
