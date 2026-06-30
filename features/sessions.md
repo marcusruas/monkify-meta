@@ -234,10 +234,14 @@ count 0. `QueueLength` = the longest choice length (the rolling-window size).
 - **Generation loop (`GenerateNextCharacter`):** emits one random character per tick into a rolling
 queue of size `QueueLength`; after each char, `CheckForWinners` compares the concatenated window to
 the bet map. On a hit: `HasWinners = true`, records `FirstChoiceTyped` and the number of winners.
-- **Pacing/speed:** `CalculateDelayIntervals` derives a base typing pace from the search space
-(`poolSize ^ QueueLength / numChoices`) with a per-length/per-pool correction; `CurrentTypingSpeed`
-ramps up (1→2→3) as the run passes expected-char milestones, which the UI reflects via
-`DisplaySpeed`.
+If no natural win by the character cap, `DecideFallbackWinner` picks uniformly from ordinally-sorted
+choices via `new Random(SessionSeed)` (`WinnerDecidedByFallback = true`).
+- **Pacing/speed:** `CalculatePacing` schedules a constant ms-per-character from mode targets
+(race mean 8–18 s / p95 ≤ 30 s; lottery mean 10–30 s / p95 ≤ 45 s) and horizon
+`min(poolSize^QueueLength / numChoices, MaxTyperCharacters)`. `ApplyPacingDelay` sleeps only when
+ahead of the Stopwatch schedule (hardware/load independent). `CurrentTypingSpeed` ramps 1→2→3 at ⅓
+and ⅔ of target mean elapsed time (visual only; UI via `DisplaySpeed`). See
+`features/typer-pacing-scalability.md`.
 
 `SessionService.RunSession` consumes the typer: it batches characters to `TerminalBatchLimit` before
 sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes, and loops until

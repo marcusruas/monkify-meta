@@ -24,7 +24,17 @@
 - **AllowFreeBets** — bool on `GeneralSettings.Sessions` in `monkifysettings.json`. Global backend
   gate; must be `true` for the API to accept free bets.
 - **Typer / MonkifyTyper** — the domain service that "types" random characters until a bet's choice
-  appears; determines winners. `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`.
+  appears; determines winners. Uses Stopwatch-scheduled wall-clock pacing and optional seed-based
+  fallback at the character cap. `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`. See
+  `features/typer-pacing-scalability.md`.
+- **DisplaySpeed** — SignalR event `{ typingSpeed }` (1–3) ramping during a session run. Driven by
+  elapsed-time fractions of the typer's target mean duration; the frontend maps tiers to refresh
+  cadence in `GameTyper.vue`.
+- **Fallback winner** — when the typer reaches `MaxTyperCharacters` without a natural sliding-window
+  match, the winner is drawn with `new Random(SessionSeed)` over ordinally-sorted choices. Same seed
+  + bets → same winner on any host (`WinnerDecidedByFallback`).
+- **MaxTyperCharacters** — config cap (default 5,000,000) on characters typed before fallback
+  winner selection; also bounds the pacing horizon for huge search spaces.
 - **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row
   belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
   **`x-operator-id`** request header; players enter at `/monkify/game/<operatorId>`. Contract

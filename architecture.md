@@ -150,8 +150,12 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - It seeds a deterministic RNG from session + per-bet seeds, builds the set of bet choices and the
   pool of characters to type, then emits characters one at a time. When the rolling window of typed
   characters equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`).
-- Typing speed/pacing is computed from the number of choices and character-pool size; speed ramps
-  up as the run progresses. The `SessionService.RunSession` loop streams output over SignalR.
+- Wall-clock pacing is time-budget driven (`SessionSettings` targets in `monkifysettings.json`):
+  `MonkifyTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
+  Stopwatch delays keep duration hardware- and load-stable. Large configs may hit
+  `MaxTyperCharacters` and resolve via a deterministic seed-based fallback winner. `DisplaySpeed`
+  (1–3) ramps on elapsed-time fractions. The `SessionService.RunSession` loop streams output over
+  SignalR. See `features/typer-pacing-scalability.md`.
 
 ## 10. Multi-tenancy: Operators
 

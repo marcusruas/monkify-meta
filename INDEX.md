@@ -76,9 +76,11 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/operators.md`     | Multi-tenant operators; distilled from `specs/operator-feature.md`                       | Shipped              |
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
 | `features/operator-player-identity.md` | Unified `OperatorPlayer` model; remove `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
+| `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
+| `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -86,7 +88,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 
 Reusable Agent Skills live in `skills/`. They are the source of truth, version-controlled here.
 Because this repo's `skills/` folder is **not** an auto-discovery path, AGENTS.md installs them into
-a Cursor-discovered location on first use — see "Skills — ensure installed" in `AGENTS.md`.
+the Cursor- and Claude-discovered locations (`.cursor/skills/` and `.claude/skills/`) on first use —
+see "Skills — ensure installed" in `AGENTS.md`.
 
 
 | Skill                         | Invoke                  | Purpose                                                                                                                                                                                                                                      |
