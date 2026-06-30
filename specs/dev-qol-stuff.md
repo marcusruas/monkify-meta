@@ -276,6 +276,12 @@ New routes:
   when no token / no operator resolves).
 - The dev-landing route must be reachable **without** a token; gate its content on
   `process.env.NODE_ENV !== 'production'` and redirect to `/error` in production.
+- **Production casino launch landing.** Because `/monkify/game` is the dev landing (prod → `/error`),
+  the real casino launch lands on the **session-select route**: the new launch URL is
+  **`…/monkify/game/sessions#launch_token=<jwt>`** (replacing `…/monkify/game/<operatorId>#launch_token=<jwt>`).
+  `App.vue`'s `onMounted` already calls `loadOperator()` for the `Session`/`Game` routes, so the
+  fragment token is captured, stripped, stored, and decoded on that hard load. (The dev buttons reach
+  the same `Session` route via SPA navigation and call `loadOperator()` themselves.)
 
 ### 7.3 `useLaunch` — remove the silent auto-mint (item B)
 
@@ -417,7 +423,7 @@ match the existing Testcontainers 4.6.0). Project references: `Monkify.Api`, `Mo
 | --- | --- | --- |
 | 1 | `conventions/backend.md` | Add the rule: session-flow changes must update `Monkify.Tests.Integration` |
 | 2 | `constraints.md` | Add a one-line pointer (in §3 Unit tests) to that rule |
-| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example to drop the `/<operatorId>` segment |
+| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example: production launch lands on the session route — `…/monkify/game/sessions#launch_token=<jwt>` (was `…/monkify/game/<operatorId>#launch_token=<jwt>`) |
 | 4 | `specs/dev-qol-stuff.md` | This spec |
 | 5 | `INDEX.md` | Map row + "Feature currently in flight" |
 
