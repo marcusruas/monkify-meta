@@ -89,6 +89,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
 | `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
+| `specs/legal-pitch-documents-batch-1.md` | Non-code: produce 8 standardized legal/pitch docs in `legal/` (company reg, cap table, authorship, fairness [reconciled], RG, privacy, NDA, asset audit); placeholders only, paid steps deferred | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -109,7 +110,17 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _None._ (Last shipped: **RG pre-bet hook** — `feature/rg-pre-bet-hook`, 2026-07-01; an opt-in
+- **Legal/pitch documents — Batch 1** — `feature/legal-pitch-documents-batch-1` (`monkify-meta`
+  only; non-code doc-production story). Spec: `specs/legal-pitch-documents-batch-1.md`. Produce 8
+  standardized Markdown docs under `legal/` (01 company registration, 02 cap table, 03 proof of
+  authorship, 04 fairness & game-rules **reconciled** with current code [no commission,
+  `RefundLog`→`TransactionLog`], 05 responsible-gaming integration grounded in `rg-pre-bet-hook`,
+  06 privacy GDPR+LGPD, 07 mutual NDA, 08 third-party asset/license audit of the live front + lp
+  trees). Standardized from local `Paperwork/` PDFs (#1–#4) + authored fresh (#5–#8); **no real PII
+  committed** (placeholders + `legal/PLACEHOLDERS.md`); paid steps (GLI/BMM cert, trademark, lawyer,
+  escrow) **DEFERRED**. EN for all; PT-BR for #1 and #6. Trello #29. Backend/front are read-only
+  grounding only.
+- Last shipped: **RG pre-bet hook** — `feature/rg-pre-bet-hook`, 2026-07-01; an opt-in
   per-operator responsible-gaming pre-bet check (`IPreBetCheckService` + resolver + shared mock)
   called in `RegisterBetHandler` after local validation and **before** the wallet debit; allow /
   deny(reason, specific message) / **fail-closed** unavailable; applies to both payment models; no
