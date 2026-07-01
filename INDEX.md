@@ -79,13 +79,14 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
 | `features/launch-token-validation.md` | Signed casino launch flow (`X-Launch-Token`); `Operator.PaymentModel`; replaces `x-operator-id` | Shipped              |
 | `features/operator-wallet-api.md` | Regulated (Model A) operator wallet debit/credit/refund; unified `TransactionLog`; commission removed | Shipped              |
+| `features/dev-qol-stuff.md` | Dev QOL: operator from token (not URL), dev launch buttons (`VUE_APP_DEV_LAUNCH`), `Monkify.Tests.Integration` suite | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
 | `specs/typer-pacing-scalability.md` | Typer wall-clock pacing — consistent duration across configs and servers           | Shipped              |
 | `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Shipped              |
 | `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
-| `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Ready                |
+| `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -106,18 +107,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **DEV QOL Stuff** — spec `specs/dev-qol-stuff.md` (Ready for implementation). Trello:
-  https://trello.com/c/dHExBJHg #28. Branch `feature/dev-qol-stuff` in `monkify-backend`,
-  `monkify-front`, and `monkify-meta`. Three things: (A) remove `operatorId` from the game URL — the
-  frontend decodes the operator from the launch token's `iss`; the dev mint endpoint returns `{ token }`
-  only; (B) replace the silent dev auto-mint with two dev-only Crypto/Regulated launch buttons on a
-  token-less `/monkify/game` landing; (C) new `Monkify.Tests.Integration` project (Testcontainers:
-  Postgres/RabbitMQ/Redis) running representative session types end-to-end with free + paid (Solana
-  mocked) bets. On ship, the launch-URL example in `features/launch-token-validation.md` must drop the
-  `/<operatorId>` segment.
-  (Last shipped: **Operator wallet API (Model A / Regulated)** — `feature/operator-wallet-api`,
-  2026-06-30; per-operator wallet debit/credit/refund adapters + mock, unified `TransactionLog`
-  (`RefundLog` dropped), commission removed. Trello #19.)
+- _None._ (Last shipped: **DEV QOL Stuff** — `feature/dev-qol-stuff`, 2026-06-30; operator resolved
+  from the launch token's `iss` instead of the URL (routes param-free; prod launch lands on
+  `/monkify/game/sessions`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
+  replaced by dev launch buttons gated on `VUE_APP_DEV_LAUNCH`, and a new `Monkify.Tests.Integration`
+  Testcontainers suite. Trello #28. See `features/dev-qol-stuff.md`.)
   Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26;
   currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.
 

@@ -42,8 +42,10 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   `sub`; crypto via the wallet in the body. Currency only affects rendering — actual FX conversion is
   out of scope (tracked separately).
 - **Dev mint endpoint.** `POST /dev/launch-token?paymentModel=Crypto|Regulated` (default `Crypto`) is
-  **disabled in production**; in dev it resolves the seeded dev operator and returns `{ token,
-  operatorId }`. Two dev operators are seeded: **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
+  **disabled in production**; in dev it resolves the seeded dev operator and returns **`{ token }`
+  only** — the operator is recoverable from the token's `iss` claim; the minted dev token is
+  long-lived (effectively non-expiring) for local convenience. Two dev operators are seeded:
+  **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
   (Regulated), both with a mock launch keypair; the private signing key is a mock placeholder in
   `monkifysettings.json`. Seeding is idempotent and self-heals operators that predate the feature.
 - **Cached operator lookup.** `IOperatorService.GetActiveOperatorById` caches the active operator under
@@ -54,10 +56,20 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 
 ## Frontend behaviour
 
-- **Launch:** the casino redirects to `…/monkify/game/<operatorId>#launch_token=<jwt>`. `useLaunch`
-  reads the token from the URL fragment, **strips it from the URL**, and persists it in
-  **`sessionStorage`** (per-tab; survives reloads/hard navigation). A fresh fragment token overrides a
-  stored one. In dev, if no token is present it mints one from `/dev/launch-token`.
+- **Launch (operator from the token, not the URL):** the casino redirects to
+  `…/monkify/game/sessions#launch_token=<jwt>` — there is **no `/<operatorId>` path segment**.
+  `useLaunch.ensureLaunchToken()` reads the token from the URL fragment, **strips it from the URL**,
+  and persists it in **`sessionStorage`** (per-tab; survives reloads/hard navigation); a fresh
+  fragment token overrides a stored one. The operator id is decoded from the token's `iss` claim via
+  `getOperatorIdFromToken` (`utils/launchToken.ts`) and used by `useOperator.loadOperator` to fetch
+  branding — operator-scoped routes are param-free (`/monkify/game/sessions`, `/monkify/game/play`).
+  Missing/undecodable token → `/error`.
+- **Dev entry (no silent auto-mint):** `/monkify/game` is a dev-only landing (`DevLandingPage.vue`)
+  with **Crypto** and **Regulated** buttons that mint a token from `/dev/launch-token` and drop into
+  the session-select page. It is gated by **`VUE_APP_DEV_LAUNCH`** (`featureFlags.ts` — default on;
+  `.env.production` sets it `false`, so `/monkify/game` redirects to `/error` and the buttons never
+  ship). `scripts/setup_local_environment.bat` forces it on for the local docker build. See
+  `features/dev-qol-stuff.md`.
 - The axios interceptor (`mainService.ts`) reads the token lazily from the store and sends
   `X-Launch-Token` on every request; any `401` routes to `/error`.
 - **Wallet UX is gated on `paymentModel`** (from `GET /operators/{id}`): wallet-connect + on-chain
@@ -85,7 +97,9 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 
 **Frontend (`monkify-front`)**
 
-- `src/hooks/useLaunch.ts`, `src/utils/launchToken.ts` (capture/store/strip; dev mint).
+- `src/hooks/useLaunch.ts` (capture/store/strip token), `src/utils/launchToken.ts`
+  (`getOperatorIdFromToken` — decode `iss`), `src/pages/DevLandingPage.vue` + `src/routes.ts`
+  (param-free routes + dev landing), `src/constants/featureFlags.ts` (`devLaunchEnabled`).
 - `src/services/mainService.ts` (`X-Launch-Token` interceptor, 401→`/error`, `updatePlayerPreferences`).
 - `src/hooks/useOperator.ts` (`paymentModel`), `src/hooks/useSession.ts` (payment-model-gated bet).
 - `src/types/index.ts` (`OperatorPaymentModel`, `OperatorBranding.paymentModel`, prefs types).

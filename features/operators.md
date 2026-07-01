@@ -12,10 +12,10 @@
 ## What it does
 
 Introduces **Operators** (casino/betting platforms, e.g. BetMGM, BetFury). Every `SessionParameters`
-row **must** have an `OperatorId`. Players arrive at **`/monkify/game/<operatorId>`** (and
-`/monkify/game/<operatorId>/play` for the live game); the frontend sends a signed
-**`X-Launch-Token`** on every operator-scoped REST call (was `x-operator-id`). There is **no house /
-operator-less mode**.
+row **must** have an `OperatorId`. Players arrive via a signed launch token (the operator is the
+token's `iss` — game routes are **param-free**: `/monkify/game/sessions`, `/monkify/game/play`); the
+frontend sends a signed **`X-Launch-Token`** on every operator-scoped REST call (was `x-operator-id`).
+There is **no house / operator-less mode**.
 
 ## Core rules
 
@@ -39,7 +39,8 @@ operator-less mode**.
 - **SignalR:** session id in the hub URL is sufficient — no token on websocket connections.
 - **Payments:** SOL only.
 - **Non-prod seed:** when no operators exist, `Monkify.Consumers` seeds **DEV Cassino** and assigns
-  default `SessionParameters` to it. Local play: `/monkify/game/<dev-operator-guid>`.
+  default `SessionParameters` to it. Local play: the dev launch buttons at `/monkify/game` (dev-only;
+  see `features/dev-qol-stuff.md`).
 
 ## Key code touchpoints
 
@@ -63,12 +64,13 @@ operator-less mode**.
 
 **Frontend (`monkify-front`)**
 
-- Routes: `src/routes.ts` — `/monkify/game/:operatorId`, `/monkify/game/:operatorId/play`, `/error`;
-  `/` and bare `/monkify/game` redirect to `/error`.
+- Routes: `src/routes.ts` — param-free `/monkify/game/sessions`, `/monkify/game/play`, `/error`;
+  `/monkify/game` is the dev launch landing (prod → `/error`). Operator id comes from the token `iss`
+  (`src/utils/launchToken.ts` `getOperatorIdFromToken`), not the route.
 - Composable: `src/hooks/useOperator.ts` — loads branding via `getOperator`, applies theme, redirects
   on failure.
 - Interceptor: `src/services/mainService.ts` — attaches `X-Launch-Token` (from `useLaunch` /
   `src/utils/launchToken.ts`); 401 → `/error`. (Was `x-operator-id` from the route param.)
-- Route helper: `src/utils/operatorRoute.ts` — GUID validation and path parsing (still used for the
-  branding fetch path).
+- Route helper: `src/utils/operatorRoute.ts` — `isValidOperatorGuid` (validates the operator id
+  decoded from the token before the branding fetch).
 - Types: `OperatorBranding` (now incl. `paymentModel`) in `src/types/index.ts`.

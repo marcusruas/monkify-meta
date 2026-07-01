@@ -16,11 +16,13 @@
   Add new endpoints here and export them from the default object.
 - **Launch token:** `src/hooks/useLaunch.ts` captures the token from the launch URL fragment
   (`…#launch_token=<jwt>`), strips it from the URL, and persists it per-tab in `sessionStorage`
-  (a fresh fragment overrides a stored one). In dev it can mint one via `POST /dev/launch-token`.
-- **Operator entry:** game routes live under `/monkify/game/:operatorId` (and `/play` for the live
-  game). Invalid GUID, inactive operator, or any token `401` → `/error`. `useOperator.loadOperator()`
-  ensures a launch token, fetches `GET /operators/{id}`, exposes `paymentModel` (wallet UX is gated on
-  it), and applies `--color-secondary` when branding includes a color.
+  (a fresh fragment overrides a stored one). In dev, tokens come from the Crypto/Regulated buttons on
+  the `/monkify/game` landing — no silent auto-mint (see `features/dev-qol-stuff.md`).
+- **Operator entry:** game routes are **param-free** (`/monkify/game/sessions`, `/monkify/game/play`);
+  the operator is decoded from the token's `iss` (`getOperatorIdFromToken` in `utils/launchToken.ts`),
+  not the URL. Missing/undecodable token, inactive operator, or any token `401` → `/error`.
+  `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, exposes
+  `paymentModel` (wallet UX is gated on it), and applies `--color-secondary` when branding includes a color.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
@@ -29,8 +31,9 @@
   (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
-- **Routing:** `src/routes.ts` — `/monkify/game/:operatorId`, `/monkify/game/:operatorId/play`,
-  `/error`; root `/` redirects to `/error`.
+- **Routing:** `src/routes.ts` — `/monkify/game/sessions`, `/monkify/game/play`, `/error`;
+  `/monkify/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
+  `/` redirects to `/error`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error

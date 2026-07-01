@@ -173,7 +173,8 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - `Operator` rows represent casino/betting platforms. `SessionParameters.OperatorId` is a **required**
   FK — there is no house / operator-less mode. Operators carry `PaymentModel` (`Regulated` | `Crypto`)
   and a `LaunchPublicKey`.
-- Players enter at **`/monkify/game/<operatorId>`**. Operator + player identity arrive in a
+- Players enter at **`/monkify/game/sessions#launch_token=<jwt>`** (the URL no longer carries the
+  operator id — it is read from the token's `iss` claim). Operator + player identity arrive in a
   casino-signed **launch token** (`X-Launch-Token`, RS256), validated by
   `LaunchTokenValidationMiddleware` in `Monkify.Api` on every operator-scoped REST call
   (`/sessions/*`, `/operators/*`, `/players/*`). The old `x-operator-id` header is **removed**; any
@@ -208,8 +209,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   - `utils/` — `operatorRoute.ts` (GUID validation, path-based operator id for the interceptor).
   - `pages/` — `SessionSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing:** `/monkify/game/:operatorId` → session select; `/monkify/game/:operatorId/play` → live
-  game; invalid/missing operator id or `/` → `/error`.
+- **Routing (param-free; operator from the token `iss`):** `/monkify/game/sessions` → session select;
+  `/monkify/game/play` → live game; `/monkify/game` → dev launch landing (gated by `VUE_APP_DEV_LAUNCH`;
+  production redirects to `/error`); missing/undecodable token or `/` → `/error`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
   `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:

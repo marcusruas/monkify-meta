@@ -38,7 +38,8 @@
 - **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row
   belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
   signed **launch token** (`X-Launch-Token`; the operator id is the token `iss`); players enter at
-  `/monkify/game/<operatorId>`. Fields: `ContractStartDate`, optional `ContractEndDate` (null = never
+  `/monkify/game/sessions` (the operator is read from the token, not the URL). Fields:
+  `ContractStartDate`, optional `ContractEndDate` (null = never
   expires), **`PaymentModel`**, **`LaunchPublicKey`** (+ optional `LaunchKeyId`). Entity: `Operator`.
 - **Launch token** — a casino-signed **RS256 JWT** that proves operator + player identity; required
   (`X-Launch-Token` header) on every operator-scoped REST call and validated by middleware in
