@@ -87,6 +87,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/launch-token-validation.md` | Signed casino launch flow — RS256 launch token, `Operator.PaymentModel`, prefs endpoint | Shipped              |
 | `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
 | `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
+| `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -107,11 +108,18 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _None._ (Last shipped: **DEV QOL Stuff** — `feature/dev-qol-stuff`, 2026-06-30; operator resolved
+- **RG pre-bet hook** — spec `specs/rg-pre-bet-hook.md`; Trello #20
+  (https://trello.com/c/Dj4znhYo). Branch `feature/rg-pre-bet-hook` in `monkify-backend` and
+  `monkify-meta` (frontend not affected). A pluggable, **opt-in** per-operator responsible-gaming
+  pre-bet check (`IPreBetCheckService` + resolver + shared mock) called in `RegisterBetHandler`
+  after local validation and **before** the wallet debit; allow / deny(reason) / **fail-closed**
+  unavailable. Applies to both payment models; no provider configured ⇒ skipped; log-only (no
+  migration). Integration doc descoped to a separate story.
+- Last shipped: **DEV QOL Stuff** — `feature/dev-qol-stuff`, 2026-06-30; operator resolved
   from the launch token's `iss` instead of the URL (routes param-free; prod launch lands on
   `/monkify/game/sessions`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
   replaced by dev launch buttons gated on `VUE_APP_DEV_LAUNCH`, and a new `Monkify.Tests.Integration`
-  Testcontainers suite. Trello #28. See `features/dev-qol-stuff.md`.)
+  Testcontainers suite. Trello #28. See `features/dev-qol-stuff.md`.
   Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26;
   currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.
 
