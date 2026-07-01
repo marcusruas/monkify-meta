@@ -1,9 +1,9 @@
 # Monkify — "Responsible-gaming pre-bet hook" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/rg-pre-bet-hook` on 2026-07-01. Refined via Trello card
 > [RG pre-bet hook + operator integration doc](https://trello.com/c/Dj4znhYo) (2026-06-30).
 > Repos affected: `monkify-backend` and this doc in `monkify-meta`. **Not** `monkify-front`.
-> Distilled summary (create at ship time): `../features/rg-pre-bet-hook.md`.
+> Distilled summary: `../features/rg-pre-bet-hook.md`.
 >
 > **Purpose:** Regulated operators own responsible gaming (RG) — self-exclusion, deposit/time
 > limits, cooling-off, KYC. Monkify must let an operator **allow or deny a bet before it is

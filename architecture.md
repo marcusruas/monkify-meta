@@ -151,6 +151,12 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
   **debit** runs synchronously in `Monkify.Api` at bet time; **credit** and **refund** run in
   `Monkify.Consumers`.
+- **Responsible-gaming pre-bet check:** an **opt-in**, per-operator `IPreBetCheckService` (resolved by
+  `IPreBetCheckResolver` from `GeneralSettings.OperatorRgChecks`) runs in `RegisterBetHandler` after
+  local validation and **before** the debit, letting the operator allow/deny a bet (self-exclusion,
+  limits, KYC…). Unconfigured operators are skipped; denials return a specific message and a
+  timeout/error is fail-closed. Applies to both payment models; log-only, no migration. See
+  `features/rg-pre-bet-hook.md`.
 - **Money ledger:** `TransactionLog` records every movement (`Credit`/`Debit`/`Refund`) per bet, with an
   optional Solana `Signature` or operator `ExternalTransactionReference`; `BetDomainService` reads it for
   reward/refund idempotency. There is **no Monkify commission** — winners receive the full pot.

@@ -64,5 +64,14 @@
   float). Integrated via a per-operator adapter (`IOperatorWalletService`) selected by a named provider in
   config (`IOperatorWalletResolver`). Crypto (Model B) operators are unaffected (Solana). See
   `features/operator-wallet-api.md`.
+- **Pre-bet check / RG hook** — an **opt-in**, per-operator responsible-gaming check Monkify calls in
+  `RegisterBetHandler` after local validation and **before** the wallet debit, so the operator can
+  **allow or deny** a bet (self-exclusion, limits, cooling-off, KYC, blocked). Per-operator adapter
+  (`IPreBetCheckService`) selected by a named provider in `GeneralSettings.OperatorRgChecks`
+  (`IPreBetCheckResolver`, which returns **null → skip** when unconfigured — the default). Applies to
+  **both** payment models. A denial returns a **specific** player message (`PreBetCheckDenyReason`:
+  `SelfExcluded | LimitReached | CoolingOff | KycRequired | Blocked | Other`); a timeout/error is
+  **fail-closed** (rejected, no debit). Skipped for anonymous free bets. Log-only, no DB row. See
+  `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.
