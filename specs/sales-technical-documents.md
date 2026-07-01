@@ -376,7 +376,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 ## 13. Manual QA (review checklist)
 
 1. `sales/` contains `README.md`, `_TEMPLATE.md`, and the three docs each with a `.pt-BR.md` variant
-   (9 files total); each opens with the shared front block and closes with **Document control**.
+   (8 files total); each opens with the shared front block and closes with **Document control**.
 2. Diff-check: the Model A/B block in `01`, `02`, `03` is byte-for-byte the block in `README.md`.
 3. `02-integration-overview.md`: header says `Confidential — shared under NDA`; grep for a real key /
    connection string / CNPJ / owner name → **no** matches (only obvious `MOCK_…` placeholders).
