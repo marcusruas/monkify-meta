@@ -19,19 +19,26 @@ This card is the **technical/commercial** sibling of the *legal* documents batch
 ([`specs/legal-pitch-documents-batch-1.md`](legal-pitch-documents-batch-1.md)) and of the
 pitch-**strategy** card [#1 (ZowgQHZg)](https://trello.com/c/ZowgQHZg). It consolidates three
 archived cards — #23 (Dual-track pitch doc), #21 (Integration overview for casino tech teams), and
-#24 (Anti-clone positioning playbook) — into **one work item → one spec → three documents** (each
-with a PT-BR variant). Parent epic: [B2B integration package](https://trello.com/c/w6ymVPgD).
+#24 (Anti-clone positioning playbook) — into **one work item → one spec**. Parent epic:
+[B2B integration package](https://trello.com/c/w6ymVPgD).
 
-The three documents and their nature:
+**Per-model split:** docs 01 and 02 are produced in **two per-model versions** — one for **Model A
+(regulated)** and one for **Model B (crypto-native)** — replacing the earlier single "dual-track"
+docs. You send the buyer the version matching their track. Doc 03 stays a single, model-agnostic
+document. Every document also has a PT-BR variant.
 
-| # | Document | Audience | Reveal stage | Grounding |
-| --- | --- | --- | --- | --- |
-| 01 | **Dual-track pitch doc** | Casino commercial / BD | Cold-sendable (self-contained) | Commercial framing; Model A/B tracks |
-| 02 | **Integration overview** | Casino CTO / integration engineer | **Under NDA** (Confidential) | **Read-only live backend** (launch→bet→settle) |
-| 03 | **Anti-clone positioning playbook** (+ pre-sales-call checklist) | Internal sales / BD | Internal | Commercial / GTM |
+The documents and their nature:
 
-**Single source of truth for the two tracks:** the **Model A vs Model B** definition is written
-**once** in `sales/README.md` and reused **verbatim** across all three docs:
+| # | Document | Versions | Audience | Reveal stage | Grounding |
+| --- | --- | --- | --- | --- | --- |
+| 01 | **Pitch** | Model A + Model B | Casino commercial / BD | Cold-sendable (self-contained) | Commercial framing; one track per version |
+| 02 | **Integration overview** | Model A + Model B | Casino CTO / integration engineer | **Under NDA** (Confidential) | **Read-only live backend** (launch→bet→settle), single-path per version |
+| 03 | **Anti-clone positioning playbook** (+ pre-sales-call checklist) | single | Internal sales / BD | Internal | Commercial / GTM |
+
+**Single source of truth for the two tracks:** `sales/README.md` carries **both** the full two-track
+comparison table **and** two clearly-marked single-model **profile blocks** (`MODEL-A-PROFILE`,
+`MODEL-B-PROFILE`, EN + PT-BR). Each per-model doc pastes **only its own** profile block **verbatim** —
+so there is still one canonical definition; each doc just shows the buyer their track.
 
 - **Model A (Regulated)** — operator-owned wallet; buyer example BetMGM / BR-licensed; integration =
   signed **launch token** + operator **wallet API** (debit/credit/refund) + optional **RG pre-bet hook**;
@@ -40,9 +47,11 @@ The three documents and their nature:
   integration = launch token (`iss` operator, empty `sub`) + wallet public key as the player reference,
   on-chain settlement via Solana.
 
-**Deliverable location:** `monkify-meta/sales/` — `01`–`03` (+ `.pt-BR.md` each), a shared
-`_TEMPLATE.md`, and a `README.md` index that carries the canonical track definitions. Mermaid diagrams
-inline; a **PDF / slide-deck export is DEFERRED** (optional / separate step).
+**Deliverable location:** `monkify-meta/sales/` — `model-a/` and `model-b/` each hold `01-pitch.md`
+and `02-integration-overview.md` (+ `.pt-BR.md`), with `03-anti-clone-playbook.md` (+ `.pt-BR.md`),
+`_TEMPLATE.md`, and a `README.md` index/source-of-truth at the root. Mermaid diagrams inline (the
+per-model integration diagrams are **single-path** — no cross-model `alt` branches); a **PDF /
+slide-deck export is DEFERRED** (optional / separate step).
 
 ---
 
@@ -75,17 +84,18 @@ From `monkify-meta/constraints.md` (full list there) and the refined card:
 
 | # | Decision |
 | --- | --- |
-| 1 | Deliverable = **3 standardized Markdown docs** under **`monkify-meta/sales/`** (`01`–`03`), on **one shared template**; plus `_TEMPLATE.md` and `README.md`. Mermaid diagrams; **PDF/deck export DEFERRED**. |
-| 2 | **One batch, one spec:** this single card produces all three docs together (shared track framing + pricing source). |
-| 3 | **Model A / Model B defined once** in `sales/README.md` and reused **verbatim** in all three docs (single source of truth; consistent framing). |
-| 4 | **Language:** EN master **+ a PT-BR variant for all three docs** (`NN-….pt-BR.md`), same structure and content. |
-| 5 | **Doc 01 is self-contained** — restates the pitch strategy it needs so it can be sent alone; **references** card #1 (ZowgQHZg) as the strategy source but does not depend on it. Messaging = *"integrate with YOUR wallet and player account"* (not "we don't do payments"). |
-| 6 | **Pricing headline = setup fee + monthly platform fee ONLY — no %NGR / revenue share** (dropped for now). Keep **12-month minimum term** and **exclusivity as a paid add-on** as editable commercial levers (not revenue components). All figures tagged **editable**. |
-| 7 | **Doc 02 = under-NDA technical detail** — endpoint-level `launch token → game load → bet → settle` flow, deeper architecture, API specifics. Supersedes the old "one-page / no full OpenAPI" framing: endpoint-level flow is in scope; **no real secrets**. Marked **Confidential — under NDA**. |
-| 8 | **Doc 02 grounded read-only in shipped code:** launch-token-validation, operator-wallet-api, rg-pre-bet-hook, and the session state machine (see §6). Accuracy over drift. |
-| 9 | **Doc 03 = anti-clone playbook + pre-sales-call checklist** — first-reference-operator (aspirational, **no client claimed**), exclusivity, speed-to-launch, brand-by-name, cost framing, plus a short pre-sales-call checklist. |
-| 10 | **Discipline:** placeholders, no real PII/contacts; operator names (BetMGM/BetFury/Hub88/SOFTSWISS…) are **illustrative examples only, never claimed clients**; paid steps **DEFERRED**; mock-only secrets; `Draft` status where commercial terms appear. |
-| 11 | Non-code — `monkify-meta` only; **no** backend/front branches; **no** unit tests. |
+| 1 | Deliverable = standardized Markdown docs under **`monkify-meta/sales/`**: docs 01 (pitch) and 02 (integration overview) in **per-model** versions under `model-a/` and `model-b/`; doc 03 single at the root; plus `_TEMPLATE.md` and `README.md`. Mermaid diagrams; **PDF/deck export DEFERRED**. |
+| 2 | **One batch, one spec:** this single card produces the whole set together (shared track framing + pricing source). |
+| 3 | **Per-model split (01, 02):** replace the earlier single "dual-track" 01/02 with a **Model A** and a **Model B** version each. You send the buyer the version matching their track. Doc 03 stays single, model-agnostic. |
+| 4 | **Model A / Model B source of truth = `sales/README.md`**, which carries the full two-track table **and** two single-model **profile blocks** (`MODEL-A-PROFILE`, `MODEL-B-PROFILE`, EN + PT-BR). Each per-model doc pastes **only its own** profile block **verbatim**. |
+| 5 | **Language:** EN master **+ a PT-BR variant for every doc** (`….pt-BR.md`), same structure and content. |
+| 6 | **Doc 01 (each version) is self-contained** — restates the pitch strategy it needs so it can be sent alone; **references** card #1 (ZowgQHZg) but does not depend on it. Messaging = *"integrate with YOUR wallet and player account"* (not "we don't do payments"). Each version shows **only its own** track (+ a one-line pointer to the other). |
+| 7 | **Pricing headline = setup fee + monthly platform fee ONLY — no %NGR / revenue share** (dropped for now). Keep **12-month minimum term** and **exclusivity as a paid add-on** as editable commercial levers (not revenue components). All figures tagged **editable**. Identical in both pitch versions. |
+| 8 | **Doc 02 = under-NDA technical detail** — endpoint-level `launch token → game load → bet → settle` flow, deeper architecture, API specifics; **no real secrets**; marked **Confidential — under NDA**. Each version covers **one** settlement path with a **single-path** Mermaid diagram (Model A = operator wallet; Model B = on-chain Solana). |
+| 9 | **Doc 02 grounded read-only in shipped code:** launch-token-validation, operator-wallet-api, rg-pre-bet-hook, and the session state machine (see §6). Accuracy over drift. |
+| 10 | **Doc 03 = anti-clone playbook + pre-sales-call checklist** — first-reference-operator (aspirational, **no client claimed**), exclusivity, speed-to-launch, brand-by-name, cost framing, plus a short pre-sales-call checklist. |
+| 11 | **Discipline:** placeholders, no real PII/contacts; operator names (BetMGM/BetFury/Hub88/SOFTSWISS…) are **illustrative examples only, never claimed clients**; paid steps **DEFERRED**; mock-only secrets; `Draft` status where commercial terms appear. |
+| 12 | Non-code — `monkify-meta` only; **no** backend/front branches; **no** unit tests. |
 
 ---
 
@@ -95,11 +105,15 @@ From `monkify-meta/constraints.md` (full list there) and the refined card:
 
 ```
 sales/
-  README.md                         index + the canonical Model A / Model B track definitions
+  README.md                         index + two-track table + MODEL-A/MODEL-B profile blocks (EN+PT-BR)
   _TEMPLATE.md                      the shared document template (§4.2)
-  01-dual-track-pitch.md            (+ 01-dual-track-pitch.pt-BR.md)
-  02-integration-overview.md        (+ 02-integration-overview.pt-BR.md)
-  03-anti-clone-playbook.md         (+ 03-anti-clone-playbook.pt-BR.md)
+  03-anti-clone-playbook.md         (+ 03-anti-clone-playbook.pt-BR.md)   ← single, model-agnostic
+  model-a/                          Regulated
+    01-pitch.md                     (+ 01-pitch.pt-BR.md)
+    02-integration-overview.md      (+ 02-integration-overview.pt-BR.md)
+  model-b/                          Crypto-native
+    01-pitch.md                     (+ 01-pitch.pt-BR.md)
+    02-integration-overview.md      (+ 02-integration-overview.pt-BR.md)
 ```
 
 PT-BR variants use the `.pt-BR.md` suffix and carry the same structure as their English master.
@@ -130,42 +144,44 @@ control:
 
 ### 4.3 `sales/README.md` (canonical track definitions + index)
 
-Contains: (a) a one-line index of the three docs with audience + confidentiality; (b) the **verbatim
-Model A / Model B block** from §1 that every doc reuses; (c) a note that PDF/deck export is deferred;
-(d) the discipline note (placeholders, illustrative operator names, DEFERRED paid steps).
+Contains: (a) an index of the docs showing the Model A / Model B versions of 01 and 02 plus the
+single doc 03, with audience + confidentiality; (b) the **full two-track comparison table**; (c) two
+single-model **profile blocks** (`MODEL-A-PROFILE`, `MODEL-B-PROFILE`) in EN and PT-BR, each fenced
+with HTML comment markers, that the per-model docs paste **verbatim**; (d) a note that PDF/deck export
+is deferred; (e) the discipline note (placeholders, illustrative operator names, DEFERRED paid steps).
 
 ---
 
 ## 5. Per-document production plan
 
-### 5.1 `01-dual-track-pitch.md` (+ PT-BR)
+### 5.1 `model-a/01-pitch.md` and `model-b/01-pitch.md` (+ PT-BR each)
 
-- **What:** A **self-contained** commercial pitch document explaining the **two integration tracks** so
-  sales can pitch the right shape to crypto vs regulated buyers. Restates only the strategy it needs
-  (one-liner, staged-reveal note, next step = NDA + technical review); **references** card #1 for the
-  full outreach/strategy but does not depend on it.
-- **Body:**
+- **What:** Two **self-contained** commercial pitch documents — one per track — so sales sends the
+  buyer the shape that fits. Each restates only the strategy it needs (one-liner, staged-reveal note,
+  next step = NDA + technical review); **references** card #1 for the full outreach/strategy but does
+  not depend on it. Each shows **only its own** track, with a one-line pointer to the other version.
+- **Body (each version):**
   - **One-liner + "why it's different"** (players bet on the first word a simulated monkey types;
-    fully built backend/web/mobile/ops).
-  - **The two tracks table** (verbatim from `README.md`): Track · buyer example · payments ·
-    integration depth.
-  - **What Monkify owns vs what the operator owns:** player identity, KYC, responsible-gaming, float —
-    per model (Model A: operator owns player/KYC/RG/float; Model B: Monkify hosts payments, wallet is
-    the player reference).
+    fully built backend/web/mobile/ops). The Model B version adds the "provably fair" hook.
+  - **Its own single-model profile block** (pasted **verbatim** from `README.md`: `MODEL-A-PROFILE` or
+    `MODEL-B-PROFILE`) — covers payments, identity, settlement, RG, integration surface, and Monkify-
+    vs-operator ownership for that track.
   - **Messaging guardrail:** *"integrate with YOUR wallet and player account"* — never "we don't do
     payments".
-  - **Commercial model (SaaS only):** headline = **setup fee + monthly platform fee** (figures
-    **editable**, **no %NGR / revenue share**); **12-month minimum term** and **exclusivity as a paid
-    add-on** as editable levers; closing line: *"Detailed game logic, internal tooling, and diligence
-    materials are available under NDA/non-use for serious counterparties."*
+  - **Commercial model (SaaS only), identical in both:** headline = **setup fee + monthly platform
+    fee** (figures **editable**, **no %NGR / revenue share**); **12-month minimum term** and
+    **exclusivity as a paid add-on** as editable levers; closing line: *"Detailed game logic, internal
+    tooling, and diligence materials are available under NDA/non-use for serious counterparties."*
 - **Confidentiality:** Cold-sendable (self-contained; no internals).
 - **Deferred:** GLI/BMM certification (if mentioned) = **DEFERRED**.
 
-### 5.2 `02-integration-overview.md` (+ PT-BR) — **UNDER NDA, ground in code**
+### 5.2 `model-a/02-integration-overview.md` and `model-b/02-integration-overview.md` (+ PT-BR each) — **UNDER NDA, ground in code**
 
-- **What:** The under-NDA **technical integration deep-dive** for casino engineering teams: the
-  endpoint-level **launch → game load → bet → settle** flow, the deeper architecture, and API
-  specifics, with the **Model A vs Model B** paths called out at every settlement step.
+- **What:** Two under-NDA **technical integration deep-dives** — one per track — for casino
+  engineering teams: the endpoint-level **launch → game load → bet → settle** flow, deeper
+  architecture, and API specifics. Each covers **one** settlement path only (Model A = operator wallet;
+  Model B = on-chain Solana) with a **single-path** Mermaid diagram, and links to the other version for
+  the alternate path. The requirements below list both paths; **each doc keeps only its own.**
 - **Confidentiality:** header **`Confidentiality: Confidential — shared under NDA`**. No real
   secrets/keys/credentials — any example token/config is an obvious mock.
 - **Required content (grounded in §6 code):**
@@ -247,39 +263,65 @@ integration context, but changes **no** frontend file.
 
 ---
 
-## 8. Flow diagram (Doc 02 — launch → bet → settle, both models)
+## 8. Flow diagrams (Doc 02 — single-path per model)
+
+Each Doc 02 version carries **only its own** diagram (no cross-model `alt`).
+
+**Model A (Regulated) — `model-a/02-integration-overview.md`:**
 
 ```mermaid
 sequenceDiagram
   participant Casino as Operator/Casino
   participant SPA as Monkify SPA
   participant API as Monkify.Api
-  participant RG as RG pre-bet adapter (opt-in)
-  participant Wallet as Operator Wallet API (Model A)
-  participant Chain as Solana (Model B)
-  participant Cons as Monkify.Consumers
+  participant RG as Your RG pre-bet adapter (opt-in)
+  participant Wallet as Your Wallet API
+  participant Cons as Monkify background worker
 
-  Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss/sub)
+  Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss + sub=ExternalPlayerId)
   SPA->>API: GET /operators/{id} (X-Launch-Token)
-  API-->>SPA: branding + paymentModel  (bad/expired token ⇒ 401 "unavailable")
+  API-->>SPA: branding + paymentModel=Regulated  (bad/expired token ⇒ 401 "unavailable")
   SPA->>API: GET /sessions/active-types → GET /sessions/{typeId}
-  SPA->>API: POST /sessions/{id}/bets (X-Launch-Token)
+  SPA->>API: POST /sessions/{id}/bets (no wallet/signature)
   API->>RG: pre-bet check (if configured) — allow/deny/fail-closed
-  alt Model A (Regulated)
-    API->>Wallet: Debit(stake, USD)  — last step, fail-closed
-    Wallet-->>API: ok / insufficient-funds / blocked / timeout
-  else Model B (Crypto)
-    API->>Chain: validate paymentSignature
-  end
+  API->>Wallet: Debit(bet, amount, USD)  — last step, fail-closed
+  Wallet-->>API: ok / insufficient-funds / blocked / timeout
   API-->>SPA: bet accepted (TransactionLog: Debit)
   API->>Cons: BetPlaced → RunSession → RewardSession (RabbitMQ)
-  alt winner — Model A
-    Cons->>Wallet: Credit(winnings, USD)  (TransactionLog: Credit)
-  else winner — Model B
-    Cons->>Chain: TransferTokensForBet
+  opt winner
+    Cons->>Wallet: Credit(bet, winnings, USD)  (TransactionLog: Credit)
   end
   opt cancellation / invalid
-    Cons->>Wallet: Refund (Model A) / on-chain refund (Model B)  (TransactionLog: Refund)
+    Cons->>Wallet: Refund(bet, reason)  (TransactionLog: Refund)
+  end
+```
+
+**Model B (Crypto) — `model-b/02-integration-overview.md`:**
+
+```mermaid
+sequenceDiagram
+  participant Casino as Operator/Casino
+  participant SPA as Monkify SPA (+ wallet)
+  participant API as Monkify.Api
+  participant RG as Your RG pre-bet adapter (opt-in)
+  participant Chain as Solana
+  participant Cons as Monkify background worker
+
+  Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss, sub empty)
+  SPA->>API: GET /operators/{id} (X-Launch-Token)
+  API-->>SPA: branding + paymentModel=Crypto  (bad/expired token ⇒ 401 "unavailable")
+  SPA->>SPA: player connects wallet
+  SPA->>Chain: SPL-token transfer (stake) → paymentSignature
+  SPA->>API: POST /sessions/{id}/bets (wallet + paymentSignature)
+  API->>Chain: validate paymentSignature
+  API->>RG: pre-bet check (if configured) — allow/deny/fail-closed
+  API-->>SPA: bet accepted (TransactionLog: Debit w/ Signature)
+  API->>Cons: BetPlaced → RunSession → RewardSession (RabbitMQ)
+  opt winner
+    Cons->>Chain: SPL token transfer to winner  (TransactionLog: Credit)
+  end
+  opt cancellation / invalid
+    Cons->>Chain: on-chain refund  (TransactionLog: Refund)
   end
 ```
 
@@ -311,13 +353,15 @@ None (read-only grounding — no files changed).
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `sales/README.md` | New — index + **canonical Model A/B track definitions** + discipline note |
-| 2 | `sales/_TEMPLATE.md` | New — shared document template (§4.2) |
-| 3 | `sales/01-dual-track-pitch.md` (+ `.pt-BR.md`) | New — self-contained dual-track pitch (§5.1) |
-| 4 | `sales/02-integration-overview.md` (+ `.pt-BR.md`) | New — under-NDA technical deep-dive, code-grounded (§5.2, §6, §8) |
-| 5 | `sales/03-anti-clone-playbook.md` (+ `.pt-BR.md`) | New — anti-clone playbook + pre-sales-call checklist (§5.3) |
-| 6 | `specs/sales-technical-documents.md` | This spec |
-| 7 | `INDEX.md` | Add spec row + set "Feature currently in flight" |
+| 1 | `sales/README.md` | Index + two-track table + **MODEL-A/MODEL-B profile blocks** (EN+PT-BR) + discipline note |
+| 2 | `sales/_TEMPLATE.md` | Shared document template (§4.2) |
+| 3 | `sales/model-a/01-pitch.md` (+ `.pt-BR.md`) | Self-contained regulated pitch (§5.1) |
+| 4 | `sales/model-b/01-pitch.md` (+ `.pt-BR.md`) | Self-contained crypto pitch (§5.1) |
+| 5 | `sales/model-a/02-integration-overview.md` (+ `.pt-BR.md`) | Under-NDA Model-A deep-dive, single-path (§5.2, §6, §8) |
+| 6 | `sales/model-b/02-integration-overview.md` (+ `.pt-BR.md`) | Under-NDA Model-B deep-dive, single-path (§5.2, §6, §8) |
+| 7 | `sales/03-anti-clone-playbook.md` (+ `.pt-BR.md`) | Anti-clone playbook + pre-sales-call checklist (§5.3) |
+| 8 | `specs/sales-technical-documents.md` | This spec |
+| 9 | `INDEX.md` | Add spec row + set "Feature currently in flight" |
 
 ---
 
@@ -334,60 +378,72 @@ the §12 acceptance-criteria review (see §13 Manual QA), not automated tests.
 Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 
 1. Given the `monkify-meta/sales/` folder, when the batch is complete, then it contains `README.md`,
-   `_TEMPLATE.md`, and the three docs `01-dual-track-pitch`, `02-integration-overview`,
-   `03-anti-clone-playbook`, each following the shared template (title, version/date, status, purpose,
-   body, control) with Mermaid used for any diagram.
-2. Given the Model A vs Model B track framing, when it appears in any of the three docs, then it
-   matches the single definition in `sales/README.md` verbatim (Model A = regulated / operator wallet +
-   launch token + RG hook; Model B = crypto / Monkify-hosted, wallet as ExternalPlayerId) with no
-   divergent wording.
-3. Given doc 01 (dual-track pitch), when reviewed, then it is self-contained (restates the strategy it
-   needs, references card #1 ZowgQHZg without depending on it), maps both tracks to
-   buyer/payments/integration-depth and Monkify-vs-operator ownership, and states pricing as setup fee
+   `_TEMPLATE.md`, `03-anti-clone-playbook`, and — under `model-a/` and `model-b/` — a `01-pitch` and a
+   `02-integration-overview`, each following the shared template (title, version/date, confidentiality,
+   status, purpose, body, control) with Mermaid used for any diagram.
+2. Given docs 01 and 02 come in a Model-A and a Model-B version, when reviewed, then each shows **only
+   its own** track (Model A = regulated / operator wallet + launch token + RG hook; Model B = crypto /
+   Monkify-hosted, wallet as ExternalPlayerId) and includes a one-line pointer to the other version.
+3. Given a per-model doc, when its single-model profile block is compared to `sales/README.md`, then it
+   is byte-for-byte the matching `MODEL-A-PROFILE` / `MODEL-B-PROFILE` block (EN docs → EN block; PT-BR
+   docs → PT-BR block) with no divergent wording.
+4. Given both pitch versions (`model-a/01-pitch`, `model-b/01-pitch`), when reviewed, then each is
+   self-contained (references card #1 ZowgQHZg without depending on it) and states pricing as setup fee
    + monthly platform fee only (no %NGR / revenue share) with 12-month minimum term and
-   exclusivity-as-paid-add-on tagged editable.
-4. Given doc 02 (integration overview), when reviewed against the shipped backend, then its
-   endpoint-level launch→bet→settle flow matches launch-token-validation (X-Launch-Token RS256,
-   iss/sub, vague 401), operator-wallet-api (debit at bet time / credit at reward / refund; unified
-   TransactionLog; no commission), rg-pre-bet-hook (allow/deny/fail-closed before the debit), and the
-   session state machine, and shows both Model A (operator wallet) and Model B (on-chain Solana)
-   settlement paths.
-5. Given doc 02 (integration overview), when inspected for IP-protection, then it is marked
-   "Confidential — under NDA", contains no real secrets/keys/credentials (mock placeholders only),
-   describes operator/token failures as a generic 401 / "not found / unavailable" (never revealing
-   contract status), and cross-references the legal Fairness & Game Rules and Proof of Ownership docs.
-6. Given doc 03 (anti-clone playbook), when reviewed, then it covers first-reference-operator (framed
+   exclusivity-as-paid-add-on tagged editable — identical commercial terms in both.
+5. Given `model-a/02-integration-overview`, when reviewed against the shipped backend, then it covers
+   the **regulated** path only — launch token `sub`=`ExternalPlayerId`, operator wallet
+   **Debit/Credit/Refund** (USD, idempotent on bet id), RG pre-bet hook allow/deny/fail-closed before
+   the debit, unified `TransactionLog`, no commission — with a **single-path** Model-A Mermaid diagram
+   and no crypto/Solana content.
+6. Given `model-b/02-integration-overview`, when reviewed against the shipped backend, then it covers
+   the **crypto** path only — launch token `sub` empty + wallet from body, on-chain `paymentSignature`
+   validation, Solana SPL settlement + on-chain refund, optional RG hook, unified `TransactionLog` with
+   Solana `Signature`, no commission — with a **single-path** Model-B Mermaid diagram and no
+   operator-wallet-API section.
+7. Given either doc 02 version, when inspected for IP-protection, then it is marked "Confidential —
+   under NDA", contains no real secrets/keys/credentials (mock placeholders only), describes
+   operator/token failures as a generic 401 / "not found / unavailable" (never revealing contract
+   status), and cross-references the legal Fairness & Game Rules and Proof of Ownership docs.
+8. Given doc 03 (anti-clone playbook), when reviewed, then it covers first-reference-operator (framed
    aspirationally, no client claimed), exclusivity as a contract add-on, speed-to-launch narrative,
-   brand-by-name, and internal-rebuild-vs-SaaS-fee cost framing, and includes a short pre-sales-call
-   checklist for sales conversations.
-7. Given the produced doc set, when validated for language, then each of the three docs has an EN
-   master and a PT-BR variant (`NN-….pt-BR.md`) carrying the same structure and content.
-8. Given any committed sales doc, when inspected for discipline, then it contains no real PII/contacts
-   (placeholders only), any operator names appear as illustrative examples only (never claimed as
-   clients), every paid step (GLI/BMM cert, lawyer, trademark) is marked DEFERRED and never presented
-   as done, and commercial-term sections carry a "Draft — not legal advice" status.
-9. Given the batch is a non-code monkify-meta story, when it is implemented, then a
-   `feature/sales-technical-documents` branch is created in `monkify-meta` only (no monkify-backend /
-   monkify-front branches, no code changes, no unit tests), and `INDEX.md` is updated with the new spec
-   row plus the `sales/` docs.
+   brand-by-name, and internal-rebuild-vs-SaaS-fee cost framing, includes a short pre-sales-call
+   checklist, and its links point to the per-model docs.
+9. Given the produced doc set, when validated for language, then every doc (docs 01/02 in both model
+   folders, and doc 03) has an EN master and a `.pt-BR.md` variant carrying the same structure and
+   content.
+10. Given any committed sales doc, when inspected for discipline, then it contains no real PII/contacts
+    (placeholders only), any operator names appear as illustrative examples only (never claimed as
+    clients), every paid step (GLI/BMM cert, lawyer, trademark) is marked DEFERRED and never presented
+    as done, and commercial-term sections carry a "Draft — not legal advice" status.
+11. Given the batch is a non-code monkify-meta story, when it is implemented, then a
+    `feature/sales-technical-documents` branch is created in `monkify-meta` only (no monkify-backend /
+    monkify-front branches, no code changes, no unit tests), and `INDEX.md` is updated with the new spec
+    row plus the `sales/` docs.
 
 ---
 
 ## 13. Manual QA (review checklist)
 
-1. `sales/` contains `README.md`, `_TEMPLATE.md`, and the three docs each with a `.pt-BR.md` variant
-   (8 files total); each opens with the shared front block and closes with **Document control**.
-2. Diff-check: the Model A/B block in `01`, `02`, `03` is byte-for-byte the block in `README.md`.
-3. `02-integration-overview.md`: header says `Confidential — shared under NDA`; grep for a real key /
-   connection string / CNPJ / owner name → **no** matches (only obvious `MOCK_…` placeholders).
-4. `02-…`: mentions `X-Launch-Token`, `iss`/`sub`, generic 401, `RunPreBetCheck` (allow/deny/fail-closed
-   before debit), `DebitOperatorWallet`, `CreditThroughOperatorWallet`, `RefundThroughOperatorWallet`,
-   unified `TransactionLog`, no commission; the Mermaid sequence renders and shows both model paths.
-5. `01-…`: pricing = setup + monthly only (no `%NGR` / "revenue share"); 12-mo minimum + exclusivity
-   present and tagged editable.
-6. `03-…`: no operator named as a live client; includes a pre-sales-call checklist.
+1. `sales/` contains `README.md`, `_TEMPLATE.md`, `03-anti-clone-playbook(.pt-BR).md`, and
+   `model-a/` + `model-b/` each with `01-pitch(.pt-BR).md` and `02-integration-overview(.pt-BR).md`
+   (13 files total); each opens with the shared front block and closes with **Document control**.
+2. Diff-check: the profile block in each per-model doc is byte-for-byte the matching
+   `MODEL-A-PROFILE` / `MODEL-B-PROFILE` block in `README.md` (EN vs PT-BR matched). One quick way:
+   hash the region between the `MODEL-x-PROFILE:LANG START/END` markers across files.
+3. Both `02-integration-overview.md`: header says `Confidential — shared under NDA`; grep for a real
+   key / connection string / CNPJ / owner name → **no** matches (only obvious `MOCK_…` placeholders).
+4. `model-a/02-…`: mentions `X-Launch-Token`, `iss`/`sub`=ExternalPlayerId, generic 401, RG check
+   (allow/deny/fail-closed before debit), wallet `Debit/Credit/Refund`, unified `TransactionLog`, no
+   commission; single-path Model-A Mermaid renders; **no** Solana content. `model-b/02-…`: `sub` empty,
+   `paymentSignature` validation, Solana SPL settlement/refund; single-path Model-B Mermaid renders;
+   **no** operator-wallet-API section.
+5. Both `01-pitch.md`: pricing = setup + monthly only (no `%NGR` / "revenue share"); 12-mo minimum +
+   exclusivity present and tagged editable.
+6. `03-…`: no operator named as a live client; includes a pre-sales-call checklist; links resolve to
+   the per-model docs.
 7. Every `DEFERRED` paid step is visibly labelled; nothing paid is claimed as done.
-8. `INDEX.md` shows the new spec row (status **Ready**) and the "Feature currently in flight" entry.
+8. `INDEX.md` shows the spec row (status **Ready**) and the "Feature currently in flight" entry.
 
 ---
 
@@ -407,3 +463,4 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 | Date | Change |
 | --- | --- |
 | 2026-07-01 | Initial spec from refined card #27 (same-chat refinement). Doc 02 grounded read-only in shipped `launch-token-validation`, `operator-wallet-api` (unified `TransactionLog`, no commission), and `rg-pre-bet-hook`; controller routes and service/handler touchpoints verified live. |
+| 2026-07-01 | Restructured: split docs 01 (pitch) and 02 (integration overview) into per-model versions under `sales/model-a/` and `sales/model-b/` (replacing the single dual-track docs); doc 03 stays single. README gains `MODEL-A/MODEL-B` profile blocks (EN+PT-BR) as the per-model source of truth; Doc 02 diagrams are now single-path per model. Same-chat brainstorm design. |

@@ -52,7 +52,8 @@ Enquadre a comparação real com honestidade:
 | Tempo até a primeira receita | Meses | Semanas |
 
 O preço é **setup + mensalidade** (sem revenue share) — ver o
-[Pitch de duas trilhas](01-dual-track-pitch.pt-BR.md).
+o pitch da trilha do comprador
+([Modelo A](model-a/01-pitch.pt-BR.md) / [Modelo B](model-b/01-pitch.pt-BR.md)).
 
 ## Checklist pré-call de vendas
 
@@ -60,9 +61,11 @@ Rode isto antes de cada call com prospect:
 
 - [ ] **Identifique a trilha do comprador** — regulado (Modelo A) ou cripto-nativo (Modelo B)? Muda a
       conversa inteira (carteira, KYC, RG, exigências documentais).
-- [ ] **Envie o documento certo primeiro** — o [Pitch de duas trilhas](01-dual-track-pitch.pt-BR.md)
-      pode ser enviado a frio. O [Panorama de integração](02-integration-overview.pt-BR.md) vai
-      **somente após NDA assinado**.
+- [ ] **Envie o documento certo primeiro** — o pitch da trilha do comprador
+      ([Modelo A](model-a/01-pitch.pt-BR.md) / [Modelo B](model-b/01-pitch.pt-BR.md)) pode ser enviado
+      a frio. O panorama de integração correspondente
+      ([Modelo A](model-a/02-integration-overview.pt-BR.md) /
+      [Modelo B](model-b/02-integration-overview.pt-BR.md)) vai **somente após NDA assinado**.
 - [ ] **Trava de NDA confirmada** — não compartilhe o panorama de integração, código-fonte, credenciais
       ou arquitetura interna antes de um NDA mútuo + não-uso assinado.
 - [ ] **Preço claro** — setup + mensalidade; **sem revenue share / NGR**; novas funcionalidades cobradas

@@ -48,7 +48,8 @@ Frame the real comparison honestly:
 | Regulated readiness | You build + fund certification | On the roadmap; certification **DEFERRED** until funded |
 | Time to first revenue | Months | Weeks |
 
-Pricing is **setup + monthly** (no revenue share) — see the [Dual-track pitch](01-dual-track-pitch.md).
+Pricing is **setup + monthly** (no revenue share) — see the pitch doc for the buyer's track
+([Model A](model-a/01-pitch.md) / [Model B](model-b/01-pitch.md)).
 
 ## Pre-sales-call checklist
 
@@ -56,8 +57,10 @@ Run this before every prospect call:
 
 - [ ] **Identify the buyer's track** — regulated (Model A) or crypto-native (Model B)? It changes the
       whole conversation (wallet, KYC, RG, document demands).
-- [ ] **Send the right doc first** — the [Dual-track pitch](01-dual-track-pitch.md) is cold-sendable.
-      The [Integration overview](02-integration-overview.md) goes **only after a signed NDA**.
+- [ ] **Send the right doc first** — the pitch for the buyer's track ([Model A](model-a/01-pitch.md) /
+      [Model B](model-b/01-pitch.md)) is cold-sendable. The matching integration overview
+      ([Model A](model-a/02-integration-overview.md) / [Model B](model-b/02-integration-overview.md))
+      goes **only after a signed NDA**.
 - [ ] **NDA gate confirmed** — do not share the integration overview, source, credentials, or internal
       architecture before a mutual NDA + non-use is signed.
 - [ ] **Pricing straight** — setup + monthly; **no revenue share / NGR**; new features billed
