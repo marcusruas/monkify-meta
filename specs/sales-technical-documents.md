@@ -1,7 +1,8 @@
 # Monkify — "Sales Technical Documents (B2B SaaS)" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Setup technical documents for selling the game as a SAAS](https://trello.com/c/NFNDRlBk) (2026-07-01).
+> **Status: Shipped** — merged to `main` via `feature/sales-technical-documents` on 2026-07-01.
+> Refined via Trello card
+> [Setup technical documents for selling the game as a SAAS](https://trello.com/c/NFNDRlBk).
 > Repos affected: **`monkify-meta`** (write target — the deliverable + this spec).
 > `monkify-backend` and `monkify-front` are **read-only grounding sources** (no branches, no code changes).
 >
