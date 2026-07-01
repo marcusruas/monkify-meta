@@ -89,6 +89,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/operator-wallet-api.md` | Model A (Regulated) operator wallet debit/credit/refund adapters; unify `TransactionLog`, drop `RefundLog`, remove commission | Shipped              |
 | `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
+| `specs/sales-technical-documents.md` | Non-code: 3 B2B SaaS sales docs in `sales/` (dual-track pitch, under-NDA integration overview grounded in shipped code, anti-clone playbook); EN + PT-BR; placeholders only, paid steps deferred | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -109,7 +110,19 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _None._ (Last shipped: **RG pre-bet hook** — `feature/rg-pre-bet-hook`, 2026-07-01; an opt-in
+- **Sales technical documents (B2B SaaS)** — `feature/sales-technical-documents` (`monkify-meta`
+  only; non-code document-production story). Spec: `specs/sales-technical-documents.md`. Produce 3
+  standardized Markdown docs under `sales/` (01 dual-track pitch [self-contained; setup + monthly
+  pricing, **no %NGR**], 02 under-NDA integration overview **grounded read-only** in the shipped
+  `launch-token-validation` / `operator-wallet-api` / `rg-pre-bet-hook` + session state machine
+  [launch→bet→settle, both Model A/B paths], 03 anti-clone positioning playbook + pre-sales-call
+  checklist), plus `README.md` (canonical Model A/B track definitions, reused verbatim) and a shared
+  `_TEMPLATE.md`. EN + **PT-BR for all three**; placeholders only, **no real PII/contacts/secrets**,
+  operator names illustrative only, paid steps (GLI/BMM cert, lawyer, trademark) **DEFERRED**; Mermaid
+  diagrams, PDF/deck export deferred. Backend/front are read-only grounding only. Trello #27
+  (`NFNDRlBk`). Sibling of the legal batch (`specs/legal-pitch-documents-batch-1.md`, also in flight
+  on `feature/legal-pitch-documents-batch-1`).
+- _Last shipped:_ **RG pre-bet hook** — `feature/rg-pre-bet-hook`, 2026-07-01; an opt-in
   per-operator responsible-gaming pre-bet check (`IPreBetCheckService` + resolver + shared mock)
   called in `RegisterBetHandler` after local validation and **before** the wallet debit; allow /
   deny(reason, specific message) / **fail-closed** unavailable; applies to both payment models; no
