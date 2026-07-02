@@ -81,6 +81,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/operator-wallet-api.md` | Regulated (Model A) operator wallet debit/credit/refund; unified `TransactionLog`; commission removed | Shipped              |
 | `features/dev-qol-stuff.md` | Dev QOL: operator from token (not URL), dev launch buttons (`VUE_APP_DEV_LAUNCH`), `Monkify.Tests.Integration` suite | Shipped              |
 | `features/rg-pre-bet-hook.md` | Opt-in per-operator responsible-gaming pre-bet check (`IPreBetCheckService`); allow/deny/fail-closed before the wallet debit | Shipped              |
+| `features/player-customization-modal.md` | Header-gear modal: display name (all operators) + preferred display currency (regulated only); `GET /fx/rates`, `GET /players/preferences`, client-side USD→fiat rendering; display-only | Shipped              |
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
@@ -91,7 +92,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
-| `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Ready                |
+| `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -112,18 +113,6 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Spec created (2026-07-02):_ **Player Customization Modal** —
-  `feature/player-customization-modal` (`monkify-backend` + `monkify-front` + `monkify-meta`);
-  spec `specs/player-customization-modal.md`; Trello
-  [#25 `ZyJViMKI`](https://trello.com/c/ZyJViMKI). A header-gear modal to edit **display name** (all
-  operators, rendered for self + others) and **preferred display currency** (regulated only). New
-  token-gated `GET /fx/rates` backed by an `IExchangeRateProvider` (FreeCurrencyApi prod + Mock dev),
-  full USD rate table cached in **Redis 6h**; new `GET /players/preferences`; `PATCH` gains
-  payment-model-scoped currency allow-list (regulated → 33 fiat codes; crypto → USD) + 1–20 name
-  validation; `DisplayName` added to `BetDto` + `BetNotificationEvent`. Conversion is **display-only
-  and client-side** (backend returns USD everywhere; settlement/persistence/operator-API amounts stay
-  USD). No EF migration. Also adds an "always use the existing design system" rule to
-  `conventions/frontend.md`.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
@@ -131,7 +120,12 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`betCurrency`: crypto `USDC` / regulated `credits`), and (3) fix `GameMonkey.vue` so the
   received-bet animation caps at 2 and always settles to a resting frame instead of looping. No
   backend change; real-fiat currency for regulated operators is a deferred backend follow-up.
-- _Last shipped:_ **Sales technical documents (B2B SaaS)** — `feature/sales-technical-documents`,
+- _Last shipped:_ **Player Customization Modal** — `feature/player-customization-modal`, 2026-07-02;
+  header-gear modal for **display name** (all operators) and **preferred display currency** (regulated
+  only); `GET /fx/rates` + 6h Redis cache, `GET /players/preferences`, PATCH allow-list + name
+  validation, `DisplayName` on bet DTO/SignalR; client-side display-only conversion (settlement stays
+  USD). Trello #25 (`ZyJViMKI`). See `features/player-customization-modal.md`.
+- Previously shipped: **Sales technical documents (B2B SaaS)** — `feature/sales-technical-documents`,
   2026-07-01; per-model Markdown sales docs under `sales/` (`model-a/` + `model-b/` pitch and
   under-NDA integration overview, single anti-clone playbook, README + template); EN + PT-BR;
   placeholders only, paid steps DEFERRED, PDF export deferred. Non-code; backend/front read-only
@@ -148,8 +142,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `/monkify/game/sessions`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
   replaced by dev launch buttons gated on `VUE_APP_DEV_LAUNCH`, and a new `Monkify.Tests.Integration`
   Testcontainers suite. Trello #28. See `features/dev-qol-stuff.md`.
-  Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26;
-  currency conversion / FX rendering → https://trello.com/c/ZyJViMKI #25.
+  Backlog follow-ups: Monkify commission per bet → https://trello.com/c/BXgxJcwP #26.
 
 ## The 60-second mental model
 
@@ -163,7 +156,7 @@ consumed in `Monkify.Consumers`: `BetPlaced → RunSession → RewardSession`, w
 `RefundInvalidBet` for failures.
 - The **typer** (`MonkifyTyper`) runs the game: it emits random characters over **SignalR** until
 a bet's choice appears; winners are then rewarded via **Solana** SPL token transfers.
-- **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters and backs
-SignalR. **Hangfire** (on PostgreSQL) schedules lottery sessions.
+- **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters, FX rate tables
+  (6h TTL), and backs SignalR. **Hangfire** (on PostgreSQL) schedules lottery sessions.
 - **Frontend** (`monkify-front`) is Vue 3 + TypeScript: composables in `src/hooks`, an axios
 service layer in `src/services`, and SignalR clients to stream the live typer + bets.

@@ -75,3 +75,16 @@
   `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.
+- **Display name** — optional `OperatorPlayer.DisplayName` (1–20 chars, trimmed). Set via the
+  customization modal (`PATCH /players/preferences`); rendered on bet DTOs and recent-bets SignalR
+  events for self and others; falls back to truncated `externalPlayerId`. See
+  `features/player-customization-modal.md`.
+- **Preferred display currency** — `OperatorPlayer.Currency` (default `USD`). Regulated operators may
+  choose from the backend definitive fiat set (33 codes); crypto operators are restricted to `USD`
+  (selector hidden in UI). Affects **rendering only** — backend always stores and transmits USD;
+  client multiplies by cached USD→currency rates from `GET /fx/rates`. See
+  `features/player-customization-modal.md`.
+- **FX rates / display conversion** — token-gated `GET /fx/rates` returns the definitive currency
+  list with USD-based rates (Redis cache, 6h TTL; `IExchangeRateProvider` + FreeCurrencyAPI or mock).
+  Frontend `useDisplayCurrency.formatUsd` applies conversion for regulated operators only; settlement
+  and operator-wallet amounts stay USD.

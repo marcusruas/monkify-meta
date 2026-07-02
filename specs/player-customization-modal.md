@@ -1,8 +1,8 @@
 # Monkify — "Player Customization Modal" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Player Customization Modal](https://trello.com/c/ZyJViMKI) (2026-07-02).
-> Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+> **Status: Shipped** — merged `feature/player-customization-modal` → `main` on 2026-07-02.
+> Trello: [Player Customization Modal](https://trello.com/c/ZyJViMKI). Distilled rules:
+> `../features/player-customization-modal.md`.
 >
 > **Purpose:** Give players a self-service **customization modal** — opened from a gear icon in the
 > game header — to edit their **display name** and **preferred display currency**. Display names

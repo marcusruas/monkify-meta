@@ -37,10 +37,14 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   (post wallet-connect); for regulated operators the player id is the token `sub` and **body identity
   fields are ignored**. The operator/`PaymentModel` is read via the cached `IOperatorService`; an
   inactive/unknown operator → vague `SessionNotValidForBets` (the middleware already blocks this path).
-- **Player preferences.** `PATCH /players/preferences` (token-gated) upserts the `OperatorPlayer`'s
-  **display-only** `DisplayName` and preferred `Currency` (default `USD`). Identity: regulated via token
-  `sub`; crypto via the wallet in the body. Currency only affects rendering — actual FX conversion is
-  out of scope (tracked separately).
+- **Player preferences.** `GET /players/preferences` (token-gated) reads `{ externalPlayerId,
+  displayName, currency }` (defaults when no row; no upsert on read). `PATCH /players/preferences`
+  upserts the `OperatorPlayer`'s **display-only** `DisplayName` and preferred `Currency` (default
+  `USD`). Identity: regulated via token `sub`; crypto via optional `?wallet=` on GET or wallet in PATCH
+  body. Currency allow-list is payment-model-scoped (regulated → 33 fiat codes; crypto → USD only).
+  Display name: trimmed, 1–20 chars. Currency only affects **client-side rendering** — backend REST
+  and SignalR always carry USD; settlement and operator API amounts stay USD. See
+  `features/player-customization-modal.md`.
 - **Dev mint endpoint.** `POST /dev/launch-token?paymentModel=Crypto|Regulated` (default `Crypto`) is
   **disabled in production**; in dev it resolves the seeded dev operator and returns **`{ token }`
   only** — the operator is recoverable from the token's `iss` claim; the minted dev token is

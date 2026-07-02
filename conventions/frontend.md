@@ -6,8 +6,8 @@
 
 - **Vue 3 with `<script setup>`** components; TypeScript throughout. Build via Vue CLI (webpack).
 - **Composables live in `src/hooks/`** and are the primary state/logic unit (e.g. `useSession`,
-  `useConnection`, `useOperator`). Several use **module-level `ref`s** so state is shared as a
-  singleton across components — be careful with lifecycle/reset.
+  `useConnection`, `useOperator`, `useDisplayCurrency`). Several use **module-level `ref`s** so state
+  is shared as a singleton across components — be careful with lifecycle/reset.
 - **Shared types & enums live in `src/types/`** (`ActiveSession`, `BodySessionBet`,
   `OperatorBranding`, `DefaultResponse<T>`, …). Mirror backend enums exactly (codes must match).
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
@@ -27,10 +27,10 @@
   cluster — the Connect Wallet button (`WalletButtons.vue`) **and** the USDC `TokenBalance` — for
   **regulated** operators (`paymentModel === OperatorPaymentModel.Regulated`); crypto/unknown keep it.
 - **Bet cost display:** the play-page terminal (`GameTerminal.vue`) shows `> BET: {requiredAmount}
-  {betCurrency}` for **every** session type (not just lottery). `betCurrency` is `USDC` for crypto
-  operators and a neutral `credits` otherwise — the front has no client-side fiat currency source
-  yet (no GET-preferences endpoint, no currency on `OperatorBranding`); showing real fiat is a
-  deferred backend follow-up.
+  {betCurrency}` for **every** session type (not just lottery). For **crypto** operators,
+  `betCurrency` is `USDC`. For **regulated** operators, amounts use `useDisplayCurrency.formatUsd`
+  (preferred fiat with `≈` when not USD; silent USD fallback when rates unavailable). See
+  `features/player-customization-modal.md`.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,

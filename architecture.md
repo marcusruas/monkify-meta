@@ -117,6 +117,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 - `CacheHelper` builds cache keys/TTLs. The active-parameters cache is **operator-aware**:
   keys are `ActiveParameters:{operatorId}` and `Operator:{operatorId}` so one operator's game types
   and branding never leak into another's.
+- **FX rates (display-only):** the full USD→fiat rate table is cached under `Fx:Rates:USD` with a
+  **6-hour TTL** (`GetFxRatesHandler`); populated by `IExchangeRateProvider` (FreeCurrencyAPI or mock).
+  See `features/player-customization-modal.md`.
 - Redis is also the **SignalR backplane** (`AddStackExchangeRedis`) so hub messages fan out across
   instances.
 
@@ -183,7 +186,7 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   operator id — it is read from the token's `iss` claim). Operator + player identity arrive in a
   casino-signed **launch token** (`X-Launch-Token`, RS256), validated by
   `LaunchTokenValidationMiddleware` in `Monkify.Api` on every operator-scoped REST call
-  (`/sessions/*`, `/operators/*`, `/players/*`). The old `x-operator-id` header is **removed**; any
+  (`/sessions/*`, `/operators/*`, `/players/*`, `/fx/*`). The old `x-operator-id` header is **removed**; any
   token failure → generic **HTTP 401** (real reason logged server-side only). See
   `features/launch-token-validation.md`.
 - Read handlers and bet creation scope data to the token's operator (only if `ContractIsActive`; the
@@ -222,7 +225,11 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
   `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:
   `GET /sessions/active-types`, `GET /sessions/{id}`, `POST /sessions/{id}/bets`, `GET /operators/{id}`,
-  `PATCH /players/preferences`.
+  `GET /players/preferences`, `PATCH /players/preferences`, `GET /fx/rates`.
+- **Player customization:** gear icon in `GameHeader.vue` opens `PlayerCustomizationModal.vue` (display
+  name for all operators; preferred currency dropdown for regulated only). `useDisplayCurrency` loads
+  FX rates + prefs on app mount, converts USD amounts client-side for regulated operators (`≈` + hover
+  tooltip); crypto keeps native token display. See `features/player-customization-modal.md`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, and incoming bets.
