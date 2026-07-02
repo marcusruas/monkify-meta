@@ -91,6 +91,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/dev-qol-stuff.md`    | Dev QOL: operatorId out of game URL (decode token `iss`), dev payment-model launch buttons, Testcontainers session integration tests | Shipped              |
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
+| `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -111,6 +112,18 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (2026-07-02):_ **Player Customization Modal** —
+  `feature/player-customization-modal` (`monkify-backend` + `monkify-front` + `monkify-meta`);
+  spec `specs/player-customization-modal.md`; Trello
+  [#25 `ZyJViMKI`](https://trello.com/c/ZyJViMKI). A header-gear modal to edit **display name** (all
+  operators, rendered for self + others) and **preferred display currency** (regulated only). New
+  token-gated `GET /fx/rates` backed by an `IExchangeRateProvider` (FreeCurrencyApi prod + Mock dev),
+  full USD rate table cached in **Redis 6h**; new `GET /players/preferences`; `PATCH` gains
+  payment-model-scoped currency allow-list (regulated → 33 fiat codes; crypto → USD) + 1–20 name
+  validation; `DisplayName` added to `BetDto` + `BetNotificationEvent`. Conversion is **display-only
+  and client-side** (backend returns USD everywhere; settlement/persistence/operator-API amounts stay
+  USD). No EF migration. Also adds an "always use the existing design system" rule to
+  `conventions/frontend.md`.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,

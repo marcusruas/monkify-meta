@@ -39,6 +39,13 @@
   (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
+- **Design system (required):** **always build new UI with the existing frontend design system** —
+  Tailwind CSS + DaisyUI plus the shared UI components under `src/components/ui/`
+  (e.g. `PrimaryButton`, `SecondaryButton`) and the established layout/spacing/theming patterns
+  (including operator `--color-secondary`). Do **not** introduce ad-hoc inline styles, one-off
+  component libraries, or bespoke controls when a design-system primitive already exists; reuse and
+  extend the existing components so new screens (modals, headers, forms) match the current look and
+  feel. If a needed primitive is missing, add it to the design system rather than styling in place.
 - **Routing:** `src/routes.ts` — `/monkify/game/sessions`, `/monkify/game/play`, `/error`;
   `/monkify/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
   `/` redirects to `/error`.
