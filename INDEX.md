@@ -111,6 +111,13 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
+  `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
+  cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
+  (2) show `> BET: {requiredAmount} {betCurrency}` for **every** session type in `GameTerminal.vue`
+  (`betCurrency`: crypto `USDC` / regulated `credits`), and (3) fix `GameMonkey.vue` so the
+  received-bet animation caps at 2 and always settles to a resting frame instead of looping. No
+  backend change; real-fiat currency for regulated operators is a deferred backend follow-up.
 - _Last shipped:_ **Sales technical documents (B2B SaaS)** — `feature/sales-technical-documents`,
   2026-07-01; per-model Markdown sales docs under `sales/` (`model-a/` + `model-b/` pitch and
   under-NDA integration overview, single anti-clone playbook, README + template); EN + PT-BR;

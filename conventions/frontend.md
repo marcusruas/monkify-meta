@@ -23,6 +23,14 @@
   not the URL. Missing/undecodable token, inactive operator, or any token `401` → `/error`.
   `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, exposes
   `paymentModel` (wallet UX is gated on it), and applies `--color-secondary` when branding includes a color.
+- **Wallet UX gated on payment model:** the game header (`GameHeader.vue`) hides the whole wallet
+  cluster — the Connect Wallet button (`WalletButtons.vue`) **and** the USDC `TokenBalance` — for
+  **regulated** operators (`paymentModel === OperatorPaymentModel.Regulated`); crypto/unknown keep it.
+- **Bet cost display:** the play-page terminal (`GameTerminal.vue`) shows `> BET: {requiredAmount}
+  {betCurrency}` for **every** session type (not just lottery). `betCurrency` is `USDC` for crypto
+  operators and a neutral `credits` otherwise — the front has no client-side fiat currency source
+  yet (no GET-preferences endpoint, no currency on `OperatorBranding`); showing real fiat is a
+  deferred backend follow-up.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
