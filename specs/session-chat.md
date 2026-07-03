@@ -275,12 +275,18 @@ live in `useSessionChat`; the panel is `GameChatPanel`.
 
 ### 7.2 `useSessionChat.ts` — identity + client limits + read-only state
 
-- **Nickname (decisions #3–#6):** source from `useDisplayCurrency()` — `displayName` if set, else a
-  **truncated identifier** derived from `externalPlayerId` (reuse the exact truncation already used for
-  bet/winner rows; do not invent a new format). **Remove** the `sessionStorage` guest-name code.
-- **Send eligibility (decision #5):** expose `canSend` — `true` when a name resolves. For crypto
-  operators, this requires a **connected wallet** (`externalPlayerId` present); regulated always
-  resolves. When `!canSend`, the input is disabled with a "connect a wallet to chat" prompt.
+- **Nickname (decisions #3–#6):** `displayName` if set, else a **truncated identifier**
+  (`first4…last4`). The identity `ownId` is the **wallet** for crypto (`publicKey`) and the
+  **launch-token `sub`** for regulated. Read the regulated id straight from the token
+  (`getPlayerIdFromToken()` in `utils/launchToken.ts`, mirroring `getOperatorIdFromToken`) so it does
+  **not** depend on the async `GET /players/preferences` load — fall back to the loaded
+  `externalPlayerId` only if present. **Remove** the `sessionStorage` guest-name code.
+- **Send eligibility (decision #5):** `canSend = isRegulatedOperator() || !!ownId`. Regulated players
+  can **always** send (the token always carries their `sub`); crypto players need a **connected
+  wallet**. `resolvedName` must be **non-null whenever `canSend` is true** — regulated falls back to
+  `'ANON'` (mirroring bet/winner rows) if no id resolves, so a regulated player with no display name is
+  never wrongly blocked. Only crypto-with-no-wallet yields `canSend = false` / a null name, disabling
+  the input with a "connect a wallet to chat" prompt.
 - **Client limits (decision #14):** `MAX_CHAT_LENGTH = 200`, `CHAT_MIN_INTERVAL_MS = 1000`. `send`
   blocks + shows inline validation when text is empty/whitespace, > 200 chars, or within 1 s of the
   last send; otherwise calls `useSession().sendChatMessage(name, text)`.
@@ -496,6 +502,7 @@ Project: `monkify-backend/src/Monkify.Tests`.
 | --- | --- |
 | 2026-07-03 | Initial spec from refined card #4 "Add chat" (v1 — ephemeral, anonymous, 1 msg/2 s). |
 | 2026-07-03 | **v2 re-refinement:** nickname = player display name (client-resolved, crypto must connect to send); DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7); rate limit → **1 msg/s**; **no** history load (late joiners still see nothing). |
+| 2026-07-03 | **Fix:** regulated players with no display name were wrongly blocked ("connect a wallet") — `resolvedName` could be null while `canSend` was true. Regulated identity now read from the launch-token `sub` (`getPlayerIdFromToken`), independent of the async preferences load, with an `'ANON'` fallback so `canSend ⟹ resolvedName != null`. |
 
 ---
 
