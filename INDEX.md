@@ -95,6 +95,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `specs/session-chat.md`     | Per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Shipped (v2)         |
+| `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): operator-signed **admin-scoped** RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), full CRUD on the operator's own session types (all 3 modes), **`SessionParameters` versioning** (`NextVersionId` linked list; edits create a new version, roll-over resolves the active tail), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -115,6 +116,17 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (awaiting implementation):_ **Operator page (operator admin portal)** —
+  `feature/operator-admin-page` (`monkify-backend` + `monkify-front` + `monkify-meta`), spec
+  `specs/operator-admin-page.md`, Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). Operator
+  self-service admin at `/monkify/admin`: operator-signed **admin-scoped** RS256 token (`X-Admin-Token`,
+  validated against `Operator.LaunchPublicKey`, **not** contract-gated; admin/player tokens are not
+  interchangeable), full CRUD on the operator's own session types (all 3 modes), **`SessionParameters`
+  versioning** via a `NextVersionId` forward-linked list (edit → new version, live session finishes on
+  the old, roll-over via `ResolveCurrentVersion` creates the next from the active tail; `active-types`
+  returns active tails only), soft-deactivate (no hard delete), dev-only header icon →
+  `POST /dev/admin-token`. `AllowFreeBet` stays dev-only (hidden from operators). No backend commits
+  yet — branches pushed empty.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
