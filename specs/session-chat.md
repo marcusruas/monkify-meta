@@ -1,19 +1,8 @@
 # Monkify — "Add chat" Feature — Implementation Spec
 
-> **Status: Ready for implementation (v2 — re-refined 2026-07-03)** — refined via Trello card
-> [Add chat](https://trello.com/c/7UnjEOom/4-add-chat).
-> Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
->
-> **Purpose:** A lightweight, per-session chat so players on `/game` can talk to each other while
-> watching the monkey type — during the betting/waiting phase and the live run. Messages are shown
-> in realtime and **persisted for audit/retention** (auto-purged), and every message is attributed
-> to the player's **display name** (the same identity shown on bets/winners).
->
-> **⚠️ Supersedes the v1 (ephemeral) design.** The code currently on `feature/session-chat`
-> (commits up to the initial ship of this feature) was built to the v1 spec — anonymous
-> `Player-XXXX` nicknames, no DB, `1 msg / 2 s`. This v2 spec changes the nickname source, adds DB
-> persistence + a purge job, and sets the rate limit to `1 msg/s`. The branch code must be
-> **re-implemented** to match this spec. See §16 for the v1→v2 delta.
+> **Status: Shipped (v2)** — merged `feature/session-chat` → `main` on 2026-07-03.
+> Trello: [Add chat](https://trello.com/c/7UnjEOom/4-add-chat). Distilled rules:
+> `../features/session-chat.md`.
 
 ---
 

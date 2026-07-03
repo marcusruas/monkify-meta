@@ -88,3 +88,6 @@
   list with USD-based rates (Redis cache, 6h TTL; `IExchangeRateProvider` + FreeCurrencyAPI or mock).
   Frontend `useDisplayCurrency.formatUsd` applies conversion for regulated operators only; settlement
   and operator-wallet amounts stay USD.
+- **Session chat message** — a plain-text line broadcast within one session instance over
+  `ActiveSessionsHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
+  `SessionChatMessage` for audit/retention only (not replayed). See `features/session-chat.md`.

@@ -1,0 +1,59 @@
+# Feature — Session chat (Add chat)
+
+> Status: **shipped (v2).** Authoritative spec: `../specs/session-chat.md`
+> (merged via `feature/session-chat` on 2026-07-03).
+
+## What it does
+
+Gives players on `/game` a lightweight **per-session chat** while watching the monkey type — during
+the betting/waiting phase and the live run. Messages appear in a right-sidebar panel, attributed to
+each player's **display name** (same identity as bets/winners). Chat reuses the existing
+`ActiveSessionsHub` connection and session SignalR group — no third hub or connection.
+
+## Core rules
+
+- **Scope:** one chat room per **active session instance** = the existing SignalR group keyed by
+  `sessionId`. Transport: hub method `SendChatMessage(sessionId, displayName, text)`; clients listen
+  on `{sessionId}/ChatMessage` for `{ displayName, text, sentAt }`.
+- **Identity (client-resolved):** nickname = `displayName` from `useDisplayCurrency` if set, else a
+  **truncated identifier** (last-4 style of wallet or token `sub`), else `ANON` for regulated players
+  with no resolved id. No auto-generated `Player-XXXX` nicknames; no `sessionStorage` guest names.
+  **No per-message server/DB lookup** on the realtime path.
+- **Send eligibility:** regulated players always have token identity → can send. **Crypto players must
+  connect a wallet to send** (input disabled + connect prompt until then); they can still **read**.
+- **Persistence (audit-only):** after broadcast, the hub publishes `ChatMessagePersistedEvent` →
+  `ChatMessagePersistedConsumer` writes `SessionChatMessage` (`SessionId`, `DisplayName`, `Text`;
+  `CreatedDate` = sent time). **Never replayed** to players — late joiners see no prior messages; no
+  history-load endpoint.
+- **Retention:** daily Hangfire job `ChatMessagePurgeJob` deletes rows older than
+  `GeneralSettings.Chat.RetentionDays` (**default 7**). Migration applied by `Monkify.Consumers`.
+- **Hub guards:** reject empty/whitespace text, text **> 200** chars, empty session id, or empty
+  display name — no broadcast, no persist. **No server rate limiting.**
+- **Client limits:** plain text only; **200 chars max**, **1 message / 1 second**, inline validation
+  in `useSessionChat`. No linkify, emoji picker, or markdown.
+- **Lifecycle on `/game`:** panel **open by default**; hide/show toggle (not persisted). After session
+  `Ended`: messages stay visible, input **read-only**. On rollover to a new instance: message list
+  clears, input re-enables, same identity kept, chat re-registers on the new session group.
+- **No REST API** for chat. No operator-specific messaging added.
+
+## Key code touchpoints
+
+**Backend (`monkify-backend`)**
+
+- `Monkify.Infrastructure/Hubs/ActiveSessionsHub.cs` — `SendChatMessage`, `MaxChatMessageLength = 200`
+- `Monkify.Infrastructure/Consumers/ChatMessagePersisted/` — event + consumer
+- `Monkify.Infrastructure/Jobs/ChatMessagePurgeJob.cs` — daily purge (registered in `Monkify.Consumers/Program.cs`)
+- `Monkify.Domain/Sessions/Entities/SessionChatMessage.cs` — EF entity
+- `Monkify.Infrastructure/Migrations/20260703145848_AddSessionChatMessages.cs`
+- `Monkify.Domain/Configs/Entities/ChatSettings.cs` — `RetentionDays`
+- `Monkify.Common/monkifysettings.json` — `Chat.RetentionDays`, `Sessions.SessionChatEndpoint`
+- Tests: `ActiveSessionsHubTests`, `ChatMessagePersistedConsumerTests`, `ChatMessagePurgeJobTests`
+
+**Frontend (`monkify-front`)**
+
+- `src/hooks/useSessionChat.ts` — identity, limits, send eligibility
+- `src/hooks/useSession.ts` — `{sessionId}/ChatMessage` handler, `sendChatMessage`, rollover clear
+- `src/components/game/GameChatPanel.vue` — sidebar UI
+- `src/pages/GamePage.vue` — mounts chat panel
+- `src/types/index.ts` — `ChatMessage`
+- `src/utils/launchToken.ts` — `getPlayerIdFromToken` (regulated chat identity)

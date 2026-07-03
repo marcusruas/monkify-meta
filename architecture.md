@@ -131,6 +131,7 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   - `…/Terminal` — batched characters,
   - `…/DisplaySpeed` — current typing speed,
   - `…/Status` — session status transitions (incl. winners on `Ended`),
+  - `{sessionId}/ChatMessage` — per-session chat (`SendChatMessage` on the same hub/group),
   - and `SessionReceived` / a recent-bets `…/Bets` channel.
 - JSON uses camelCase. Both the API and Consumers configure SignalR (Consumers emits during runs).
 
@@ -140,6 +141,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   dashboard at `/hangfire`.
 - Used to **schedule lottery sessions**: `SessionService.ScheduleLottery` enqueues a delayed
   `BetPlacedEvent` publish for the session's start time.
+- **Session chat purge:** daily recurring job `session-chat-purge` runs `ChatMessagePurgeJob`, deleting
+  `SessionChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (default 7). See
+  `features/session-chat.md`.
 
 ## 8. Blockchain & payments
 
@@ -232,7 +236,8 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   tooltip); crypto keeps native token display. See `features/player-customization-modal.md`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
-  speed, status, and incoming bets.
+  speed, status, incoming bets, and **session chat** (`GameChatPanel` + `useSessionChat` on
+  `{sessionId}/ChatMessage`). See `features/session-chat.md`.
 - **Bet flow:** `useSession.bet()` sends an on-chain SPL token transfer via `useConnection.sendToken`,
   then POSTs the bet with the returned signature as `paymentSignature`.
 

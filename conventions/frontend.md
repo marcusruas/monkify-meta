@@ -34,7 +34,8 @@
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
-  `…/Status`, `…/Bets`, `SessionReceived`.
+  `…/Status`, `…/Bets`, `SessionReceived`, and `{sessionId}/ChatMessage` (session chat — see
+  `features/session-chat.md`).
 - **Solana wallet** via `solana-wallets-vue` + `@solana/web3.js` + `@solana/spl-token`
   (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
