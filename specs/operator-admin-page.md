@@ -416,6 +416,16 @@ Register the consumer in `Monkify.Consumers/Program.cs` (`AddConsumer` + `Receiv
 the others). `CreateSessionTypeHandler` takes `IRabbitMQService` (already registered in the API host,
 as `RegisterBetHandler` publishes events too).
 
+### 6.10c Entering a type resolves the live session across the lineage
+
+After an edit, the in-progress round keeps running on the **old** version and only rolls over to the
+new tail when it ends (§6.10). But `active-types` lists the type under the **new tail id**, so
+`GET /sessions/{tailId}` → `GetActiveSessionForParameter` matching `ParametersId == tailId` exactly
+would find nothing → **400 `ParameterHasNoActiveSessions`** until the round ends. Fix: the handler
+walks the **version lineage** (the tail plus every predecessor whose `NextVersionId` chain leads to
+it) and returns the live session wherever it sits, using **that session's own version parameters**
+(the live round was created/validated against them). No extra session is created — isolation holds.
+
 ### 6.11 Startup roll-over is lineage-aware — `OpenNewSessions` (hidden blocker)
 
 File: `monkify-backend/src/Monkify.Consumers/Program.cs` (`OpenNewSessions`, lines 287–309)
