@@ -93,7 +93,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
-| `specs/session-chat.md`     | Ephemeral per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); anonymous guest nicknames (sessionStorage), client-only 200-char/2s limits, read-only on end, full reset on rollover; no DB/migration; right-sidebar `GameChatPanel` | Ready                |
+| `specs/session-chat.md`     | Per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Ready (v2)           |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -114,15 +114,20 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Spec created (ready for implementation):_ **Add chat** — `feature/session-chat`
+- _Spec re-refined to v2 (ready for re-implementation):_ **Add chat** — `feature/session-chat`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), spec `specs/session-chat.md`, started
-  2026-07-03; Trello #4 ([7UnjEOom](https://trello.com/c/7UnjEOom/4-add-chat)). Ephemeral per-session
-  chat reusing `ActiveSessionsHub`'s session group + Redis backplane: new hub method
-  `SendChatMessage(sessionId, guestName, text)` broadcasting `{ guestName, text, sentAt }` to
-  `{sessionId}/ChatMessage`; anonymous `Player-XXXX` guest nicknames (sessionStorage-stable per tab,
-  no wallet); client-only limits (200 chars, 1 msg/2 s); read-only after `Ended`, full reset on
-  rollover; right-sidebar `GameChatPanel` open by default. No DB, no migration, no REST — SignalR
-  only, `Monkify.Api` host. New setting `Sessions.SessionChatEndpoint`. Not yet implemented.
+  2026-07-03; Trello #4 ([7UnjEOom](https://trello.com/c/7UnjEOom/4-add-chat)). Per-session chat
+  reusing `ActiveSessionsHub`'s session group + Redis backplane: hub `SendChatMessage(sessionId,
+  displayName, text)` broadcasts `{ displayName, text, sentAt }` to `{sessionId}/ChatMessage` **and**
+  publishes `ChatMessagePersistedEvent` → `ChatMessagePersistedConsumer` writes `SessionChatMessage`
+  (audit/retention). **v2 changes vs the v1 code already on the branch:** nickname is the player's
+  **display name** (client-resolved from `useDisplayCurrency`: `displayName` ?? truncated id; crypto
+  must connect a wallet to send, can still read) instead of an anonymous `Player-XXXX`; messages are
+  **persisted** to the DB with a **daily Hangfire purge** (`GeneralSettings.Chat.RetentionDays`,
+  default 7) — new entity + migration (applied by Consumers); rate limit **1 msg/s** (was 1/2 s);
+  **no history load** (late joiners still see nothing). Client-only limits (200 chars, 1 msg/s),
+  read-only after `Ended`, full reset on rollover; right-sidebar `GameChatPanel`. The branch code
+  (v1) needs re-implementation to match; see spec §16.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
