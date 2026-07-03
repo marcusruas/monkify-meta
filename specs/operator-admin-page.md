@@ -397,6 +397,25 @@ if (currentVersion != null)
 (`CreateSession` itself is unchanged — it already skips creation for a contract-inactive operator,
 lines 386–418.)
 
+### 6.10b Open the first session for a newly created type (event → Consumers)
+
+A brand-new `SessionParameters` has **no `Session`**, and sessions are only created at Consumers
+startup (`OpenNewSessions`) or on roll-over (`RunSessionConsumer`) — so entering a just-created type
+would `GET /sessions/{id}` and hit `ParameterHasNoActiveSessions` (**400**). Session/typer work
+belongs to `Monkify.Consumers` (SignalR fan-out + Hangfire lottery scheduling), not the stateless API,
+so **`CreateSessionType` publishes a `SessionParametersCreatedEvent(parametersId)`** after the write,
+and a new **`SessionParametersCreatedConsumer`** (Consumers) opens the first session:
+
+- Loads the parameters (`Include` Lottery/Preset/Operator). **Idempotent:** skips if the type is
+  gone/inactive or already has a live session (`ActiveSessionsStatus`), so a redelivered event is safe.
+- Calls `SessionService.CreateSession(parameters)` — which already skips inactive operators, so a type
+  created before contract start simply gets its first session once the operator is active.
+- **Edits do not publish this** — the current live session rolls over to the new version (§6.10).
+
+Register the consumer in `Monkify.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`, next to
+the others). `CreateSessionTypeHandler` takes `IRabbitMQService` (already registered in the API host,
+as `RegisterBetHandler` publishes events too).
+
 ### 6.11 Startup roll-over is lineage-aware — `OpenNewSessions` (hidden blocker)
 
 File: `monkify-backend/src/Monkify.Consumers/Program.cs` (`OpenNewSessions`, lines 287–309)
@@ -626,6 +645,9 @@ sequenceDiagram
 | 20 | `Monkify.Infrastructure/Consumers/RunSession/RunSessionConsumer.cs` | Roll over via `ResolveCurrentVersion` (skip if inactive tail) |
 | 21 | `Monkify.Consumers/Program.cs` | `OpenNewSessions` lineage-aware dedup (§6.11) |
 | 22 | `Monkify.Api/Controllers/DevController.cs` | **New** `POST /dev/admin-token` (404 in prod) |
+| 22b | `Monkify.Infrastructure/Consumers/SessionParametersCreated/*` | **New** `SessionParametersCreatedEvent` + consumer (open first session for a new type) |
+| 22c | `Monkify.Consumers/Program.cs` | Register `SessionParametersCreatedConsumer` (AddConsumer + ReceiveEndpoint) |
+| 22d | `Monkify.Infrastructure/Handlers/Admin/CreateSessionType/CreateSessionTypeHandler.cs` | Publish `SessionParametersCreatedEvent` after create (inject `IRabbitMQService`) |
 | 23 | `Monkify.Tests/**` | New: admin-token/middleware, admin CRUD handlers, versioning + roll-over, validation, OpenNewSessions dedup; update existing session tests as needed |
 | 24 | `Monkify.Tests.Integration/**` | Roll-over resolves active version; add an edit-mid-flight → next session uses new version case |
 
@@ -743,3 +765,4 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 | Date | Change |
 | --- | --- |
 | 2026-07-03 | Initial spec from the refined card + same-session refinement decisions (1–15). Grounded in code exploration (launch-token infra, `SessionService`/`RunSessionConsumer` roll-over, `OpenNewSessions`, `MonkifyDbContext`). |
+| 2026-07-03 | Implementation fix: creating a type now publishes `SessionParametersCreatedEvent` so a `SessionParametersCreatedConsumer` opens the first session (was 400 `ParameterHasNoActiveSessions` on entering a just-created type). See §6.10b. |
