@@ -93,6 +93,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/rg-pre-bet-hook.md`  | Responsible-gaming pre-bet check hook (`IPreBetCheckService`, opt-in per operator, fail-closed) wired into `RegisterBetHandler` before the wallet debit | Shipped              |
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
+| `specs/session-chat.md`     | Ephemeral per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); anonymous guest nicknames (sessionStorage), client-only 200-char/2s limits, read-only on end, full reset on rollover; no DB/migration; right-sidebar `GameChatPanel` | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -113,6 +114,15 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (ready for implementation):_ **Add chat** — `feature/session-chat`
+  (`monkify-backend` + `monkify-front` + `monkify-meta`), spec `specs/session-chat.md`, started
+  2026-07-03; Trello #4 ([7UnjEOom](https://trello.com/c/7UnjEOom/4-add-chat)). Ephemeral per-session
+  chat reusing `ActiveSessionsHub`'s session group + Redis backplane: new hub method
+  `SendChatMessage(sessionId, guestName, text)` broadcasting `{ guestName, text, sentAt }` to
+  `{sessionId}/ChatMessage`; anonymous `Player-XXXX` guest nicknames (sessionStorage-stable per tab,
+  no wallet); client-only limits (200 chars, 1 msg/2 s); read-only after `Ended`, full reset on
+  rollover; right-sidebar `GameChatPanel` open by default. No DB, no migration, no REST — SignalR
+  only, `Monkify.Api` host. New setting `Sessions.SessionChatEndpoint`. Not yet implemented.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
