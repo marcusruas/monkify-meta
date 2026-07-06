@@ -296,8 +296,10 @@ Project to `SessionTypeAdminDto` (§6.7).
   `SessionParametersCreatedEvent(parameters.Id)` (§6.10b). Return the new id.
 
 **6.6c `DeactivateSessionType`** — load the active row (`Id == id && OperatorId == operatorId &&
-Active`, `AsTracking`), set `Active = false`, save, invalidate cache. Null → 404. The current live
-session (if any) finishes normally; roll-over then creates no successor (§6.10).
+Active`, `AsTracking`), set `Active = false`, save, invalidate cache. Null → 404. Then publish
+`SessionTypeDeactivatedEvent(parametersId)` so the Consumers host cancels + refunds any session of
+this type still waiting for players (§6.10d). An already-running session (`SessionStarting`/`InProgress`)
+finishes normally; roll-over then creates no successor (§6.10).
 
 ### 6.7 Admin DTOs
 
@@ -386,6 +388,35 @@ and a **`SessionParametersCreatedConsumer`** (Consumers) opens the first session
 Register the consumer in `Monkify.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`, next to
 the others). `CreateSessionTypeHandler` takes `IRabbitMQService` (already registered in the API host,
 as `RegisterBetHandler` publishes events too).
+
+### 6.10d Deactivation cancels + refunds waiting sessions (event → Consumers)
+
+When a type is deactivated, any session of that type still in **`WaitingBets`** (never reached enough
+players to start) would otherwise be orphaned with its bets stuck — a non-lottery waiting session only
+advances when the next bet arrives, which never comes for a dead type. So `DeactivateSessionType`
+publishes `SessionTypeDeactivatedEvent(parametersId)` and a new **`SessionTypeDeactivatedConsumer`**
+(Consumers) handles it:
+
+- Load every `WaitingBets` session for that `ParametersId` (with its bets).
+- For each: **refund every non-free bet** by publishing a `RefundInvalidBetEvent` (reason "Session
+  type was deactivated by the operator.") — the existing idempotent `RefundInvalidBetConsumer` does
+  the crypto/regulated refund; **free bets are skipped** (mirrors the `BetPlacedConsumer`
+  under-subscription path). Then set the session to **`NotEnoughPlayersToStart`** (the same terminal
+  status the lottery under-subscription path uses for "did not start, refunded") so it never runs or
+  rolls over.
+- **`SessionStarting`/`InProgress` sessions are left untouched** — they finish normally.
+- **Idempotent:** it only touches `WaitingBets` sessions, so a redelivered event finds none.
+
+Register the consumer in `Monkify.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`).
+`DeactivateSessionTypeHandler` takes `IRabbitMQService`.
+
+**Resurrection guard (`BetPlacedConsumer`).** A `WaitingBets` **lottery** session has a Hangfire-scheduled
+`BetPlacedEvent` (from `ScheduleLottery`) whose job id isn't stored, so it can't be cancelled. When it
+fires after the session was cancelled, `BetPlacedConsumer` would re-refund (idempotent, harmless) and
+call `CreateSession` again, resurrecting a session for a dead type. Guard the top of `BetPlacedConsumer`:
+`if (!Session.SessionAcceptingBets.Contains(session.Status)) return;`. This is a no-op for the normal
+flow (the session is `WaitingBets`/`SessionStarting` when legit `BetPlacedEvent`s fire) and blocks the
+resurrection.
 
 ### 6.11 Startup roll-over — `OpenNewSessions` (plain dedup)
 
@@ -646,7 +677,7 @@ sequenceDiagram
 | 12 | `Monkify.Api/Controllers/AdminController.cs` | **New** — GET/POST session-types + deactivate (**no PUT**) |
 | 13 | `Monkify.Infrastructure/Handlers/Admin/GetOperatorSessionTypes/*` | **New** — list active types for operator |
 | 14 | `Monkify.Infrastructure/Handlers/Admin/CreateSessionType/*` | **New** — validate + insert (AllowFreeBet forced false) + publish created event |
-| 15 | `Monkify.Infrastructure/Handlers/Admin/DeactivateSessionType/*` | **New** — set `Active=false` |
+| 15 | `Monkify.Infrastructure/Handlers/Admin/DeactivateSessionType/*` | **New** — set `Active=false`; publish `SessionTypeDeactivatedEvent` (inject `IRabbitMQService`) |
 | 16 | `Monkify.Infrastructure/Contracts/Admin/{SessionTypeAdminDto,SessionTypeRequestBody}.cs` | **New** admin DTO + create body |
 | 17 | `Monkify.Domain/Sessions/Services/SessionParametersValidation.cs` | **New** parameter-level validation (§6.8) |
 | 18 | `Monkify.Infrastructure/Services/Sessions/{I,}SessionService.cs` | Add `GetActiveParametersForRollover`; **remove `ResolveCurrentVersion`** |
@@ -655,6 +686,9 @@ sequenceDiagram
 | 21 | `Monkify.Infrastructure/Handlers/Sessions/GetActiveSessionForParameter/*` | Plain `ParametersId` match; **delete `GetVersionLineageIds`** |
 | 22 | `Monkify.Api/Controllers/DevController.cs` | **New** `POST /dev/admin-token` (404 in prod) |
 | 23 | `Monkify.Infrastructure/Consumers/SessionParametersCreated/*` | **New** `SessionParametersCreatedEvent` + consumer (open first session for a new type) |
+| 26 | `Monkify.Infrastructure/Consumers/SessionTypeDeactivated/*` | **New** `SessionTypeDeactivatedEvent` + consumer (cancel + refund WaitingBets sessions of a deactivated type) — §6.10d |
+| 27 | `Monkify.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Guard: skip when session is not `SessionAcceptingBets` (blocks post-cancel lottery resurrection) — §6.10d |
+| 28 | `Monkify.Consumers/Program.cs` | Register `SessionTypeDeactivatedConsumer` (AddConsumer + ReceiveEndpoint) |
 | 24 | `Monkify.Tests/**` | New: admin-token/middleware, admin CRUD handlers, validation, roll-over, OpenNewSessions dedup; **remove** versioning/lineage tests |
 | 25 | `Monkify.Tests.Integration/**` | Roll-over reloads the same row; deactivate → no successor |
 
@@ -705,6 +739,9 @@ Project: `monkify-backend/src/Monkify.Tests`.
 | `GetOperatorSessionTypesHandlerTests.cs` (new) | Operator with active + deactivated types | only active returned |
 | `AdminCacheInvalidationTests.cs` (new) | Any admin write | `ActiveParameters:{operatorId}` removed |
 | `SessionParametersCreatedConsumerTests.cs` (new) | New type event | first session opened; idempotent on redelivery / existing live session |
+| `SessionTypeDeactivatedConsumerTests.cs` (new) | WaitingBets session w/ paid + free bets | paid bets refunded, free skipped, session → `NotEnoughPlayersToStart`; `SessionStarting`/`InProgress` untouched; no waiting sessions → nothing |
+| `BetPlacedHandlerTests.cs` (extend) | Session not accepting bets (InProgress/Ended/NotEnough) | consumer skips — no refund, no `CreateSession`, no `RunSessionEvent` |
+| `AdminSessionTypeHandlerTests.cs` (extend) | Deactivate success / 404 | publishes `SessionTypeDeactivatedEvent` on success; not on 404 |
 | `RunSessionConsumerTests.cs` (extend) | Ended session, still-active type | next session created; **deactivated type → none** |
 | `OpenNewSessionsTests` (new or in `SessionServiceParametersTests`) | Restart with a live session | no duplicate session (plain `ParametersId` dedup) |
 | `GetActiveSessionForParameterHandlerTests.cs` (adjust) | Active session for a type | returned by exact `ParametersId`; **remove** lineage cases |
@@ -730,6 +767,7 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 8. Given a newly created session type, when the operator (or a player) opens it shortly after, then its first session has been opened (via `SessionParametersCreatedConsumer`) so it is enterable — no 400 once the consumer has run.
 9. Given the admin portal, when the operator wants to change a type, then there is **no edit action** — they deactivate the existing type and create a new one (a new row with a new id); the old type's past sessions/bets remain intact.
 10. Given an operator deactivates a session type with a session currently accepting bets, when that live session ends, then no new session is created from that type (roll-over sees `Active=false`) and it no longer appears in active-types or the admin list.
+10a. Given an operator deactivates a session type whose session is still WaitingBets (never reached enough players to start) and has bets, when the deactivation is processed, then every paid bet on that session is refunded (free bets skipped) and the session is cancelled to NotEnoughPlayersToStart; a session that has already started (SessionStarting/InProgress) finishes normally instead.
 11. Given any create/deactivate write, when it succeeds, then the ActiveParameters:{operatorId} cache entry is invalidated so subsequent reads reflect the change.
 12. Given VUE_APP_DEV_LAUNCH=false (production), when the app header renders, then the dev admin icon is absent and POST /dev/admin-token returns 404; given it is enabled (dev), then the icon offers Crypto/Regulated, mints an admin token, and lands on /monkify/admin.
 13. Given existing SessionParameters rows, when the system runs, then they behave as flat one-row-per-type configurations (no versioning column, no chains).
@@ -773,4 +811,5 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 | --- | --- |
 | 2026-07-03 | Initial spec from the refined card + same-session refinement decisions (1–15). Grounded in code exploration (launch-token infra, `SessionService`/`RunSessionConsumer` roll-over, `OpenNewSessions`, `MonkifyDbContext`). |
 | 2026-07-03 | Implementation fix: creating a type now publishes `SessionParametersCreatedEvent` so a `SessionParametersCreatedConsumer` opens the first session (was 400 `ParameterHasNoActiveSessions` on entering a just-created type). See §6.10b. |
+| 2026-07-06 | **Deactivation refunds waiting sessions.** Deactivating a type now publishes `SessionTypeDeactivatedEvent`; a new `SessionTypeDeactivatedConsumer` cancels every `WaitingBets` session of that type (refunds paid bets, skips free) and sets it to `NotEnoughPlayersToStart`. `SessionStarting`/`InProgress` sessions finish normally. Added a `BetPlacedConsumer` guard (`SessionAcceptingBets`) to block post-cancel lottery resurrection. See §6.6c, §6.10d. |
 | 2026-07-06 | **Dropped editing + versioning entirely** (too much overhead — self-FK column, three graph-walking paths, extra hot-path DB calls). Replaced with **deactivate-or-create**: `SessionParameters` is flat/immutable; the only mutable field is `Active`; roll-over reloads the same row and stops when `Active=false`; entry/startup use plain `ParametersId`. Reverted the `AddSessionParametersVersioning` migration (dev DB reset). Removed the `PUT` endpoint and the FE edit UI. Rewrote §1.1, §3, §4, §6.6/6.10/6.11/6.12, §7, §8.2, §9–§13. |
