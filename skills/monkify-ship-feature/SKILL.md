@@ -53,6 +53,7 @@ Copy this checklist and track progress:
 - [ ] Step 7: Update the knowledge base
 - [ ] Step 8: Review with user; commit meta when asked
 - [ ] Step 9: Trello — move card to Implemented
+- [ ] Step 9b: Clean up — remove the worktrees and delete the merged branch
 - [ ] Step 10: Report
 ```
 
@@ -236,6 +237,37 @@ Using the `cardId` from Step 1:
 
 Do **not** rename the card — only move it to **Implemented**. Preserve the card title and description.
 
+### Step 9b: Clean up — remove the worktrees and delete the merged branch
+
+The feature branch is now merged into `main` in every affected repo, so its isolated worktree(s) and
+the branch itself are redundant. Clean them up so stale worktrees and merged branches don't pile up
+(this backs the `🌳 Worktree retired` comment from Step 9 with the actual removal).
+
+For **each** affected repo, run from `<workspace-root>/<repo>` (its `main` checkout — never from
+inside a worktree you are about to remove):
+
+```bash
+# 1) Remove the feature worktree (the one registered on the card) and the ship worktree, if present.
+git worktree remove ../.worktrees/feature-<slug>/<repo>
+git worktree remove ../.worktrees/ship-<slug>/<repo>
+git worktree prune
+
+# 2) Delete the merged branch locally, then on origin.
+git branch -d feature/<slug>                 # -d only (safe): fails if not fully merged
+git push origin --delete feature/<slug>
+```
+
+**Hard rules / safety:**
+
+- Use `git branch -d` (merge-checked), **never** `git branch -D` — if `-d` refuses, the branch is
+  **not** fully merged: **stop** and report instead of force-deleting.
+- Only `git worktree remove` a worktree with a clean tree; if it has uncommitted changes, **stop** and
+  ask (do not use `--force`).
+- Deleting the remote branch is only appropriate **after** the merge to `main` is pushed. If any repo
+  in the plan did **not** merge (e.g. meta-only ship), leave that repo's branch alone.
+- If a worktree path from the card's `**Worktree:**` field / registration comment differs from the
+  `.worktrees/...` convention above, use the registered path.
+
 ### Step 10: Report
 
 Tell the user:
@@ -247,7 +279,9 @@ Tell the user:
 4. **KB updated:** list of files and the headline business-rule changes.
 5. **Drift:** any code vs spec vs Trello mismatches worth a follow-up.
 6. **Trello:** moved to **Implemented** (or skipped if move failed).
-7. **Next:** deploy or manual QA — only if relevant.
+7. **Cleanup:** worktrees removed and merged branch `feature/<slug>` deleted (local + origin), or note
+   what was left in place and why (e.g. a branch that would not `-d`-delete).
+8. **Next:** deploy or manual QA — only if relevant.
 
 ## Hard rules
 
