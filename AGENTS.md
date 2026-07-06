@@ -104,17 +104,27 @@ the user works in both tools):
      **Superpowers** plugin. If either is missing, tell the user how to install it and stop.
    - `monkify-create-spec` needs the **Trello MCP** and sibling repos with clean git trees. If Trello
      is missing, stop with install instructions.
-   - `monkify-ship-feature` optionally uses the **Trello MCP** to **ingest** the linked monkaify card
+   - `monkify-implement-feature` needs the **Trello MCP** and the **Superpowers** plugin (uses
+     `writing-plans` to plan and `test-driven-development` to implement) plus sibling repos with clean
+     `main` hubs. If Trello or Superpowers is missing, stop with install instructions.
+   - `monkify-ship-feature` needs the **Trello MCP** to **ingest** the linked monkaify card
      (description, comments, acceptance criteria) when building the KB digest, and to **move** that
-     card to **Implemented** after shipping. If Trello is missing at Step 5, the user may continue
-     with spec + code only; Step 8 can still move a card once MCP is available.
+     card to **Shipped** after merging. It syncs the KB **on the feature branch before merging**, then
+     merges `feature/<slug>` → `main` in each affected repo and deletes the merged branches/worktrees.
+     Shipping without Trello is not supported (branch + spec are read from the card).
+   - `monkify-test-features` needs the **Trello MCP**, **Docker** running, and the sibling repos on
+     clean `main` hubs. It builds a throwaway combined environment from test worktrees and moves no
+     card.
 
 > Like the root pointer above, the installed copies under `.cursor/skills/` and `.claude/skills/`
 > are regenerated from `monkify-meta/skills/` and are not the source of truth — edit skills in
 > `monkify-meta/skills/`.
 
-Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-feature` (see
-`INDEX.md` → "Skills (the task pipeline)").
+Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-implement-feature`,
+`monkify-ship-feature`, `monkify-test-features` (see `INDEX.md` → "Skills (the task pipeline)").
+Pipeline: **Backlog → Refined → Specs created → Implemented → Shipped**
+(refine → create-spec → implement → ship); `monkify-test-features` is an off-pipeline local
+multi-card test harness.
 
 ## Must-follow rules
 
@@ -145,12 +155,14 @@ Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-fea
    exists or the hub isn't clean-on-`main`). The branch still exists and is still pushed for the PR —
    the worktree is just the local isolation. See `constraints.md` → "Git" for the exact commands.
    This applies to every repo you touch, not just the backend.
-7. **`monkify-ship-feature` may commit the knowledge base without review.** As the exception to the
-   "commits on `main` need approval" rule above: in the **ship-feature** skill, **after updating the
-   knowledge base** to reflect the shipped feature, you may **commit and push the `monkify-meta`
-   changes to `main` without waiting for user review** — that commit is part of the skill's workflow.
-   This exception is scoped to the KB sync at the end of `monkify-ship-feature`; it does **not**
-   authorize committing code repos to `main` without approval.
+7. **`monkify-ship-feature` may sync the knowledge base without a separate review.** As the exception
+   to the "commits on `main` need approval" rule above: in the **ship-feature** skill, the KB sync
+   happens **on the feature branch before the merge** — you **update the `monkify-meta` docs in the
+   `feature/<slug>` worktree, commit and push that branch, then merge it into `main`** (along with the
+   feature) without waiting for a separate review of the KB diff. The user still approves the overall
+   ship plan (which repos merge) and is shown the KB diff before its commit. This exception is scoped
+   to the KB sync in `monkify-ship-feature`; it does **not** authorize any other unreviewed `main`
+   commit.
 8. **Every new feature needs a backend integration test (happy path).** For every **new feature**
    (this rule does **not** apply to bug fixes, QOL/dev-experience tweaks, or minor changes): the
    feature **must** have **at least one integration test** in `monkify-backend`

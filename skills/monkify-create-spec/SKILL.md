@@ -23,9 +23,9 @@ Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
 ## Pipeline position
 
 ```
-Backlog → Refined  →  Specs created  →  (implement)  →  Implemented
-           ↑ refine              ↑ this skill
-         monkify-refine-tasks    monkify-create-spec
+Backlog → Refined  →  Specs created  →  Implemented  →  Shipped
+           ↑ refine        ↑ this skill     ↑ implement     ↑ ship
+      monkify-refine-tasks  monkify-create-spec  monkify-implement-feature  monkify-ship-feature
 ```
 
 ## Input (required)
@@ -246,7 +246,8 @@ Create `monkify-meta/specs/<slug>.md` on the **`feature/<slug>`** branch using
 - **§ Acceptance criteria** — copy from Trello checklist (or synthesize from conversation if card
   checklist is empty but refinement was done in chat).
 - **§ Manual QA** — short dev verification steps when useful.
-- **§ Trello / pipeline** — link card; note next step is implementation then `/monkify-ship-feature`.
+- **§ Trello / pipeline** — link card; note next step is `/monkify-implement-feature`, then
+  `/monkify-ship-feature`.
 - **Revision log** — date + source.
 
 **Self-review before saving** (fix inline):
@@ -340,7 +341,8 @@ Tell the user:
    `**Worktree:**` field).
 4. **INDEX** — updated "Feature currently in flight".
 5. **Code findings** — any non-obvious blockers documented in the spec.
-6. **Next** — implement on the feature branches; run `/monkify-ship-feature <card name>` when merged.
+6. **Next** — run `/monkify-implement-feature <card name>` to build it; then
+   `/monkify-ship-feature <card name>` to sync the KB and merge to `main`.
 
 ## Trello tools used (server `trello` / `user-trello`)
 
