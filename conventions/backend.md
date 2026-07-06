@@ -69,6 +69,12 @@
   (consumers `BetPlaced`/`RunSession`/`RewardSession`/`RefundInvalidBet`, `SessionService`,
   `MonkifyTyper`, session/bet state machine, reward/refund/ledger paths, or the register-bet handler)
   **must also update `Monkify.Tests.Integration`** so the end-to-end assertions still reflect reality.
+- **Every new feature MUST add a happy-path integration test here.** Beyond session-flow changes,
+  `constraints.md` → "Integration tests are mandatory for every new feature" requires each **new
+  feature** to ship with at least one `Monkify.Tests.Integration` test that drives its happy path end
+  to end (and one per particularly complex flow). Follow the `SessionFlowTests` pattern: seed via the
+  fixture, drive the real API, let the Consumers host process, assert terminal DB state + ledger +
+  no error logs. Bug fixes / QOL / minor changes are exempt unless they touch session flow.
 - **Running tests — always use `scripts/run_tests.bat`.** Whenever you need to run the test suite to
   assert changes made to `monkify-backend`, run `scripts/run_tests.bat` (it executes
   `dotnet test` over the unit tests). It **excludes the `ProductionSessions` metrics tests** on
