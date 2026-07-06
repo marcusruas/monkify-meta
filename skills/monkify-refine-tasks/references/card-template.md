@@ -34,7 +34,7 @@ concurrency/idempotency, backward compatibility.>
 - [ ] monkify-front
 
 ## Constraints
-<Only the ones that apply, from constraints.md — e.g. branch-per-repo, unit tests, vague operator
+<Only the ones that apply, from constraints.md — e.g. worktree-per-repo, unit tests, vague operator
 messaging, mock-only secrets.>
 
 ## Status

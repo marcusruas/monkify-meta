@@ -1,17 +1,22 @@
 ---
 name: monkify-create-spec
-description: Turn a refined Monkify Trello card into an implementation spec, create feature branches in each affected repo, and move the card to Specs created. Use when the user names a Refined card and wants a spec file under monkify-meta/specs/, branch setup, and Trello pipeline advance — after monkify-refine-tasks, before implementation. Needs Trello MCP and sibling repos.
+description: Turn a refined Monkify Trello card into an implementation spec, create a per-feature git worktree (with a feature/<slug> branch for the PR) in each affected repo, and move the card to Specs created. Use when the user names a Refined card and wants a spec file under monkify-meta/specs/, worktree/branch setup, and Trello pipeline advance — after monkify-refine-tasks, before implementation. Needs Trello MCP and sibling repos.
 disable-model-invocation: true
 ---
 
 # Monkify — Create Spec
 
 Turn a **Refined** Trello card into an authoritative **`monkify-meta/specs/<feature>.md`**
-implementation spec, create **`feature/<slug>`** branches in every affected repo, and move the card
-to **Specs created**.
+implementation spec, create a **per-feature worktree** (with a `feature/<slug>` branch for the PR) in
+every affected repo, and move the card to **Specs created**.
 
-This skill **writes the spec, commits and pushes it on `monkify-meta`, and creates branches** — it
-does **not** implement application code.
+This skill **writes the spec, commits and pushes it on `monkify-meta`, and creates the worktrees +
+branches** — it does **not** implement application code.
+
+> **Worktree-first (see `constraints.md` → "Git").** All work lives in
+> `<workspace-root>/.worktrees/<slug>/<repo>`. The shared checkout of each repo is a permanent `main`
+> **hub** — never `git checkout -b` / switch its branch. The branch still exists and is still pushed
+> to `origin` (that's your PR); the worktree is just where it's checked out locally.
 
 Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
 
@@ -38,8 +43,10 @@ If the name is ambiguous, show matches and ask which card.
    > `/monkify-create-spec`."
 2. **Sibling repos** — `monkify-backend`, `monkify-front`, and `monkify-meta` exist next to each
    other (see `AGENTS.md`).
-3. **Clean git trees** — in every repo where you will create a branch, `git status` must show no
-   uncommitted changes. If dirty, **stop** and ask the user to commit, stash, or discard first.
+3. **Clean `main` hubs** — in every repo where you will create a worktree, the shared checkout must be
+   **clean and on `main`** (`git status` shows no uncommitted changes; `git rev-parse --abbrev-ref
+   HEAD` is `main`). If it's dirty or on a feature branch (someone used the old flow), **stop** and
+   ask the user to commit, stash, or restore the hub to a clean `main` first.
 
 ## Workflow
 
@@ -52,9 +59,9 @@ Copy this checklist and track progress:
 - [ ] Step 3: Merge conversation context (if applicable)
 - [ ] Step 4: Validate card is spec-ready
 - [ ] Step 5: Explore codebase for accurate touchpoints
-- [ ] Step 6: Derive slug, branch name, affected repos, spec path
+- [ ] Step 6: Derive slug, branch name, worktree path, affected repos, spec path
 - [ ] Step 7: Confirm plan with user (if card is thin or repos unclear)
-- [ ] Step 8: Create feature branches in isolated worktrees (each affected repo)
+- [ ] Step 8: Collision pre-flight + create per-feature worktrees (each affected repo)
 - [ ] Step 8b: Register the worktree(s) on the Trello card
 - [ ] Step 9: Write spec file
 - [ ] Step 10: Update INDEX.md (feature in flight)
@@ -134,11 +141,12 @@ and read to confirm:
 | Item | Rule |
 | --- | --- |
 | **Slug** | Lowercase kebab-case from card title: `Add Free bet mode` → `free-bet-mode` |
-| **Branch** | `feature/<slug>` in **each** affected repo |
+| **Branch** | `feature/<slug>` in **each** affected repo (the merge/PR ref) |
+| **Worktree** | `<workspace-root>/.worktrees/<slug>/<repo>` — one per affected repo |
 | **Spec file** | `monkify-meta/specs/<slug>.md` |
 | **Affected repos** | From card **Affected repos** checkboxes; default both apps if full-stack |
 
-**Always include `monkify-meta`** in branch creation (the spec lives there).
+**Always include `monkify-meta`** in worktree/branch creation (the spec lives there).
 
 Present a one-line plan before branching when anything is non-obvious:
 
@@ -156,33 +164,54 @@ Ask before Step 8 only when:
 
 Otherwise proceed without blocking.
 
-### Step 8: Create feature branches in isolated worktrees (each affected repo)
+### Step 8: Collision pre-flight + create per-feature worktrees (each affected repo)
 
-Per `AGENTS.md` must-follow rule 6, create the `feature/<slug>` branch in an **isolated git
-worktree** for **each** affected repo — never on the shared checkout — so concurrent agents don't
-collide. Prefer a native worktree tool if your harness provides one; otherwise use `git worktree
-add`. For **each** repo (`monkify-backend`, `monkify-front`, `monkify-meta` as applicable), from
-`<workspace-root>/<repo>`:
+Per `AGENTS.md` rule 6 and `constraints.md` → "Git", each feature's work lives in an **isolated git
+worktree** — never on the shared checkout — so concurrent agents don't collide. Prefer a native
+worktree tool if your harness provides one; otherwise use `git worktree add`. For **each** repo
+(`monkify-backend`, `monkify-front`, `monkify-meta` as applicable):
+
+**8.1 — Collision pre-flight (against the hub, `<workspace-root>/<repo>`).** Do this *before*
+creating anything:
 
 ```bash
-git fetch origin
-# Create the branch in a worktree under the workspace-root .worktrees/ dir (untracked by any repo).
-git worktree add ../.worktrees/feature-<slug>/<repo> -b feature/<slug> origin/main
-git -C ../.worktrees/feature-<slug>/<repo> push -u origin feature/<slug>
+git -C <workspace-root>/<repo> fetch origin
+git -C <workspace-root>/<repo> status --short --branch          # must be clean + on main
+git -C <workspace-root>/<repo> worktree list                    # is .worktrees/<slug>/<repo> taken?
+git -C <workspace-root>/<repo> branch --list "feature/<slug>"   # local branch exists?
+git -C <workspace-root>/<repo> ls-remote --heads origin "feature/<slug>"   # origin branch exists?
 ```
 
+**Stop and report** (do not create) if any of these are true — the feature is likely already in
+flight, or the hub is mid-work: the worktree path already exists, the branch exists locally or on
+origin, or the hub is dirty / not on `main`. Ask the user how to proceed (different slug, resume the
+existing worktree, or clean the hub).
+
+**8.2 — Create the worktree (only if pre-flight is clean).** Never `git checkout -b` / switch the
+hub's branch — `worktree add` creates the branch without touching the hub's HEAD or working tree:
+
+```bash
+# Create the branch inside a worktree under the workspace-root .worktrees/ dir (untracked by any repo).
+git -C <workspace-root>/<repo> worktree add ../.worktrees/<slug>/<repo> -b feature/<slug> origin/main
+git -C <workspace-root>/.worktrees/<slug>/<repo> push -u origin feature/<slug>
+```
+
+If a git lock error appears (a concurrent agent is mid-`worktree add` on the same hub), wait briefly
+and retry — do not force anything.
+
 Do the rest of this skill's work for that repo **inside its worktree** (e.g. write the spec in the
-`monkify-meta` worktree).
+`monkify-meta` worktree), never in the hub.
 
 **Hard rules:**
 
+- The hub stays on `main` — never `git checkout -b`, `git switch`, or commit on the hub's working tree.
 - Never commit directly on `main`.
 - Never update git config; never force-push; never skip hooks.
-- Place worktrees somewhere ignored/untracked (the workspace-root `.worktrees/` dir, or a repo-local
-  ignored `.worktrees/`) so they are never committed.
+- Worktrees live under the workspace-root `.worktrees/` dir (untracked by any repo) so they are never
+  committed. Use the unified path `.worktrees/<slug>/<repo>`.
 - **Push** each new branch to `origin` right after creation (see `AGENTS.md` → push after branch work).
 
-If `main` is missing or branch already exists, stop and report — ask how to proceed.
+If `origin/main` is missing, stop and report — ask how to proceed.
 
 ### Step 8b: Register the worktree(s) on the Trello card
 
@@ -194,8 +223,8 @@ where the in-flight work lives:
 
    ```markdown
    🌳 Worktree registered (YYYY-MM-DD)
-   - monkify-backend `feature/<slug>` → `.worktrees/feature-<slug>/monkify-backend`
-   - monkify-meta `feature/<slug>` → `.worktrees/feature-<slug>/monkify-meta`
+   - monkify-backend `feature/<slug>` → `.worktrees/<slug>/monkify-backend`
+   - monkify-meta `feature/<slug>` → `.worktrees/<slug>/monkify-meta`
    ```
 
 The persistent `**Worktree:**` pointer is written into the `## Implementation` block in Step 12.
@@ -208,7 +237,7 @@ Create `monkify-meta/specs/<slug>.md` on the **`feature/<slug>`** branch using
 **Requirements:**
 
 - Header: **Status: Ready for implementation**, Trello card link, repos affected, one-paragraph purpose.
-- Include **§2 Constraints** pointing at `constraints.md` (branch-per-repo, unit tests, EF inline,
+- Include **§2 Constraints** pointing at `constraints.md` (worktree-per-repo, unit tests, EF inline,
   migrations via Consumers, mock secrets, vague operator messaging).
 - **§3 Resolved product decisions** — table from card **Decisions** + conversation context.
 - **§4+** — data model, API, backend/frontend behaviour, diagrams where flows are non-obvious.
@@ -244,7 +273,8 @@ After Steps 9–10, **commit and push** all files this skill created or changed 
 `feature/<slug>` in **`monkify-meta`** (spec + `INDEX.md`; include skill edits only when this
 run modified a skill file the user asked for).
 
-From `<workspace-root>/monkify-meta`:
+From the **`monkify-meta` worktree** (`<workspace-root>/.worktrees/<slug>/monkify-meta`) — not the
+hub:
 
 ```bash
 git status
@@ -264,8 +294,9 @@ git push origin feature/<slug>
 - Never commit on `main`; never skip hooks; never force-push.
 - If the commit fails (hook rejection), fix and create a **new** commit — do not amend unless
   hook rules allow.
-- **`monkify-backend` / `monkify-front`:** no code commits in this skill — branches were pushed
-  empty in Step 8. Implementation commits happen later on those repos.
+- **`monkify-backend` / `monkify-front`:** no code commits in this skill — their worktrees +
+  branches were created and pushed empty in Step 8. Implementation commits happen later, inside those
+  worktrees.
 - Do **not** move the Trello card (Steps 12–13) until this push succeeds — the remote branch
   must contain the spec before the card says "Spec created".
 
@@ -280,7 +311,7 @@ Before moving the card, persist implementation metadata **in the card descriptio
      - **Spec:** `monkify-meta/specs/<slug>.md`
      - **Branch:** `feature/<slug>`
      - **Repos:** comma-separated affected repos (always include `monkify-meta`)
-     - **Worktree:** the worktree path the feature work lives in (e.g. `.worktrees/feature-<slug>`),
+     - **Worktree:** the worktree path the feature work lives in (e.g. `.worktrees/<slug>`, per repo),
        matching what you registered in Step 8b
    - Set **`## Status`** to `Spec created — ready for implementation.` (replace
      `Refined — ready for spec.` if present).
@@ -318,9 +349,10 @@ Tell the user:
 
 ## Hard rules
 
-- **No implementation** — spec + branches + Trello move only.
+- **No implementation** — spec + worktrees/branches + Trello move only.
 - **No refinement** — if the card is not spec-ready, send the user to `/monkify-refine-tasks`.
-- Honor `constraints.md` — mock secrets, vague operator messaging, branch-per-repo.
+- Honor `constraints.md` — mock secrets, vague operator messaging, **worktree-per-repo (hub stays on
+  `main`)**, collision pre-flight before creating a worktree.
 - Follow **`specs/operator-feature.md`** structure; use **`specs/free-bet-mode.md`** as a recent
   example of a card-sourced spec.
 - **Commit + push on `monkify-meta`** is part of this skill (Step 11) — not optional. Other repos:

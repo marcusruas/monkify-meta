@@ -19,17 +19,43 @@
   settings mechanism (`GeneralSettings`). Your job is never to supply the real ones.
 - Still never commit files containing real secrets (see §2).
 
-## 2. Git — a new branch per repo, per feature, in an isolated worktree
+## 2. Git — a worktree per repo, per feature (the branch is the merge/PR ref)
 
-- **Always start new work in a git worktree.** Before touching any repo for new work, create an
-  **isolated git worktree** for that repo and work there — never edit the shared checkout directly.
-  This keeps concurrent agents from stepping on each other's changes. Prefer a native worktree tool
-  if your harness provides one; otherwise use `git worktree add <path> -b <branch>`. Place the
-  worktree somewhere ignored/untracked (e.g. a `.worktrees/` dir the repo ignores, or outside the
-  repo) so it never gets committed. Create one worktree **per affected repo**.
-- For a feature that spans repos, create and push a **new branch in EACH affected repository**
-  (`monkify-backend` and `monkify-front`). Use the feature's agreed name, e.g.
-  `feature/operators`.
+The model is **worktree-first**: every feature's work lives in its own isolated worktree, and the
+branch is a derived detail — it still exists and is still pushed to `origin` so you get a normal
+GitHub branch and PR, but it is **not** the thing you coordinate on. This is what lets multiple
+agents work different features at once without colliding.
+
+- **The shared checkout is a permanent `main` hub — never switch its branch.** Each repo's shared
+  clone (`<workspace-root>/<repo>`) stays on `main`. Skills run only git that does **not** mutate the
+  hub's working tree against it: `git fetch`, `git worktree add|remove|list|prune`,
+  `git branch --list`, `git ls-remote`, and `git pull --ff-only origin main`. **Never**
+  `git checkout` / `git switch` to a feature branch, and **never** `git checkout -b`, in the hub.
+  (Two agents each running `git checkout -b` in one shared checkout is exactly the collision this
+  rule prevents.)
+- **All feature work happens in a per-feature worktree — one per affected repo.** Create it from the
+  hub, off `origin/main`, at the unified path `<workspace-root>/.worktrees/<slug>/<repo>`:
+
+  ```bash
+  # run against the hub; does NOT touch the hub's working tree or HEAD
+  git -C <workspace-root>/<repo> fetch origin
+  git -C <workspace-root>/<repo> worktree add ../.worktrees/<slug>/<repo> -b feature/<slug> origin/main
+  git -C <workspace-root>/.worktrees/<slug>/<repo> push -u origin feature/<slug>
+  ```
+
+  The `.worktrees/` dir sits under the workspace root and is untracked by every repo, so it is never
+  committed. Prefer a native worktree tool if your harness provides one; otherwise use the commands
+  above. Do the repo's work **inside** its worktree, never in the hub.
+- **Collision pre-flight (before creating anything).** For each affected repo, against the hub:
+  `git fetch origin`, then `git worktree list`, `git branch --list feature/<slug>`, and
+  `git ls-remote --heads origin feature/<slug>`. If the worktree or the branch already exists (local
+  or origin), or `git status` shows the hub is **not** clean-on-`main`, **stop and report** — pick a
+  different slug or the feature is already in flight. Git itself refuses to check out one branch in
+  two worktrees, which backstops this.
+- **A branch (for the PR) is still created and pushed in EACH affected repository**
+  (`monkify-backend`, `monkify-front`, and `monkify-meta` when the spec lives there). Use the
+  feature's agreed name, e.g. `feature/operators` — same name in every repo — created via the
+  worktree above, and pushed to `origin` right after (see `AGENTS.md` → push after branch work).
 - Never commit directly to the default branch. Only commit when the user asks; never push force or
   destructive git operations unless explicitly requested. **Exception:** the `monkify-ship-feature`
   skill may commit and push its **knowledge-base sync** to `main` without review — that commit is

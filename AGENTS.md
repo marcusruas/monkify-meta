@@ -125,19 +125,26 @@ Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-fea
    features and **follow their format** when writing or updating specs.
 3. **Backend changes:** when you change behavior in `monkify-backend`, **run `Monkify.Tests`**, fix
    the affected tests, add tests for new behavior, and **report which unit tests changed** at the end.
-4. **Multi-repo work:** create a feature branch in **EACH affected repository**
-   (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature to a single repo only.
-   Use the agreed feature name (e.g. `feature/operators`).
+4. **Multi-repo work:** create the feature's worktree — and its branch (for the PR) — in **EACH
+   affected repository** (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature
+   to a single repo only. Use the agreed feature name (e.g. `feature/operators`), same branch name in
+   every repo. The branch still goes to `origin` for the PR; the worktree is where the work lives
+   (see rule 6 and `constraints.md` → "Git").
 5. **Push after branch work (Monkify skills):** when a skill **creates or updates** a git branch
    (new feature branch, new commits on a feature branch, or merge to `main`), **push to `origin`
    immediately after** — `git push -u origin HEAD` on first push, then `git push origin <branch>`.
    Never force-push. Commits on `main` still require explicit user approval unless the skill step
    includes committing as part of its workflow.
-6. **Always work in a git worktree.** When you **start new work** (a new feature, fix, or any change
-   that touches a repo), do it in an **isolated git worktree** — never work directly in the shared
-   checkout — so your changes never collide with another agent's in-progress work. Create the
-   worktree per affected repo (see `constraints.md` → "Git" for how). This applies to every repo you
-   touch, not just the backend.
+6. **Worktree-first — the shared checkout is a permanent `main` hub, never switch its branch.** When
+   you **start new work** (a new feature, fix, or any change that touches a repo), do it in an
+   **isolated git worktree** at `<workspace-root>/.worktrees/<slug>/<repo>` — one per affected repo —
+   **never** in the shared checkout. The shared checkout stays on `main`; never `git checkout -b` /
+   `git switch` to a feature branch there (that shared-checkout branch switch is exactly how two
+   agents collide). Run a **collision pre-flight** before creating a worktree (fetch, then
+   `git worktree list` / `git branch --list` / `git ls-remote`; stop if the slug/branch already
+   exists or the hub isn't clean-on-`main`). The branch still exists and is still pushed for the PR —
+   the worktree is just the local isolation. See `constraints.md` → "Git" for the exact commands.
+   This applies to every repo you touch, not just the backend.
 7. **`monkify-ship-feature` may commit the knowledge base without review.** As the exception to the
    "commits on `main` need approval" rule above: in the **ship-feature** skill, **after updating the
    knowledge base** to reflect the shipped feature, you may **commit and push the `monkify-meta`

@@ -81,7 +81,7 @@ hand, cover impact across **all** relevant features and both apps:
 - Frontend (`monkify-front`) impact: composables, services, types, live UI.
 - Edge cases, failure modes, and concurrency (e.g. mid-session changes, operator contract expiry,
   payment failure/refund, free-coin vs paid, header present vs absent).
-- Constraints from `constraints.md` that apply (secrets, branch-per-repo, unit tests, vague
+- Constraints from `constraints.md` that apply (secrets, worktree-per-repo, unit tests, vague
   operator messaging).
 
 **Ask, don't assume.** Whenever the card lacks instructions for how it behaves in a particular
@@ -110,10 +110,12 @@ When the user confirms refinement is complete:
 ### Step 5b: Register any git worktree you used on the card
 
 Refinement is normally **Trello + read-only context** (INDEX, docs, code exploration) and creates no
-branch, so usually there is **no worktree to register**. But per `AGENTS.md` must-follow rule 6, if
-you do any work that **touches a repo** you must do it in an **isolated git worktree** — and whenever
-a Monkify skill creates or enters a worktree it must **register it on the card** (see
-`../monkify-create-spec/references/spec-card-metadata.md` → "Worktree registration"):
+branch, so usually there is **no worktree to register**. But per `AGENTS.md` rule 6, if you do any
+work that **touches a repo** you must do it in an **isolated git worktree** at
+`.worktrees/<slug>/<repo>` (run the collision pre-flight first; leave the shared checkout on `main` —
+never `git checkout -b` there) — and whenever a Monkify skill creates or enters a worktree it must
+**register it on the card** (see `../monkify-create-spec/references/spec-card-metadata.md` → "Worktree
+registration"):
 
 - If (and only if) you created/entered a worktree during this refinement, `add_comment` on the card:
 
@@ -147,7 +149,8 @@ stayed read-only, and confirm it was moved to **Refined** and is ready for a spe
   later step.)
 - **Do not** move the card to `Refined` until the user confirms refinement is complete.
 - Honor `constraints.md` — never surface real secrets; never reveal operator contract status in
-  user-facing copy; respect branch-per-repo and unit-test expectations when describing impact.
+  user-facing copy; respect worktree-per-repo (hub stays on `main`) and unit-test expectations when
+  describing impact.
 
 ## References
 

@@ -29,8 +29,10 @@ If the card has no **Implementation** block or **Branch** line, **stop** and tel
 
 1. **Sibling repos** — `monkify-backend` and `monkify-front` exist next to `monkify-meta`
    (see `AGENTS.md` → "ensure the sibling repos are cloned").
-2. **Clean working trees** — in every repo you will touch, `git status` must show no uncommitted
-   changes. If dirty, **stop** and ask the user to commit, stash, or discard first.
+2. **Clean `main` hubs** — in every repo you will touch, the shared checkout must be **clean and on
+   `main`** (it's the permanent hub; this skill merges inside a ship worktree, never in the hub). If a
+   hub is dirty or on a feature branch, **stop** and ask the user to restore it to a clean `main`
+   first.
 3. **Trello MCP** — server `user-trello`. Verify with `list_boards`. If missing, **stop**:
    > "The Trello MCP is not available. Install/enable the `trello` MCP server, then re-run
    > `/monkify-ship-feature`."
@@ -74,8 +76,9 @@ Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
    - **`specPath`** — from `**Spec:**` (e.g. `monkify-meta/specs/free-bet-mode.md`); use path
      relative to `monkify-meta/` for reads: `specs/free-bet-mode.md`
    - **`repos`** — from `**Repos:**` (comma-separated list; default all three if line missing)
-   - **`worktree`** — from `**Worktree:**` (path inside backticks; optional — the registered location
-     of the feature work. Absent on older cards; that is fine.)
+   - **`worktree`** — from `**Worktree:**` (base path inside backticks, e.g. `.worktrees/<slug>`; each
+     repo at `<base>/<repo>`) — the registered primary location of the feature work. Absent on older
+     cards; that is fine (this skill creates its own ship worktree off `main` regardless).
 5. Verify `monkify-meta/<specPath-relative>` exists on disk. If missing, **stop**.
 
 Keep `cardId`, `branch`, `specPath`, `repos`, and `worktree` for the rest of the workflow.
@@ -108,19 +111,27 @@ Present the user a short plan **before any merge**:
 
 **Wait for explicit confirmation** before Step 4. Merging is not reversible from this skill.
 
-### Step 4: Merge branch → main (each affected repo, in an isolated worktree)
+### Step 4: Merge branch → main (each affected repo, in an isolated ship worktree)
 
-Per `AGENTS.md` must-follow rule 6, do the merge in an **isolated git worktree** checked out to
-`main` — never mutate the shared checkout. For **each** repo in the plan:
+Per `AGENTS.md` rule 6 and `constraints.md` → "Git", do the merge in a **dedicated ship worktree**
+checked out to `main` — never in the hub. The hub's shared checkout stays on `main` and is never
+switched or committed to directly. For **each** repo in the plan (run `worktree add` against the hub
+at `<workspace-root>/<repo>`):
 
 ```bash
-# from <workspace-root>/<repo>
-git fetch origin
-git worktree add ../.worktrees/ship-<slug>/<repo> main   # isolated main checkout for the merge
-cd ../.worktrees/ship-<slug>/<repo>
-git pull origin main
-git merge origin/<branch>   # (or `git merge <branch>` if the branch is local-only). Use the card's branch.
+# create a fresh main worktree for the merge (does not touch the hub's HEAD/working tree)
+git -C <workspace-root>/<repo> fetch origin
+git -C <workspace-root>/<repo> worktree add ../.worktrees/ship-<slug>/<repo> -b ship-<slug> origin/main
+# then work INSIDE the ship worktree:
+git -C <workspace-root>/.worktrees/ship-<slug>/<repo> merge origin/<branch>   # use the card's branch (or local <branch>)
+git -C <workspace-root>/.worktrees/ship-<slug>/<repo> push origin HEAD:main
+# keep the hub current (safe, fast-forward only — the hub is already on main):
+git -C <workspace-root>/<repo> fetch origin && git -C <workspace-root>/<repo> merge --ff-only origin/main
 ```
+
+(The ship worktree uses a throwaway `ship-<slug>` branch pointed at `origin/main` and pushes it to
+`main` via `HEAD:main`, so the hub's `main` is never checked out in two places. The `ship-<slug>`
+branch is deleted in Step 9b.)
 
 **Register the merge worktree on the card** (see `references` → spec-card-metadata "Worktree
 registration"): once, before merging, `add_comment`:
@@ -134,11 +145,13 @@ to other repos or KB updates until the user resolves conflicts (or asks you to a
 
 **Hard rules:**
 
+- The hub stays on `main` and is never checked out to a feature/ship branch — the ship worktree does
+  the merge; the hub only fetches + `merge --ff-only` to stay current.
 - Never `git push --force`, never reset `--hard`, never skip hooks.
 - Never update git config.
 - Keep worktrees in an ignored/untracked location (the workspace-root `.worktrees/` dir).
-- After each successful merge, **`git push origin main`** in that worktree (see `AGENTS.md` → push
-  after branch work).
+- Push the merge result to `origin/main` (`push origin HEAD:main` from the ship worktree) right after
+  a successful merge (see `AGENTS.md` → push after branch work).
 
 After all merges succeed locally, summarize: repo, commits merged, any notable files touched.
 
@@ -184,7 +197,8 @@ clearly followed the Trello refinement.
 
 ### Step 7: Update the knowledge base
 
-Edit `monkify-meta` on `main` (after merging the meta branch if needed). Treat shipped behavior as
+Edit `monkify-meta` **in its ship worktree** (`.worktrees/ship-<slug>/monkify-meta`, on `main` after
+the feature branch was merged there in Step 4) — **never** in the hub. Treat shipped behavior as
 **current truth** — see INDEX.md → "Keeping the knowledge base current".
 
 Minimum updates (as relevant — do not touch unrelated files):
@@ -213,8 +227,10 @@ their awareness. Then, because syncing the KB is part of this skill's workflow, 
 the `monkify-meta` changes without waiting for review** (see `AGENTS.md` → Must-follow rule 7 and
 `constraints.md` → §2):
 
-- Commit in `monkify-meta` with a message focused on *why* (e.g. "Sync KB after shipping operators
-  feature"), then **`git push origin main`** immediately.
+- Commit in the **`monkify-meta` ship worktree** (`.worktrees/ship-<slug>/monkify-meta`) with a
+  message focused on *why* (e.g. "Sync KB after shipping operators feature"), then **`git push origin
+  HEAD:main`** immediately, and refresh the hub: `git -C <workspace-root>/monkify-meta fetch origin &&
+  git -C <workspace-root>/monkify-meta merge --ff-only origin/main`.
 - This auto-commit exception is scoped to the **KB sync at the end of `monkify-ship-feature`**. It
   does **not** extend to committing code repos (`monkify-backend` / `monkify-front`) to `main` —
   those merges happen in Step 4 as part of the shipping workflow, but any *other* `main` commit
@@ -247,12 +263,13 @@ For **each** affected repo, run from `<workspace-root>/<repo>` (its `main` check
 inside a worktree you are about to remove):
 
 ```bash
-# 1) Remove the feature worktree (the one registered on the card) and the ship worktree, if present.
-git worktree remove ../.worktrees/feature-<slug>/<repo>
+# 1) Remove the feature worktree (registered on the card) and the ship worktree, if present.
+git worktree remove ../.worktrees/<slug>/<repo>
 git worktree remove ../.worktrees/ship-<slug>/<repo>
 git worktree prune
 
-# 2) Delete the merged branch locally, then on origin.
+# 2) Delete the throwaway ship branch and the merged feature branch (local), then the feature branch on origin.
+git branch -d ship-<slug>                    # throwaway; safe once its commit is on main
 git branch -d feature/<slug>                 # -d only (safe): fails if not fully merged
 git push origin --delete feature/<slug>
 ```
@@ -288,7 +305,8 @@ Tell the user:
 - **Confirm before merge** — never merge without explicit user approval of the plan in Step 3.
 - **Stop on conflict or test failure** — partial KB updates that contradict failing tests are worse
   than stopping.
-- Honor `constraints.md` — vague operator messaging, mock-only secrets, branch-per-repo history.
+- Honor `constraints.md` — vague operator messaging, mock-only secrets, **worktree-per-repo (the hub
+  stays on `main`; merge in a ship worktree)**.
 - **Code on `main` wins** for runtime behavior; the spec wins for *design intent*; the **Trello card**
   captures refinement decisions and acceptance criteria — use all three when ingesting, reconcile in
   the digest.
