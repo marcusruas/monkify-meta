@@ -1,7 +1,7 @@
 # Monkify — "Operator page (Operator admin portal)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Operator page](https://trello.com/c/JZcMz3ma) (2026-07-03).
+> **Status: Shipped** — merged via `feature/operator-admin-page` on 2026-07-06.
+> Refined via Trello card [Operator page](https://trello.com/c/JZcMz3ma) (2026-07-03).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Give operators (casinos) a self-service admin portal at `/monkify/admin` where they

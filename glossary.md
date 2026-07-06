@@ -45,6 +45,13 @@
   (`X-Launch-Token` header) on every operator-scoped REST call and validated by middleware in
   `Monkify.Api` against the operator's `LaunchPublicKey`. Claims: `iss`=operatorId, `sub`=player id,
   `exp`/`iat`/`jti`. Failures return a vague 401. See `features/launch-token-validation.md`.
+- **Admin token** — an operator-signed **RS256 JWT** with `scope = "admin"`, `iss = operatorId`,
+  **no `sub`**, sent as **`X-Admin-Token`** on `/admin/*` REST calls. Validated by
+  `AdminTokenValidationMiddleware` against the same `LaunchPublicKey`; **not** contract-gated. Admin
+  and launch tokens are not interchangeable. Entry:
+  `/monkify/admin#admin_token=<jwt>`. See `features/operator-admin-page.md`.
+- **IAdminContext** — scoped request identity set by admin middleware; carries `OperatorId` only
+  (no player). Used by admin handlers; kept separate from `ILaunchContext`.
 - **PaymentModel** — enum on `Operator` (`Regulated` | `Crypto`). Crypto operators connect a wallet and
   pay on-chain; regulated operators settle off-chain and identify the player by the token `sub`.
   Replaces the removed `OperatorPlayer.IsCrypto`. Existing operators backfilled to `Crypto`.

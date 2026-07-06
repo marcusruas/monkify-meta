@@ -83,6 +83,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/rg-pre-bet-hook.md` | Opt-in per-operator responsible-gaming pre-bet check (`IPreBetCheckService`); allow/deny/fail-closed before the wallet debit | Shipped              |
 | `features/player-customization-modal.md` | Header-gear modal: display name (all operators) + preferred display currency (regulated only); `GET /fx/rates`, `GET /players/preferences`, client-side USD→fiat rendering; display-only | Shipped              |
 | `features/session-chat.md`  | Per-session chat on `/game` via `ActiveSessionsHub`; display-name identity, DB audit persistence + daily purge, client 200-char/1s limits, no history replay | Shipped (v2)         |
+| `features/operator-admin-page.md` | Operator self-service admin portal at `/monkify/admin`: admin-scoped RS256 token (`X-Admin-Token`), create/list/deactivate session types (all 3 modes), deactivate-or-create (no edit), dev header icon → `POST /dev/admin-token` | Shipped              |
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
@@ -95,7 +96,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `specs/session-chat.md`     | Per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Shipped (v2)         |
-| `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): operator-signed **admin-scoped** RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), full CRUD on the operator's own session types (all 3 modes), **`SessionParameters` versioning** (`NextVersionId` linked list; edits create a new version, roll-over resolves the active tail), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Ready                |
+| `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate session types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -116,17 +117,6 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Spec created (awaiting implementation):_ **Operator page (operator admin portal)** —
-  `feature/operator-admin-page` (`monkify-backend` + `monkify-front` + `monkify-meta`), spec
-  `specs/operator-admin-page.md`, Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). Operator
-  self-service admin at `/monkify/admin`: operator-signed **admin-scoped** RS256 token (`X-Admin-Token`,
-  validated against `Operator.LaunchPublicKey`, **not** contract-gated; admin/player tokens are not
-  interchangeable), full CRUD on the operator's own session types (all 3 modes), **`SessionParameters`
-  versioning** via a `NextVersionId` forward-linked list (edit → new version, live session finishes on
-  the old, roll-over via `ResolveCurrentVersion` creates the next from the active tail; `active-types`
-  returns active tails only), soft-deactivate (no hard delete), dev-only header icon →
-  `POST /dev/admin-token`. `AllowFreeBet` stays dev-only (hidden from operators). No backend commits
-  yet — branches pushed empty.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
@@ -134,7 +124,13 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`betCurrency`: crypto `USDC` / regulated `credits`), and (3) fix `GameMonkey.vue` so the
   received-bet animation caps at 2 and always settles to a resting frame instead of looping. No
   backend change; real-fiat currency for regulated operators is a deferred backend follow-up.
-- _Last shipped:_ **Add chat (session chat v2)** — `feature/session-chat`, 2026-07-03; per-session
+- _Last shipped:_ **Operator page (operator admin portal)** — `feature/operator-admin-page`,
+  2026-07-06; operator self-service admin at `/monkify/admin` with admin-scoped RS256 token
+  (`X-Admin-Token`, not contract-gated), create/list/deactivate session types (all 3 modes;
+  deactivate-or-create, no edit), first-session-on-create event, deactivation refunds waiting
+  sessions. Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). See
+  `features/operator-admin-page.md`.
+- Previously shipped: **Add chat (session chat v2)** — `feature/session-chat`, 2026-07-03; per-session
   chat on `/game` via `ActiveSessionsHub` (`SendChatMessage`, display-name identity, audit DB +
   daily purge, client 200-char/1s limits, no history replay). Trello #4 (`7UnjEOom`). See
   `features/session-chat.md`.

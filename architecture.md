@@ -56,8 +56,10 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 ### Layering & request pattern
 
 - HTTP request → **`LaunchTokenValidationMiddleware`** (validates `X-Launch-Token`, sets
-  `ILaunchContext`) → **Controller** (`SessionsController`, `OperatorsController`, `PlayersController`,
-  dev-only `DevController`) → constructs a **MediatR request** → **handler** that extends
+  `ILaunchContext`; rejects admin-scoped tokens) and/or **`AdminTokenValidationMiddleware`**
+  (validates `X-Admin-Token`, sets `IAdminContext`; guards `/admin` only) → **Controller**
+  (`SessionsController`, `OperatorsController`, `PlayersController`, `AdminController`, dev-only
+  `DevController`) → constructs a **MediatR request** → **handler** that extends
   `BaseRequestHandler` → **services** (`SessionService`, `IOperatorService`, payment processors) →
   **`MonkifyDbContext`**.
 - Controllers extend `BaseController`; responses are wrapped by `ProcessRequest(...)` into a
@@ -104,7 +106,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the session, then publishes `RunSessionEvent`. Refunds bets if a lottery lacks players. |
 | `RunSessionEvent` | `BetPlacedConsumer` | `RunSessionConsumer` | Marks session `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next session, publishes `RewardSessionEvent`. |
 | `RewardSessionEvent` | `RunSessionConsumer` | `RewardSessionConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
-| `RefundInvalidBetEvent` (carries `BetId`) | `RegisterBetHandler`, `BetPlacedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet — crypto via `ISolanaService.RefundTokens`, regulated via the operator wallet adapter. Skipped for free bets (`Value == 0`). |
+| `RefundInvalidBetEvent` (carries `BetId`) | `RegisterBetHandler`, `BetPlacedConsumer`, `SessionTypeDeactivatedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet — crypto via `ISolanaService.RefundTokens`, regulated via the operator wallet adapter. Skipped for free bets (`Value == 0`). |
+| `SessionParametersCreatedEvent` | `CreateSessionTypeHandler` | `SessionParametersCreatedConsumer` | Opens the first session for a newly created operator session type (idempotent). |
+| `SessionTypeDeactivatedEvent` | `DeactivateSessionTypeHandler` | `SessionTypeDeactivatedConsumer` | Cancels `WaitingBets` sessions of a deactivated type (refunds paid bets, skips free). |
 | `BetNotificationEvent` | `SessionService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,
@@ -203,8 +207,11 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   operator are blocked.
 - SignalR hubs use session id only — no token validation on websockets.
 - Non-prod: `Monkify.Consumers` seeds **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
-  (Regulated) with a mock launch keypair; a dev-only `POST /dev/launch-token` mints tokens (disabled in
-  production).
+  (Regulated) with a mock launch keypair; dev-only `POST /dev/launch-token` and `POST /dev/admin-token`
+  mint player and admin tokens respectively (disabled in production).
+- **Operator admin portal** (`/monkify/admin`): operators manage their own session types via
+  **`X-Admin-Token`** (admin-scoped RS256 JWT, same keypair as launch tokens, **not** contract-gated).
+  Create/list/deactivate only — no in-place edit. See `features/operator-admin-page.md`.
 - See `specs/operator-feature.md` + `specs/launch-token-validation.md` for full design;
   `features/operators.md` and `features/launch-token-validation.md` for the distilled versions.
 
