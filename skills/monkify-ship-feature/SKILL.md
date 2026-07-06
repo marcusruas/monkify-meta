@@ -47,7 +47,7 @@ Copy this checklist and track progress:
 - [ ] Step 1: Resolve board, find card, read everything + parse Implementation
 - [ ] Step 2: Load context (INDEX, spec, constraints, current KB)
 - [ ] Step 3: Determine affected repos and confirm with user
-- [ ] Step 4: Merge branch → main (each affected repo)
+- [ ] Step 4: Merge branch → main (each affected repo, in an isolated worktree; register it on Trello)
 - [ ] Step 5: Verify merged code (backend tests)
 - [ ] Step 6: Extract feature knowledge (spec + Trello + code on main)
 - [ ] Step 7: Update the knowledge base
@@ -73,9 +73,11 @@ Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
    - **`specPath`** — from `**Spec:**` (e.g. `monkify-meta/specs/free-bet-mode.md`); use path
      relative to `monkify-meta/` for reads: `specs/free-bet-mode.md`
    - **`repos`** — from `**Repos:**` (comma-separated list; default all three if line missing)
+   - **`worktree`** — from `**Worktree:**` (path inside backticks; optional — the registered location
+     of the feature work. Absent on older cards; that is fine.)
 5. Verify `monkify-meta/<specPath-relative>` exists on disk. If missing, **stop**.
 
-Keep `cardId`, `branch`, `specPath`, and `repos` for the rest of the workflow.
+Keep `cardId`, `branch`, `specPath`, `repos`, and `worktree` for the rest of the workflow.
 
 ### Step 2: Load context
 
@@ -105,15 +107,26 @@ Present the user a short plan **before any merge**:
 
 **Wait for explicit confirmation** before Step 4. Merging is not reversible from this skill.
 
-### Step 4: Merge branch → main (each affected repo)
+### Step 4: Merge branch → main (each affected repo, in an isolated worktree)
 
-For **each** repo in the plan, run from `<workspace-root>/<repo>`:
+Per `AGENTS.md` must-follow rule 6, do the merge in an **isolated git worktree** checked out to
+`main` — never mutate the shared checkout. For **each** repo in the plan:
 
-1. `git fetch origin`
-2. `git checkout main`
-3. `git pull origin main`
-4. `git merge origin/<branch>` (or `git merge <branch>` if the branch is local-only — prefer the
-   remote tracking branch when it exists). Use the **`branch`** value parsed from the card.
+```bash
+# from <workspace-root>/<repo>
+git fetch origin
+git worktree add ../.worktrees/ship-<slug>/<repo> main   # isolated main checkout for the merge
+cd ../.worktrees/ship-<slug>/<repo>
+git pull origin main
+git merge origin/<branch>   # (or `git merge <branch>` if the branch is local-only). Use the card's branch.
+```
+
+**Register the merge worktree on the card** (see `references` → spec-card-metadata "Worktree
+registration"): once, before merging, `add_comment`:
+
+```markdown
+🌳 Worktree registered (YYYY-MM-DD) — shipping <branch> → main from `.worktrees/ship-<slug>/<repo>` (per repo)
+```
 
 **On merge conflict:** stop immediately. Report the repo, conflicting files, and do **not** continue
 to other repos or KB updates until the user resolves conflicts (or asks you to abort).
@@ -122,8 +135,9 @@ to other repos or KB updates until the user resolves conflicts (or asks you to a
 
 - Never `git push --force`, never reset `--hard`, never skip hooks.
 - Never update git config.
-- After each successful merge, **`git push origin main`** in that repo (see `AGENTS.md` → push after
-  branch work).
+- Keep worktrees in an ignored/untracked location (the workspace-root `.worktrees/` dir).
+- After each successful merge, **`git push origin main`** in that worktree (see `AGENTS.md` → push
+  after branch work).
 
 After all merges succeed locally, summarize: repo, commits merged, any notable files touched.
 
@@ -213,6 +227,12 @@ Using the `cardId` from Step 1:
    ask the user which list to use.
 2. `move_card` with the `cardId`, the **`Implemented`** list id, and `boardId`.
 3. Optionally `add_comment` with a one-line ship note (branch merged, spec file, date).
+4. **Retire the worktree(s)** — the feature branch is now merged, so its worktree can be removed.
+   `add_comment` (see `references` → spec-card-metadata "Worktree registration"):
+
+   ```markdown
+   🌳 Worktree retired (YYYY-MM-DD) — `feature/<slug>` merged to main; feature + ship worktrees can be removed.
+   ```
 
 Do **not** rename the card — only move it to **Implemented**. Preserve the card title and description.
 
@@ -220,8 +240,9 @@ Do **not** rename the card — only move it to **Implemented**. Preserve the car
 
 Tell the user:
 
-1. **Card** — name + link; branch and spec read from **Implementation** section.
-2. **Merged:** `<branch>` → `main` per repo (**pushed** to `origin`).
+1. **Card** — name + link; branch, spec, and **worktree** read from **Implementation** section.
+2. **Merged:** `<branch>` → `main` per repo (from an isolated worktree, **pushed** to `origin`);
+   worktree **registered** on the card before merge and **retired** after moving to Implemented.
 3. **Verified:** test run result (backend).
 4. **KB updated:** list of files and the headline business-rule changes.
 5. **Drift:** any code vs spec vs Trello mismatches worth a follow-up.

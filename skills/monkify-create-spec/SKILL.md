@@ -54,11 +54,12 @@ Copy this checklist and track progress:
 - [ ] Step 5: Explore codebase for accurate touchpoints
 - [ ] Step 6: Derive slug, branch name, affected repos, spec path
 - [ ] Step 7: Confirm plan with user (if card is thin or repos unclear)
-- [ ] Step 8: Create feature branches (each affected repo)
+- [ ] Step 8: Create feature branches in isolated worktrees (each affected repo)
+- [ ] Step 8b: Register the worktree(s) on the Trello card
 - [ ] Step 9: Write spec file
 - [ ] Step 10: Update INDEX.md (feature in flight)
 - [ ] Step 11: Commit and push spec artifacts (`monkify-meta`)
-- [ ] Step 12: Update card with spec path + branch name
+- [ ] Step 12: Update card with spec path + branch + worktree
 - [ ] Step 13: Move card to Specs created
 - [ ] Step 14: Report
 ```
@@ -155,26 +156,49 @@ Ask before Step 8 only when:
 
 Otherwise proceed without blocking.
 
-### Step 8: Create feature branches (each affected repo)
+### Step 8: Create feature branches in isolated worktrees (each affected repo)
 
-For **each** repo (`monkify-backend`, `monkify-front`, `monkify-meta` as applicable), from
+Per `AGENTS.md` must-follow rule 6, create the `feature/<slug>` branch in an **isolated git
+worktree** for **each** affected repo — never on the shared checkout — so concurrent agents don't
+collide. Prefer a native worktree tool if your harness provides one; otherwise use `git worktree
+add`. For **each** repo (`monkify-backend`, `monkify-front`, `monkify-meta` as applicable), from
 `<workspace-root>/<repo>`:
 
 ```bash
 git fetch origin
-git checkout main
-git pull origin main
-git checkout -b feature/<slug>
-git push -u origin feature/<slug>
+# Create the branch in a worktree under the workspace-root .worktrees/ dir (untracked by any repo).
+git worktree add ../.worktrees/feature-<slug>/<repo> -b feature/<slug> origin/main
+git -C ../.worktrees/feature-<slug>/<repo> push -u origin feature/<slug>
 ```
+
+Do the rest of this skill's work for that repo **inside its worktree** (e.g. write the spec in the
+`monkify-meta` worktree).
 
 **Hard rules:**
 
 - Never commit directly on `main`.
 - Never update git config; never force-push; never skip hooks.
+- Place worktrees somewhere ignored/untracked (the workspace-root `.worktrees/` dir, or a repo-local
+  ignored `.worktrees/`) so they are never committed.
 - **Push** each new branch to `origin` right after creation (see `AGENTS.md` → push after branch work).
 
 If `main` is missing or branch already exists, stop and report — ask how to proceed.
+
+### Step 8b: Register the worktree(s) on the Trello card
+
+Immediately after creating the worktrees, **register them on the card** (see
+`references/spec-card-metadata.md` → "Worktree registration") so anyone looking at the card sees
+where the in-flight work lives:
+
+1. `add_comment` on the card, one line per affected repo:
+
+   ```markdown
+   🌳 Worktree registered (YYYY-MM-DD)
+   - monkify-backend `feature/<slug>` → `.worktrees/feature-<slug>/monkify-backend`
+   - monkify-meta `feature/<slug>` → `.worktrees/feature-<slug>/monkify-meta`
+   ```
+
+The persistent `**Worktree:**` pointer is written into the `## Implementation` block in Step 12.
 
 ### Step 9: Write spec file
 
@@ -256,6 +280,8 @@ Before moving the card, persist implementation metadata **in the card descriptio
      - **Spec:** `monkify-meta/specs/<slug>.md`
      - **Branch:** `feature/<slug>`
      - **Repos:** comma-separated affected repos (always include `monkify-meta`)
+     - **Worktree:** the worktree path the feature work lives in (e.g. `.worktrees/feature-<slug>`),
+       matching what you registered in Step 8b
    - Set **`## Status`** to `Spec created — ready for implementation.` (replace
      `Refined — ready for spec.` if present).
 
@@ -277,8 +303,10 @@ Tell the user:
 
 1. **Card** — name + link; moved to **Specs created**; **Implementation** section written.
 2. **Spec** — full path `monkify-meta/specs/<slug>.md` (brief summary of what it covers).
-3. **Branch** — `feature/<slug>` created and **pushed** in which repos; confirm
-   **`monkify-meta` spec + INDEX are committed and pushed** (not left local-only).
+3. **Branch** — `feature/<slug>` created **in an isolated worktree** and **pushed** in which repos;
+   confirm **`monkify-meta` spec + INDEX are committed and pushed** (not left local-only).
+   Note the **worktree path** and that it was **registered on the card** (comment + Implementation
+   `**Worktree:**` field).
 4. **INDEX** — updated "Feature currently in flight".
 5. **Code findings** — any non-obvious blockers documented in the spec.
 6. **Next** — implement on the feature branches; run `/monkify-ship-feature <card name>` when merged.

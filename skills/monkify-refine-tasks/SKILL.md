@@ -36,6 +36,7 @@ Copy this checklist and track progress:
 - [ ] Step 3: Read EVERYTHING on the card
 - [ ] Step 4: Refine with the user (Superpowers brainstorming)
 - [ ] Step 5: Write the refined result back to the card
+- [ ] Step 5b: Register any git worktree you used on the card
 - [ ] Step 6: Move the card to "Refined"
 - [ ] Step 7: Report
 ```
@@ -106,6 +107,23 @@ When the user confirms refinement is complete:
    Given / When / Then phrasing.
 3. Optionally `add_comment` with a short changelog of the key decisions reached during refinement.
 
+### Step 5b: Register any git worktree you used on the card
+
+Refinement is normally **Trello + read-only context** (INDEX, docs, code exploration) and creates no
+branch, so usually there is **no worktree to register**. But per `AGENTS.md` must-follow rule 6, if
+you do any work that **touches a repo** you must do it in an **isolated git worktree** — and whenever
+a Monkify skill creates or enters a worktree it must **register it on the card** (see
+`../monkify-create-spec/references/spec-card-metadata.md` → "Worktree registration"):
+
+- If (and only if) you created/entered a worktree during this refinement, `add_comment` on the card:
+
+  ```markdown
+  🌳 Worktree registered (YYYY-MM-DD) — <repo> `<branch-or-detached>` → `<worktree-path>`
+  ```
+
+- If you stayed read-only (the normal case), state that in the report — no worktree, nothing to
+  register.
+
 ### Step 6: Move the card to "Refined"
 
 `move_card` with the `cardId` and the **`Refined`** list id (and `boardId`).
@@ -113,7 +131,8 @@ When the user confirms refinement is complete:
 ### Step 7: Report
 
 Tell the user: the card name + link, what changed (description, N acceptance criteria), the
-decisions captured, and confirm it was moved to **Refined** and is ready for a spec via
+decisions captured, whether a **worktree** was used (and registered on the card) or the refinement
+stayed read-only, and confirm it was moved to **Refined** and is ready for a spec via
 `/monkify-create-spec`.
 
 ## Trello tools used (server `trello` / `user-trello`)
@@ -134,3 +153,4 @@ decisions captured, and confirm it was moved to **Refined** and is ready for a s
 
 - `references/refinement-checklist.md` — the Monkify-wide coverage checklist to drive questions.
 - `references/card-template.md` — the description structure to write back to the card.
+- `../monkify-create-spec/references/spec-card-metadata.md` — worktree-registration convention (all skills).
