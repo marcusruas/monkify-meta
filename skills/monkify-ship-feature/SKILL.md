@@ -132,9 +132,15 @@ After all merges succeed locally, summarize: repo, commits merged, any notable f
 When `monkify-backend` was merged:
 
 1. Run `Monkify.Tests` from `monkify-backend` (full suite).
-2. If tests fail, **stop** — report failures; do not declare the feature shipped or finalize KB
+2. Run the **`Monkify.Tests.Integration`** Testcontainers suite via
+   `scripts/run_integration_tests.bat` (Docker must be running). Per `constraints.md` → "Integration
+   tests are mandatory for every new feature", a **feature** must ship with at least one happy-path
+   integration test (plus one per complex flow). If the merged feature is a genuine feature and has
+   **no** integration test covering its happy path, **stop** and flag the gap — the feature is not
+   ready to ship. (Bug fixes / QOL / minor changes are exempt from the integration-test requirement.)
+3. If any suite fails, **stop** — report failures; do not declare the feature shipped or finalize KB
    updates that claim behavior the tests contradict.
-3. Note which test areas cover the new feature (for the report).
+4. Note which test areas (unit + integration) cover the new feature (for the report).
 
 When only frontend/meta merged, smoke-check that the spec's API routes and types still match what
 you read on `main` (spot-check controllers/handlers and front services/types).
@@ -185,13 +191,19 @@ survived in code.
 
 Do **not** delete the spec — `features/` summarizes; `specs/` stays authoritative history.
 
-### Step 8: Review with user; commit meta when asked
+### Step 8: Commit the knowledge-base sync (no review needed)
 
-Show the user a concise summary of KB diffs (files changed + bullet list of rule changes).
+Show the user a concise summary of KB diffs (files changed + bullet list of rule changes) for
+their awareness. Then, because syncing the KB is part of this skill's workflow, **commit and push
+the `monkify-meta` changes without waiting for review** (see `AGENTS.md` → Must-follow rule 7 and
+`constraints.md` → §2):
 
-- **Do not commit** meta changes until the user asks (workspace rule).
-- When they ask, commit in `monkify-meta` with a message focused on *why* (e.g. "Sync KB after
-  shipping operators feature"), then **`git push origin main`**.
+- Commit in `monkify-meta` with a message focused on *why* (e.g. "Sync KB after shipping operators
+  feature"), then **`git push origin main`** immediately.
+- This auto-commit exception is scoped to the **KB sync at the end of `monkify-ship-feature`**. It
+  does **not** extend to committing code repos (`monkify-backend` / `monkify-front`) to `main` —
+  those merges happen in Step 4 as part of the shipping workflow, but any *other* `main` commit
+  still needs explicit user approval.
 
 ### Step 9: Trello — move card to Implemented
 

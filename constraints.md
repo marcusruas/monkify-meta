@@ -19,13 +19,22 @@
   settings mechanism (`GeneralSettings`). Your job is never to supply the real ones.
 - Still never commit files containing real secrets (see §2).
 
-## 2. Git — a new branch per repo, per feature
+## 2. Git — a new branch per repo, per feature, in an isolated worktree
 
+- **Always start new work in a git worktree.** Before touching any repo for new work, create an
+  **isolated git worktree** for that repo and work there — never edit the shared checkout directly.
+  This keeps concurrent agents from stepping on each other's changes. Prefer a native worktree tool
+  if your harness provides one; otherwise use `git worktree add <path> -b <branch>`. Place the
+  worktree somewhere ignored/untracked (e.g. a `.worktrees/` dir the repo ignores, or outside the
+  repo) so it never gets committed. Create one worktree **per affected repo**.
 - For a feature that spans repos, create and push a **new branch in EACH affected repository**
   (`monkify-backend` and `monkify-front`). Use the feature's agreed name, e.g.
   `feature/operators`.
 - Never commit directly to the default branch. Only commit when the user asks; never push force or
-  destructive git operations unless explicitly requested.
+  destructive git operations unless explicitly requested. **Exception:** the `monkify-ship-feature`
+  skill may commit and push its **knowledge-base sync** to `main` without review — that commit is
+  part of the skill's own workflow (see `AGENTS.md` → Must-follow rule 7). This exception covers only
+  the KB sync in that skill; all other `main` commits still need approval.
 - Never update git config. Never commit secrets/config files (see §1).
 
 ## 3. Unit tests (backend changes)
@@ -38,6 +47,22 @@
 - **Session-flow changes also update the integration tests.** Any change to the session
   lifecycle/flow must update the separate **`Monkify.Tests.Integration`** (Testcontainers) project,
   run via `scripts/run_integration_tests.bat`. See `conventions/backend.md` → Tests.
+
+### Integration tests are mandatory for every new feature
+
+- **Every new feature ships with a backend integration test for its happy path.** For each **new
+  feature**, `Monkify.Tests.Integration` (the Testcontainers suite in `monkify-backend`) **must**
+  contain **at least one integration test** that drives the feature's **happy path end to end** and
+  **asserts it works 100%** (real API + Consumers hosts against real Postgres/RabbitMQ/Redis
+  containers, following the `SessionFlowTests` pattern — not a mock-only unit test).
+- **Complex flows get their own integration test.** If the feature introduces a **particularly
+  complex flow** beyond the happy path (e.g. a multi-step state transition, a refund/rollback path,
+  a fail-closed branch), that flow **must** have a dedicated integration test as well.
+- **Scope of "new feature".** This mandate applies to **features** only. It does **not** apply to
+  **bug fixes**, **QOL / dev-experience tweaks**, or **minor changes** — those still follow the unit
+  test discipline above but do not require a new integration test unless they change session flow.
+- This is checked at ship time: `monkify-ship-feature` verifies the integration suite is green
+  before syncing the KB.
 
 > Note on the team rule "always run unit tests for Central de Reservas": that rule is for **CR**,
 > a different app. For **Monkify** the equivalent expectation is the test discipline above

@@ -133,6 +133,24 @@ Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-ship-fea
    immediately after** — `git push -u origin HEAD` on first push, then `git push origin <branch>`.
    Never force-push. Commits on `main` still require explicit user approval unless the skill step
    includes committing as part of its workflow.
+6. **Always work in a git worktree.** When you **start new work** (a new feature, fix, or any change
+   that touches a repo), do it in an **isolated git worktree** — never work directly in the shared
+   checkout — so your changes never collide with another agent's in-progress work. Create the
+   worktree per affected repo (see `constraints.md` → "Git" for how). This applies to every repo you
+   touch, not just the backend.
+7. **`monkify-ship-feature` may commit the knowledge base without review.** As the exception to the
+   "commits on `main` need approval" rule above: in the **ship-feature** skill, **after updating the
+   knowledge base** to reflect the shipped feature, you may **commit and push the `monkify-meta`
+   changes to `main` without waiting for user review** — that commit is part of the skill's workflow.
+   This exception is scoped to the KB sync at the end of `monkify-ship-feature`; it does **not**
+   authorize committing code repos to `main` without approval.
+8. **Every new feature needs a backend integration test (happy path).** For every **new feature**
+   (this rule does **not** apply to bug fixes, QOL/dev-experience tweaks, or minor changes): the
+   feature **must** have **at least one integration test** in `monkify-backend`
+   (`Monkify.Tests.Integration`, the Testcontainers suite) that exercises the feature's **happy path
+   end to end and asserts it works 100%**. If the feature introduces a **particularly complex flow**
+   (beyond the happy path), that flow **must** get its own integration test too. See
+   `constraints.md` → "Integration tests" for the full rule.
 
 ## Quick context
 
