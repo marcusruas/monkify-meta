@@ -1,6 +1,9 @@
 # Monkify — "Show Session Pot Value" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/session-pot-display` on 2026-07-07.
+> Distilled summary: `../features/session-pot-display.md`.
+>
+> _Originally: Ready for implementation_ — refined via Trello card
 > [Show pot value for that session.](https://trello.com/c/0FJquICm/32-show-pot-value-for-that-session) (2026-07-06).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend`: none.**
 >

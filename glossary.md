@@ -82,6 +82,12 @@
   `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.
+- **Pot** — the amount winners split, shown as the `> POT:` line in the game terminal for **every**
+  session type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
+  lottery = `lotteryParameters.lotteryPot` base `+ Σ bets`; seeded on load, accumulated live from the
+  `/Bets` SignalR stream, reset/reseeded on rollover; free bets (`amount = 0`) add nothing. Rendered
+  via `formatAmount` (USDC crypto / display currency regulated). Settlement math is separate —
+  `BetDomainService.SetPotAmount` remains the payout source of truth. See `features/session-pot-display.md`.
 - **Display name** — optional `OperatorPlayer.DisplayName` (1–20 chars, trimmed). Set via the
   customization modal (`PATCH /players/preferences`); rendered on bet DTOs and recent-bets SignalR
   events for self and others; falls back to truncated `externalPlayerId`. See

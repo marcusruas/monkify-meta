@@ -85,6 +85,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/session-chat.md`  | Per-session chat on `/game` via `ActiveSessionsHub`; display-name identity, DB audit persistence + daily purge, client 200-char/1s limits, no history replay | Shipped (v2)         |
 | `features/operator-admin-page.md` | Operator self-service admin portal at `/monkify/admin`: admin-scoped RS256 token (`X-Admin-Token`), create/list/deactivate session types (all 3 modes), deactivate-or-create (no edit), dev header icon → `POST /dev/admin-token` | Shipped              |
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
+| `features/session-pot-display.md` | Frontend-only: the `> POT:` line is shown for **all** session types (races + lottery), seeded from `Σ bets` (+ lottery base), live via `/Bets`, visible during/after the run; distilled from `specs/session-pot-display.md` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -97,7 +98,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `specs/session-chat.md`     | Per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Shipped (v2)         |
 | `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate session types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
-| `specs/session-pot-display.md` | Frontend-only: show the `> POT:` line for **all** session types (races + lottery), not just lottery; generalize `currentLotteryPot` → `currentPot` in `useSession.ts` (seed `Σ bets` + lottery base only for lottery, accumulate live via `/Bets`), move the POT `<p>` out of the lottery-only block in `GameTerminal.vue`; reuse `formatAmount`; no backend/DB/SignalR change | Ready                |
+| `specs/session-pot-display.md` | Frontend-only: show the `> POT:` line for **all** session types (races + lottery), not just lottery; generalize `currentLotteryPot` → `currentPot` in `useSession.ts` (seed `Σ bets` + lottery base only for lottery, accumulate live via `/Bets`), move the POT `<p>` out of the lottery-only block in `GameTerminal.vue` + a second POT line in the running/ended view (AC #8); reuse `formatAmount`; no backend/DB/SignalR change | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -120,15 +121,6 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress:_ **Show session pot value** — `feature/session-pot-display` (`monkify-front` +
-  `monkify-meta`), spec created 2026-07-06; frontend-only. Generalize the lottery-only `> POT:` line
-  to **every** session type (free-type race, preset race, lottery): in `useSession.ts` rename
-  `currentLotteryPot` → `currentPot`, seed it as `Σ bets` (+ `lotteryPot` base only for lottery) and
-  accumulate live by removing the `isLottery` gate on the `/Bets` stream; in `GameTerminal.vue` move
-  the POT `<p>` out of the lottery-only block (which keeps only `> FREQUENCY:`) into a universal line
-  via `formatAmount`. No backend/DB/SignalR change; free bets contribute 0; resets/reseeds on
-  rollover. Spec: `specs/session-pot-display.md`. Trello #32
-  ([0FJquICm](https://trello.com/c/0FJquICm)).
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
@@ -136,7 +128,16 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`betCurrency`: crypto `USDC` / regulated `credits`), and (3) fix `GameMonkey.vue` so the
   received-bet animation caps at 2 and always settles to a resting frame instead of looping. No
   backend change; real-fiat currency for regulated operators is a deferred backend follow-up.
-- _Last shipped:_ **Operator page (operator admin portal)** — `feature/operator-admin-page`,
+- _Last shipped:_ **Show session pot value** — `feature/session-pot-display` (`monkify-front` +
+  `monkify-meta`), 2026-07-07; frontend-only. The `> POT:` line is now shown for **every** session
+  type (free-type race, preset race, lottery), not just lottery: `useSession.ts` renames
+  `currentLotteryPot` → `currentPot`, seeds it as `Σ bets` (+ `lotteryPot` base only for lottery), and
+  accumulates live by removing the `isLottery` gate on the `/Bets` stream; `GameTerminal.vue` renders
+  a universal POT line in the pre-run view (lottery block keeps only `> FREQUENCY:`) plus a second POT
+  line in the running/ended view so it stays visible during and after the run (AC #8). Reuses
+  `formatAmount`; free bets contribute 0; resets/reseeds on rollover; no backend/DB/SignalR change.
+  Trello #32 ([0FJquICm](https://trello.com/c/0FJquICm)). See `features/session-pot-display.md`.
+- Previously shipped: **Operator page (operator admin portal)** — `feature/operator-admin-page`,
   2026-07-06; operator self-service admin at `/monkify/admin` with admin-scoped RS256 token
   (`X-Admin-Token`, not contract-gated), create/list/deactivate session types (all 3 modes;
   deactivate-or-create, no edit), first-session-on-create event, deactivation refunds waiting
