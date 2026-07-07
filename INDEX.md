@@ -105,6 +105,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/audio-overhaul.md`   | Audio overhaul with AI — **(1/3) manifest & Suno-generation spec**. Sound manifest + per-item Suno prompts + the frontend integration contract for cards 2 (#34) & 3 (#35). **Shipped reality differs:** the 3/2/1 proximity "coin" bleeps were dropped (Suno couldn't produce them) → **9 generated mp3s, not 12**, and no proximity audio. See `features/audio-overhaul.md`. Frontend-only; branch `feature/audio-overhaul` | Shipped              |
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
 | `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
+| `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog` | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -127,6 +128,20 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created):_ **Refactor payment models** — `feature/payment-methods-refactor`
+  (`monkify-backend` + `monkify-front` + `monkify-meta`), spec created 2026-07-07. Removes the
+  operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session
+  **`SessionParameters.PaymentMethod`** (`Standard` = off-chain operator wallet, USD; `SolanaToken` =
+  on-chain via a per-operator **registered `OperatorToken`**, token-native amounts). Adds a unified
+  `IPaymentMethod` strategy + resolver (dispatch by session method; availability = wallet-adapter for
+  Standard, ≥1 active token for SolanaToken), admin token register/list/deactivate (private key
+  **encrypted at rest** via ASP.NET Data Protection / Redis key ring), a ledger split (`Bet` &
+  `TransactionLog` drop the Solana signature and carry `ExternalTransactionReference` + `PaymentMethod`;
+  new `CryptoTransactionLog` holds on-chain detail), identity per method, display currency only for
+  Standard, and a single dev operator pre-provisioned for both methods. Dev/greenfield migration.
+  Spec: `specs/payment-methods-refactor.md`. Trello #38
+  ([FH5TMT0T](https://trello.com/c/FH5TMT0T)). ⚠️ Coordinate with in-flight
+  `feature/play-page-ux-fixes` (operator-level `isCryptoOperator`/`paymentModel` UI gating this removes).
 - _Last shipped:_ **Audio overhaul with AI (3-card feature, one shared branch)** —
   `feature/audio-overhaul` (`monkify-front` + `monkify-meta`; **no backend**), 2026-07-07. A cohesive
   AI-generated (Suno) **warm arcade-chiptune** sound identity, all frontend and display-only: idle loop
