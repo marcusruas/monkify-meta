@@ -458,10 +458,9 @@ not window Hamming):
 ## 13. Manual QA
 
 Run locally (crypto or regulated operator, dev launch buttons). Because a natural win/near-miss is
-random, use a **short choice length** session (or a preset-choice race) to make near-misses frequent, and
-prefer a session type where the typer's character set is drawn from the bets (see
-`MonkifyTyper.SetCharactersOnTyper` — Letters, `L = 6` with ≤ 10 bets, or `L = 7`) so the stream is
-biased toward the bet characters and near-misses appear quickly.
+random, use a **short choice length** session (or a **preset-choice race**, whose typer pool is drawn
+from the preset choices — see `MonkifyTyper.SetCharactersOnTyper`) so the stream is biased toward the
+choice characters and near-misses appear quickly.
 
 1. Launch `/monkify/game`, select a race, connect (or free-bet dev mode), place **one** bet (e.g. a
    6-letter word).

@@ -230,8 +230,6 @@ reproducible/auditable.
 count 0. `QueueLength` = the longest choice length (the rolling-window size).
 - **Character pool (`SetCharactersOnTyper`):** chosen from, in priority order:
   - preset-choice characters (if presets exist), else
-  - bet characters for certain hard letter games (`Letters` with length 7, or length 6 with ≤ 10
-  bets), else
   - the full `AllowedCharacters` pool.
   - A **minimum diversity** rule tops the pool up to ≥ `allowedChars.Length / 5` distinct characters;
   the pool is sorted.
