@@ -32,9 +32,18 @@
   cadence in `GameTyper.vue`.
 - **Fallback winner** — when the typer reaches `MaxTyperCharacters` without a natural sliding-window
   match, the winner is drawn with `new Random(SessionSeed)` over ordinally-sorted choices. Same seed
-  + bets → same winner on any host (`WinnerDecidedByFallback`).
+  + bets → same winner on any host (`WinnerDecidedByFallback`). Because the winning sequence was never
+  naturally typed, `SessionService.RunSession` then emits it as a **final `<sessionId>/Terminal`
+  batch** so the terminal ends with the word "typed" (display-only; see `features/characters-away.md`).
 - **MaxTyperCharacters** — config cap (default 5,000,000) on characters typed before fallback
   winner selection; also bounds the pacing horizon for huge search spaces.
+- **Characters Away / near-miss** — a player-facing, display-only reveal: while a round runs, a
+  bottom-docked terminal row per **own** bet choice shows how close the monkey has come to typing it
+  (`> N AWAY!`, `away = L − k` where `k` = longest stream-suffix that is a prefix of the choice — a
+  KMP tail-match). Rows climb, **reset and re-climb after a 2 s stall**, and **type out the full word**
+  on a win. Computed entirely client-side from the existing `Terminal` stream (`utils/nearMiss.ts` +
+  `hooks/useNearMiss.ts`, rendered in `GameTerminal.vue` beside the in-game `> POT:` line). No effect
+  on outcomes, payouts, pacing, or the seed. See `features/characters-away.md`.
 - **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row
   belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
   signed **launch token** (`X-Launch-Token`; the operator id is the token `iss`); players enter at

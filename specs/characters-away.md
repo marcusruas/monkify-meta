@@ -1,14 +1,30 @@
-# Monkify — "Characters Away" (progressive near-miss highlight) — Implementation Spec
+# Monkify — "Characters Away" (near-miss reveal) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Characters Away — progressive near-miss highlight (3 / 2 / 1)](https://trello.com/c/vlarPOaw) (2026-07-06).
-> Repos affected: **`monkify-front`** (all code) and this doc in **`monkify-meta`**. **`monkify-backend`: none.**
+> **Status: Shipped** — merged via `feature/characters-away` on 2026-07-07.
+> Repos affected: **`monkify-front`** + **`monkify-backend`** + this doc in **`monkify-meta`**.
+> Distilled summary: `../features/characters-away.md`.
 >
-> **Purpose:** Make the most thrilling moment of a round — the monkey's stream landing within a few
-> characters of one of *your own* choices — visible and escalating. As the stream approaches a choice
-> you bet on, progressively highlight the matched characters at **3 away**, **2 away**, then **1 away**,
-> and keep those near-miss moments pinned on screen until the session ends, so even a loss feels like an
-> "almost". Player-facing, frontend-only, display-only.
+> **Purpose:** Make the most thrilling moment of a round — the monkey landing close to one of *your
+> own* choices — visible, and keep it on screen, so even a loss feels like an "almost".
+
+> ### ⚠️ Post-ship notes — the shipped design differs from §1–§15 below
+> The sections below capture the **original** design (3/2/1 pinned-milestone history, frontend-only).
+> During implementation the product owner iterated the behaviour; **what actually shipped** is:
+> - **One row per own choice** (not a per-milestone history), docked at the **bottom** of the terminal
+>   (transparent, always visible), beside a **`> POT:`** line (in-game pot = Σ bet amounts + lottery
+>   base). `GameTerminal.vue` owns the dock; `GameTyper.vue` renders just the stream tail.
+> - Each row shows the **closest approach so far** (`away = L − k`, KMP tail-prefix). It **climbs**, and
+>   if it does not get closer for **2 s** it **resets to the start and climbs again** (a continuous
+>   "keeps trying to type it" loop). On a **win**, the winning choice (if the player bet it) is **typed
+>   out to the full word** and held.
+> - **Backend (added):** on a **fallback-decided** winner, `SessionService.RunSession` emits
+>   `MonkifyTyper.FirstChoiceTyped` as a final `<sessionId>/Terminal` batch so the terminal ends with
+>   the word "typed". Purely visual; winner/seed/payouts/status unchanged. Unit-tested
+>   (`SessionServiceTests.RunSession_FallbackDecidedWinner_EmitsWinningChoiceAsFinalTerminalBatch`).
+> - Frontend detector is `src/utils/nearMiss.ts` (pure KMP; `advance()` → live matched length) +
+>   `src/hooks/useNearMiss.ts` (`nearMissEntries`, `trackChoice`/`feed`/`finish`/`reset` — display
+>   high-water, 2 s stall loop, win type-out). The original "pinned, monotonic, once-per-level" model
+>   is superseded. See `features/characters-away.md` for the authoritative current behaviour.
 
 ---
 
