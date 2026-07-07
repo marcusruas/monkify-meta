@@ -1,6 +1,10 @@
 # Monkify — "Audio Overhaul with AI" — (3/3) Wiring Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:**
+> proximity bleeps were **omitted** (their assets were dropped); shipped **extras beyond this spec** —
+> a menu loop on the sessions page (`LobbyAudio.vue`), a `/`→`/monkify/game` redirect, and a
+> session-connection teardown fix (`disconnectAllPreviousConnections`). See
+> `../features/audio-overhaul.md`. Originally refined via Trello card
 > [Overhaul audio/songs with AI — (3/3) Wire new audio into the game](https://trello.com/c/RvVdpO25/35-overhaul-audio-songs-with-ai-3-3-wire-new-audio-into-the-game)
 > (2026-07-07).
 > Repos affected: **`monkify-front`** (all the wiring) + this doc in **`monkify-meta`**.

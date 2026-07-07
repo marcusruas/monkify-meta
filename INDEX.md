@@ -87,6 +87,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
 | `features/session-pot-display.md` | Frontend-only: the `> POT:` line is shown for **all** session types (races + lottery), seeded from `Σ bets` (+ lottery base), live via `/Bets`, visible during/after the run; distilled from `specs/session-pot-display.md` | Shipped              |
 | `features/characters-away.md` | Near-miss reveal: bottom-docked `> N AWAY!` row per own choice (KMP tail-prefix `away = L − k`) that climbs, loops every 2s, and types out the winner on a win; in-game `> POT:`; backend emits the fallback-decided winner as a final terminal batch | Shipped              |
+| `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per session status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the sessions page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/monkify/game` redirect + session-connection teardown fix | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -101,9 +102,9 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate session types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
 | `specs/session-pot-display.md` | Frontend-only: show the `> POT:` line for **all** session types (races + lottery), not just lottery; generalize `currentLotteryPot` → `currentPot` in `useSession.ts` (seed `Σ bets` + lottery base only for lottery, accumulate live via `/Bets`), move the POT `<p>` out of the lottery-only block in `GameTerminal.vue` + a second POT line in the running/ended view (AC #8); reuse `formatAmount`; no backend/DB/SignalR change | Shipped              |
 | `specs/characters-away.md`  | Characters Away near-miss reveal. Spec body is the original 3/2/1 pinned-milestone design; **shipped** behaviour (see spec Post-ship notes + `features/characters-away.md`) is a bottom-docked closest-approach row per own choice (KMP `away = L − k`) that climbs + loops every 2s + types out the winner, plus in-game `> POT:` and a backend fallback terminal reveal | Shipped              |
-| `specs/audio-overhaul.md`   | Audio overhaul with AI — **(1/3) manifest & Suno-generation spec**. 12-sound manifest (recreate 4, repurpose `game_waiting` idle loop, drop `success1`, add sting/victory/lose/3-2-1 proximity bleeps/button-press) with per-sound trigger+type+duration+Suno prompt, plus the frontend integration contract for cards 2 (#34, generate) & 3 (#35, wire). Frontend-only; shared branch `feature/audio-overhaul` | Ready                |
-| `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Generate card 1's 12 files via the **Suno MCP** (`mcp-suno`, instrumental `generate_custom_music`), post-process with **ffmpeg** (trim/slice bleeps/normalize/mp3), **user approves each before commit** (3-attempt re-roll cap), then commit to `monkify-front/src/assets/audios` (keep `error1.wav`, drop `success1.wav`). Assets only — no wiring. Shared branch `feature/audio-overhaul` | Ready                |
-| `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. Implements card 1 §7 in `monkify-front`: `helpers.ts` master gain/mute, idle loop + **one-shot** Game Starting + **random** running variant (`GameAudio.vue`), own-bet/error/button, victory/lose (bettors-only), 3/2/1 proximity bleeps (extend `useNearMiss` on raw KMP `k`), header mute/volume control (`localStorage`), + 3 timing fixes; asset swap & delete old `.wav`. Manual QA only (no FE test runner). Shared branch `feature/audio-overhaul` | Ready                |
+| `specs/audio-overhaul.md`   | Audio overhaul with AI — **(1/3) manifest & Suno-generation spec**. Sound manifest + per-item Suno prompts + the frontend integration contract for cards 2 (#34) & 3 (#35). **Shipped reality differs:** the 3/2/1 proximity "coin" bleeps were dropped (Suno couldn't produce them) → **9 generated mp3s, not 12**, and no proximity audio. See `features/audio-overhaul.md`. Frontend-only; branch `feature/audio-overhaul` | Shipped              |
+| `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
+| `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -126,23 +127,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress:_ **Audio overhaul with AI (3-card feature, one shared branch)** —
-  `feature/audio-overhaul` (`monkify-meta` + `monkify-front`), spec'd 2026-07-07. A cohesive
-  AI-generated (Suno) sound identity: recreate the 4 live sounds, repurpose `game_waiting` as a
-  `WaitingBets` idle loop, drop dead `success1.wav`, and add a session-start sting, victory/lose
-  (bettors only), 3/2/1 escalating **proximity bleeps** (frontend-only, own bets, reusing the
-  near-miss KMP matcher), a preset **button-press** click, and a header **mute+volume** control
-  (`localStorage`, master gain in `helpers.ts`). Frontend-only — **no backend**. Split across three
-  cards sharing **one** branch/worktree, shipped together: **(1/3)** manifest+Suno spec
-  ([#17 `9qiDtDAe`](https://trello.com/c/9qiDtDAe), this spec `specs/audio-overhaul.md`) → **Specs
-  created**; **(2/3)** generate assets ([#34 `OuXhyqyU`](https://trello.com/c/OuXhyqyU)) — **Specs
-  created**, spec `specs/audio-overhaul-generation.md` (Suno MCP `mcp-suno` + ffmpeg, approve-each
-  review loop); **(3/3)** wire into game ([#35 `RvVdpO25`](https://trello.com/c/RvVdpO25)) — **Specs
-  created**, spec `specs/audio-overhaul-wiring.md` (implements card 1 §7: engine gain/mute, idle/one-shot
-  starting/random running, victory-lose, proximity bleeps, header mute-volume, 3 timing fixes; manual QA
-  only). Cards 2 & 3 **reuse** `feature/audio-overhaul` — never a new slug. See `specs/audio-overhaul.md`,
-  `specs/audio-overhaul-generation.md` + `specs/audio-overhaul-wiring.md`.
-- _Last shipped:_ **Characters Away (near-miss reveal)** — `feature/characters-away`
+- _Last shipped:_ **Audio overhaul with AI (3-card feature, one shared branch)** —
+  `feature/audio-overhaul` (`monkify-front` + `monkify-meta`; **no backend**), 2026-07-07. A cohesive
+  AI-generated (Suno) **warm arcade-chiptune** sound identity, all frontend and display-only: idle loop
+  on `WaitingBets`, a **one-shot** Game Starting on `SessionStarting` (once per session, running variant
+  preloaded here), a **random** of three running loops on `InProgress`; own-bet/button/error SFX;
+  **bettors-only** victory/lose on `Ended` (once); a **menu loop on the sessions page** (admin stays
+  silent); and a header **mute+volume** control (`localStorage` `monkify.audio`, master gain in
+  `helpers.ts`, live re-apply). **9 generated mp3s** (kept `error1.wav`, dropped `success1.wav` + the 4
+  old `.wav`s). Shipped as three cards on one branch: **(1/3)** manifest [#17 `9qiDtDAe`], **(2/3)**
+  generate [#34 `OuXhyqyU`] (done **manually in the Suno UI** + ffmpeg), **(3/3)** wire [#35 `RvVdpO25`].
+  **The 3/2/1 proximity "coin" bleeps were dropped** (Suno couldn't produce them) — near-miss visual
+  unchanged, no proximity audio. **Extras beyond spec:** `/`→`/monkify/game` redirect, and a
+  **session-connection teardown fix** (`disconnectAllPreviousConnections` enabled) that stops a stale
+  session's SignalR events from corrupting the shared session state on switch/rollover. See
+  `features/audio-overhaul.md`.
+- _Previously shipped:_ **Characters Away (near-miss reveal)** — `feature/characters-away`
   (`monkify-front` + `monkify-backend` + `monkify-meta`), 2026-07-07. While a round runs, a
   bottom-docked terminal row per **own** bet choice shows how close the monkey is to typing it
   (`> N AWAY!`, KMP tail-prefix `away = L − k`): it climbs, **resets to the start and re-climbs after

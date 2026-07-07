@@ -1,6 +1,9 @@
 # Monkify — "Audio Overhaul with AI" — Audio Manifest & Suno Generation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). Distilled in
+> `../features/audio-overhaul.md`. **Post-ship reality:** the 3/2/1 proximity "coin" bleeps were
+> dropped (Suno couldn't produce them) → **9 generated mp3s, not 12**, and no proximity audio was
+> wired. Originally refined via Trello card
 > [Overhaul audio/songs with AI — (1/3) Audio manifest & Suno generation spec](https://trello.com/c/9qiDtDAe/17-overhaul-audio-songs-with-ai-1-3-audio-manifest-suno-generation-spec)
 > (2026-07-07).
 > Repos affected: **`monkify-front`** (assets & wiring — cards 2 & 3) + this doc in **`monkify-meta`**.

@@ -1,6 +1,9 @@
 # Monkify — "Audio Overhaul with AI" — (2/3) Asset Generation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:** assets
+> were generated **manually in the Suno UI** (the MCP ran out of credits) then post-processed with
+> ffmpeg; **9 assets** shipped (kept `error1.wav`, dropped `success1.wav` + old `.wav`s) — the 3 coin
+> bleeps were cut. See `../features/audio-overhaul.md`. Originally refined via Trello card
 > [Overhaul audio/songs with AI — (2/3) Generate audio assets via Suno](https://trello.com/c/OuXhyqyU/34-overhaul-audio-songs-with-ai-2-3-generate-audio-assets-via-suno)
 > (2026-07-07).
 > Repos affected: **`monkify-front`** (the generated assets) + this doc in **`monkify-meta`**.
