@@ -69,7 +69,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 7 | **Visibility:** show the pot **always while a session is loaded** — from load (0, or the lottery base, when no bets yet), through betting, the run, and after it ends (final pot). It **resets and reseeds on rollover** (`updateNewSession`, already in place for lottery; now applies to all). |
 | 8 | **Naming:** rename the `currentLotteryPot` ref → `currentPot` (semantics broadened). It is consumed **only** by `GameTerminal.vue`, so no back-compat alias is needed. |
 | 9 | **Free bets (`amount = 0`) contribute 0** — consistent with backend `SetPotAmount`. In dev free-bet mode a race pot reads `0`; a lottery still shows its base pot. |
-| 10 | **POT line placement (design detail resolved here):** the `> POT:` `<p>` becomes a **single universal line**; the lottery block is reduced to `> FREQUENCY:` only. For lottery this preserves the existing "frequency then pot" grouping (POT renders directly under FREQUENCY); for races the POT line renders under `> BET:`. This satisfies "move it out of the lottery-only block" with **no lottery value regression** (same number displayed via the same `formatAmount`). |
+| 10 | **POT line placement (design detail resolved here):** in the **pre-run view** the `> POT:` `<p>` becomes a **single universal line**; the lottery block is reduced to `> FREQUENCY:` only. For lottery this preserves the existing "frequency then pot" grouping (POT renders directly under FREQUENCY); for races the POT line renders under `> BET:`. This satisfies "move it out of the lottery-only block" with **no lottery value regression** (same number displayed via the same `formatAmount`). |
+| 11 | **POT during the run and after (AC #8 resolution, confirmed with user 2026-07-06):** the terminal renders a **separate view branch** while the session is `InProgress`/`Ended`/rewarding (the `RACING…`/`DRAWING WINNER…` + typer + `WINNER` block), where the pre-run POT line does **not** appear. To keep the pot visible through the run and after it ends (card "Visibility" decision + AC #8), a **second `> POT:` line** is rendered inside that running/ended view branch (right after the `RACING…`/`DRAWING WINNER…` header). Both lines read the same `currentPot`, which retains the final accumulated total. This mirrors the existing pattern of duplicated per-view status labels. |
 
 ---
 
@@ -190,12 +191,29 @@ keeps "frequency then pot", and races get a pot line under `> BET:`):
 </p>
 ```
 
+**(c) Also render the `> POT:` line in the running/ended view (AC #8).** The terminal switches to a
+separate view branch while the session is `InProgress`/`Ended`/rewarding
+(`v-else-if="… status > SessionStarting && status < ErrorWhenProcessingRewards"`). Add a second POT
+line there, right after the `RACING…`/`DRAWING WINNER…` header, so the pot stays visible during and
+after the run with the final total:
+
+```html
+<br />
+<p>> {{ isLotteryMode ? 'DRAWING WINNER...' : 'RACING...' }}</p>
+<!-- Pot: stays visible during the run and after it ends (final total). -->
+<p>
+  > POT:
+  <span :title="formatAmount(currentPot).title">{{ formatAmount(currentPot).text }}</span>
+</p>
+<br />
+<game-typer />
+```
+
 - `formatAmount` is already defined locally in `GameTerminal.vue` and returns `{ text, title? }`,
   handling crypto (`USDC`) vs regulated (display currency) exactly like the `> BET:` line — **reused
   as-is**.
-- No new API calls, headers, types, or currency logic. The pot `<p>` sits in the pre-run
-  (`v-else`) branch alongside `GAME` / `BET` / `CHOICES` / `BETS PLACED`, so it is visible while the
-  session is loaded and waiting; the final total is retained on `currentPot` after the run.
+- No new API calls, headers, types, or currency logic. Both POT lines read the same `currentPot`,
+  which retains the final accumulated total after the run.
 
 ---
 
@@ -236,7 +254,7 @@ updateNewSession (rollover) ─► currentPot = 0 ─► getBets reseeds
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/hooks/useSession.ts` | Rename `currentLotteryPot` → `currentPot`; seed for all modes in `getBets` (`Σ bets` + lottery base only when lottery); remove `isLottery` gate on the `/Bets` increment; reset/reseed on rollover (rename only); expose `currentPot`. |
-| 2 | `src/components/game/GameTerminal.vue` | Destructure `currentPot`; move the `> POT:` `<p>` out of the lottery-only `v-if` block (which keeps only `> FREQUENCY:`) into a universal line using `formatAmount(currentPot)`. |
+| 2 | `src/components/game/GameTerminal.vue` | Destructure `currentPot`; in the **pre-run view** move the `> POT:` `<p>` out of the lottery-only `v-if` block (which keeps only `> FREQUENCY:`) into a universal line using `formatAmount(currentPot)`; **also** add a second `> POT:` line in the **running/ended view** branch (after the `RACING…`/`DRAWING WINNER…` header) so it stays visible during and after the run (AC #8). |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -280,7 +298,8 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    then they contribute nothing to the pot and the race pot reads `0` (a lottery still shows its base).
 8. **Visible during/after run, no contract change.** Given a session that is `InProgress` or `Ended`,
    when the player views the terminal, then the pot line remains visible and shows the final
-   accumulated total, with no backend/DB/SignalR-contract change introduced.
+   accumulated total, with no backend/DB/SignalR-contract change introduced. *(Satisfied by the
+   second `> POT:` line added in the running/ended view branch — see decision #11 / §7.2(c).)*
 
 ---
 
@@ -319,3 +338,4 @@ Run the local stack (`setup_local_environment.bat` / the front's `npm run serve`
 | Date | Change |
 | --- | --- |
 | 2026-07-06 | Initial spec from refined card #32 (`0FJquICm`), grounded in `useSession.ts` + `GameTerminal.vue`. |
+| 2026-07-06 | Implementation: resolved AC #8 (pot visible during/after the run) by adding a second `> POT:` line in the running/ended view branch (decision #11, §7.2(c)); confirmed with user. |
