@@ -102,6 +102,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/session-pot-display.md` | Frontend-only: show the `> POT:` line for **all** session types (races + lottery), not just lottery; generalize `currentLotteryPot` → `currentPot` in `useSession.ts` (seed `Σ bets` + lottery base only for lottery, accumulate live via `/Bets`), move the POT `<p>` out of the lottery-only block in `GameTerminal.vue` + a second POT line in the running/ended view (AC #8); reuse `formatAmount`; no backend/DB/SignalR change | Shipped              |
 | `specs/characters-away.md`  | Characters Away near-miss reveal. Spec body is the original 3/2/1 pinned-milestone design; **shipped** behaviour (see spec Post-ship notes + `features/characters-away.md`) is a bottom-docked closest-approach row per own choice (KMP `away = L − k`) that climbs + loops every 2s + types out the winner, plus in-game `> POT:` and a backend fallback terminal reveal | Shipped              |
 | `specs/audio-overhaul.md`   | Audio overhaul with AI — **(1/3) manifest & Suno-generation spec**. 12-sound manifest (recreate 4, repurpose `game_waiting` idle loop, drop `success1`, add sting/victory/lose/3-2-1 proximity bleeps/button-press) with per-sound trigger+type+duration+Suno prompt, plus the frontend integration contract for cards 2 (#34, generate) & 3 (#35, wire). Frontend-only; shared branch `feature/audio-overhaul` | Ready                |
+| `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Generate card 1's 12 files via the **Suno MCP** (`mcp-suno`, instrumental `generate_custom_music`), post-process with **ffmpeg** (trim/slice bleeps/normalize/mp3), **user approves each before commit** (3-attempt re-roll cap), then commit to `monkify-front/src/assets/audios` (keep `error1.wav`, drop `success1.wav`). Assets only — no wiring. Shared branch `feature/audio-overhaul` | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -133,9 +134,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`localStorage`, master gain in `helpers.ts`). Frontend-only — **no backend**. Split across three
   cards sharing **one** branch/worktree, shipped together: **(1/3)** manifest+Suno spec
   ([#17 `9qiDtDAe`](https://trello.com/c/9qiDtDAe), this spec `specs/audio-overhaul.md`) → **Specs
-  created**; **(2/3)** generate assets ([#34 `OuXhyqyU`](https://trello.com/c/OuXhyqyU)); **(3/3)**
-  wire into game ([#35 `RvVdpO25`](https://trello.com/c/RvVdpO25)). Cards 2 & 3 **reuse**
-  `feature/audio-overhaul` — never a new slug. See `specs/audio-overhaul.md`.
+  created**; **(2/3)** generate assets ([#34 `OuXhyqyU`](https://trello.com/c/OuXhyqyU)) — **Specs
+  created**, spec `specs/audio-overhaul-generation.md` (Suno MCP `mcp-suno` + ffmpeg, approve-each
+  review loop); **(3/3)** wire into game ([#35 `RvVdpO25`](https://trello.com/c/RvVdpO25)). Cards 2 & 3
+  **reuse** `feature/audio-overhaul` — never a new slug. See `specs/audio-overhaul.md` +
+  `specs/audio-overhaul-generation.md`.
 - _Last shipped:_ **Characters Away (near-miss reveal)** — `feature/characters-away`
   (`monkify-front` + `monkify-backend` + `monkify-meta`), 2026-07-07. While a round runs, a
   bottom-docked terminal row per **own** bet choice shows how close the monkey is to typing it
