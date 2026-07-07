@@ -97,6 +97,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `specs/session-chat.md`     | Per-session chat over `ActiveSessionsHub` (`SendChatMessage` → `{sessionId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`SessionChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Shipped (v2)         |
 | `specs/operator-admin-page.md` | Operator self-service admin portal (`/monkify/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate session types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
+| `specs/characters-away.md`  | Progressive near-miss highlight (3/2/1 away): frontend-only, display-only. Client tracks each of the player's own choices with a KMP tail-prefix match on the `<sessionId>/Terminal` stream (`away = L − k`); first time each level is reached it pins the highlighted partial word (exempt from the terminal crop) with an "N AWAY" beat. New `utils/nearMiss.ts` + `hooks/useNearMiss.ts`, wired into `useSession.ts` + segmented `GameTyper.vue`. No backend change | Ready                |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -119,6 +120,16 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created:_ **Characters Away — progressive near-miss highlight (3/2/1)** —
+  `feature/characters-away` (`monkify-front` + `monkify-meta`), spec written 2026-07-06. Frontend-only,
+  display-only: as the typer stream approaches one of the player's *own* choices, the client fires
+  **3 → 2 → 1 AWAY** beats and **pins** the highlighted partial word inside the terminal (exempt from the
+  20000→2000 crop) until the session ends. Distance = **tail-prefix KMP match** (`away = L − k`), so
+  levels fire in strict order and never skip. New `src/utils/nearMiss.ts` (pure detector) +
+  `src/hooks/useNearMiss.ts`, wired into `useSession.ts` (new durable `ownBetChoices`; `lastOwnBetChoice`
+  left intact for the monkey animation) and a segmented render in `GameTyper.vue`. No backend surface.
+  Spec: `specs/characters-away.md`. Trello #30 ([vlarPOaw](https://trello.com/c/vlarPOaw)). Next:
+  `/monkify-implement-feature`.
 - _In progress:_ **Play page UX fixes** — `feature/play-page-ux-fixes` (`monkify-front` +
   `monkify-meta`), started 2026-07-01; three independent frontend-only changes: (1) hide the wallet
   cluster (Connect Wallet button + USDC balance) in `GameHeader.vue` for **regulated** operators,
