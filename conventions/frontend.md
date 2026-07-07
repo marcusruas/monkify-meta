@@ -36,6 +36,13 @@
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
   `…/Status`, `…/Bets`, `SessionReceived`, and `{sessionId}/ChatMessage` (session chat — see
   `features/session-chat.md`).
+- **Near-miss reveal ("Characters Away"):** a pure detector (`src/utils/nearMiss.ts`, KMP tail-prefix)
+  plus a module-singleton composable (`src/hooks/useNearMiss.ts`) fed the raw `…/Terminal` batches from
+  `useSession` (independent of the terminal crop). It tracks each of the player's **own** bet choices
+  (`ownBetChoices`, recorded on successful bets) and exposes `nearMissEntries` — one closest-approach
+  row per choice that `GameTerminal.vue` renders in a bottom-docked area with the in-game `> POT:`
+  line. Timing (2 s stall-reset loop, win type-out) lives in the composable; the detector stays pure
+  and side-effect-free. See `features/characters-away.md`.
 - **Solana wallet** via `solana-wallets-vue` + `@solana/web3.js` + `@solana/spl-token`
   (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime

@@ -184,6 +184,10 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   `MaxTyperCharacters` and resolve via a deterministic seed-based fallback winner. `DisplaySpeed`
   (1–3) ramps on elapsed-time fractions. The `SessionService.RunSession` loop streams output over
   SignalR. See `features/typer-pacing-scalability.md`.
+- **Fallback terminal reveal:** on a fallback-decided winner (the word was never naturally typed),
+  `RunSession` emits `MonkifyTyper.FirstChoiceTyped` as a final `…/Terminal` batch so the terminal
+  ends with the winning sequence "typed" — matching a natural win. Display-only; the winner and seed
+  are unchanged. This backs the client-side near-miss reveal (see `features/characters-away.md`).
 
 ## 10. Multi-tenancy: Operators
 
