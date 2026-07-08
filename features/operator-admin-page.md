@@ -2,6 +2,14 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/operator-admin-page.md`
 > (merged via `feature/operator-admin-page` on 2026-07-06).
+>
+> ⚠️ **Extended by `features/payment-methods.md` (2026-07-08).** The portal now also manages **Solana
+> token registration** (`GET/POST /admin/operator-tokens`, `POST …/{id}/deactivate` — register/list/
+> deactivate, no edit; private key encrypted at rest, never returned) and reports **method availability**
+> (`GET /admin/payment-methods`). The session-type create form gained a **PaymentMethod** selector
+> (`Standard`/`SolanaToken`, offered only when available) and, for SolanaToken, a **token** selector;
+> `SessionTypeRequestBody`/`CreateSessionTypeHandler`/`SessionTypeAdminDto`/`SessionTypeList` carry
+> `PaymentMethod` + `OperatorTokenId`. The dev admin button dropped its `?paymentModel` param.
 
 ## What it does
 

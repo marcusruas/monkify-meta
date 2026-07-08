@@ -2,6 +2,12 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/player-customization-modal.md`
 > (merged via `feature/player-customization-modal` on 2026-07-02).
+>
+> ⚠️ **Adjusted by `features/payment-methods.md` (2026-07-08).** The preferred **display currency** is
+> now offered to **all** operators (the old crypto/regulated gate is gone), but it affects **rendering of
+> `Standard` sessions only** — **`SolanaToken`** sessions always render token-native amounts, regardless
+> of the chosen currency. "Regulated operators only" below now means "**Standard** sessions only".
+> Settlement stays USD for Standard; conversion remains display-only.
 
 ## What it does
 

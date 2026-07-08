@@ -2,6 +2,14 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/operator-wallet-api.md`
 > (merged via `feature/operator-wallet-api` on 2026-06-30).
+>
+> ⚠️ **Reframed by `features/payment-methods.md` (2026-07-08).** This off-chain wallet path is intact,
+> but it is no longer selected by `Operator.PaymentModel == Regulated` (that enum is gone). It is now the
+> **`Standard` payment method** on a session type, reached through the unified `IPaymentMethodService`
+> resolver (`StandardPaymentMethodService` → `IOperatorWalletResolver`). Read every "regulated operator"
+> below as "**Standard** session type". The debit/credit/refund mechanics, USD amounts, unified
+> `TransactionLog`, and no-commission rules are unchanged — but `TransactionLog` now also carries a
+> `PaymentMethod` and its `Signature` column was dropped in favour of `ExternalTransactionReference`.
 
 ## What it does
 

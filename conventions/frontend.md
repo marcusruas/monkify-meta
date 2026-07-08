@@ -21,16 +21,21 @@
 - **Operator entry:** game routes are **param-free** (`/monkify/game/sessions`, `/monkify/game/play`);
   the operator is decoded from the token's `iss` (`getOperatorIdFromToken` in `utils/launchToken.ts`),
   not the URL. Missing/undecodable token, inactive operator, or any token `401` → `/error`.
-  `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, exposes
-  `paymentModel` (wallet UX is gated on it), and applies `--color-secondary` when branding includes a color.
-- **Wallet UX gated on payment model:** the game header (`GameHeader.vue`) hides the whole wallet
-  cluster — the Connect Wallet button (`WalletButtons.vue`) **and** the USDC `TokenBalance` — for
-  **regulated** operators (`paymentModel === OperatorPaymentModel.Regulated`); crypto/unknown keep it.
-- **Bet cost display:** the play-page terminal (`GameTerminal.vue`) shows `> BET: {requiredAmount}
-  {betCurrency}` for **every** session type (not just lottery). For **crypto** operators,
-  `betCurrency` is `USDC`. For **regulated** operators, amounts use `useDisplayCurrency.formatUsd`
-  (preferred fiat with `≈` when not USD; silent USD fallback when rates unavailable). See
-  `features/player-customization-modal.md`.
+  `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, and applies
+  `--color-secondary` when branding includes a color. Branding no longer carries a payment model —
+  payment UX is driven by the **selected session's `paymentMethod`**, not the operator.
+- **Wallet UX gated on the session's `paymentMethod`:** the game header (`GameHeader.vue`) shows the
+  wallet cluster — the Connect Wallet button (`WalletButtons.vue`) **and** the `TokenBalance` — **only**
+  when the current session is `SolanaToken` (`selectedSession?.paymentMethod === PaymentMethod.SolanaToken`),
+  using the session's `tokenSymbol` / `tokenMintAddress`; `Standard` sessions and the sessions list hide
+  it. `GameConsole.vue` requires a connected wallet to bet only for SolanaToken. The settings gear is
+  gated on operator context from the launch token (`operatorId ?? getOperatorIdFromToken()`) so it
+  survives an operatorId reset on a hard reload. See `features/payment-methods.md`.
+- **Bet/pot display:** the play-page terminal (`GameTerminal.vue`) `formatAmount` branches on the
+  session's method — **`SolanaToken`** → `{amount} {tokenSymbol}` (token decimals); **`Standard`** →
+  `useDisplayCurrency.formatUsd` (preferred fiat with `≈` when not USD; silent USD fallback when rates
+  unavailable). The preferred currency has no effect on SolanaToken amounts. See
+  `features/payment-methods.md` + `features/player-customization-modal.md`.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`** in `useSession`: two hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`; join per-session groups; handle `…/Terminal`, `…/DisplaySpeed`,
@@ -44,7 +49,11 @@
   line. Timing (2 s stall-reset loop, win type-out) lives in the composable; the detector stays pure
   and side-effect-free. See `features/characters-away.md`.
 - **Solana wallet** via `solana-wallets-vue` + `@solana/web3.js` + `@solana/spl-token`
-  (`useConnection.sendToken`). The returned signature is used as the bet's `paymentSignature`.
+  (`useConnection.sendToken`) — used **only for `SolanaToken` sessions**. `useSession.bet()` branches on
+  `selectedSession.paymentMethod`: SolanaToken transfers to the session's `tokenReceiverPublicKey` /
+  `tokenMintAddress` and posts the returned signature + wallet; Standard posts `{ amount, choice, seed }`
+  with no wallet/signature (identity via the launch token `sub`). The `Bet.PaymentSignature` field is
+  gone — the reference is carried as `ExternalTransactionReference` server-side.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
 - **Design system (required):** **always build new UI with the existing frontend design system** —

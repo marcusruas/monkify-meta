@@ -21,16 +21,14 @@
 
   ```csharp
   // Prefer — the main method shows the shape of the work:
-  if (paymentModel == OperatorPaymentModel.Regulated)
-      await ProcessRegulatedRefund(scope, dbContext, bet, refundAmount, message.Reason);
-  else
-      await solanaService.RefundTokens(message.Wallet, refundAmount, message.Reason, bet.Id);
+  var service = paymentResolver.Resolve(session.Parameters);   // by session PaymentMethod
+  var result = await service.Refund(bet, refundAmount, message.Reason, ct);
 
-  // Avoid — the whole regulated branch (resolve + call + persist + log) inlined in the main method.
+  // Avoid — the whole method branch (resolve + call + persist + log) inlined in the main method.
   ```
 
   Each extracted method should have one clear purpose and a name that says what it does
-  (`ProcessRegulatedRefund`, `DebitOperatorWallet`, `CreditWinner`). This keeps the entry method
+  (`DebitOperatorWallet`, `CreditWinner`, `WritePlacementCryptoLog`). This keeps the entry method
   short and the behaviours independently readable/testable.
 - **Controllers are thin:** extend `BaseController`, build a MediatR request, return
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
@@ -51,13 +49,21 @@
   cache is operator-aware.
 - **Domain stays pure:** entities/value-objects/domain-services in `Monkify.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
-- **Money movement routes by `Operator.PaymentModel`.** Crypto (Model B) pays on-chain via
-  `ISolanaService` / `SolanaService` (validate signatures, transfer rewards, refund invalid bets);
-  regulated (Model A) instructs the operator wallet via `IOperatorWalletService` (resolved per operator by
-  `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`). Every movement is recorded in the
-  **unified `TransactionLog`** ledger (`TransactionLogType` = `Credit`/`Debit`/`Refund`), which also backs
-  reward/refund idempotency (subtract by type). There is **no commission** in pot math. See
-  `features/operator-wallet-api.md`.
+- **Money movement routes by the session's `PaymentMethod`, via `IPaymentMethodResolver`.** Handlers and
+  consumers call `paymentResolver.Resolve(session.Parameters).Debit/Credit/Refund(...)` — **never** branch
+  on an operator enum (`Operator.PaymentModel` is gone). `StandardPaymentMethodService` settles off-chain
+  via `IOperatorWalletService` (USD; resolved per operator by `IOperatorWalletResolver` from
+  `GeneralSettings.OperatorWallets`); `SolanaTokenPaymentMethodService` settles on-chain via
+  `ISolanaService` using a per-call `SolanaTokenDescriptor` built from the session's registered
+  `OperatorToken` (its private key decrypted via `ISecretProtector` in Consumers only). Every movement is
+  recorded in the **unified `TransactionLog`** ledger (`TransactionLogType` = `Credit`/`Debit`/`Refund`,
+  carrying `PaymentMethod` + `ExternalTransactionReference`), plus a `CryptoTransactionLog` for SolanaToken;
+  the ledger backs reward/refund idempotency (subtract by type). There is **no commission** in pot math.
+  See `features/payment-methods.md`.
+- **Secrets encrypted at rest** go through `ISecretProtector` (`AesSecretProtector`, AES-256-GCM keyed
+  from the `GeneralSettings.SecretProtection.Key` passphrase): `Protect` in the API before persisting,
+  `Unprotect` in Consumers only when the plaintext is needed for an outbound call. Never return an
+  encrypted secret in a DTO or log it.
 - **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
 - **Session-flow changes MUST update the integration tests.** End-to-end coverage of the session

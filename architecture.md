@@ -84,14 +84,19 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 ### Core entities (selected)
 
 - **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session`, `SessionParameters`
-  (a "game type"), `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`.
+  (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`), `LotteryParameters`,
+  `PresetChoice`, `SessionStatusLog`, `Operator`, **`OperatorToken`** (a per-operator registered SPL
+  token; owner private key encrypted at rest).
 - **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog` (unified money-movement
-  ledger — `Credit`/`Debit`/`Refund`), `BetStatusLog`. (`RefundLog` was removed; refund audit now lives
-  in `TransactionLog`.)
+  ledger — `Credit`/`Debit`/`Refund`, now carrying `PaymentMethod` + `ExternalTransactionReference`),
+  **`CryptoTransactionLog`** (on-chain specifics for `SolanaToken` movements), `BetStatusLog`.
+  (`RefundLog` was removed; refund audit lives in `TransactionLog`.)
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
 Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* TransactionLog`;
-`Operator 1—* OperatorPlayer 1—* Bet` (nullable FK — anonymous free bets have no `OperatorPlayer`).
+`Operator 1—* OperatorToken 1—* SessionParameters` (nullable — only `SolanaToken` types reference a token);
+`Bet 1—* CryptoTransactionLog`; `Operator 1—* OperatorPlayer 1—* Bet` (nullable FK — anonymous free bets
+have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 ## 4. Messaging: RabbitMQ via MassTransit
 
@@ -151,26 +156,41 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 
 ## 8. Blockchain & payments
 
-- **Payment model per operator** (`Operator.PaymentModel`): **Crypto (Model B)** pays on-chain via
-  Solana; **Regulated (Model A)** holds no Monkify float and settles through the **operator's wallet
-  API** (debit/credit/refund) — see `features/operator-wallet-api.md`.
+- **Payment method per session type** (`SessionParameters.PaymentMethod`, `Standard | SolanaToken`) —
+  **not** per operator (the old `Operator.PaymentModel` is removed). **Standard** settles off-chain in
+  USD through the **operator's wallet API**; **SolanaToken** settles on-chain in a per-operator
+  **registered `OperatorToken`** (its own mint/sender/owner-keypair/decimals; token-native units). A
+  single operator can offer both. See `features/payment-methods.md`.
+- **Unified dispatch:** `IPaymentMethodService` (methods `Debit`/`Credit`/`Refund` → `PaymentResult`)
+  with `StandardPaymentMethodService` (→ `IOperatorWalletService`) and `SolanaTokenPaymentMethodService`
+  (→ `ISolanaService` + a per-call `SolanaTokenDescriptor`); `IPaymentMethodResolver.Resolve(parameters)`
+  keys on the session's method. `GetAvailableMethods(operatorId)` drives the admin form (Standard iff a
+  wallet provider is configured; SolanaToken iff ≥1 active `OperatorToken`).
 - `Solnet` (`Solnet.Rpc`, `Solnet.Programs`, `Solnet.Wallet`) talks to a Solana cluster.
 - `ISolanaService` / `SolanaService` validate bet payment signatures, transfer SPL tokens for
-  rewards, and refund invalid bets (crypto operators). The house owner/sender token account is the
-  funded float for on-chain payouts.
-- **Regulated payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
+  rewards, and refund invalid bets **for `SolanaToken` sessions**, taking a `SolanaTokenDescriptor` per
+  call (owner account built per call from the session's token; global `ClusterUrl` only). They write no
+  ledger rows — the payment strategy does.
+- **Standard payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
   **debit** runs synchronously in `Monkify.Api` at bet time; **credit** and **refund** run in
-  `Monkify.Consumers`.
+  `Monkify.Consumers`. SolanaToken bet-time validation runs in the API (public token data only, no
+  decrypt); its Credit/Refund transfers run in Consumers (decrypting the token key via `ISecretProtector`).
+- **Secret protection:** `OperatorToken.TokenOwnerPrivateKey` is stored **AES-256-GCM** encrypted, the
+  key derived (SHA-256) from the `GeneralSettings.SecretProtection.Key` passphrase shared by both hosts
+  (`ISecretProtector` / `AesSecretProtector`). The private key is never returned by any DTO or logged.
 - **Responsible-gaming pre-bet check:** an **opt-in**, per-operator `IPreBetCheckService` (resolved by
   `IPreBetCheckResolver` from `GeneralSettings.OperatorRgChecks`) runs in `RegisterBetHandler` after
-  local validation and **before** the debit, letting the operator allow/deny a bet (self-exclusion,
+  local validation and **before** settlement, letting the operator allow/deny a bet (self-exclusion,
   limits, KYC…). Unconfigured operators are skipped; denials return a specific message and a
-  timeout/error is fail-closed. Applies to both payment models; log-only, no migration. See
+  timeout/error is fail-closed. Applies to **both** payment methods; log-only, no migration. See
   `features/rg-pre-bet-hook.md`.
-- **Money ledger:** `TransactionLog` records every movement (`Credit`/`Debit`/`Refund`) per bet, with an
-  optional Solana `Signature` or operator `ExternalTransactionReference`; `BetDomainService` reads it for
-  reward/refund idempotency. There is **no Monkify commission** — winners receive the full pot.
+- **Money ledger:** `TransactionLog` records every movement (`Credit`/`Debit`/`Refund`) per bet, each
+  carrying a `PaymentMethod` and an `ExternalTransactionReference` (the operator wallet ref for Standard,
+  the on-chain signature for SolanaToken; the `Signature` column was dropped). A `SolanaToken` movement
+  also writes a `CryptoTransactionLog` (wallet/signature/mint/raw amount/decimals). `BetDomainService`
+  reads the ledger by type for reward/refund idempotency. There is **no Monkify commission** — winners
+  receive the full pot.
 
 ## 9. The game mechanic (the "Typer")
 
@@ -192,8 +212,9 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
 ## 10. Multi-tenancy: Operators
 
 - `Operator` rows represent casino/betting platforms. `SessionParameters.OperatorId` is a **required**
-  FK — there is no house / operator-less mode. Operators carry `PaymentModel` (`Regulated` | `Crypto`)
-  and a `LaunchPublicKey`.
+  FK — there is no house / operator-less mode. Operators carry a `LaunchPublicKey` (payment is now a
+  **per-session** concern — the old operator-level `PaymentModel` is removed; see §8 and
+  `features/payment-methods.md`). An operator may register one or more `OperatorToken`s.
 - Players enter at **`/monkify/game/sessions#launch_token=<jwt>`** (the URL no longer carries the
   operator id — it is read from the token's `iss` claim). Operator + player identity arrive in a
   casino-signed **launch token** (`X-Launch-Token`, RS256), validated by
@@ -203,19 +224,24 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   `features/launch-token-validation.md`.
 - Read handlers and bet creation scope data to the token's operator (only if `ContractIsActive`; the
   active-operator lookup is cached via `IOperatorService`). Cross-operator attempts are rejected with
-  vague errors. Player identity: regulated = token `sub`; crypto = wallet in the body.
+  vague errors. Player identity is decided **per session `PaymentMethod`**: `Standard` = token `sub`;
+  `SolanaToken` = the connected wallet in the body (+ signature).
 - Expired, not-yet-started, or unknown operators are hidden behind generic "not found / unavailable"
   messaging (never "contract expired"). Branding is served by **`GET /operators/{id}`** only (no list;
-  token-guarded; also returns `paymentModel`).
+  token-guarded; no longer carries a payment model).
 - Mid-session contract expiry: the running session finishes; new bets and new sessions for that
   operator are blocked.
 - SignalR hubs use session id only — no token validation on websockets.
-- Non-prod: `Monkify.Consumers` seeds **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
-  (Regulated) with a mock launch keypair; dev-only `POST /dev/launch-token` and `POST /dev/admin-token`
-  mint player and admin tokens respectively (disabled in production).
-- **Operator admin portal** (`/monkify/admin`): operators manage their own session types via
-  **`X-Admin-Token`** (admin-scoped RS256 JWT, same keypair as launch tokens, **not** contract-gated).
-  Create/list/deactivate only — no in-place edit. See `features/operator-admin-page.md`.
+- Non-prod: `Monkify.Consumers` seeds **one** dev operator (fixed RFC-4122 GUID
+  `11111111-1111-4111-8111-111111111111`) pre-provisioned for **both** methods — a mock wallet map
+  (Standard) + one encrypted `OperatorToken` seeded from `GeneralSettings.Token` (SolanaToken) — with
+  all default session types Standard plus 3 SolanaToken defaults; dev-only `POST /dev/launch-token` and
+  `POST /dev/admin-token` mint player and admin tokens (no `?paymentModel`; disabled in production).
+- **Operator admin portal** (`/monkify/admin`): operators manage their own session types **and register
+  Solana tokens** via **`X-Admin-Token`** (admin-scoped RS256 JWT, same keypair as launch tokens,
+  **not** contract-gated). Session types + tokens: create/list/deactivate only — no in-place edit;
+  `GET /admin/payment-methods` reports availability. See `features/operator-admin-page.md` and
+  `features/payment-methods.md`.
 - See `specs/operator-feature.md` + `specs/launch-token-validation.md` for full design;
   `features/operators.md` and `features/launch-token-validation.md` for the distilled versions.
 
@@ -242,15 +268,23 @@ Relationships: `Operator 1—* SessionParameters 1—* Session 1—* Bet 1—* T
   `GET /sessions/active-types`, `GET /sessions/{id}`, `POST /sessions/{id}/bets`, `GET /operators/{id}`,
   `GET /players/preferences`, `PATCH /players/preferences`, `GET /fx/rates`.
 - **Player customization:** gear icon in `GameHeader.vue` opens `PlayerCustomizationModal.vue` (display
-  name for all operators; preferred currency dropdown for regulated only). `useDisplayCurrency` loads
-  FX rates + prefs on app mount, converts USD amounts client-side for regulated operators (`≈` + hover
-  tooltip); crypto keeps native token display. See `features/player-customization-modal.md`.
+  name + preferred currency dropdown, both for **all** operators). `useDisplayCurrency` loads FX rates +
+  prefs on app mount and converts USD amounts client-side; the preferred currency affects **`Standard`
+  sessions only** — `SolanaToken` sessions always render token-native. The gear is gated on operator
+  context derived from the launch token (survives an operatorId reset on a hard reload). See
+  `features/player-customization-modal.md` + `features/payment-methods.md`.
+- **Wallet UX is per-session:** the header wallet cluster (`WalletButtons` + `TokenBalance`) shows only
+  when the current session's `paymentMethod === SolanaToken` (using the session's `tokenSymbol` /
+  `tokenMintAddress`), never for `Standard` or on the sessions list — driven by the session, not an
+  operator flag.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, incoming bets, and **session chat** (`GameChatPanel` + `useSessionChat` on
   `{sessionId}/ChatMessage`). See `features/session-chat.md`.
-- **Bet flow:** `useSession.bet()` sends an on-chain SPL token transfer via `useConnection.sendToken`,
-  then POSTs the bet with the returned signature as `paymentSignature`.
+- **Bet flow:** `useSession.bet()` branches on `selectedSession.paymentMethod`. **`Standard`** posts
+  `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**
+  sends an on-chain SPL token transfer to the session's token via `useConnection.sendToken`, then POSTs
+  the bet with the returned signature + wallet. Free bets (amount 0) skip both.
 
 ## 12. Local environment (docker-compose)
 

@@ -1,6 +1,12 @@
 # Monkify — "Refactor payment models" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/payment-methods-refactor` → `main` in `monkify-backend`,
+> `monkify-front`, `monkify-meta` on **2026-07-08**. Distilled current-state summary:
+> `../features/payment-methods.md`. This spec remains the deep design archive; where implementation
+> deviated (notably encryption — AES-GCM keyed from `GeneralSettings.SecretProtection` instead of
+> ASP.NET Data Protection + Redis key ring, §6.6), the **feature doc describes what shipped**.
+>
+> **Status (original): Ready for implementation** — refined via Trello card
 > [Refactor payment models](https://trello.com/c/FH5TMT0T) (2026-07-07).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >

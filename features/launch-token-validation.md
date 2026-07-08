@@ -2,6 +2,13 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/launch-token-validation.md`
 > (merged via `feature/launch-token-validation` on 2026-06-30).
+>
+> ⚠️ **Partly superseded by `features/payment-methods.md` (2026-07-08).** The `Operator.PaymentModel`
+> (`Regulated | Crypto`) this feature introduced is **removed**. Payment is now decided **per session
+> type** via `SessionParameters.PaymentMethod` (`Standard | SolanaToken`). Wherever this doc says the
+> launch flow / wallet-skip / identity keys on the operator's payment model, read it as the **session's
+> `PaymentMethod`**: Standard → player = token `sub`, no wallet; SolanaToken → connected wallet +
+> signature. The launch token itself (RS256, `iss`/`sub`, vague-401, param-free entry) is unchanged.
 
 ## What it does
 
