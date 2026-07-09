@@ -1,0 +1,129 @@
+---
+marp: true
+theme: monkify
+paginate: true
+header: 'MONKIFY × SOFTSWISS'
+footer: 'Confidential — shared under NDA'
+---
+
+<!--
+  Monkify pitch deck — SOFTSWISS (UNIFIED track: fiat wallet + crypto/Solana).
+  MINIMAL / topics-only, NON-TECHNICAL (sales audience). Full talking points: speaker-notes.md.
+  Build: see pitch/build-decks.sh. Front matter MUST stay at the very top.
+-->
+<!-- _class: cover -->
+<!-- _paginate: false -->
+
+# MONK<b>IFY</b>
+
+<span class="tagline">A brand-new multiplayer game — for your fiat and crypto operators</span>
+
+<span class="to">Prepared for <strong>SOFTSWISS Game Aggregator</strong> · July 2026</span>
+
+---
+## What Monkify is
+
+- A **real-time multiplayer** betting game
+- Players **bet on a sequence** — first one to appear **wins the pot**
+- Everyone watches the **same live round** together
+- **Not a slot** — a genuinely new format
+
+---
+<!-- _class: divider -->
+# See it live
+
+---
+## The game
+
+![w:820](../../assets/media/game-terminal.png)
+
+---
+## A catalogue of modes
+
+![w:880](../../assets/media/game-selection.png)
+
+---
+## A real win — paid on the spot
+
+![w:1000](../../assets/media/gameplay-winner.png)
+
+---
+## Why players love it
+
+- **Social & competitive** — play against each other, live
+- **Near-miss tension** — "so close" keeps them coming back
+- **Fast rounds** — seconds, not minutes
+- **Live chat** in every game
+
+---
+## Why it's different
+
+- A **category-first** — not another re-skin
+- **Differentiation** your operators can't get elsewhere
+- **Multiplayer by default** — like crash, taken further
+- **Sticky** — races and scheduled draws
+
+---
+<!-- _class: divider -->
+# How it fits your business
+
+---
+## One integration, your whole network
+
+- **One integration → all your operators**
+- **We run it** — hosting, updates, 24×7 support
+- **Embeds** straight into the casino
+- **Your branding**, per operator
+
+---
+## Payments — fiat and crypto
+
+- **Fiat operators** — settles in the operator's own wallet, in USD
+- **Crypto operators** — settles on-chain
+- **Solana today**, and open to adding more tokens as you need them
+- **One game**, either way
+
+---
+## Fair & transparent
+
+- **Provably fair** — every round can be independently verified
+- **Independent certification is our next milestone** — and the setup fee funds it
+- We're **upfront** about where we are
+
+---
+## Why work with us
+
+- **Ready today** — live, polished, proven
+- **24×7 support** with clear response commitments (SLAs)
+- **Fully documented** for your operators
+- **We handle everything** — you get the differentiation
+
+---
+## Commercial model
+
+- **A simple licence** — a share of the revenue the game makes
+- **One-time setup** that funds certification
+- **One fixed monthly fee** — support and hosting included
+- **Service-level commitments** for fixes, onboarding, and new features
+- **Open to discussion** to fit your scale
+
+---
+## What's next
+
+- **Leaderboards & player rankings**
+- **Player badges & status in chat**
+- **More game modes** on the way
+- **Tournaments & seasonal events**
+
+---
+<!-- _class: cover -->
+<!-- _paginate: false -->
+
+# Let's talk
+
+<span class="tagline">A finished, differentiated game — for SOFTSWISS's operators</span>
+
+<span class="to">
+Marcus Ruas · marcusruas.andrade@gmail.com<br/>
+Next step: a live demo for your Game Aggregator team
+</span>

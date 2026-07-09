@@ -1,0 +1,115 @@
+/* Monkify — customer-facing DOCUMENT theme (light, professional).
+   Used to render commercial-proposal / nda / technical-integration Markdown → PDF (via md-to-pdf).
+   Deliberately NOT the arcade deck theme — these are documents a partner's legal/BD team reads. */
+
+@page {
+  margin: 22mm 20mm 20mm 20mm;
+}
+
+:root {
+  --ink: #1a2230;
+  --ink-soft: #4a5568;
+  --brand: #2456b8;
+  --brand-dark: #16386f;
+  --line: #d7dde6;
+  --line-soft: #e8ecf2;
+  --bg-soft: #f4f7fb;
+  --code-bg: #f5f6f8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+  color: var(--ink);
+  font-size: 10.7pt;
+  line-height: 1.5;
+  max-width: 100%;
+  margin: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+h1, h2, h3, h4 { color: var(--brand-dark); font-weight: 700; line-height: 1.25; }
+h1 {
+  font-size: 21pt;
+  margin: 0 0 4pt 0;
+  padding-bottom: 6pt;
+  border-bottom: 3px solid var(--brand);
+}
+h2 {
+  font-size: 14pt;
+  margin: 20pt 0 6pt 0;
+  padding-bottom: 3pt;
+  border-bottom: 1px solid var(--line);
+}
+h3 { font-size: 11.5pt; margin: 14pt 0 4pt 0; color: var(--brand); }
+
+p { margin: 6pt 0; }
+strong { color: var(--ink); font-weight: 700; }
+em { color: var(--ink-soft); }
+a { color: var(--brand); text-decoration: none; }
+
+ul, ol { margin: 6pt 0; padding-left: 18pt; }
+li { margin: 3pt 0; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8pt 0;
+  font-size: 9.8pt;
+  page-break-inside: avoid;
+}
+th {
+  background: var(--brand);
+  color: #fff;
+  text-align: left;
+  padding: 6pt 8pt;
+  font-weight: 600;
+  border: 1px solid var(--brand);
+}
+td {
+  border: 1px solid var(--line);
+  padding: 6pt 8pt;
+  vertical-align: top;
+}
+tr:nth-child(even) td { background: var(--bg-soft); }
+
+/* Blockquotes — used for the confidential/summary notes */
+blockquote {
+  margin: 10pt 0;
+  padding: 8pt 12pt;
+  background: var(--bg-soft);
+  border-left: 4px solid var(--brand);
+  color: var(--ink-soft);
+  font-size: 9.8pt;
+}
+blockquote p { margin: 3pt 0; }
+
+/* Code */
+code {
+  font-family: "Consolas", "Courier New", monospace;
+  background: var(--code-bg);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 9pt;
+  color: #7a2048;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10pt 12pt;
+  overflow-x: auto;
+  font-size: 8.6pt;
+  line-height: 1.4;
+  page-break-inside: avoid;
+}
+pre code { background: none; border: none; padding: 0; color: #24324a; }
+
+hr { border: none; border-top: 1px solid var(--line); margin: 16pt 0; }
+
+/* Page-break helper: an <h2> that starts a new bundled doc in the technical pack */
+.page-break { page-break-before: always; }

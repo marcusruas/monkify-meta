@@ -1,0 +1,197 @@
+/* @theme monkify */
+/* Monkify pitch deck theme — retro-arcade / space-terminal identity.
+   Marp theme. Use with: marp --theme pitch/assets/theme/monkify.css deck.md -o deck.pptx
+   Palette mirrors the live game: deep-space navy, neon "blue-vivid", terminal green, amber accents. */
+
+@import 'default';
+
+:root {
+  --bg-0: #0a0e1a;      /* deep space */
+  --bg-1: #0f1528;      /* panel */
+  --bg-2: #131c33;      /* raised panel */
+  --blue: #3b82f6;      /* neon blue-vivid (matches --color-blue-vivid) */
+  --blue-soft: #60a5fa;
+  --green: #22c55e;     /* terminal green */
+  --green-soft: #4ade80;
+  --amber: #f59e0b;     /* lottery/accent amber */
+  --ink: #e8edf7;       /* primary text */
+  --ink-dim: #9fb0cc;   /* secondary text */
+  --line: #24406e;      /* borders */
+}
+
+section {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,0.14), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(34,197,94,0.08), transparent 55%),
+    var(--bg-0);
+  color: var(--ink);
+  font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  font-size: 26px;
+  line-height: 1.45;
+  padding: 60px 72px;
+  letter-spacing: 0.2px;
+}
+
+/* Headings — monospace pixel-terminal feel */
+h1, h2, h3 {
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #fff;
+  margin: 0 0 0.4em 0;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+}
+h1 { font-size: 1.9em; line-height: 1.1; }
+h1 .fy, h1 b { color: var(--blue); }
+h2 {
+  font-size: 1.25em;
+  color: var(--blue-soft);
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 0.25em;
+}
+h3 { font-size: 1.02em; color: var(--green-soft); letter-spacing: 1px; }
+
+strong { color: #fff; }
+em { color: var(--green-soft); font-style: normal; }
+a { color: var(--blue-soft); text-decoration: none; }
+
+ul, ol { margin: 0.3em 0; padding-left: 1.1em; }
+li { margin: 0.32em 0; }
+li::marker { color: var(--blue); }
+
+/* Terminal-green inline code + blocks */
+code {
+  font-family: 'Courier New', monospace;
+  color: var(--green-soft);
+  background: rgba(34,197,94,0.10);
+  border: 1px solid rgba(34,197,94,0.25);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 0.9em;
+}
+pre {
+  background: #05070d;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: 6px;
+  padding: 16px 20px;
+  font-size: 0.72em;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+}
+pre code { background: none; border: none; color: var(--green-soft); }
+
+/* Tables — panel look */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8em;
+  margin: 0.4em 0;
+}
+th {
+  background: rgba(59,130,246,0.16);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: 'Courier New', monospace;
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  text-align: left;
+}
+td {
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  color: var(--ink);
+  background: var(--bg-1);            /* explicit — never inherit default theme's white */
+}
+tr:nth-child(even) td { background: var(--bg-2); }
+td strong { color: #fff; }
+
+blockquote {
+  border-left: 4px solid var(--amber);
+  background: rgba(245,158,11,0.08);
+  margin: 0.5em 0;
+  padding: 0.5em 1em;
+  color: var(--ink);
+  font-style: normal;
+}
+
+img { border-radius: 8px; }
+
+/* Header / footer / pagination */
+header {
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--ink-dim);
+  font-size: 0.5em;
+  top: 24px; left: 72px;
+}
+footer {
+  color: var(--ink-dim);
+  font-size: 0.5em;
+  left: 72px; bottom: 22px;
+}
+section::after { /* page number */
+  color: var(--blue-soft);
+  font-family: 'Courier New', monospace;
+  font-size: 0.55em;
+  right: 40px; bottom: 22px;
+}
+
+/* ---- Utility classes (use with Marp's <!-- _class: --> or inline divs) ---- */
+
+/* Cover slide */
+section.cover {
+  background:
+    radial-gradient(1000px 700px at 70% 30%, rgba(59,130,246,0.22), transparent 60%),
+    var(--bg-0);
+  justify-content: center;
+}
+section.cover h1 { font-size: 2.6em; }
+section.cover .tagline { color: var(--green-soft); font-family: 'Courier New', monospace; letter-spacing: 3px; text-transform: uppercase; font-size: 0.9em; }
+section.cover .to { color: var(--ink-dim); font-size: 0.8em; margin-top: 0.4em; }
+
+/* Section divider */
+section.divider {
+  background: linear-gradient(135deg, #0a1226 0%, #0a0e1a 100%);
+  justify-content: center; align-items: center; text-align: center;
+}
+section.divider h1 { font-size: 2.3em; color: var(--blue); }
+section.divider h2 { border: none; color: var(--ink-dim); }
+
+/* Two-column layout: wrap content in <div class="cols"> ... </div> */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; align-items: center; }
+.cols.wide-left { grid-template-columns: 1.4fr 1fr; }
+.cols.wide-right { grid-template-columns: 1fr 1.4fr; }
+
+/* Big stat tiles: <div class="stats"><div><b>18%</b><span>of GGR</span></div>...</div> */
+.stats { display: grid; grid-auto-flow: column; gap: 22px; margin-top: 0.4em; }
+.stats > div {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--blue);
+  border-radius: 8px;
+  padding: 18px 20px;
+  text-align: center;
+}
+.stats b { display: block; font-family: 'Courier New', monospace; font-size: 1.8em; color: #fff; }
+.stats span { color: var(--ink-dim); font-size: 0.7em; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Callout chip */
+.chip {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 0.6em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--amber);
+  border: 1px solid rgba(245,158,11,0.4);
+  background: rgba(245,158,11,0.08);
+  border-radius: 4px;
+  padding: 2px 10px;
+}
+
+.muted { color: var(--ink-dim); }
+.small { font-size: 0.8em; }
+.center { text-align: center; }
