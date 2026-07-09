@@ -107,6 +107,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
 | `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
+| `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'monkify',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`session-started`/`bet-placed`/`bet-settled`(bettors-only)/`session-ended`/`resize`(hint) from `useSession.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -129,6 +130,21 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created):_ **Make the game Iframe-able** — `feature/iframe-embedding`
+  (`monkify-front` + `monkify-meta`; **no backend**), spec created 2026-07-08. Frontend-only iframe
+  embedding for **regulated (Model A)** operators (crypto stays standalone — wallet extensions block
+  cross-origin injection). New `useEmbed` (`window.self !== window.top`, `?embed=1` override) +
+  `utils/embed.ts` postMessage emitter (envelope `{source:'monkify',type,payload}`, `targetOrigin:'*'`,
+  no secrets, USD amounts). **Core fix:** in embedded mode a 401 / expired / invalid token / inactive
+  operator emits a `token-expired` postMessage + shows a light in-frame "relaunching" state instead of
+  hard-routing to `/error` (branch the `mainService.ts` 401 interceptor + the three `useOperator.ts`
+  `/error` routes); the casino re-launches by re-setting the iframe `src` with a fresh `#launch_token=`
+  (clean reload, existing SignalR teardown). Lifecycle emits `ready`/`session-started`/`bet-placed`/
+  `bet-settled` (bettors-only)/`session-ended`/`resize` (size hint, not auto-height) from `useSession.ts`
+  + `App.vue`; app fills the frame (`main.css` height chain); permissive `frame-ancestors *` added to the
+  committed `nginx.conf` (prod GCP host must match — deploy dependency); static `public/embed-example.html`
+  + `EMBEDDING.md`. Spec: `specs/iframe-embedding.md`. Trello #3
+  ([RGvJZNTW](https://trello.com/c/RGvJZNTW)). Next: `/monkify-implement-feature Make the game Iframe-able`.
 - _Last shipped:_ **Refactor payment models** — `feature/payment-methods-refactor`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-08**. Removes the
   operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session
