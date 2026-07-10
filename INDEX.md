@@ -134,7 +134,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
 - _In progress (spec created):_ **Embedded (iframe) crypto (SolanaToken) sessions** —
   `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), spec created
   2026-07-10. **Stacked on card #3** (`feature/iframe-embedding`) — a direct extension of #3's deferred
-  "Solana-wallet-in-iframe" item; **#3 must be implemented + merged first (or ship together)**. Makes
+  "Solana-wallet-in-iframe" item. #3 is **implemented but its front work is still uncommitted** in its
+  worktree; #3 must be **committed onto `feature/iframe-embedding` and this branch re-based onto it**
+  (or both developed in #3's worktree) before/at implementation. Makes
   paid **`SolanaToken`** (on-chain) bets playable inside the #3 iframe: wallet extensions don't inject
   cross-origin, so bet-time **wallet connect + SPL transfer + signing move into a same-origin popup** on
   the game host (new route `/monkify/wallet-bridge` → `WalletBridgePage.vue`) that `postMessage`s the
