@@ -21,22 +21,20 @@ This feature is a **direct extension of card #3 "Make the game Iframe-able"**
 ([RGvJZNTW](https://trello.com/c/RGvJZNTW), `specs/iframe-embedding.md`) and picks up #3's explicit
 **"Out of scope → Crypto / Solana-wallet-in-iframe (deferred)"** item.
 
-- **#3 is implemented, but its front work is uncommitted.** All of #3's artifacts exist in code in the
-  `.worktrees/iframe-embedding/monkify-front` worktree — `src/hooks/useEmbed.ts`, `src/utils/embed.ts`
-  (`postToParent`, the `{ source:'monkify', type, payload }` envelope), `src/components/EmbedRelaunching.vue`,
+- **#3 is implemented and committed.** #3's front implementation is committed on `feature/iframe-embedding`
+  (`monkify-front` @ `4e53e02`) and pushed: `src/hooks/useEmbed.ts`, `src/utils/embed.ts` (`postToParent`,
+  the `{ source:'monkify', type, payload }` envelope), `src/components/EmbedRelaunching.vue`,
   `public/embed-example.html`, `EMBEDDING.md`, plus edits to `App.vue`, `useOperator.ts`, `useSession.ts`,
-  `mainService.ts`, `main.css`, `nginx.conf` — but they are **not yet committed, pushed, or merged**
-  (nothing is on the `feature/iframe-embedding` tip; #3's meta spec is committed). So `main` still has
-  none of it.
-- **This branch is stacked on #3.** `feature/iframe-crypto-sessions` was cut from
-  `feature/iframe-embedding` (not `main`), in both `monkify-front` and `monkify-meta`. **Caveat:** because
-  #3's front code was uncommitted when this branch was cut, the `monkify-front` side of this branch does
-  **not** yet contain #3's files — it must be re-based onto `feature/iframe-embedding` **after #3's work
-  is committed** to that branch (or the two implemented in the same worktree).
-- **Ordering:** commit #3's implementation onto `feature/iframe-embedding`, then implement this on top
-  (or develop both in #3's worktree and split the commits). Do **not** attempt to implement this feature
-  against a base that lacks #3: the `useEmbed` / `postToParent` / example-page / README hooks it edits
-  must be present. Every "Change (#3)" row in §10 assumes #3's code is in place.
+  `mainService.ts`, `main.css`, `nginx.conf`. #3's meta spec is committed too (`feature/iframe-embedding`
+  in `monkify-meta`). Neither is on `main` yet.
+- **This branch is stacked on #3, and its front is rebased onto #3's commit.** `feature/iframe-crypto-sessions`
+  was cut from `feature/iframe-embedding` in both repos; after #3's front implementation was committed, the
+  `monkify-front` side of this branch was fast-forwarded onto it (@ `4e53e02`), so **this worktree already
+  contains #3's code** to build on. The `monkify-meta` side stacks on #3's committed spec.
+- **Ordering / merge:** #3 and #41 **merge to `main` together** — this feature's branch already contains
+  #3's work, so a single merge of `feature/iframe-crypto-sessions` → `main` (per repo) brings both. Do
+  not merge #3 to `main` separately. Every "Change (#3)" row in §10 edits #3 code that is present on this
+  base.
 - Everywhere below, **`isEmbedded`** and **`postToParent`** are #3's (`useEmbed`, `utils/embed.ts`).
   This card adds **no new parent-facing contract** — it reuses #3's envelope and only adds an
   **internal, same-origin** popup↔iframe channel (`source: 'monkify-wallet'`, §7.3).

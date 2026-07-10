@@ -134,9 +134,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
 - _In progress (spec created):_ **Embedded (iframe) crypto (SolanaToken) sessions** —
   `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), spec created
   2026-07-10. **Stacked on card #3** (`feature/iframe-embedding`) — a direct extension of #3's deferred
-  "Solana-wallet-in-iframe" item. #3 is **implemented but its front work is still uncommitted** in its
-  worktree; #3 must be **committed onto `feature/iframe-embedding` and this branch re-based onto it**
-  (or both developed in #3's worktree) before/at implementation. Makes
+  "Solana-wallet-in-iframe" item. #3 is **implemented + committed** on `feature/iframe-embedding`
+  (`monkify-front` @ `4e53e02`); this branch's front side is **rebased onto it** (contains #3's code) and
+  the two **merge to `main` together** (one merge of `feature/iframe-crypto-sessions` brings both). Makes
   paid **`SolanaToken`** (on-chain) bets playable inside the #3 iframe: wallet extensions don't inject
   cross-origin, so bet-time **wallet connect + SPL transfer + signing move into a same-origin popup** on
   the game host (new route `/monkify/wallet-bridge` → `WalletBridgePage.vue`) that `postMessage`s the
@@ -150,8 +150,10 @@ see "Skills — ensure installed" in `AGENTS.md`.
   payloads become **token-native** (`tokenSymbol`, never USD). Standalone unchanged. Spec:
   `specs/iframe-crypto-sessions.md`. Trello #41
   ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)). Next: `/monkify-implement-feature Make embedded (iframe) play work for SolanaToken (crypto) sessions`.
-- _In progress (spec created):_ **Make the game Iframe-able** — `feature/iframe-embedding`
-  (`monkify-front` + `monkify-meta`; **no backend**), spec created 2026-07-08. Frontend-only iframe
+- _In progress (implemented on branch, not yet merged):_ **Make the game Iframe-able** —
+  `feature/iframe-embedding` (`monkify-front` @ `4e53e02` + `monkify-meta`; **no backend**), spec
+  2026-07-08, front implementation committed 2026-07-10 (will merge to `main` **together with card #41**,
+  which is stacked on it). Frontend-only iframe
   embedding for **regulated (Model A)** operators (crypto stays standalone — wallet extensions block
   cross-origin injection). New `useEmbed` (`window.self !== window.top`, `?embed=1` override) +
   `utils/embed.ts` postMessage emitter (envelope `{source:'monkify',type,payload}`, `targetOrigin:'*'`,
