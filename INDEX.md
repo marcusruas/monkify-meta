@@ -89,6 +89,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/characters-away.md` | Near-miss reveal: bottom-docked `> N AWAY!` row per own choice (KMP tail-prefix `away = L − k`) that climbs, loops every 2s, and types out the winner on a win; in-game `> POT:`; backend emits the fallback-decided winner as a final terminal batch | Shipped              |
 | `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per session status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the sessions page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/monkify/game` redirect + session-connection teardown fix | Shipped              |
 | `features/payment-methods.md` | **Per-session** payment: `SessionParameters.PaymentMethod` (`Standard`=off-chain USD wallet / `SolanaToken`=on-chain per-operator registered token, key AES-GCM encrypted at rest); unified `IPaymentMethodService` strategy+resolver + availability gating; ledger split (`Bet`/`TransactionLog` `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`); admin token CRUD. **Removes `Operator.PaymentModel`** | Shipped              |
+| `features/provably-fair.md` | Commit-reveal `ServerSeed` (committed on the first bet, revealed after `Ended`), portable HMAC-SHA256 keystream RNG + labelled fallback, Stake-style client seed + `Bet.Nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification` + offline `public/verify.html`; terminal shows commitment/reveal only | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -107,7 +108,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
 | `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
-| `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, in-app + standalone (`public/verify.html`) verifier. Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Ready |
+| `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -130,18 +131,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Spec created:_ **Provably fair (commit-reveal + portable RNG + player verifier)** —
-  `feature/provably-fair` (`monkify-backend` + `monkify-front` + `monkify-meta`), spec written
-  2026-07-10. Replaces the post-lock `Int32` + `System.Random` seed with a **commit-reveal `ServerSeed`
-  committed on the first bet** (`ServerSeedHash` published during betting, raw seed revealed after
-  `Ended`) and a **portable HMAC-SHA256 counter keystream** (rejection sampling, canonical bet order,
-  labelled fallback) any language can reproduce. Client seed becomes **Stake-style** (persistent,
-  settable/rotatable, localStorage) with a per-bet **`nonce`** — `Bet.Seed = HMAC-SHA256(clientSeed,
-  nonce)`. New reveal-gated `GET /sessions/{id}/verification` + `ServerSeedHash` on `ActiveSessionDto`;
-  in-app "Verify this round" panel + standalone `public/verify.html`. Greenfield migration (drop
-  `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`; widen `Bet.Seed` to 64). Also
-  regenerates the out-of-repo `04 Fairness & game rules.pdf`. Spec `specs/provably-fair.md`. Trello #42
-  ([XWAeIgIQ](https://trello.com/c/XWAeIgIQ)). Next: `/monkify-implement-feature`.
+- _Last shipped:_ **Provably fair (commit-reveal + portable RNG + player verifier)** —
+  `feature/provably-fair` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-10**.
+  Replaces the post-lock `Int32` + `System.Random` seed with a **commit-reveal `ServerSeed` committed on
+  the first bet** (atomic first-writer-wins; `ServerSeedHash` published during betting, raw seed revealed
+  after `Ended`) and a **portable HMAC-SHA256 counter keystream** (rejection sampling, canonical bet
+  order `CreatedDate,Id`, labelled fallback) reproducible in any language. Client seed is **Stake-style**
+  (persistent, settable/rotatable, localStorage) with a per-bet **`nonce`** — `Bet.Seed =
+  HMAC-SHA256(clientSeed, nonce)`, raw client seed never leaving the browser. Reveal-gated
+  `GET /sessions/{id}/verification` + `ServerSeedHash` on `ActiveSessionDto`; verification via that
+  endpoint + standalone offline `public/verify.html` (**the in-terminal "Verify this round" recompute
+  was dropped** — the terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`;
+  add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`; widen `Bet.Seed` to 64). **329 unit + 2 provably-fair
+  integration tests green.** Bundled a `GameTypeCard` price fix (sessions-list price now mirrors the
+  in-game `BET:` label). Out-of-repo `04 Fairness & game rules.pdf` regenerated to the new scheme. See
+  `features/provably-fair.md`; spec `specs/provably-fair.md`. Trello #42
+  ([XWAeIgIQ](https://trello.com/c/XWAeIgIQ)).
 - _Last shipped:_ **Refactor payment models** — `feature/payment-methods-refactor`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-08**. Removes the
   operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session

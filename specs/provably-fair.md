@@ -1,10 +1,21 @@
 # Monkify — "Provably Fair" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Make the game actually provably fair (commit-reveal + portable RNG + player verifier)](https://trello.com/c/XWAeIgIQ)
-> (2026-07-10).
+> **Status: Shipped** — merged to `main` via branch `feature/provably-fair` on 2026-07-10 (Trello
+> [#42 XWAeIgIQ](https://trello.com/c/XWAeIgIQ)). Distilled summary: `../features/provably-fair.md`.
 > Repos affected: `monkify-backend`, `monkify-front`, this doc in `monkify-meta`, and the
 > out-of-repo legal PDF under `Paperwork/Legal documents/` (see §9 caveat).
+>
+> **Post-ship notes (deviations from the spec body below):**
+> - The **in-terminal "Verify this round" recompute (§7.3) was dropped** at the user's request:
+>   verification lives only in the backend endpoint (§6.4) and the standalone `public/verify.html`
+>   (§7.4). `GameTerminal` still shows the `> SERVER SEED HASH:` commitment during betting and the
+>   `> SERVER SEED:` reveal after `Ended` (auto-fetched from the verification endpoint). Spec AC14 is
+>   intentionally not shipped; AC13/AC15 hold.
+> - Bundled an unrelated **`GameTypeCard` price fix** — the sessions-list price now mirrors the in-game
+>   `> BET:` label (`formatAmount`: token symbol for `SolanaToken`, display-currency USD for `Standard`)
+>   instead of the hardcoded `$<n> MONKI`.
+> - The **legal PDF** (`Paperwork/Legal documents/04 Fairness & game rules.pdf`) was regenerated to the
+>   new scheme (out-of-repo; not part of the merge).
 >
 > **Purpose:** Make Monkify's advertised "provably fair" claim literally true. Today the outcome is
 > only *replayable* from a truncated `Int32` seed generated **after** bets lock, using
