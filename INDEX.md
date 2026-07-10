@@ -107,6 +107,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
 | `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
+| `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -129,6 +130,17 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created:_ **Per-game general stats (all-time, per session type)** —
+  `feature/session-type-stats` (`monkify-backend` + `monkify-front` + `monkify-meta`), spec created
+  2026-07-10. Casino-style per-session-type stats via `GET /sessions/{parametersId}/stats` (biggest
+  pot, biggest single payout, rounds played, total paid out, hottest-choice for preset types) rendered
+  in a **lazy-loaded stats panel on `/game`**. **On-demand aggregate + Redis cache (~120s), no new
+  entity/migration** — a documented reversal of the card's maintained-counter idea, justified because
+  the panel fetches only on open (no lobby fan-out). Only `RewardForWinnersCompleted` rounds count;
+  money from `TransactionLog` Credit rows; free bets excluded (free-only rounds still count as played);
+  single currency per type (Standard USD + preferred display currency, SolanaToken token-native);
+  token-gated + operator-scoped (vague on cross-operator/expired). Spec `specs/session-type-stats.md`;
+  Trello #43 ([oxZkifXh](https://trello.com/c/oxZkifXh)). Next: `/monkify-implement-feature`.
 - _Last shipped:_ **Refactor payment models** — `feature/payment-methods-refactor`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-08**. Removes the
   operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session
