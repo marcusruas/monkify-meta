@@ -86,11 +86,13 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 
 ### Core entities (selected)
 
-- **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session`, `SessionParameters`
-  (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`), `LotteryParameters`,
-  `PresetChoice`, `SessionStatusLog`, `Operator`, **`OperatorToken`** (a per-operator registered SPL
-  token; owner private key encrypted at rest).
-- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog` (unified money-movement
+- **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session` (carries the provably-fair
+  **`ServerSeed`** + **`ServerSeedHash`** committed on the first bet; the old `int? Seed` is removed),
+  `SessionParameters` (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`),
+  `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`, **`OperatorToken`** (a
+  per-operator registered SPL token; owner private key encrypted at rest).
+- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet` (its `Seed` is now a 64-char
+  `HMAC(clientSeed, Nonce)` hex, with a per-bet **`Nonce`**), `TransactionLog` (unified money-movement
   ledger — `Credit`/`Debit`/`Refund`, now carrying `PaymentMethod` + `ExternalTransactionReference`),
   **`CryptoTransactionLog`** (on-chain specifics for `SolanaToken` movements), `BetStatusLog`.
   (`RefundLog` was removed; refund audit lives in `TransactionLog`.)
@@ -198,13 +200,17 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 ## 9. The game mechanic (the "Typer")
 
 - `MonkifyTyper` (`Monkify.Domain/Sessions/Services`) is the heart of a running session.
-- It seeds a deterministic RNG from session + per-bet seeds, builds the set of bet choices and the
-  pool of characters to type, then emits characters one at a time. When the rolling window of typed
-  characters equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`).
+- It reads the session's **committed `ServerSeed`** (generated + hash-committed on the first bet) and
+  drives characters from a **portable HMAC-SHA256 counter keystream** over `ServerSeed ‖ sessionId ‖
+  ordered bet seeds ‖ counter` (rejection-sampled into the character pool — no `System.Random`), builds
+  the set of bet choices and the character pool, then emits characters one at a time. When the rolling
+  window equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`). The scheme is
+  **provably fair**: the commitment is published before betting closes and the raw seed revealed after
+  the round via `GET /sessions/{id}/verification`. See `features/provably-fair.md`.
 - Wall-clock pacing is time-budget driven (`SessionSettings` targets in `monkifysettings.json`):
   `MonkifyTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
   Stopwatch delays keep duration hardware- and load-stable. Large configs may hit
-  `MaxTyperCharacters` and resolve via a deterministic seed-based fallback winner. `DisplaySpeed`
+  `MaxTyperCharacters` and resolve via a deterministic HMAC-keystream fallback winner. `DisplaySpeed`
   (1–3) ramps on elapsed-time fractions. The `SessionService.RunSession` loop streams output over
   SignalR. See `features/typer-pacing-scalability.md`.
 - **Fallback terminal reveal:** on a fallback-decided winner (the word was never naturally typed),
