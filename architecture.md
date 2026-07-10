@@ -67,7 +67,10 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `IMessaging.ReturnValidationFailureMessage(...)`.
 - Handlers live under `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/` as a
   `Request` + `Handler` pair (e.g. `RegisterBet`, `GetActiveParameters`, `GetSessionHistory`,
-  `GetActiveSessionForParameter`, `Operators/GetOperatorById`).
+  `GetActiveSessionForParameter`, `GetSessionTypeStats`, `Operators/GetOperatorById`). Read handlers
+  may also be backed by dedicated services — e.g. `GET /sessions/{parametersId}/stats` aggregates
+  per-session-type all-time stats on demand via `ISessionStatsService` (Redis-cached, no new table).
+  See `features/session-type-stats.md`.
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
@@ -280,7 +283,10 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, incoming bets, and **session chat** (`GameChatPanel` + `useSessionChat` on
-  `{sessionId}/ChatMessage`). See `features/session-chat.md`.
+  `{sessionId}/ChatMessage`). See `features/session-chat.md`. On `/game`, chat and per-session-type
+  **stats** share one right-docked, collapsible panel with **CHAT** / **STATS** tabs (`GameSidePanel`);
+  the stats tab lazily fetches `GET /sessions/{parametersId}/stats` on first open. See
+  `features/session-type-stats.md`.
 - **Bet flow:** `useSession.bet()` branches on `selectedSession.paymentMethod`. **`Standard`** posts
   `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**
   sends an on-chain SPL token transfer to the session's token via `useConnection.sendToken`, then POSTs

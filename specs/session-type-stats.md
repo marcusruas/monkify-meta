@@ -1,8 +1,15 @@
 # Monkify — "Per-game general stats (all-time, per session type)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/session-type-stats` on 2026-07-10. Distilled summary:
+> `../features/session-type-stats.md`. _Originally: Ready for implementation_ — refined via Trello card
 > [Per-game general stats (all-time, per session type)](https://trello.com/c/oxZkifXh/43-per-game-general-stats-all-time-per-session-type) (2026-07-10).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+>
+> **Post-ship note:** shipped as specified, with two deltas — (1) the stats panel is bundled with chat
+> as a **CHAT/STATS tabbed right-side panel** (`GameSidePanel`) rather than a standalone left panel, and
+> (2) `formatAmount` was extracted into a shared `useAmountFormatter` composable. The integration test
+> also surfaced a pre-existing multi-winner reward double-credit race under redelivery
+> (`RewardSessionConsumer`), tracked separately; the stats read itself is correct.
 >
 > **Purpose:** Show casino-style "general stats" for a **game type** (`SessionParameters`) —
 > biggest pot ever split, biggest single payout, rounds played, total paid out, and (for preset

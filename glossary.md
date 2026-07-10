@@ -149,3 +149,13 @@
 - **Session chat message** — a plain-text line broadcast within one session instance over
   `ActiveSessionsHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
   `SessionChatMessage` for audit/retention only (not replayed). See `features/session-chat.md`.
+- **Session-type stats** — all-time aggregated stats for one **session type** (`SessionParameters`),
+  served read-only by token-gated, operator-scoped `GET /sessions/{parametersId}/stats`: biggest pot
+  ever split, biggest single payout, rounds played, total paid out, and (preset types only) the
+  most-picked **hottest choice**. Computed **on demand** from the type's completed
+  (`RewardForWinnersCompleted`) rounds — pot reconstructed as `Σ Bet.Amount` (+ lottery base), money
+  from `TransactionLog` `Credit` rows — and cached in Redis (~120s); **no stats entity or migration**.
+  Free bets are excluded from money/hottest-choice (a free-only completed round still counts as a
+  round). Amounts are single-currency per type. Rendered in the lazy **STATS** tab of the `/game`
+  side panel. Entity/DTO: `SessionTypeStats` / `SessionTypeStatsDto`. See
+  `features/session-type-stats.md`.
