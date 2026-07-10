@@ -101,11 +101,11 @@ footer: 'Confidential — shared under NDA'
 ---
 ## Commercial model
 
-- **A simple licence** — a share of the revenue the game makes
-- **One-time setup** that funds certification
-- **One fixed monthly fee** — support and hosting included
-- **Service-level commitments** for fixes, onboarding, and new features
-- **Open to discussion** to fit your scale
+- **We host & support everything** — infrastructure, updates, 24×7 fixes
+- **Start with a pilot** — prove it, low commitment
+- **A share of the revenue** the game makes
+- **A small monthly minimum** covers infrastructure — credited against the share
+- **Open to discussion**
 
 ---
 ## What's next

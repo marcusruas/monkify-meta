@@ -11,7 +11,7 @@ intake, but certified-RNG gate + fiat-only posture make it a longer-term target)
 | Intake (verified) | `sales@playtech.com` — "Platform and Content enquiries" |
 | Named BD contact | None publicly verified — use cold intake |
 | Crypto | No — regulated/fiat only |
-| Recommended model | SaaS licence — $25k setup (funds cert), $6k/mo fixed, 15% GGR (open to negotiation) |
+| Recommended model | Pilot-first: ~12% GGR rev-share + a ~$2k/mo infra minimum (credited against the share); we host & support everything; setup waived; open to negotiation |
 
 ## Deliverables
 

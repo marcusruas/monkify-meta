@@ -25,7 +25,8 @@ pitch/
 ├── foundation/                   ← SHARED, supplier-agnostic assets
 │   ├── operator-integration-guide.md  ← OPERATOR tech-team guide (→ .pdf); the integration handbook
 │   ├── commercial-pricing-baseline.md      ← INTERNAL: public offer + negotiation room
-│   ├── commercial-alternatives-internal.md ← INTERNAL: the other 2 models (exclusivity, full-code) — consult only
+│   ├── commercial-alternatives-internal.md ← INTERNAL: post-traction models (exclusivity, full-code) — consult only
+│   ├── post-pilot-playbook-internal.md     ← INTERNAL: what to do once a pilot performs — do not send
 │   └── templates/                ← deck / speaker-notes / nda / commercial-proposal / email templates
 └── suppliers/                    ← ONE folder per supplier (personalized set: deck+notes, NDA, proposal, email, PDFs)
     ├── playtech/                 ← reference set 1 — regulated-only track ✅
@@ -71,8 +72,11 @@ per supplier via `build-docs.mjs` (below), alongside the standalone
 - **[`foundation/commercial-pricing-baseline.md`](foundation/commercial-pricing-baseline.md)** —
   **INTERNAL only.** The public offer (fixed) + the **negotiation room** behind it. Never sent.
 - **[`foundation/commercial-alternatives-internal.md`](foundation/commercial-alternatives-internal.md)**
-  → `.pdf` — **INTERNAL only.** The full **exclusivity** and **full-code sale** proposals, kept for
-  Marcus to consult and raise verbally. The PDF is marked internal-do-not-send. Never sent.
+  → `.pdf` — **INTERNAL only.** The **post-traction** exclusivity + full-code models, for Marcus to
+  consult and raise verbally once KPIs exist. Never sent.
+- **[`foundation/post-pilot-playbook-internal.md`](foundation/post-pilot-playbook-internal.md)** →
+  `.pdf` — **INTERNAL only.** The staged plan for after a pilot performs (capture KPIs → ratchet price →
+  certify → fan out → exclusivity/endgame). Never sent.
 - **[`foundation/templates/`](foundation/templates/)** — the deck / **speaker-notes** / NDA /
   commercial-proposal / email templates each supplier set is instantiated from.
 

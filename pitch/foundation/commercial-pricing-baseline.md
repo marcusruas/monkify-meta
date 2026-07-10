@@ -1,71 +1,78 @@
 # Monkify — Commercial Pricing Baseline (INTERNAL)
 
-> **Internal only — never sent to a supplier.** Customer-facing proposals show **only the recommended
-> offer, with fixed values**. This file holds the **negotiation room** behind that offer: the ranges
-> Marcus can move within, grounded in real B2B iGaming comparables (research 2026-07-09; sources at the
-> end). Rev-share is on **GGR** (industry-standard base; NGR only if a counterparty insists, at a
-> higher %).
+> **Internal only — never sent to a supplier.** This is the reasoning and the negotiation room behind
+> the customer-facing proposal. Read the reality check first — it's why the public offer is
+> deliberately humble.
+
+## Reality check (why the offer is pilot-first)
+
+Monkify is **pre-traction**: no live operators, **no KPIs** (GGR, retention, concurrency), **not
+lab-certified**, an unproven single novel format, and **no patent**. In iGaming content licensing,
+price is set almost entirely by **proven performance** — so with none of that, we have **very little
+leverage** and sit at the bottom of every market band until we can show numbers. The benchmark ranges
+below describe **established** studios; they are the ceiling we grow into, not the opening ask.
+
+**Consequence:** lead with the lowest-risk deal that still covers our costs — a **pilot + revenue
+share + an infra-covering minimum** — and treat higher rates, exclusivity, and any sale as
+**post-traction** conversations.
 
 ## The public offer (what's in every proposal)
 
-A single **licensed, fully-operated** model — no menu of options in the docs:
+| Component | Public value | Why |
+| --- | --- | --- |
+| Start | **Pilot on 1–2 operators** | Removes the "prove it first" objection; generates the KPIs we lack. |
+| Revenue share | **12% of GGR** (open, scales) | Modest — a new, uncertified single game realistically lands 8–15%. |
+| Monthly minimum | **$2,000/mo**, **credited against rev-share** | This is how we "get money for infrastructure" without a backwards standalone fee. Guarantees infra + support cost is covered in a slow month; a performing partner just pays the share. |
+| Setup | **Waived** | New entrant — keep the barrier near zero. |
+| Certification | Shared milestone (no cold-pitch fee) | We can't credibly charge a big cert fee cold; fund it from proven revenue / jointly once the pilot works. |
+| Support | We host + support everything, 24×7 + SLAs | Our main value prop; also the justification for the minimum. |
 
-| Component | Public (fixed) value |
-| --- | --- |
-| One-time setup | **$25,000** — earmarked to **fund independent certification** |
-| Monthly (fixed) | **$6,000 / month** — 24×7 support **+ all hosting/infra**, never variable |
-| Revenue share | **15% of GGR** |
-| SLAs | bug (1h/24h critical; 1bd/5bd standard), operator integration (10bd), features (5bd assess; quarterly releases) |
-
-Everything is stated as **"open to discussion"** — so the negotiation happens verbally, against the
-parameters below, and only the agreed number lands in a signed contract.
+**Calibrate the $2,000 minimum to the real GCP bill** once known (Cloud Run × api/consumers + Cloud
+SQL Postgres + Redis + RabbitMQ + static front). At pilot/low-concurrency scale real infra is likely a
+few hundred $/mo; the minimum should cover infra **+ some support time**, and stay low enough not to be
+a dealbreaker.
 
 ## Negotiation room (internal — do NOT print)
 
-| Lever | Floor | Target (public) | Ceiling / stretch | Notes |
+| Lever | Floor | Public start | Stretch (post-traction) | Notes |
 | --- | --- | --- | --- | --- |
-| **Setup fee** | $15,000 | **$25,000** | $50,000 | Framed as cert funding. Can flex down for a big network, up if we certify extra markets. Market band for a single integration is $5–25k. |
-| **Monthly (fixed)** | $3,000 | **$6,000** | $10,000 | Covers support + infra. Real infra cost is low-four-figures/mo even at ~10k concurrent users, so $6k is comfortably profitable. Market fixed platform fees run $3–15k/mo. |
-| **Rev-share (GGR)** | 10% | **15%** | 20% | Studio content share is 7–20% of GGR (~15% common midpoint). Go toward the ceiling only for exclusivity (below). |
-| **Exclusivity (if raised)** | — | not offered by default | +3–5 pts GGR **and** a monthly minimum guarantee | Only if a supplier asks. Category-exclusive on a format with no substitute justifies top-of-band + a floor. |
-| **Full-code / IP sale (if raised)** | $1.5M | — | $5M+ (+3–6% GGR residual) | Only if a supplier asks to buy outright. Anchor to iGaming content-IP multiples (~1.5–3× revenue / ~12–20× EBITDA at maturity); NetEnt sold for ~$2.1bn / a 43% premium as the ceiling comp. Structure as upfront + earn-out. |
+| **Rev-share (GGR)** | 8% (or lower in a pilot) | **12%** | 15–20% | Only move up once KPIs prove the game earns; an aggregator may also take a slice of our share. |
+| **Monthly minimum** | $0 (waive in pilot) | **$2,000** | up to real infra + support cost | It's cost recovery, not profit — don't oversell it. Can be waived for the pilot to win the deal, then switched on. |
+| **Setup** | $0 | **$0** | small integration fee only if a partner expects one | Generally waive. |
+| **Certification** | — | shared milestone | co-fund / studio-funded from revenue | Cert is often the studio's cost of entry to regulated listings; be ready to fund it ourselves once revenue supports it. |
 
-**Rule:** the alternative models (exclusivity, full-code sale) are **reactive** — surface them only if
-the supplier brings them up. The proposal documents present the SaaS licence only.
+## Post-traction / aspirational (NOT for cold pitches)
 
-## Certification stance (transparent — this wording is public)
+These need real KPIs first. Kept in `commercial-alternatives-internal.md`:
+- **Higher rev-share / exclusivity** — only credible once the game demonstrably earns; exclusivity can
+  then command top-of-band + a real minimum guarantee.
+- **Full-code / IP sale** — **not** a cold-pitch item. Pre-revenue it's a low-to-mid six-figure deal or
+  an acqui-hire, **not** the $1.5M–5M revenue-multiple range (those need revenue/EBITDA we don't have).
 
-- Monkify is **provably fair by design**: deterministic, seed-based outcomes each player contributes to
-  before the round, with a **published replay/verification method** — any round can be independently
-  recomputed and audited. *(True per `Paperwork/Legal documents/04 Fairness & game rules.pdf`.)*
-- Independent **lab RNG certification (GLI/BMM) is deferred / not yet in place** — the fairness doc lists
-  it as "DEFERRED (pilot-milestone or operator-funded)." **Do not claim "cert-ready."**
-- The **setup fee funds certification.** This is the honest, differentiating framing: a cost the buyer
-  carries for any new content becomes a funded path to certified go-live.
+## Model direction (get this right per channel)
 
-## SLA definitions (public, in every proposal)
+- **Aggregator (SOFTSWISS, Hub88, Playtech/POP):** money flows operator → aggregator → us; we earn our
+  **% of GGR**. Aggregators don't normally pay a studio a standalone monthly — hence the minimum is
+  framed as **credited against rev-share** (a floor, not a tax), justified by us hosting + supporting
+  everything.
+- **Direct operator (a single casino — BC.Game, Roobet, etc.):** a managed-service arrangement is more
+  natural; the same rev-share + infra-minimum works and a modest standalone monthly is easier to justify.
 
-| Area | Commitment |
-| --- | --- |
-| Critical / game-blocking bug | Acknowledge ≤1h; workaround/fix ≤24h (24×7) |
-| Standard bug | Acknowledge ≤1 business day; resolve next release or ≤5 business days |
-| New operator integration | Live ≤10 business days from receiving credentials/config |
-| New features | Assess ≤5 business days; scheduled releases ≥ quarterly |
+## Market comparables (context for the above)
 
-These are deliberately achievable commitments; tighten only if a specific supplier requires it (and
-price it in).
-
-## Infrastructure reality (why the fixed monthly works)
-
-Real hosting for a real-time multiplayer backend: ~$100–300/mo at 100 concurrent users, ~$500–1,500/mo
-at 1k, ~$3k–8k/mo at 10k. The **$6k fixed monthly covers infra + support at meaningful scale** and
-stays profitable — which is why we can quote a fixed number instead of a variable pass-through.
+- Studio content rev-share **7–20% of GGR** (~15% common for *established* content); aggregators add a
+  distribution layer and often take part of the studio's share. — Gamingsoft; Track360.
+- RNG/PF certification **~$15k–$50k per market**, ~2–5 months. — SDLC Corp; gaming-slots.org; iTech Labs.
+- SaaS/integration fees ($5–25k setup, $3–15k/mo) exist but fit the **direct-operator / platform** model,
+  not content-in-an-aggregator. — MyGamingLicense; igaming-solution.com.
+- M&A multiples (1.5–3× revenue / 12–20× EBITDA; NetEnt ≈ $2.1bn) apply to companies **with revenue** —
+  irrelevant to a pre-revenue studio's sale price. — IB Interview Questions; Equidam; Casino.org.
+- Infra for a real-time multiplayer backend: ~$100–300/mo @100 CCU, ~$500–1,500/mo @1k, ~$3–8k/mo @10k. —
+  OneUptime; AWS GameLift.
 
 ## Sources
-
-- Studio/aggregator rev-share bands: Gamingsoft — https://www.gamingsoft.com/blog/2026/06/how-to-negotiate-contracts-with-casino-game-providers/ ; Track360 — https://track360.io/blog/online-casino-business-model-economics-ggr-ngr-2026
-- Certification cost/timeline: SDLC Corp — https://sdlccorp.com/post/rng-certification-for-casino-games/ ; gaming-slots.org — https://gaming-slots.org/rng-certification-guide/ ; iTech Labs — https://itechlabs.com/our-services/
-- SaaS/integration/support fees: MyGamingLicense — https://www.mygaminglicense.com/blog/igaming-software-cost-key-factors-that-influence-your-platform-investment ; igaming-solution.com — https://igaming-solution.com/guides/igaming-software-cost/
-- Exclusivity: iGamingBusiness (Mega Casino / Bragg exclusive) — https://igamingbusiness.com/company-news/mega-casino-launches-exclusive-slot-from-bragg-gaming/
-- M&A multiples / NetEnt comp: IB Interview Questions — https://ibinterviewquestions.com/guides/valuation-investment-banking/current-ma-multiples-across-sectors-2025-2026 ; Equidam — https://www.equidam.com/gaming-studio-valuation-complete-guide-2025-game-development-investment/ ; Casino.org (Evolution/NetEnt) — https://www.casino.org/news/evolution-gaming-to-acquire-netent-for-2b-igaming-rivals-partnering/
-- Infrastructure cost: OneUptime — https://oneuptime.com/blog/post/2026-02-12-build-a-multi-player-game-backend-on-aws/view ; AWS GameLift — https://aws.amazon.com/gamelift/servers/pricing/
+- https://www.gamingsoft.com/blog/2026/06/how-to-negotiate-contracts-with-casino-game-providers/ ; https://track360.io/blog/online-casino-business-model-economics-ggr-ngr-2026
+- https://sdlccorp.com/post/rng-certification-for-casino-games/ ; https://gaming-slots.org/rng-certification-guide/ ; https://itechlabs.com/our-services/
+- https://www.mygaminglicense.com/blog/igaming-software-cost-key-factors-that-influence-your-platform-investment ; https://igaming-solution.com/guides/igaming-software-cost/
+- https://ibinterviewquestions.com/guides/valuation-investment-banking/current-ma-multiples-across-sectors-2025-2026 ; https://www.equidam.com/gaming-studio-valuation-complete-guide-2025-game-development-investment/ ; https://www.casino.org/news/evolution-gaming-to-acquire-netent-for-2b-igaming-rivals-partnering/
+- https://oneuptime.com/blog/post/2026-02-12-build-a-multi-player-game-backend-on-aws/view ; https://aws.amazon.com/gamelift/servers/pricing/

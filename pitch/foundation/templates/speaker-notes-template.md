@@ -60,10 +60,11 @@ completes'; crypto → 'your crypto/Curaçao operators can go live first while i
 onboard fast. We handle everything — you get the differentiation without the build or the run."
 
 ## Slide 12 — Commercial model
-"Simple: a licence with a share of the revenue the game makes. A one-time setup fee that funds
-certification. A single fixed monthly fee with support and hosting included — no variable infra bill.
-Service-level commitments built in. ⟨aside: standard shape is $25k setup (funds cert), $6k/month fixed,
-15% of GGR — all open to discussion against {{SUPPLIER}}'s scale.⟩ Open to discussion."
+"Low-risk. We host and support everything — infrastructure, updates, 24×7 bug-fixing — nothing for you
+to run. We start with a pilot on 1–2 operators to prove it. We earn from a share of the revenue. A small
+monthly minimum covers the infrastructure + support we run, credited against the revenue share. Setup
+waived. ⟨aside, not on slide: 12% of GGR and a ~$2,000/month minimum are the starting numbers — open to
+discussion, minimum can be waived for the pilot.⟩ Built to be an easy yes."
 
 ## Slide 13 — What's next
 "Not a one-off: leaderboards and rankings, player badges in chat, more game modes, tournaments and

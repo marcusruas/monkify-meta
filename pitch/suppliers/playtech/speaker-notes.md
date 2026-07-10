@@ -69,12 +69,14 @@ commitments — I'll show you the SLAs. It's fully documented so operators onboa
 everything — you get the differentiation without the build or the run."
 
 ## Slide 12 — Commercial model
-"Commercially, simple. It's a licence: we take a share of the revenue the game generates. There's a
-one-time setup fee — and that fee funds the certification we discussed. Then a **single fixed monthly
-fee** that already includes support and all hosting — no variable infrastructure bill. Service-level
-commitments are built in. ⟨aside: our standard shape is a $25k setup that funds cert, $6k/month fixed,
-and 15% of GGR — presented as fully open to discussion against POP's scale.⟩ It's open to discussion to
-fit Playtech."
+"Commercially, we've made this low-risk. We host and support the whole thing — infrastructure, updates,
+and 24×7 bug-fixing are all on us, so there's nothing for you or your operators to run. We'd start with
+a **pilot** on one or two operators to prove it before scaling across POP. We earn from a **share of the
+revenue** the game makes. And there's a small **monthly minimum** that just covers the dedicated
+infrastructure and support we run — **credited against your revenue share**, so in any decent month you
+only pay the share. Setup is waived. ⟨aside, not on slide: 12% of GGR and a ~$2,000/month minimum are the
+starting numbers — all open to discussion, and the minimum can be waived for the pilot.⟩ It's built to be
+an easy yes."
 
 ## Slide 13 — What's next
 "Not a one-off title. On the roadmap: leaderboards and player rankings, player badges and status in

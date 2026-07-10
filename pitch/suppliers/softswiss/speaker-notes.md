@@ -74,12 +74,14 @@ clear, written response commitments — I'll show you the SLAs. It's fully docum
 onboard fast. And we handle everything — you get the differentiation without the build or the run."
 
 ## Slide 12 — Commercial model
-"Commercially, we keep it simple. It's a licence: we take a share of the revenue the game generates.
-There's a one-time setup fee — and that fee funds the certification we just talked about. Then a
-**single fixed monthly fee** that already includes support and all hosting — no variable infrastructure
-bill to reconcile. Service-level commitments are built in. ⟨aside: our standard shape is a $25k setup
-that funds cert, $6k/month fixed, and 15% of GGR — but I present that as fully open to discussion
-against your scale.⟩ Bottom line: it's open to discussion to fit SOFTSWISS."
+"Commercially, we've made this low-risk. We host and support the whole thing — infrastructure, updates,
+and 24×7 bug-fixing are all on us, so there's nothing for you or your operators to run. We'd start with
+a **pilot** on one or two operators, so you can see it perform before scaling to the network. We earn
+from a **share of the revenue** the game makes. And there's a small **monthly minimum** that just covers
+the dedicated infrastructure and support we run for you — and it's **credited against your revenue
+share**, so in any decent month you only pay the share. Setup is waived. ⟨aside, not on slide: 12% of GGR
+and a ~$2,000/month minimum are the starting numbers — all open to discussion, and the minimum can be
+waived for the pilot.⟩ It's built to be an easy yes."
 
 ## Slide 13 — What's next
 "This isn't a one-off title. On the roadmap: leaderboards and player rankings, player badges and status

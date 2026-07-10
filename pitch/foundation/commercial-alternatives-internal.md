@@ -1,66 +1,60 @@
-# Commercial Alternatives — INTERNAL reference (do NOT send)
+# Commercial Alternatives — INTERNAL, POST-TRACTION only (do NOT send)
 
-> **For Marcus only.** The customer-facing `commercial-proposal.md` shows **one** model (the SaaS
-> licence, fixed values, open to negotiation). These are the **other two models**, written out in full,
-> so you can consult them and put them on the table **verbally** if a supplier asks. Keep them out of
-> anything sent externally. Ranges come from `commercial-pricing-baseline.md`.
-
----
-
-## Alternative 1 — SaaS licence **+ exclusivity**
-
-Same as the standard SaaS licence, but you grant the supplier a **market or category exclusive** on
-Monkify (a real-time multiplayer format no competitor can supply). In exchange you move to the top of
-the band and attach a floor. **Only offer this reactively** — most aggregators (e.g. SOFTSWISS) are
-neutral hubs and prefer breadth over exclusivity.
-
-| Component | Terms |
-| --- | --- |
-| One-time setup | **$25,000** (funds certification) — same as standard |
-| Monthly (fixed) | **$8,000–$10,000 / month** (higher, reflecting exclusivity + priority support) |
-| **Minimum guarantee** | A monthly minimum the supplier must clear to **keep** exclusivity (e.g. $10k–$25k/mo, set to their scale) |
-| Revenue share | **17–20% of GGR** (top-of-band; +3–5 pts vs standard) |
-| Exclusivity scope | Defined market/vertical (e.g. "real-time multiplayer typing format"), **term-limited** 12–24 months, **performance-gated** by the minimum guarantee |
-
-**Why the uplift is justifiable:** exclusivity is what moves a studio to the top of the 7–20% GGR band,
-and a *category* exclusive on a format with no substitute justifies the ceiling **plus** a floor. If
-the partner underinvests, the minimum guarantee and term limit protect you.
-
-**Talking line:** *"For a market-exclusive on a format no competitor can supply: 17–20% of GGR, a
-higher fixed monthly, and a monthly minimum — exclusivity is what takes a studio to the top of the
-band, and it's term-limited and performance-gated so it stays fair to both sides."*
+> **For Marcus only. Do not send, do not raise cold.** These models need **real KPIs first** (live
+> operators, GGR, retention, ideally certification). Pre-traction we have no leverage for them — see
+> the reality check in `commercial-pricing-baseline.md`. The customer-facing proposal is the **pilot +
+> revenue-share + infra-minimum** offer; raise anything below **only** once the game has demonstrably
+> earned, or if the partner brings it up first.
 
 ---
 
-## Alternative 2 — Full-code / IP sale
+## Alternative 1 — Higher rev-share + exclusivity *(after we have KPIs)*
 
-The supplier buys the Monkify codebase and IP outright. **Only for a supplier that explicitly wants to
-own the asset** (e.g. Playtech, which has acquired studios for exclusive content). You optionally retain
-a residual.
+Once Monkify demonstrably earns at one or more operators, exclusivity becomes worth pricing. Grant a
+market/category exclusive (a real-time multiplayer format no competitor can supply) in exchange for
+top-of-band terms and a floor.
 
-| Component | Terms |
+| Component | Terms (post-traction) |
 | --- | --- |
-| **Upfront** | **$1.5M–$5M+** — anchor to iGaming content-IP multiples (~1.5–3× revenue / ~12–20× EBITDA at maturity). Pre-scale, sell the **arbitrage**: an early buy captures that multiple as the format scales. Ceiling comp: Evolution paid ~$2.1bn / a 43% premium for NetEnt. |
-| **Optional residual** | **3–6% of GGR** earn-out — aligns both sides and bridges valuation gaps |
-| **Transition** | A time-boxed, **paid** handover of the documented, tested, running system + an optional ongoing support contract |
+| Revenue share | **15–20% of GGR** (top-of-band; only defensible once proven) |
+| Minimum guarantee | A real monthly minimum the partner must clear to **keep** exclusivity (size to their scale) |
+| Exclusivity scope | Defined market/vertical, **term-limited** (12–24 mo), **performance-gated** by the minimum |
 
-**How to price it:** you can't claim a mature multiple pre-revenue, so lead with the arbitrage + an
-earn-out. Structure as **upfront lump sum + residual** rather than a single number, so the buyer shares
-the risk and you share the upside.
+**Why only post-traction:** exclusivity moves a studio to the top of the 7–20% GGR band, but a partner
+won't lock to an *unproven* game at top rates. Prove it first, then this is credible.
 
-**Talking line:** *"iGaming content IP trades at 1.5–3× revenue / 12–20× EBITDA at maturity. An early
-full-code buy captures that arbitrage — we'd structure it as an upfront sum plus a small GGR earn-out,
-with a paid transition of the running system."*
+**Talking line (later):** *"Now that it's performing, we can offer a market exclusive at a top-of-band
+rate plus a minimum guarantee — term-limited and performance-gated so it stays fair to both sides."*
 
 ---
 
-## When to surface each (internal guidance)
+## Alternative 2 — Full-code / IP sale *(NOT a cold-pitch item)*
 
-| Supplier signal | Lead with |
+Only relevant if a partner explicitly wants to **own** the game, and even then the valuation reality
+matters:
+
+- **Pre-revenue reality:** an outright sale of an unpatented, single, uncertified game is a
+  **low-to-mid six-figure deal or an acqui-hire** (they're buying the working tech + the person who
+  built it), **not** a revenue/EBITDA multiple.
+- **The million-dollar multiples are a myth for us right now.** 1.5–3× revenue / 12–20× EBITDA (and the
+  NetEnt ≈ $2.1bn comp) require **revenue and EBITDA we don't have**. Quoting millions cold signals we
+  don't know the market — don't.
+- **If it comes up:** structure as a **modest upfront + an earn-out / residual % of GGR**, so the buyer
+  shares the risk and we share the upside as it scales. Anchor the number to what we've *proven*, not to
+  a mature-company multiple.
+
+**Talking line (only if they raise it):** *"An outright buy is possible — we'd structure it as an
+upfront plus an earn-out tied to performance, and a paid transition of the running system. The number
+tracks what the game has actually proven."*
+
+---
+
+## When to surface (internal guidance)
+
+| Stage | Lead with |
 | --- | --- |
-| "We want breadth / to add it to the catalogue" | **Standard SaaS** (the public proposal) |
-| "We'd want it exclusively / as a differentiator no one else has" | **Alternative 1 (exclusivity)** |
-| "We'd rather own it / acquire the studio" | **Alternative 2 (full-code sale)** |
+| **Cold / no KPIs (now)** | The public proposal: **pilot + 12% GGR + infra-minimum**, we host & support everything. |
+| **Post-pilot, proven KPIs** | Higher rev-share; **exclusivity** if they want a moat (Alternative 1). |
+| **They ask to acquire** | **Alternative 2**, valued on proven performance — not on a mature-company multiple. |
 
-Default to the standard SaaS licence in every document and conversation; bring these up only when the
-supplier's own words point to them.
+Default to the public pilot offer in every document and cold conversation.

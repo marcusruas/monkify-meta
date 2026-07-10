@@ -11,7 +11,7 @@ distribution, active third-party intake, deep crypto heritage matching Monkify's
 | Intake (verified) | `order@softswiss.com` (business proposals); `contact@softswiss.com` (general) |
 | Named leads (verified) | Nikita Keino — Head of Partnerships; Tatyana Kaminskaya — Head of Game Aggregator (no public direct email) |
 | Crypto | **Yes** — "#1 Crypto Gambling Provider"; unified pitch (both rails) |
-| Recommended model | SaaS licence — $25k setup (funds cert), $6k/mo fixed, 15% GGR (open to negotiation), crypto-first rollout |
+| Recommended model | Pilot-first: ~12% GGR rev-share + a ~$2k/mo infra minimum (credited against the share); we host & support everything; setup waived; crypto-first rollout; open to negotiation |
 
 ## Deliverables
 

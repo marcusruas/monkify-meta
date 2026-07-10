@@ -53,9 +53,11 @@ console.log('Browser:', EXECUTABLE);
 // Shared: the standalone Operator Integration Guide (send to an operator by itself).
 console.log('==> foundation');
 await toPdf(read(OPERATOR_GUIDE), join(HERE, 'foundation', 'operator-integration-guide.pdf'));
-// INTERNAL reference (Marcus only — do NOT send): the alternative commercial models.
-const ALTS = join(HERE, 'foundation', 'commercial-alternatives-internal.md');
-if (existsSync(ALTS)) await toPdf(read(ALTS), join(HERE, 'foundation', 'commercial-alternatives-internal.pdf'));
+// INTERNAL references (Marcus only — do NOT send).
+for (const name of ['commercial-alternatives-internal', 'post-pilot-playbook-internal']) {
+  const p = join(HERE, 'foundation', name + '.md');
+  if (existsSync(p)) await toPdf(read(p), join(HERE, 'foundation', name + '.pdf'));
+}
 
 const suppliersDir = join(HERE, 'suppliers');
 const argSlugs = process.argv.slice(2);
