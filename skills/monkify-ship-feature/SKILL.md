@@ -67,7 +67,7 @@ Copy this checklist and track progress:
 - [ ] Step 7: Update the KB on the monkify-meta feature branch; show diff; commit + push feature/<slug>
 - [ ] Step 8: Merge feature/<slug> → main in each affected repo (incl. monkify-meta); push
 - [ ] Step 9: Trello — move card to Shipped
-- [ ] Step 10: Clean up — remove worktrees and delete the merged branch (local + origin)
+- [ ] Step 10: Clean up — remove worktrees, delete the merged branch (local + origin), clear the deployed-stack marker
 - [ ] Step 11: Report
 ```
 
@@ -299,6 +299,15 @@ Then `add_comment` on the card:
 🌳 Worktree retired (YYYY-MM-DD) — `feature/<slug>` merged to main in all repos; feature + ship worktrees removed, branch deleted.
 ```
 
+**Clear the deployed-stack marker if it points at this feature.** If
+`<workspace-root>/.worktrees/.deployed-stack.json` exists and references the shipped feature (its
+`label`/`cards` name this card, or its `branches` include `feature/<slug>`), the deployed local env is
+now stale — the feature is on `main`. Delete the marker (for a `combined` marker that also lists other
+still-in-flight cards, instead remove just this feature's card/branch entries). The running containers,
+if any, still hold the pre-merge code; mention in the report that a fresh
+`/monkify-implement-feature` deploy (or `setup_local_environment.bat` from `main`) will rebuild from
+current `main`.
+
 **Hard rules / safety:**
 
 - Use `git branch -d` (merge-checked), **never** `-D` — if `-d` refuses, the branch is **not** fully
@@ -322,7 +331,9 @@ Tell the user:
 4. **Merged** — `<branch>` → `main` per repo (from a ship worktree, **pushed** to `origin`).
 5. **Drift** — any code vs spec vs Trello mismatches worth a follow-up.
 6. **Cleanup** — feature + ship worktrees removed; `feature/<slug>` deleted (local + origin) per repo,
-   or note what was left in place and why (e.g. a branch that would not `-d`-delete).
+   or note what was left in place and why (e.g. a branch that would not `-d`-delete); deployed-stack
+   marker cleared if it pointed at this feature (note if a local env was left running with pre-merge
+   code).
 7. **Next** — deploy or manual QA, only if relevant.
 
 ## Hard rules

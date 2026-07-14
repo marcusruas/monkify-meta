@@ -104,27 +104,25 @@ the user works in both tools):
      **Superpowers** plugin. If either is missing, tell the user how to install it and stop.
    - `monkify-create-spec` needs the **Trello MCP** and sibling repos with clean git trees. If Trello
      is missing, stop with install instructions.
-   - `monkify-implement-feature` needs the **Trello MCP** and the **Superpowers** plugin (uses
-     `writing-plans` to plan and `test-driven-development` to implement) plus sibling repos with clean
-     `main` hubs. If Trello or Superpowers is missing, stop with install instructions.
+   - `monkify-implement-feature` needs the **Trello MCP**, the **Superpowers** plugin (uses
+     `writing-plans` to plan and `test-driven-development` to implement), **Docker** running (mandatory
+     integration tests + the local-stack deploy), plus sibling repos with clean `main` hubs. If Trello,
+     Superpowers, or Docker is missing, stop with install instructions.
    - `monkify-ship-feature` needs the **Trello MCP** to **ingest** the linked monkaify card
      (description, comments, acceptance criteria) when building the KB digest, and to **move** that
      card to **Shipped** after merging. It syncs the KB **on the feature branch before merging**, then
      merges `feature/<slug>` → `main` in each affected repo and deletes the merged branches/worktrees.
      Shipping without Trello is not supported (branch + spec are read from the card).
-   - `monkify-test-features` needs the **Trello MCP**, **Docker** running, and the sibling repos on
-     clean `main` hubs. It builds a throwaway combined environment from test worktrees and moves no
-     card.
 
 > Like the root pointer above, the installed copies under `.cursor/skills/` and `.claude/skills/`
 > are regenerated from `monkify-meta/skills/` and are not the source of truth — edit skills in
 > `monkify-meta/skills/`.
 
 Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-implement-feature`,
-`monkify-ship-feature`, `monkify-test-features` (see `INDEX.md` → "Skills (the task pipeline)").
+`monkify-ship-feature` (see `INDEX.md` → "Skills (the task pipeline)").
 Pipeline: **Backlog → Refined → Specs created → Implemented → Shipped**
-(refine → create-spec → implement → ship); `monkify-test-features` is an off-pipeline local
-multi-card test harness.
+(refine → create-spec → implement → ship). `monkify-implement-feature` also deploys the feature to the
+local Docker stack for the user to test before the card advances.
 
 ## Must-follow rules
 

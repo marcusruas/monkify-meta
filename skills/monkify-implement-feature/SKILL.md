@@ -1,6 +1,6 @@
 ---
 name: monkify-implement-feature
-description: Implement a Monkify feature end to end from its spec, in the feature worktree/branch that monkify-create-spec created. Use when the user names a Specs-created Trello card and wants the code written — after monkify-create-spec, before monkify-ship-feature. Gathers session + card + spec context, writes an implementation plan with the Superpowers writing-plans skill, implements it (with unit + mandatory happy-path integration tests), has the user verify, then commits and moves the card to Implemented. Needs Trello MCP and Superpowers.
+description: Implement a Monkify feature end to end from its spec, in the feature worktree/branch that monkify-create-spec created. Use when the user names a Specs-created Trello card and wants the code written — after monkify-create-spec, before monkify-ship-feature. Gathers session + card + spec context, writes an implementation plan with the Superpowers writing-plans skill, implements it (with unit + mandatory happy-path integration tests), commits & pushes, deploys the feature to the local Docker stack (setup_local_environment), has the user verify the running containers, then moves the card to Implemented. Needs Trello MCP, Superpowers, and Docker.
 disable-model-invocation: true
 ---
 
@@ -8,8 +8,9 @@ disable-model-invocation: true
 
 Turn a **Specs created** Trello card into working code on its `feature/<slug>` branch, in the
 isolated worktree(s) `monkify-create-spec` already made. Build an implementation plan first (with the
-Superpowers **writing-plans** skill), implement it against the spec, get the user's sign-off after
-they test it, then commit and move the card to **Implemented**.
+Superpowers **writing-plans** skill), implement it against the spec, **commit & push**, **deploy the
+feature to the local Docker stack** so the user tests the real running containers, get their sign-off,
+then move the card to **Implemented**.
 
 This skill **writes application code and tests**; it does **not** write the spec (that's
 `monkify-create-spec`) or merge to `main` (that's `monkify-ship-feature`).
@@ -49,6 +50,8 @@ If the card has no **Implementation** block or **Branch** line, **stop** and tel
 4. **Clean `main` hubs** — every repo you will touch has its shared checkout **clean and on `main`**
    (the permanent hub; you work in the feature worktree, never the hub). If a hub is dirty or on a
    feature branch, **stop** and ask the user to restore it to a clean `main`.
+5. **Docker running** — the integration tests (Step 8) and the deploy (Step 10) both need it. Verify
+   `docker info` succeeds; if not, **stop** and ask the user to start Docker.
 
 Do not write code until prerequisites pass.
 
@@ -66,10 +69,11 @@ Copy this checklist and track progress:
 - [ ] Step 6: Implement the feature in the worktree(s), TDD
 - [ ] Step 7: Add the mandatory happy-path integration test (+ one per complex flow)
 - [ ] Step 8: Verify — run unit + integration tests
-- [ ] Step 9: Hand off to the user to test / review; WAIT for the nod
-- [ ] Step 10: Commit + push the work on feature/<slug> (each affected repo)
-- [ ] Step 11: Trello — move card to Implemented
-- [ ] Step 12: Report
+- [ ] Step 9: Commit + push the work on feature/<slug> (each affected repo)
+- [ ] Step 10: Deploy the feature to Docker (setup_local_environment) — handle a stack already running
+- [ ] Step 11: Hand off to the user to test the running containers; WAIT for the nod
+- [ ] Step 12: Trello — move card to Implemented
+- [ ] Step 13: Report
 ```
 
 ### Step 1: Resolve board, find card, read everything + parse Implementation
@@ -222,23 +226,11 @@ Record which unit + integration tests were added/changed (for the report and for
 Frontend: run the app's checks if the feature touched the UI (build / type-check / lint as the repo
 provides). Manually reason through the composable/service/type changes against the spec.
 
-### Step 9: Hand off to the user to test / review — WAIT for the nod
+### Step 9: Commit + push the work (each affected repo)
 
-Tell the user the feature is implemented and green, and **ask them to test it / confirm it looks
-good** before anything is committed. Give them what they need to try it:
-
-- What changed (per repo, short bullets) and which acceptance criteria are now satisfied.
-- How to run it locally if useful — e.g. `monkify-backend/scripts/setup_local_environment.bat`, or
-  point them to `/monkify-test-features <card>` to spin up a throwaway test environment.
-- Any manual QA steps from the spec's **Manual QA** section.
-
-**Do not commit or move the card until the user gives an explicit go-ahead.** If they report
-problems, loop back to Step 6, fix, re-verify (Step 8), and hand off again.
-
-### Step 10: Commit + push the work (each affected repo)
-
-Once the user approves, commit the implementation **in each affected repo's worktree** (never the
-hub) and push the feature branch:
+Once the tests are green (Step 8), commit the implementation **in each affected repo's worktree**
+(never the hub) and push the feature branch. This now happens **before** the user tests — they test
+the committed, containerized build (Steps 10–11), not an uncommitted working tree.
 
 ```bash
 # inside .worktrees/<slug>/<repo>
@@ -255,10 +247,119 @@ git -C <workspace-root>/.worktrees/<slug>/<repo> push origin feature/<slug>
 - Never commit real secrets/config values.
 - Push each branch to `origin` right after committing (see `AGENTS.md` → push after branch work).
 - If a hook rejects the commit, fix the cause and make a **new** commit — don't amend to bypass hooks.
+- If the user later reports problems (Step 11), fix (Step 6), re-verify (Step 8), then make a
+  **follow-up** commit here and **redeploy** (Step 10) — never amend the pushed commit.
 
 Do **not** merge to `main` here — that's `monkify-ship-feature`.
 
-### Step 11: Trello — move card to Implemented
+### Step 10: Deploy the feature to the local Docker stack
+
+Boot this feature's code in the local containers via `setup_local_environment.bat`, so the user tests
+the **real running app**, not a working tree. Because that script is **single-tenant and destructive**
+— it runs `docker compose down -v` (deletes the postgres/redis volumes) and uses **fixed ports**
+(`6001` api, `6002` consumers, `6003` front, `5432`/`6379`/`5672`) and **fixed container names**
+(`rabbitmq`, `redis`, `monkify-front`) — running it blindly would **destroy whatever feature is
+already deployed and wipe its database**. So **detect first, then decide**.
+
+**Deployed-state marker.** Track what is currently deployed in a small JSON file at the workspace
+root: `<workspace-root>/.worktrees/.deployed-stack.json` (scratch, outside every repo). Shape:
+
+```json
+{ "kind": "feature", "label": "<slug>", "cards": ["<card title>"],
+  "branches": { "monkify-backend": "feature/<slug>", "monkify-front": "feature/<slug>" },
+  "worktreeBase": ".worktrees/<slug>", "deployedAt": "YYYY-MM-DD" }
+```
+
+For a `Combine` deploy (below), use `"kind": "combined"` and list every card + branch included.
+
+**10a — Detect what's running.** Read the marker (if present) and check the containers:
+
+```bash
+docker compose ls                          # any monkify stack up?
+docker ps --filter "name=monkify" --format "{{.Names}}"
+```
+
+Classify:
+
+- **Nothing up** (no monkify containers; marker absent or stale) → **clean deploy** (10c).
+- **This same feature up** (`marker.label == <slug>`) → **redeploy** this feature (10c); `down -v` is
+  fine, it's the same feature.
+- **A different feature / combo up** → **do not clobber**. Go to 10b and ask.
+
+**10b — A different feature is already deployed → ask (never auto-clobber).** Tell the user exactly
+what is running (the marker's cards/branches), then offer three choices:
+
+- **Replace** — tear the running stack down and deploy **only this feature** (10c). ⚠️ Warn first that
+  the other feature's environment **and its database will be wiped**; it can be redeployed later from
+  its own card with `/monkify-implement-feature`.
+- **Combine** — rebuild **one** stack containing the currently-deployed feature branch(es) **plus**
+  this feature, in a throwaway combined worktree per repo (so the hubs and the feature worktrees are
+  untouched):
+  1. Derive a short combined `<label>` (join the card slugs, sanitized to `[a-z0-9+-]`).
+  2. For **each** of `monkify-backend` / `monkify-front`, create a fresh worktree off `origin/main`:
+     `git -C <workspace-root>/<repo> worktree add ../.worktrees/test-<label>/<repo> -b test/<label> origin/main`
+     (never pushed — local throwaway).
+  3. In each repo's combined worktree, merge every feature branch that affects it (the currently
+     deployed one(s) **and** this feature): `git -C .../.worktrees/test-<label>/<repo> merge --no-edit origin/feature/<each-slug>`.
+     **Stop on merge conflict** — surface the repo + conflicting files (it's a real integration
+     finding); don't `--force` or auto-resolve. Ask the user how to proceed.
+  4. Boot from the **backend** combined worktree's script so `..\monkify-front` resolves to the front
+     combined worktree (apply the yarn.lock copy from 10c step 2 first):
+     `call <workspace-root>\.worktrees\test-<label>\monkify-backend\scripts\setup_local_environment.bat`.
+  5. On success, write the marker with `"kind": "combined"`, all cards, and per-repo branch lists.
+  When the user is done with the combined stack, the throwaway `test/<label>` worktrees/branch can be
+  removed (`git worktree remove` + `git branch -D test/<label>`) — the hubs are untouched.
+- **Skip** — leave the running env untouched; **do not deploy**. Hand off (Step 11) telling the user
+  this feature was **not** deployed and how to deploy it themselves later (Replace/Combine, or run the
+  script from its worktree).
+
+**Never auto-clobber: if the user is unavailable or doesn't answer, default to Skip** — never destroy
+a running environment without an explicit choice. Make clear in the hand-off that the feature is
+committed/pushed but **not** deployed, and why.
+
+**10c — Build & boot this feature.** The script lives in `monkify-backend/scripts` and builds the
+frontend from `..\monkify-front` **relative to the backend checkout**, so run the **backend
+worktree's own copy** so both resolve to the feature worktrees, never the hubs:
+
+1. **Ensure both repo checkouts exist at the worktree base** so `..\monkify-front` resolves:
+   - Backend at `.worktrees/<slug>/monkify-backend` — the feature worktree (from Step 3). If the
+     feature doesn't touch the backend, create one at `origin/main`
+     (`git -C <workspace-root>/monkify-backend worktree add ../.worktrees/<slug>/monkify-backend origin/main`).
+   - Front at `.worktrees/<slug>/monkify-front` — the feature worktree if front is affected; else
+     create one at `origin/main` the same way. The script always builds a `monkify-front` container.
+2. **yarn.lock gotcha** — copy the hub's `monkify-front/yarn.lock` into the front worktree **before
+   building**; front builds from a worktree fail silently on the gitignored lockfile and boot a
+   **stale** image. After boot, sanity-check the served bundle actually changed.
+3. Run the backend worktree's script (long build — let it finish):
+
+   ```bat
+   call <workspace-root>\.worktrees\<slug>\monkify-backend\scripts\setup_local_environment.bat
+   ```
+
+   It `docker compose down -v`s any existing stack, rebuilds `api`/`consumers`/`database`/`redis`/
+   `rabbitmq` from the backend worktree, materializes the frontend `.env.production.local` (dev launch
+   buttons force-enabled), and builds/boots `monkify-front` from the front worktree.
+4. If the build fails, **stop**, report the failing step, and leave the worktrees for inspection (don't
+   move the card).
+5. On success, **write/update the marker** (`.worktrees/.deployed-stack.json`) with this feature's
+   label, cards, branches, and date.
+
+### Step 11: Hand off to the user to test the running containers — WAIT for the nod
+
+Tell the user the feature is implemented, green, committed/pushed, and **deployed**, and **ask them to
+test the running app** before the card moves. Give them:
+
+- **Where it's live** — API `http://localhost:6001`, frontend `http://localhost:6003` (dev launch
+  buttons enabled). If they chose **Skip** (10b), say clearly it is **not** deployed and how to deploy
+  it themselves.
+- What changed (per repo, short bullets) and which acceptance criteria are now satisfied.
+- Any manual QA steps from the spec's **Manual QA** section.
+
+**Do not move the card until the user gives an explicit go-ahead.** If they report problems, loop back
+to Step 6, fix, re-verify (Step 8), make a **follow-up** commit + push (Step 9), **redeploy** (Step
+10), and hand off again.
+
+### Step 12: Trello — move card to Implemented
 
 Using `cardId`:
 
@@ -269,7 +370,7 @@ Using `cardId`:
 
 Do **not** rename the card or edit its title/description beyond an optional status note.
 
-### Step 12: Report
+### Step 13: Report
 
 Tell the user:
 
@@ -281,17 +382,25 @@ Tell the user:
    integration test(s) added; confirm both suites are green (or note the integration-test exemption
    if this was a fix/QOL change).
 5. **Committed + pushed** — `feature/<slug>` in which repos.
-6. **Open items** — anything deferred, any spec gap the user resolved mid-implementation.
-7. **Next** — run `/monkify-ship-feature <card name>` to sync the KB and merge to `main`.
+6. **Deployed** — how the feature was deployed (clean / redeploy / **Replace** / **Combine** / not
+   deployed because the user chose **Skip**); the running URLs (API `:6001`, front `:6003`) and, for a
+   Combine, which other cards share the stack.
+7. **Open items** — anything deferred, any spec gap the user resolved mid-implementation.
+8. **Next** — run `/monkify-ship-feature <card name>` to sync the KB and merge to `main`.
 
 ## Hard rules
 
 - **Plan before code** — use writing-plans first; implement against the spec, not from memory.
 - **Stop on spec/cross-feature conflict** — ask the user; never guess (INDEX.md).
-- **User verifies before commit** — no commit, no card move, until the user gives the nod.
+- **Commit + push and deploy before hand-off** — the user tests the committed, containerized build
+  (not an uncommitted tree). The **card move to Implemented** still waits for their explicit nod.
+- **Never auto-clobber a running stack** — if a different feature is already deployed, ask
+  (Replace / Combine / Skip); with no answer, default to **Skip** and never wipe a running env.
 - **Every new feature gets a happy-path integration test** (and one per complex flow) — see
   `constraints.md`. Fixes/QOL/minor changes are exempt.
-- **Worktree-first** — implement in `.worktrees/<slug>/<repo>`; the hub stays on `main`.
+- **Worktree-first** — implement in `.worktrees/<slug>/<repo>`; the hub stays on `main`. Deploy by
+  running the **backend worktree's** `setup_local_environment.bat` so `..\monkify-front` resolves to
+  the front worktree, never the hubs.
 - Honor `constraints.md` — mock secrets, EF inline, migrations via Consumers, vague operator
   messaging, host split.
 - **No merge to `main`** — that's `monkify-ship-feature`.
