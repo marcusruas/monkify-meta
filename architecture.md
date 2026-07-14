@@ -67,7 +67,10 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `IMessaging.ReturnValidationFailureMessage(...)`.
 - Handlers live under `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/` as a
   `Request` + `Handler` pair (e.g. `RegisterBet`, `GetActiveParameters`, `GetSessionHistory`,
-  `GetActiveSessionForParameter`, `Operators/GetOperatorById`).
+  `GetActiveSessionForParameter`, `GetSessionTypeStats`, `Operators/GetOperatorById`). Read handlers
+  may also be backed by dedicated services — e.g. `GET /sessions/{parametersId}/stats` aggregates
+  per-session-type all-time stats on demand via `ISessionStatsService` (Redis-cached, no new table).
+  See `features/session-type-stats.md`.
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
@@ -83,11 +86,13 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 
 ### Core entities (selected)
 
-- **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session`, `SessionParameters`
-  (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`), `LotteryParameters`,
-  `PresetChoice`, `SessionStatusLog`, `Operator`, **`OperatorToken`** (a per-operator registered SPL
-  token; owner private key encrypted at rest).
-- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet`, `TransactionLog` (unified money-movement
+- **Sessions area** (`Monkify.Domain/Sessions/Entities`): `Session` (carries the provably-fair
+  **`ServerSeed`** + **`ServerSeedHash`** committed on the first bet; the old `int? Seed` is removed),
+  `SessionParameters` (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`),
+  `LotteryParameters`, `PresetChoice`, `SessionStatusLog`, `Operator`, **`OperatorToken`** (a
+  per-operator registered SPL token; owner private key encrypted at rest).
+- **Bets area** (`Monkify.Domain/Bets/Entities`): `Bet` (its `Seed` is now a 64-char
+  `HMAC(clientSeed, Nonce)` hex, with a per-bet **`Nonce`**), `TransactionLog` (unified money-movement
   ledger — `Credit`/`Debit`/`Refund`, now carrying `PaymentMethod` + `ExternalTransactionReference`),
   **`CryptoTransactionLog`** (on-chain specifics for `SolanaToken` movements), `BetStatusLog`.
   (`RefundLog` was removed; refund audit lives in `TransactionLog`.)
@@ -195,13 +200,17 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 ## 9. The game mechanic (the "Typer")
 
 - `MonkifyTyper` (`Monkify.Domain/Sessions/Services`) is the heart of a running session.
-- It seeds a deterministic RNG from session + per-bet seeds, builds the set of bet choices and the
-  pool of characters to type, then emits characters one at a time. When the rolling window of typed
-  characters equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`).
+- It reads the session's **committed `ServerSeed`** (generated + hash-committed on the first bet) and
+  drives characters from a **portable HMAC-SHA256 counter keystream** over `ServerSeed ‖ sessionId ‖
+  ordered bet seeds ‖ counter` (rejection-sampled into the character pool — no `System.Random`), builds
+  the set of bet choices and the character pool, then emits characters one at a time. When the rolling
+  window equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`). The scheme is
+  **provably fair**: the commitment is published before betting closes and the raw seed revealed after
+  the round via `GET /sessions/{id}/verification`. See `features/provably-fair.md`.
 - Wall-clock pacing is time-budget driven (`SessionSettings` targets in `monkifysettings.json`):
   `MonkifyTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
   Stopwatch delays keep duration hardware- and load-stable. Large configs may hit
-  `MaxTyperCharacters` and resolve via a deterministic seed-based fallback winner. `DisplaySpeed`
+  `MaxTyperCharacters` and resolve via a deterministic HMAC-keystream fallback winner. `DisplaySpeed`
   (1–3) ramps on elapsed-time fractions. The `SessionService.RunSession` loop streams output over
   SignalR. See `features/typer-pacing-scalability.md`.
 - **Fallback terminal reveal:** on a fallback-decided winner (the word was never naturally typed),
@@ -280,7 +289,10 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - **Real-time:** `useSession` opens two SignalR hubs (`Sessions`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the session group, and renders the streamed terminal output,
   speed, status, incoming bets, and **session chat** (`GameChatPanel` + `useSessionChat` on
-  `{sessionId}/ChatMessage`). See `features/session-chat.md`.
+  `{sessionId}/ChatMessage`). See `features/session-chat.md`. On `/game`, chat and per-session-type
+  **stats** share one right-docked, collapsible panel with **CHAT** / **STATS** tabs (`GameSidePanel`);
+  the stats tab lazily fetches `GET /sessions/{parametersId}/stats` on first open. See
+  `features/session-type-stats.md`.
 - **Bet flow:** `useSession.bet()` branches on `selectedSession.paymentMethod`. **`Standard`** posts
   `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**
   sends an on-chain SPL token transfer to the session's token via `useConnection.sendToken`, then POSTs

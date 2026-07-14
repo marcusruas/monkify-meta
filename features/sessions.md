@@ -223,9 +223,13 @@ in `useSession.initalizeWebsocketConnections` and renders the stream via `GameTy
 `Monkify.Domain/Sessions/Services/MonkifyTyper.cs` is constructed from a `Session` (which must have
 bets) and drives the round.
 
-- **Deterministic seed:** `GenerateSessionSeed` mixes 32 random bytes with every bet's `Seed`,
-SHA-256s it, and uses the result to seed a `Random`. Storing the session `Seed` makes the outcome
-reproducible/auditable.
+- **Provably-fair seed (commit-reveal + portable RNG):** the typer reads the session's committed
+`ServerSeed` (a 64-char hex string generated + hash-committed on the **first bet**; see
+`features/provably-fair.md`) and drives characters from an **HMAC-SHA256 counter keystream** over
+`ServerSeed ‖ sessionId ‖ orderedBetSeeds ‖ counter` (bets ordered `CreatedDate, Id`), mapping bytes
+to pool indices by rejection sampling. There is no `System.Random` / `RandomNumberGenerator.Fill` at
+run time — the stream is byte-for-byte reproducible in any language. The raw `ServerSeed` is revealed
+only after the round Ends; `SHA256(ServerSeed) == ServerSeedHash` proves it wasn't grinded.
 - **Bet/choice map (`SetBets`):** counts players per choice; preset choices are pre-registered with
 count 0. `QueueLength` = the longest choice length (the rolling-window size).
 - **Character pool (`SetCharactersOnTyper`):** chosen from, in priority order:
@@ -236,8 +240,9 @@ count 0. `QueueLength` = the longest choice length (the rolling-window size).
 - **Generation loop (`GenerateNextCharacter`):** emits one random character per tick into a rolling
 queue of size `QueueLength`; after each char, `CheckForWinners` compares the concatenated window to
 the bet map. On a hit: `HasWinners = true`, records `FirstChoiceTyped` and the number of winners.
-If no natural win by the character cap, `DecideFallbackWinner` picks uniformly from ordinally-sorted
-choices via `new Random(SessionSeed)` (`WinnerDecidedByFallback = true`).
+If no natural win by the character cap, `DecideFallbackWinner` picks from ordinally-sorted choices via
+a dedicated `HMAC-SHA256(ServerSeed, prefix + "|fallback")` draw (`WinnerDecidedByFallback = true`) —
+reproducible from the same published inputs.
 - **Pacing/speed:** `CalculatePacing` schedules a constant ms-per-character from mode targets
 (race mean 8–18 s / p95 ≤ 30 s; lottery mean 10–30 s / p95 ≤ 45 s) and horizon
 `min(poolSize^QueueLength / numChoices, MaxTyperCharacters)`. `ApplyPacingDelay` sleeps only when

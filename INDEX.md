@@ -91,6 +91,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/payment-methods.md` | **Per-session** payment: `SessionParameters.PaymentMethod` (`Standard`=off-chain USD wallet / `SolanaToken`=on-chain per-operator registered token, key AES-GCM encrypted at rest); unified `IPaymentMethodService` strategy+resolver + availability gating; ledger split (`Bet`/`TransactionLog` `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`); admin token CRUD. **Removes `Operator.PaymentModel`** | Shipped              |
 | `features/iframe-embedding.md` | Frontend-only: a **regulated (Model A)** casino embeds the game in an `<iframe>` — `useEmbed` detection, secret-free `{source:'monkify'}` postMessage lifecycle API, embedded 401→`token-expired`+"relaunching" (never `/error`), fills the frame, permissive `frame-ancestors *`, example page + `EMBEDDING.md`; distilled from `specs/iframe-embedding.md` | Shipped              |
 | `features/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: paid **`SolanaToken`** bets inside the iframe via a **same-origin wallet-bridge popup** (`/monkify/wallet-bridge`) that returns the on-chain signature+wallet (`source:'monkify-wallet'`); popup opened synchronously on click, token-native amounts, no new parent contract; distilled from `specs/iframe-crypto-sessions.md` | Shipped              |
+| `features/session-type-stats.md` | Per-game all-time stats per session type via `GET /sessions/{parametersId}/stats` (biggest pot, biggest single payout, rounds played, total paid out, hottest choice for preset types) — **on-demand aggregate + Redis cache, no new entity/migration**; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type, operator-scoped/vague; rendered in a lazy **STATS** tab of the `/game` right-side panel (bundled with **CHAT** via `GameSidePanel`) | Shipped              |
+| `features/provably-fair.md` | Commit-reveal `ServerSeed` (committed on the first bet, revealed after `Ended`), portable HMAC-SHA256 keystream RNG + labelled fallback, Stake-style client seed + `Bet.Nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification` + offline `public/verify.html`; terminal shows commitment/reveal only | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -111,6 +113,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
 | `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'monkify',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`session-started`/`bet-placed`/`bet-settled`(bettors-only)/`session-ended`/`resize`(hint) from `useSession.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Shipped              |
 | `specs/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/monkify/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'monkify-wallet'`, `utils/walletBridge.ts`); `useSession.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-sessions` | Shipped              |
+| `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
+| `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -155,6 +159,36 @@ see "Skills — ensure installed" in `AGENTS.md`.
   SolanaToken sessions embed with no wallet/popup; #3's lifecycle payloads become **token-native**
   (`tokenSymbol`, never USD). Standalone play unchanged. See `features/iframe-embedding.md` +
   `features/iframe-crypto-sessions.md`; specs `specs/iframe-embedding.md`, `specs/iframe-crypto-sessions.md`.
+- _Last shipped:_ **Per-game general stats (all-time, per session type)** —
+  `feature/session-type-stats` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
+  2026-07-10**. Casino-style per-session-type stats via `GET /sessions/{parametersId}/stats` (biggest
+  pot, biggest single payout, rounds played, total paid out, hottest-choice for preset types) rendered
+  in a lazy **STATS** tab of the `/game` right-side panel (bundled with **CHAT** via `GameSidePanel`).
+  **On-demand aggregate + Redis cache (~120s), no new entity/migration** — a documented reversal of the
+  card's maintained-counter idea, justified because the panel fetches only on open (no lobby fan-out).
+  Only `RewardForWinnersCompleted` rounds count; money from `TransactionLog` Credit rows; free bets
+  excluded (free-only rounds still count as played); single currency per type (Standard USD + preferred
+  display currency, SolanaToken token-native); token-gated + operator-scoped (vague on
+  cross-operator/expired). **325 unit + 29 integration tests green.** Surfaced a pre-existing
+  multi-winner reward double-credit race under redelivery (`RewardSessionConsumer`) — tracked
+  separately. See `features/session-type-stats.md`; spec `specs/session-type-stats.md`; Trello #43
+  ([oxZkifXh](https://trello.com/c/oxZkifXh)).
+- _Last shipped:_ **Provably fair (commit-reveal + portable RNG + player verifier)** —
+  `feature/provably-fair` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-10**.
+  Replaces the post-lock `Int32` + `System.Random` seed with a **commit-reveal `ServerSeed` committed on
+  the first bet** (atomic first-writer-wins; `ServerSeedHash` published during betting, raw seed revealed
+  after `Ended`) and a **portable HMAC-SHA256 counter keystream** (rejection sampling, canonical bet
+  order `CreatedDate,Id`, labelled fallback) reproducible in any language. Client seed is **Stake-style**
+  (persistent, settable/rotatable, localStorage) with a per-bet **`nonce`** — `Bet.Seed =
+  HMAC-SHA256(clientSeed, nonce)`, raw client seed never leaving the browser. Reveal-gated
+  `GET /sessions/{id}/verification` + `ServerSeedHash` on `ActiveSessionDto`; verification via that
+  endpoint + standalone offline `public/verify.html` (**the in-terminal "Verify this round" recompute
+  was dropped** — the terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`;
+  add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`; widen `Bet.Seed` to 64). **329 unit + 2 provably-fair
+  integration tests green.** Bundled a `GameTypeCard` price fix (sessions-list price now mirrors the
+  in-game `BET:` label). Out-of-repo `04 Fairness & game rules.pdf` regenerated to the new scheme. See
+  `features/provably-fair.md`; spec `specs/provably-fair.md`. Trello #42
+  ([XWAeIgIQ](https://trello.com/c/XWAeIgIQ)).
 - _Last shipped:_ **Refactor payment models** — `feature/payment-methods-refactor`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-08**. Removes the
   operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session

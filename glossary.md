@@ -11,8 +11,9 @@
 - **Bet** — a player's wager on a `Session`: a `Choice` (the sequence they bet on), an `Amount`
   (Standard = USD; SolanaToken = token-native), optional `OperatorPlayerId` FK (NULL for anonymous free
   bets), a **`PaymentMethod`** (copied from the session type), a nullable **`ExternalTransactionReference`**
-  (SolanaToken → the on-chain signature; Standard → the wallet debit ref), and seed. Entity: `Bet`. The
-  old `PaymentSignature` column is **removed**. On-chain payout/refund address is resolved from linked
+  (SolanaToken → the on-chain signature; Standard → the wallet debit ref), a provably-fair **`Seed`**
+  (a 64-char `HMAC-SHA256(clientSeed, Nonce)` hex — the raw client seed never reaches the server), and a
+  per-bet **`Nonce`**. Entity: `Bet`. The old `PaymentSignature` column is **removed**. On-chain payout/refund address is resolved from linked
   `OperatorPlayer.ExternalPlayerId`, not stored on the bet row.
 - **OperatorPlayer** — operator-scoped player identity. Fields include `ExternalPlayerId` (Solana
   wallet pubkey or casino player id), optional `DisplayName`, `Currency` (defaults to USD),
@@ -28,20 +29,48 @@
   `allowFreeBet` on active-types API responses.
 - **AllowFreeBets** — bool on `GeneralSettings.Sessions` in `monkifysettings.json`. Global backend
   gate; must be `true` for the API to accept free bets.
-- **Typer / MonkifyTyper** — the domain service that "types" random characters until a bet's choice
-  appears; determines winners. Uses Stopwatch-scheduled wall-clock pacing and optional seed-based
-  fallback at the character cap. `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`. See
+- **Typer / MonkifyTyper** — the domain service that "types" characters until a bet's choice appears;
+  determines winners. Reads the session's committed **`ServerSeed`** and drives character selection from
+  a **portable HMAC-SHA256 keystream** (rejection-sampled; no `System.Random`), with Stopwatch-scheduled
+  wall-clock pacing and an HMAC-keystream fallback at the character cap.
+  `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`. See `features/provably-fair.md` and
   `features/typer-pacing-scalability.md`.
 - **DisplaySpeed** — SignalR event `{ typingSpeed }` (1–3) ramping during a session run. Driven by
   elapsed-time fractions of the typer's target mean duration; the frontend maps tiers to refresh
   cadence in `GameTyper.vue`.
 - **Fallback winner** — when the typer reaches `MaxTyperCharacters` without a natural sliding-window
-  match, the winner is drawn with `new Random(SessionSeed)` over ordinally-sorted choices. Same seed
-  + bets → same winner on any host (`WinnerDecidedByFallback`). Because the winning sequence was never
+  match, the winner is drawn from a dedicated `HMAC-SHA256(ServerSeed, prefix + "|fallback")` label over
+  ordinally-sorted choices. Same `ServerSeed` + bets → same winner in any language
+  (`WinnerDecidedByFallback`). Because the winning sequence was never
   naturally typed, `SessionService.RunSession` then emits it as a **final `<sessionId>/Terminal`
   batch** so the terminal ends with the word "typed" (display-only; see `features/characters-away.md`).
 - **MaxTyperCharacters** — config cap (default 5,000,000) on characters typed before fallback
   winner selection; also bounds the pacing horizon for huge search spaces.
+- **ServerSeed** — the per-session server entropy for provably fairness: 32 CSPRNG bytes stored as a
+  64-char lowercase-hex string on `Session.ServerSeed`, generated + committed **atomically on the first
+  bet** (first-writer-wins; never regenerated) and **revealed only after the round Ends** (via the
+  verification endpoint). Keys the HMAC-SHA256 keystream that drives the typer. Replaces the removed
+  `int? Session.Seed`. See `features/provably-fair.md`.
+- **ServerSeedHash** — `SHA256(UTF8(ServerSeed))` (lowercase hex) on `Session.ServerSeedHash`, the
+  **commitment** published as soon as the seed exists (during betting, on `ActiveSessionDto` and the
+  verification endpoint). After the reveal, `SHA256(ServerSeed) == ServerSeedHash` proves the seed was
+  not grinded.
+- **Client seed** — the player's own provably-fair entropy: a persistent value in browser localStorage
+  (`monkify.clientSeed`), viewable/settable/rotatable in the header gear modal. Combined with a per-bet
+  **`Nonce`** to derive `Bet.Seed = HMAC-SHA256(clientSeed, String(nonce))`. The raw client seed
+  **never** leaves the browser; only the derived `Bet.Seed` reaches the server. Rotating/setting resets
+  the nonce to 0. Frontend `useClientSeed`.
+- **Bet nonce** — an incrementing per-bet counter (`Bet.Nonce`, `long`) under a client seed; makes each
+  derived `Bet.Seed` unique and lets a bettor prove `Bet.Seed == HMAC(clientSeed, nonce)` without
+  exposing the client seed.
+- **Provably-fair verification** — reproducing a round's outcome from published inputs. Exposed by the
+  reveal-gated `GET /sessions/{id}/verification` (operator-scoped): pre-Ended returns `serverSeedHash` +
+  ordered bet seeds/choices/nonces + `characterPool`/`queueLength`/`maxCharacters`; post-Ended adds
+  `serverSeed` + `winningChoice` + `winnerDecidedByFallback` (the raw `clientSeed` is never returned).
+  Anyone replays the HMAC keystream to reproduce the winner; a standalone offline `public/verify.html`
+  does it without contacting Monkify. There is **no in-terminal recompute** — the game terminal only
+  displays the commitment (during betting) and the revealed seed (after Ended). See
+  `features/provably-fair.md`.
 - **Characters Away / near-miss** — a player-facing, display-only reveal: while a round runs, a
   bottom-docked terminal row per **own** bet choice shows how close the monkey has come to typing it
   (`> N AWAY!`, `away = L − k` where `k` = longest stream-suffix that is a prefix of the choice — a
@@ -149,3 +178,13 @@
 - **Session chat message** — a plain-text line broadcast within one session instance over
   `ActiveSessionsHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
   `SessionChatMessage` for audit/retention only (not replayed). See `features/session-chat.md`.
+- **Session-type stats** — all-time aggregated stats for one **session type** (`SessionParameters`),
+  served read-only by token-gated, operator-scoped `GET /sessions/{parametersId}/stats`: biggest pot
+  ever split, biggest single payout, rounds played, total paid out, and (preset types only) the
+  most-picked **hottest choice**. Computed **on demand** from the type's completed
+  (`RewardForWinnersCompleted`) rounds — pot reconstructed as `Σ Bet.Amount` (+ lottery base), money
+  from `TransactionLog` `Credit` rows — and cached in Redis (~120s); **no stats entity or migration**.
+  Free bets are excluded from money/hottest-choice (a free-only completed round still counts as a
+  round). Amounts are single-currency per type. Rendered in the lazy **STATS** tab of the `/game`
+  side panel. Entity/DTO: `SessionTypeStats` / `SessionTypeStatsDto`. See
+  `features/session-type-stats.md`.
