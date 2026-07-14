@@ -115,6 +115,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/monkify/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'monkify-wallet'`, `utils/walletBridge.ts`); `useSession.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-sessions` | Shipped              |
 | `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
+| `specs/wallet-display-name.md` | Frontend-only: make SolanaToken player display-name/preferences key off the **connected wallet** everywhere — reactive per-wallet load (`App.vue` no longer omits the wallet), a customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend verified no-change** (`sub`-first/wallet-second already correct). Child of umbrella #46, escrow-independent | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -137,7 +138,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created):_ **Display name per connected wallet for SolanaToken sessions** —
+  `feature/wallet-display-name` (`monkify-front` + `monkify-meta`; **no backend**), spec created
+  2026-07-14. Frontend-only consistency + gating so SolanaToken display-name/preferences key off the
+  **connected wallet** everywhere: `App.vue` reloads preferences reactively on wallet
+  connect/switch/disconnect (the mount load no longer omits the wallet — the crypto-empty-name bug);
+  the customization modal shows a **"Connect wallet to customize"** gate when no wallet is connected
+  AND (the selected session is `SolanaToken` OR there is no usable launch-token `sub`); the
+  preferred-currency dropdown is hidden in a SolanaToken context. Identity keying is
+  wallet-when-connected else `sub`. **Backend verified no-change** (`GetPlayerPreferencesHandler` /
+  `UpdatePlayerPreferencesHandler` already resolve `sub`-first/wallet-second, empty crypto `sub` falls
+  through to `?wallet=`). Child of umbrella #46, **escrow-independent**. Spec
+  `specs/wallet-display-name.md`; Trello #58 ([sohAuZN0](https://trello.com/c/sohAuZN0)). Next:
+  `/monkify-implement-feature`.
 - _Last shipped:_ **Iframe embedding + embedded crypto (SolanaToken) play (2 stacked cards, one branch)** —
+  `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-14**.
+  Two frontend-only features merged to `main` in one stacked merge (the branch contained both #3's
   `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-14**.
   Two frontend-only features merged to `main` in one stacked merge (the branch contained both #3's
   `4e53e02` and #41's `9784354`; `feature/iframe-embedding` is a contained ancestor). **#3 "Make the game
