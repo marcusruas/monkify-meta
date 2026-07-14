@@ -1,9 +1,10 @@
 # Monkify — "Display name per connected wallet for SolanaToken sessions" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Display name per connected wallet for SolanaToken sessions](https://trello.com/c/sohAuZN0) (2026-07-14).
+> **Status: Shipped** — merged via `feature/wallet-display-name` on 2026-07-14. Refined via Trello card
+> [Display name per connected wallet for SolanaToken sessions](https://trello.com/c/sohAuZN0).
 > Repos affected: `monkify-front`, `monkify-backend`, and this doc in `monkify-meta`. **Full-stack** —
 > the original "frontend-only / backend no-change" scope was corrected during implementation (see §6).
+> Distilled summary: `../features/wallet-display-name.md`.
 >
 > **Purpose:** For **SolanaToken** sessions a player's identity is their **connected wallet**, but the
 > display-name / preferences flow does not consistently key off it: the app loads preferences on mount
