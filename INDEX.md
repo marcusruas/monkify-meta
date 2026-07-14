@@ -94,6 +94,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/session-type-stats.md` | Per-game all-time stats per session type via `GET /sessions/{parametersId}/stats` (biggest pot, biggest single payout, rounds played, total paid out, hottest choice for preset types) — **on-demand aggregate + Redis cache, no new entity/migration**; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type, operator-scoped/vague; rendered in a lazy **STATS** tab of the `/game` right-side panel (bundled with **CHAT** via `GameSidePanel`) | Shipped              |
 | `features/provably-fair.md` | Commit-reveal `ServerSeed` (committed on the first bet, revealed after `Ended`), portable HMAC-SHA256 keystream RNG + labelled fallback, Stake-style client seed + `Bet.Nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification` + offline `public/verify.html`; terminal shows commitment/reveal only | Shipped              |
 | `features/wallet-display-name.md` | SolanaToken player display-name/preferences key off the **connected wallet** everywhere: backend prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`); `InsertBet` carries `externalPlayerId` on live notifications; frontend reactive per-wallet load + "Connect wallet to customize" gate + currency hidden for SolanaToken | Shipped              |
+| `features/lottery-pot-stacking.md` | Un-won lottery pots **stack** into the next round via `Session.CarriedExtra` (preset no-winner draw carries losing stakes; under-subscription carries the base unchanged; paid win resets). `pot = Σ bets + LotteryPot + CarriedExtra`; carry decided once at rollover by `LotteryPotCarry`. Admin **deactivation transfers** the un-won pot to an eligible active lottery (same operator/method/token) or blocks. Player `> POT:` reflects the jackpot; seeded dev 1-min preset lottery `6L Minute Menagerie` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -117,7 +118,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `SessionService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
-| `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Session.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Ready |
+| `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Session.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Shipped |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -139,8 +140,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress (spec created 2026-07-14):_ **Lottery pot stacking** —
-  `feature/lottery-pot-stacking` (`monkify-backend` + `monkify-front` + `monkify-meta`). Make lottery
+- _Last shipped:_ **Lottery pot stacking** —
+  `feature/lottery-pot-stacking` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
+  2026-07-14**. Makes lottery
   pots roll over: a new `decimal Session.CarriedExtra` (default 0) holds a running jackpot above the
   config base, so `pot = Σ bets + LotteryParameters.LotteryPot + CarriedExtra`. A **preset lottery that
   draws a choice nobody bet on** (`NumberOfWinners == 0`) carries `prev.CarriedExtra + Σ losing stakes`
@@ -151,8 +153,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
   requires a `TargetLotteryId` and **transfers** `CarriedExtra` into an eligible active lottery (same
   operator, method, and `OperatorTokenId` for SolanaToken); **blocks** when none exists. Frontend `> POT:`
   seeds from `LotteryPot + CarriedExtra`; admin deactivate gains an eligible-target picker. Seeded
-  dev-only **1-min preset lottery** ("6L Minute Menagerie"). Spec: `specs/lottery-pot-stacking.md`;
-  Trello #53 ([1Mhgvlq6](https://trello.com/c/1Mhgvlq6)). Next: `/monkify-implement-feature`.
+  dev-only **1-min preset lottery** ("6L Minute Menagerie"). **356 unit + 34 integration tests green**
+  (+`LotteryPotCarryTests`, +2 pot-with-carry, +1 CreateSession carry, +6 deactivation-transfer, +2
+  Testcontainers flow tests: preset no-winner stack + deactivation transfer). See
+  `features/lottery-pot-stacking.md`; spec `specs/lottery-pot-stacking.md`. Trello #53
+  ([1Mhgvlq6](https://trello.com/c/1Mhgvlq6)).
 - _Last shipped:_ **Display name per connected wallet for SolanaToken sessions** —
   `feature/wallet-display-name` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
   2026-07-14**. Full-stack fix so SolanaToken display-name/preferences key off the **connected wallet**

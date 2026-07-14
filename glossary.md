@@ -154,14 +154,25 @@
   KycRequired | Blocked | Other`); a timeout/error is **fail-closed** (rejected, no settlement). Skipped
   for anonymous free bets. Log-only, no DB row. See `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
-- **LotteryParameters** — config for lottery-style sessions (frequency, pot); scheduled via Hangfire.
+- **LotteryParameters** — config for lottery-style sessions (`Frequency`, base `LotteryPot`); scheduled
+  via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the session as
+  **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
+- **CarriedExtra** — the running lottery jackpot stacked from prior **un-won** rounds, stored per
+  session (`Session.CarriedExtra`, `decimal(18,9)`, default `0`) **on top of** the base `LotteryPot`.
+  A **preset lottery** whose drawn choice had no bettors carries `prev.CarriedExtra + Σ losing stakes`
+  into the successor; an **under-subscribed** round refunds stakes and carries the jackpot unchanged; a
+  **paid win** (incl. a free-bet winner) resets the successor to `0`. Decided once at rollover by
+  `LotteryPotCarry.NextCarriedExtra(Session)`. `0` for every non-lottery session. On admin deactivation
+  it is **transferred** to an eligible same-operator/same-method/same-token lottery (never destroyed).
+  See `features/lottery-pot-stacking.md`.
 - **Pot** — the amount winners split, shown as the `> POT:` line in the game terminal for **every**
   session type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
-  lottery = `lotteryParameters.lotteryPot` base `+ Σ bets`; seeded on load, accumulated live from the
-  `/Bets` SignalR stream, reset/reseeded on rollover; free bets (`amount = 0`) add nothing. Rendered
-  via `formatAmount` (SolanaToken → the token symbol/decimals; Standard → USD or preferred display
-  currency). Settlement math is separate — `BetDomainService.SetPotAmount` remains the payout source of
-  truth. See `features/session-pot-display.md`.
+  lottery = `lotteryParameters.lotteryPot` base `+ CarriedExtra` (the stacked jackpot) `+ Σ bets`;
+  seeded on load, accumulated live from the `/Bets` SignalR stream, reset/reseeded on rollover; free
+  bets (`amount = 0`) add nothing. Rendered via `formatAmount` (SolanaToken → the token
+  symbol/decimals; Standard → USD or preferred display currency). Settlement math is separate —
+  `BetDomainService.SetPotAmount` (`= Σ bets + LotteryPot + CarriedExtra`) remains the payout source of
+  truth. See `features/session-pot-display.md` and `features/lottery-pot-stacking.md`.
 - **Display name** — optional `OperatorPlayer.DisplayName` (1–20 chars, trimmed). Set via the
   customization modal (`PATCH /players/preferences`); rendered on bet DTOs and recent-bets SignalR
   events for self and others; falls back to truncated `externalPlayerId`. See

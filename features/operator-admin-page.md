@@ -48,6 +48,14 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
 - **Deactivate while waiting:** `SessionTypeDeactivatedEvent` cancels every `WaitingBets` session of
   that type — paid bets are refunded (`RefundInvalidBetEvent`), free bets skipped, session set to
   `NotEnoughPlayersToStart`. `SessionStarting`/`InProgress` sessions are left to finish.
+- **Deactivate a lottery holding an un-won pot:** if the lottery's current session has a stacked
+  jackpot (`CarriedExtra > 0`), `POST /admin/session-types/{id}/deactivate` requires a
+  `{ targetLotteryId }` body and **transfers** the pot into that target (same operator, active, a
+  lottery, same `PaymentMethod`, and same `OperatorTokenId` for SolanaToken). Omitting the target, or
+  when no eligible target exists, **blocks** the deactivation (the pot is never destroyed). With
+  `CarriedExtra == 0` deactivation is unchanged. `GET /admin/session-types` exposes each lottery's
+  current `CarriedExtra` so the portal can prompt + filter eligible targets. See
+  `features/lottery-pot-stacking.md`.
 - **Validation:** `SessionParametersValidation` enforces name/description, charset, choice length
   (1–20), min players (≥ 2), amount (> 0), preset-choice rules, and lottery bounds. Field-level
   validation errors are acceptable on authenticated admin endpoints (not the vague auth path).

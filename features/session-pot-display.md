@@ -13,8 +13,9 @@ from data the client already receives, with no backend, DB, SignalR-contract, or
 ## Core rules
 
 - The pot is shown for **all three modes**. For **races** it equals the sum of placed bet amounts
-  (`Σ bets[].amount`); for **lottery** it equals `lotteryParameters.lotteryPot` (base) `+ Σ bets` —
-  the lottery value is unchanged from before.
+  (`Σ bets[].amount`); for **lottery** it equals `lotteryParameters.lotteryPot` (base)
+  `+ session.carriedExtra` (the jackpot stacked from prior un-won rounds, surfaced on the
+  active-session DTO) `+ Σ bets`. See `features/lottery-pot-stacking.md`.
 - **Seed on load:** when a session loads (`getBets`), the pot is set to `Σ bets` plus the lottery base
   only when the session is a lottery.
 - **Realtime:** each new bet on the `RecentBets` `/Bets` SignalR stream increments the pot, for every

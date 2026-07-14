@@ -1,8 +1,9 @@
 # Monkify — "Lottery Pot Stacking" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Make sure lottery works as expected (and stacks the previous rewards)](https://trello.com/c/1Mhgvlq6/53-make-sure-lottery-works-as-expected-and-stacks-the-previous-rewards)
-> (2026-07-14).
+> **Status: Shipped** — merged to `main` via `feature/lottery-pot-stacking` on 2026-07-14. Refined via
+> Trello card
+> [Make sure lottery works as expected (and stacks the previous rewards)](https://trello.com/c/1Mhgvlq6/53-make-sure-lottery-works-as-expected-and-stacks-the-previous-rewards).
+> Distilled summary: `../features/lottery-pot-stacking.md`.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Make lottery pots behave like a real jackpot. When a lottery round pays **no one**,

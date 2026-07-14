@@ -164,8 +164,14 @@ Key frontend types (`src/types/index.ts`): `ActiveSession` (incl. `lotteryParame
 
 - The draw is scheduled with **Hangfire** (`SessionService.ScheduleLottery`), which enqueues a
 delayed `BetPlacedEvent` at the session's `StartDate` (now + `Frequency`).
-- The pot shown in the UI = `LotteryPot` + sum of placed bets (`GameTerminal`/`useSession`).
+- The pot shown in the UI = `LotteryPot` + `CarriedExtra` (stacked jackpot) + sum of placed bets
+(`GameTerminal`/`useSession`).
 - If too few players by draw time, all bets are refunded (step 5).
+- **Pot stacking:** when a round pays **no one** — a **preset** lottery draws a choice nobody bet on
+(`NumberOfWinners == 0`), or an **under-subscribed** round never draws — the un-won pot rolls forward
+into the next round via `Session.CarriedExtra` (preset no-winner carries the losing stakes; under-sub
+carries the base unchanged; a paid win resets to the base). Deactivating a lottery that still holds an
+un-won pot **transfers** it to an eligible lottery. See `features/lottery-pot-stacking.md`.
 
 ---
 
@@ -261,8 +267,10 @@ sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes,
 Constructed per session with `TokenSettings`. `Winners` = bets with `Status == NeedsRewarding`.
 
 - **Pot (`SetPotAmount`):** `pot = Σ(all bet amounts)` — zero-amount (free) bets contribute nothing;
-  for lottery types, add `LotteryParameters.LotteryPot`. **No commission is applied** — the full pot is
-  paid to winners (the old `CommisionPercentage` was removed; see `features/operator-wallet-api.md`).
+  for lottery types, add `LotteryParameters.LotteryPot` **and** the session's `CarriedExtra` (the
+  jackpot stacked from prior un-won lottery rounds — see `features/lottery-pot-stacking.md`). **No
+  commission is applied** — the full pot is paid to winners (the old `CommisionPercentage` was removed;
+  see `features/operator-wallet-api.md`).
 - **Reward per winner (`CalculateRewardForBet`):**
   - `winnerReward = pot / winnerCount`.
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
