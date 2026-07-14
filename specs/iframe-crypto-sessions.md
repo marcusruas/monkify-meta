@@ -1,8 +1,10 @@
 # Monkify — "Embedded (iframe) crypto (SolanaToken) sessions" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` via `feature/iframe-crypto-sessions` on 2026-07-14 (stacked on
+> card #3 `iframe-embedding`; one merge of this branch landed both). Distilled in
+> `../features/iframe-crypto-sessions.md`. Trello card
 > [Make embedded (iframe) play work for SolanaToken (crypto) sessions](https://trello.com/c/PVUH9zJZ)
-> (2026-07-10).
+> (spec 2026-07-10).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend`: none.**
 >
 > **Purpose:** Let a player place a **paid `SolanaToken` (on-chain) bet from inside the embedded

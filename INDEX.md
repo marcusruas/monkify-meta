@@ -89,6 +89,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/characters-away.md` | Near-miss reveal: bottom-docked `> N AWAY!` row per own choice (KMP tail-prefix `away = L − k`) that climbs, loops every 2s, and types out the winner on a win; in-game `> POT:`; backend emits the fallback-decided winner as a final terminal batch | Shipped              |
 | `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per session status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the sessions page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/monkify/game` redirect + session-connection teardown fix | Shipped              |
 | `features/payment-methods.md` | **Per-session** payment: `SessionParameters.PaymentMethod` (`Standard`=off-chain USD wallet / `SolanaToken`=on-chain per-operator registered token, key AES-GCM encrypted at rest); unified `IPaymentMethodService` strategy+resolver + availability gating; ledger split (`Bet`/`TransactionLog` `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`); admin token CRUD. **Removes `Operator.PaymentModel`** | Shipped              |
+| `features/iframe-embedding.md` | Frontend-only: a **regulated (Model A)** casino embeds the game in an `<iframe>` — `useEmbed` detection, secret-free `{source:'monkify'}` postMessage lifecycle API, embedded 401→`token-expired`+"relaunching" (never `/error`), fills the frame, permissive `frame-ancestors *`, example page + `EMBEDDING.md`; distilled from `specs/iframe-embedding.md` | Shipped              |
+| `features/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: paid **`SolanaToken`** bets inside the iframe via a **same-origin wallet-bridge popup** (`/monkify/wallet-bridge`) that returns the on-chain signature+wallet (`source:'monkify-wallet'`); popup opened synchronously on click, token-native amounts, no new parent contract; distilled from `specs/iframe-crypto-sessions.md` | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -107,8 +109,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
 | `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the sessions page, a `/`→`/monkify/game` redirect, and a session-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-session **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
-| `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'monkify',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`session-started`/`bet-placed`/`bet-settled`(bettors-only)/`session-ended`/`resize`(hint) from `useSession.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Ready |
-| `specs/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/monkify/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'monkify-wallet'`, `utils/walletBridge.ts`); `useSession.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-sessions` | Ready |
+| `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'monkify',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`session-started`/`bet-placed`/`bet-settled`(bettors-only)/`session-ended`/`resize`(hint) from `useSession.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Shipped              |
+| `specs/iframe-crypto-sessions.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/monkify/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'monkify-wallet'`, `utils/walletBridge.ts`); `useSession.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-sessions` | Shipped              |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -131,43 +133,28 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress (implemented on branch, not yet merged):_ **Embedded (iframe) crypto (SolanaToken)
-  sessions** — `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), spec
-  created 2026-07-10, front implementation committed 2026-07-10 (`yarn lint` + `yarn build` clean; FE-only,
-  no test harness). **Stacked on card #3** (`feature/iframe-embedding`) — a direct extension of #3's deferred
-  "Solana-wallet-in-iframe" item. #3 is **implemented + committed** on `feature/iframe-embedding`
-  (`monkify-front` @ `4e53e02`); this branch's front side is **rebased onto it** (contains #3's code) and
-  the two **merge to `main` together** (one merge of `feature/iframe-crypto-sessions` brings both). Makes
-  paid **`SolanaToken`** (on-chain) bets playable inside the #3 iframe: wallet extensions don't inject
-  cross-origin, so bet-time **wallet connect + SPL transfer + signing move into a same-origin popup** on
-  the game host (new route `/monkify/wallet-bridge` → `WalletBridgePage.vue`) that `postMessage`s the
-  **signature + wallet** back to the iframe over an **internal same-origin channel**
-  (`source:'monkify-wallet'`, `utils/walletBridge.ts`) — **no new parent-facing contract** (reuses #3's
-  envelope). `useSession.bet()` acquires the signature **in-frame** (`sendToken`, when an extension is
-  present) **or via the popup** (`useEmbeddedWallet.ts`); the popup is opened **synchronously in the
-  bet-click** (dodges popup-blockers; blocked → visible "Connect wallet" affordance, never silent);
-  cancel/close aborts cleanly + re-triggerable; the `GameConsole` in-frame `connected` gate is relaxed
-  when embedded; free (amount 0) SolanaToken sessions embed with no wallet/popup; #3's lifecycle
-  payloads become **token-native** (`tokenSymbol`, never USD). Standalone unchanged. Spec:
-  `specs/iframe-crypto-sessions.md`. Trello #41
-  ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)). Next: `/monkify-ship-feature Make embedded (iframe) play work for SolanaToken (crypto) sessions` (ships #3 + #41 together).
-- _In progress (implemented on branch, not yet merged):_ **Make the game Iframe-able** —
-  `feature/iframe-embedding` (`monkify-front` @ `4e53e02` + `monkify-meta`; **no backend**), spec
-  2026-07-08, front implementation committed 2026-07-10 (will merge to `main` **together with card #41**,
-  which is stacked on it). Frontend-only iframe
-  embedding for **regulated (Model A)** operators (crypto stays standalone — wallet extensions block
-  cross-origin injection). New `useEmbed` (`window.self !== window.top`, `?embed=1` override) +
-  `utils/embed.ts` postMessage emitter (envelope `{source:'monkify',type,payload}`, `targetOrigin:'*'`,
-  no secrets, USD amounts). **Core fix:** in embedded mode a 401 / expired / invalid token / inactive
-  operator emits a `token-expired` postMessage + shows a light in-frame "relaunching" state instead of
-  hard-routing to `/error` (branch the `mainService.ts` 401 interceptor + the three `useOperator.ts`
-  `/error` routes); the casino re-launches by re-setting the iframe `src` with a fresh `#launch_token=`
-  (clean reload, existing SignalR teardown). Lifecycle emits `ready`/`session-started`/`bet-placed`/
-  `bet-settled` (bettors-only)/`session-ended`/`resize` (size hint, not auto-height) from `useSession.ts`
-  + `App.vue`; app fills the frame (`main.css` height chain); permissive `frame-ancestors *` added to the
-  committed `nginx.conf` (prod GCP host must match — deploy dependency); static `public/embed-example.html`
-  + `EMBEDDING.md`. Spec: `specs/iframe-embedding.md`. Trello #3
-  ([RGvJZNTW](https://trello.com/c/RGvJZNTW)). Next: `/monkify-implement-feature Make the game Iframe-able`.
+- _Last shipped:_ **Iframe embedding + embedded crypto (SolanaToken) play (2 stacked cards, one branch)** —
+  `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-14**.
+  Two frontend-only features merged to `main` in one stacked merge (the branch contained both #3's
+  `4e53e02` and #41's `9784354`; `feature/iframe-embedding` is a contained ancestor). **#3 "Make the game
+  Iframe-able"** ([RGvJZNTW](https://trello.com/c/RGvJZNTW)): a **regulated (Model A)** casino embeds the
+  game in an `<iframe>` — `useEmbed` detection (`window.self !== window.top` \| `?embed=1`), a secret-free
+  `{source:'monkify',type,payload}` postMessage lifecycle API (`ready`/`session-started`/`bet-placed`/
+  `bet-settled` bettors-only/`session-ended`/`resize` hint), and the **core fix**: an embedded 401 /
+  expired / invalid token / inactive operator emits `token-expired` + a light "relaunching" state instead
+  of dead-ending on `/error` (branch in `mainService.ts` + `useOperator.ts`); app fills the frame
+  (`main.css`), permissive `frame-ancestors *` in the committed `nginx.conf` (prod host must match), static
+  `public/embed-example.html` + `EMBEDDING.md`. **#41 "Embedded crypto (SolanaToken) sessions"**
+  ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)): paid **`SolanaToken`** (on-chain) bets inside that iframe —
+  extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move to a
+  **same-origin popup** on the game host (route `/monkify/wallet-bridge` → `WalletBridgePage.vue`) that
+  `postMessage`s the **signature + wallet** back over an internal same-origin channel
+  (`source:'monkify-wallet'`, `utils/walletBridge.ts`); `useSession.bet()` acquires the signature in-frame
+  (`sendToken`) **or** via the popup (`useEmbeddedWallet.ts`), opened **synchronously** on click (blocked →
+  visible affordance); the `GameConsole` in-frame `connected` gate is relaxed when embedded; free (amount 0)
+  SolanaToken sessions embed with no wallet/popup; #3's lifecycle payloads become **token-native**
+  (`tokenSymbol`, never USD). Standalone play unchanged. See `features/iframe-embedding.md` +
+  `features/iframe-crypto-sessions.md`; specs `specs/iframe-embedding.md`, `specs/iframe-crypto-sessions.md`.
 - _Last shipped:_ **Refactor payment models** — `feature/payment-methods-refactor`
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-08**. Removes the
   operator-level `Operator.PaymentModel` (`Regulated`/`Crypto`) and moves payment to a per-session

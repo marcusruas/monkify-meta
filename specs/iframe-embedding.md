@@ -1,7 +1,9 @@
 # Monkify — "Make the Game Iframe-able" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Make the game Iframe-able](https://trello.com/c/RGvJZNTW/3-make-the-game-iframe-able) (2026-07-08).
+> **Status: Shipped** — merged to `main` via `feature/iframe-crypto-sessions` on 2026-07-14 (stacked
+> with card #41 `iframe-crypto-sessions`; one merge landed both). Distilled in
+> `../features/iframe-embedding.md`. Trello card
+> [Make the game Iframe-able](https://trello.com/c/RGvJZNTW/3-make-the-game-iframe-able) (spec 2026-07-08).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend`: none.**
 >
 > **Purpose:** Let a **regulated (Model A) operator casino** embed the Monkify game inside an
