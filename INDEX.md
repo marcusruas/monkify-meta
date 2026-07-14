@@ -131,9 +131,10 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress (spec created):_ **Embedded (iframe) crypto (SolanaToken) sessions** —
-  `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), spec created
-  2026-07-10. **Stacked on card #3** (`feature/iframe-embedding`) — a direct extension of #3's deferred
+- _In progress (implemented on branch, not yet merged):_ **Embedded (iframe) crypto (SolanaToken)
+  sessions** — `feature/iframe-crypto-sessions` (`monkify-front` + `monkify-meta`; **no backend**), spec
+  created 2026-07-10, front implementation committed 2026-07-10 (`yarn lint` + `yarn build` clean; FE-only,
+  no test harness). **Stacked on card #3** (`feature/iframe-embedding`) — a direct extension of #3's deferred
   "Solana-wallet-in-iframe" item. #3 is **implemented + committed** on `feature/iframe-embedding`
   (`monkify-front` @ `4e53e02`); this branch's front side is **rebased onto it** (contains #3's code) and
   the two **merge to `main` together** (one merge of `feature/iframe-crypto-sessions` brings both). Makes
@@ -149,7 +150,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   when embedded; free (amount 0) SolanaToken sessions embed with no wallet/popup; #3's lifecycle
   payloads become **token-native** (`tokenSymbol`, never USD). Standalone unchanged. Spec:
   `specs/iframe-crypto-sessions.md`. Trello #41
-  ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)). Next: `/monkify-implement-feature Make embedded (iframe) play work for SolanaToken (crypto) sessions`.
+  ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)). Next: `/monkify-ship-feature Make embedded (iframe) play work for SolanaToken (crypto) sessions` (ships #3 + #41 together).
 - _In progress (implemented on branch, not yet merged):_ **Make the game Iframe-able** —
   `feature/iframe-embedding` (`monkify-front` @ `4e53e02` + `monkify-meta`; **no backend**), spec
   2026-07-08, front implementation committed 2026-07-10 (will merge to `main` **together with card #41**,
