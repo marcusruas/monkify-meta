@@ -117,6 +117,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `SessionService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
+| `specs/non-custodial-escrow.md` | **Umbrella design** (epic #46) for the non-custodial SolanaToken escrow: per-session PDA vault owned by a new Anchor program, non-spendable resolver authority, on-chain `Tally` split, permissionless timeout refund; decomposed into escrow Phases 0–3 (#54–#59). Design basis for the phase specs. | Design (umbrella) |
+| `specs/escrow-phase-0.md` | **Escrow Phase 0** (#54): the new **Rust/Anchor** program in `monkify-backend/program/` — `Config`/`Session`/`Vault`/`BetRecord`/`Tally` PDAs; `initialize_session`/`place_bet`/`resolve`/`claim`/`refund`/`cancel`/`close_session`(+`close_bet`); on-chain tally split, **0.5% commission at resolve** (settings-token mint only, via `Config`), permissionless refund, dust/unclaimed sweep to the Monkify house account; `anchor test` + **devnet** deploy. **No `.NET`/frontend** (Phase 1 = #55, Phase 2 = #56). | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -138,6 +140,23 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (in flight):_ **Escrow Phase 0 — non-custodial SolanaToken escrow Anchor program** —
+  `feature/escrow-phase-0` (`monkify-backend` + `monkify-meta`; **no frontend**), spec written
+  2026-07-14. First child of umbrella epic **#46 refactor solana wallet flow**
+  ([SX7avQTT](https://trello.com/c/SX7avQTT)); design `specs/non-custodial-escrow.md`. A new
+  **Rust/Anchor** program living in **`monkify-backend/program/`** (not a new repo) that holds each
+  paid `SolanaToken` session's pot in a **program-owned PDA vault** (authority = Session PDA, no
+  keypair): `Config` (admin-set commission mint/destination) + `Session`/`Vault`/`BetRecord`/per-`(session,choice)`
+  `Tally` PDAs; instructions `initialize_session` (freezes `server_seed_hash` + `commission_bps`, bounded
+  deadline) / `place_bet` (deposit + tally++, rejects amount-0) / `resolve` (commit-reveal gated,
+  **on-chain split** `amount_per_winner = floor((total − commission)/tally)`, **0.5% commission** only when
+  `mint == settings-token mint`) / `claim` (winner pull, ATA init-if-needed) / `refund` (permissionless
+  after a bounded deadline) / `cancel` / `close_session` (+ permissionless `close_bet`) with dust +
+  30-day-unclaimed **sweep to the Monkify house account** and rent reclaim. Non-custodial (the resolver
+  authority asserts only the winning choice + reveals the seed, can never move funds). Ships the program +
+  `anchor test` suite + a **devnet** deploy only; single devnet upgrade key (mainnet multisig/timelock
+  deferred to #59). Backend rewiring = **#55**, frontend = **#56**. Spec: `specs/escrow-phase-0.md`.
+  Trello #54 ([YlxonX59](https://trello.com/c/YlxonX59)).
 - _Last shipped:_ **Display name per connected wallet for SolanaToken sessions** —
   `feature/wallet-display-name` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
   2026-07-14**. Full-stack fix so SolanaToken display-name/preferences key off the **connected wallet**
