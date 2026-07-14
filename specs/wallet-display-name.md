@@ -2,7 +2,8 @@
 
 > **Status: Ready for implementation** — refined via Trello card
 > [Display name per connected wallet for SolanaToken sessions](https://trello.com/c/sohAuZN0) (2026-07-14).
-> Repos affected: `monkify-front` (primary) and this doc in `monkify-meta`. **`monkify-backend` is not affected** (verified — see §6).
+> Repos affected: `monkify-front`, `monkify-backend`, and this doc in `monkify-meta`. **Full-stack** —
+> the original "frontend-only / backend no-change" scope was corrected during implementation (see §6).
 >
 > **Purpose:** For **SolanaToken** sessions a player's identity is their **connected wallet**, but the
 > display-name / preferences flow does not consistently key off it: the app loads preferences on mount
@@ -42,11 +43,11 @@ From `monkify-meta/constraints.md` (full list there):
 - **Branch-per-repo / worktree-first:** `feature/wallet-display-name` in each affected repo, checked
   out at `.worktrees/wallet-display-name/<repo>`; the shared checkout stays a clean `main` hub (never
   `git checkout -b` there). Branch pushed to `origin` for the PR.
-- **Frontend-only → no backend integration test required.** The mandatory happy-path integration-test
-  rule (`constraints.md` → "Integration tests are mandatory for every new feature") applies to
-  **backend** features and session-flow changes; this touches no backend and no session flow.
-  Consistent with prior frontend-only cards (iframe embedding, session-pot-display, audio-overhaul).
-  Verification is via frontend behaviour (§13) + the "no `sub`-keyed crypto path" audit (§12 AC 13).
+- **Backend unit tests + a happy-path integration test (now required).** The scope correction (§6) made
+  this a backend change, so per `constraints.md` → "Integration tests are mandatory for every new
+  feature" it ships with updated/added `Monkify.Tests` unit tests **and** a `Monkify.Tests.Integration`
+  happy-path test proving the wallet-keyed display name end to end (see §11). Report the changed tests.
+- **EF / migrations:** none — no entity, mapping, or migration change (§6.3).
 - **Secrets/config:** none touched; only mock values ever committed.
 - **Operator messaging:** vague errors only; never reveal contract status. (Not exercised here — the
   new user-facing copy is `"Connect wallet to customize"`, which carries no operator-status meaning.)
@@ -64,8 +65,9 @@ From `monkify-meta/constraints.md` (full list there):
 | 3 | **The gate — "Connect wallet to customize".** Show the connect prompt (with the wallet-connect affordance) **in place of the name form** when **no wallet is connected AND (the selected session is `SolanaToken` OR there is no usable launch-token `sub`)**. The last clause covers a crypto-only operator on the sessions list. Show the form only when there is a real identity (wallet connected, or a non-empty `sub`). |
 | 4 | **Currency dropdown hidden in a SolanaToken context** (`selectedSession.paymentMethod === SolanaToken`); the modal then shows display name only. Standard / lobby: dropdown shown as today. |
 | 5 | **In-session label resolution stays per method:** `YOU` / recent-bets / winner names resolve SolanaToken → wallet, Standard → `sub` (current `GameTerminal.vue` behaviour). The real fix is that the crypto name is now actually **loaded per wallet**, so it appears instead of a truncated id. |
-| 6 | **Backend verified — no change needed.** `GetPlayerPreferencesHandler` / `UpdatePlayerPreferencesHandler` resolve `sub`-first, wallet-second; crypto `sub` is empty so they fall through to `?wallet=`. No path miskeys SolanaToken identity off `sub`. |
+| 6 | **~~Backend verified — no change needed~~ — CORRECTED (2026-07-14): the card is full-stack.** The original assumption (crypto `sub` is empty, so `sub`-first resolution is fine) is **false** for the dev operator and any operator offering both Standard + SolanaToken sessions — their launch token always carries a non-empty `sub`, so `sub`-first made the handlers **ignore the wallet**, saving/reading the display name on the `sub` identity while SolanaToken bets are keyed by the **wallet** → crypto bets showed ANON. See §6. |
 | 7 | **No per-wallet preferences cache** (remembering multiple wallets at once). One active identity at a time — reload-on-change overwrites the shared `useDisplayCurrency` singleton (YAGNI). |
+| 8 | **Backend fix (added):** `Get`/`UpdatePlayerPreferencesHandler` now **prefer the wallet when it is provided** (`request.Wallet ?? sub`), so SolanaToken preferences key off the wallet even when a `sub` exists. `SessionService.InsertBet` captures `GetWalletAddress()` **before** nulling `OperatorPlayer`, so live bet notifications carry `externalPlayerId` (restores the `YOU` match on live crypto bets). Frontend sends the wallet to the preference calls **only in a SolanaToken context** so a Standard player with a stray connected wallet is not mis-routed to the wallet under the new precedence. |
 
 ---
 
@@ -84,29 +86,52 @@ untouched.
 
 ---
 
-## 6. Backend behaviour — verified unchanged (no code change)
+## 6. Backend behaviour — CHANGED (the "no change" assumption was wrong)
 
-Confirmed by reading the current code; documented so the implementer does **not** re-open the backend
-without cause:
+> **Correction (2026-07-14, during implementation).** The pre-implementation reading concluded the
+> backend needed no change because "the crypto `sub` is empty." Testing disproved this: the **dev
+> launch token always carries `sub = "dev-player"`** (`DevController`), and any operator offering both
+> Standard **and** SolanaToken sessions issues a launch token with a real `sub`. With the handlers
+> resolving **`sub`-first**, a SolanaToken player's `?wallet=` was **ignored**, so the display name was
+> written to / read from the `sub` `OperatorPlayer` while SolanaToken bets are keyed by the **wallet**
+> `OperatorPlayer` (which had no name) → crypto bets rendered **ANON**. Two backend fixes are required.
 
-- **`Monkify.Api/Controllers/PlayersController.cs`**
-  - `GET /players/preferences` (`lines 37-42`): `GetPreferences([FromQuery] string? wallet)` →
-    `new GetPlayerPreferencesRequest(_launchContext.OperatorId, _launchContext.ExternalPlayerId, wallet)`.
-    Wallet is an optional **query param**; operator + `sub` come from the validated launch token.
-  - `PATCH /players/preferences` (`lines 49-54`): `UpdatePreferences([FromBody] UpdatePlayerPreferencesRequestBody body)`
-    → wallet is carried **in the body** (`UpdatePlayerPreferencesRequestBody.Wallet`).
-- **`GetPlayerPreferencesHandler.cs` (`lines 23-29`)** and **`UpdatePlayerPreferencesHandler.cs`
-  (`lines 34-43`)** both resolve identity **`sub`-first, wallet-second**:
-  `externalPlayerId = !string.IsNullOrWhiteSpace(request.ExternalPlayerId) ? request.ExternalPlayerId : request.Wallet`.
-  For crypto the launch-token `sub` (`ILaunchContext.ExternalPlayerId`) is empty, so the wallet is
-  used. GET returns `Defaults(string.Empty)` when neither is present; PATCH returns a generic
-  validation failure (`"The request could not be processed."`) when neither is present.
-- **Conclusion:** the backend is correct for crypto; the empty `sub` is skipped in favour of the
-  wallet. The only failure mode is the **client** omitting the wallet — which is exactly what this
-  feature fixes on the frontend. **No backend change; no backend unit/integration test change.**
+### 6.1 Preference identity — prefer the wallet when provided
 
-> Only re-open the backend if implementation surfaces an actual SolanaToken path keyed off `sub`
-> (none exists today). If one is found, `constraints.md` → unit tests + integration test rules apply.
+`Monkify.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` and
+`.../UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`: change identity resolution from
+`sub`-first to **wallet-first-when-present**:
+
+```csharp
+// SolanaToken → wallet (query param on GET / body on PATCH) when provided; else Standard → token sub.
+var externalPlayerId = !string.IsNullOrWhiteSpace(request.Wallet /* or request.Body.Wallet */)
+    ? request.Wallet
+    : request.ExternalPlayerId;
+```
+
+The client only sends a wallet in a SolanaToken context (§7), so Standard prefs still resolve to the
+`sub`. `PlayersController` (`GET [FromQuery] wallet`, `PATCH body.Wallet`) is unchanged.
+
+### 6.2 Live bet notification — capture the wallet before detaching `OperatorPlayer`
+
+`Monkify.Infrastructure/Services/Sessions/SessionService.cs` → `InsertBet` set `bet.OperatorPlayer =
+null` **before** calling `bet.GetWalletAddress()` (which reads `OperatorPlayer.ExternalPlayerId`), so
+every **live** `BetNotificationEvent` shipped `ExternalPlayerId = null` — breaking the `YOU` match on
+live bets. Capture the id (like the display name already is) **before** nulling:
+
+```csharp
+var displayName = bet.OperatorPlayer?.DisplayName;
+var externalPlayerId = bet.GetWalletAddress();   // BEFORE nulling the nav
+bet.Session = null;
+bet.OperatorPlayer = null;
+...
+var notificationEvent = new BetNotificationEvent(bet.SessionId, externalPlayerId, displayName, bet.Amount, bet.Choice);
+```
+
+### 6.3 Host / migration / DTO impact
+
+None beyond the above. No entity, EF mapping, migration, DTO, or SignalR-contract change. Runs in the
+existing hosts (API validates + reads prefs; `SessionService.InsertBet` runs where bets are inserted).
 
 ---
 
@@ -124,15 +149,20 @@ without cause:
 
   ```ts
   import { useWallet } from 'solana-wallets-vue';
+  import { PaymentMethod } from '@/types';
   const { connected, publicKey } = useWallet();
+  const { typingSpeed, selectedSession } = useSession();
   // ...
+  // Send the wallet ONLY for SolanaToken sessions — the backend now prefers a wallet when present
+  // (§6.1), so sending a stray wallet in a Standard session would mis-route that player's prefs.
+  const walletForPrefs = () =>
+    selectedSession.value?.paymentMethod === PaymentMethod.SolanaToken
+      ? (publicKey.value?.toString() ?? undefined)
+      : undefined;
   watch(
-    () => publicKey.value?.toString() ?? null,
-    (addr) => {
-      if (route.name === 'Session' || route.name === 'Game') {
-        // Reload the display name/currency for the new identity (wallet when connected, else sub).
-        loadPreferences(addr ?? undefined);
-      }
+    [() => publicKey.value?.toString(), () => selectedSession.value?.paymentMethod],
+    () => {
+      if (route.name === 'Session' || route.name === 'Game') loadPreferences(walletForPrefs());
     }
   );
   ```
@@ -263,15 +293,19 @@ flowchart TD
 
 ### 10.1 Backend (`monkify-backend`)
 
-**None.** Verified no change required (§6).
+| # | File | Change |
+| --- | --- | --- |
+| 1 | `.../Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | Prefer `request.Wallet` when non-empty, else the token `sub` (§6.1). |
+| 2 | `.../Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Prefer `request.Body.Wallet` when non-empty, else the token `sub` (§6.1). |
+| 3 | `.../Services/Sessions/SessionService.cs` (`InsertBet`) | Capture `bet.GetWalletAddress()` before nulling `OperatorPlayer`; pass the captured id into `BetNotificationEvent` (§6.2). |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/App.vue` | Add a watcher on the connected wallet address (`publicKey`) that reloads `loadPreferences(addr)` on connect / switch / disconnect (guarded to `Session`/`Game` routes). Keep the existing mount load + `watch(connected) → startConnection()`. |
-| 2 | `src/components/header/PlayerCustomizationModal.vue` | Import `useSession`, `getPlayerIdFromToken`, `PaymentMethod`, `WalletButtons`; add `hasWallet` / `isCryptoSession` / `hasUsableSub` / `needsWalletToCustomize`; render the "Connect wallet to customize" panel when gated; wrap the currency `<label>` in `v-if="!isCryptoSession"`; make the load watcher also watch `publicKey`. Save mechanics unchanged. |
-| 3 | `src/components/game/GameTerminal.vue` | Expected **no change** (benefits from §7.1). Edit only if QA finds a label still resolving off `sub` in a SolanaToken session. |
+| 1 | `src/App.vue` | Import `PaymentMethod` + destructure `selectedSession`; add a watcher on `[publicKey, selectedSession.paymentMethod]` that reloads `loadPreferences(walletForPrefs())` on the game routes — sending the wallet **only** when the session is SolanaToken (§7.1). Keep the mount load + `watch(connected) → startConnection()`. |
+| 2 | `src/components/header/PlayerCustomizationModal.vue` | Import `useSession`, `getPlayerIdFromToken`, `PaymentMethod`, `WalletButtons`; add `isCryptoSession` / `hasWallet` / `hasUsableSub` / `useWalletIdentity` / `needsWalletToCustomize`; `walletId()` returns the wallet only when `useWalletIdentity`; render the "Connect wallet to customize" panel when gated (SAVE hidden); wrap the currency `<label>` in `v-if="!isCryptoSession"`; load watcher also watches `publicKey`. |
+| 3 | `src/components/game/GameTerminal.vue` | **No change** — benefits from §7.1 + the backend fixes (own live crypto bets now carry `externalPlayerId` → `YOU`; others → the per-wallet name). |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -282,15 +316,30 @@ flowchart TD
 
 ---
 
-## 11. Unit tests
+## 11. Tests
 
-Backend test project `Monkify.Tests`: **no changes** — no backend code changes (§6).
+**Backend unit — `Monkify.Tests` (added, all green — 342 total):**
 
-`monkify-front` has no established component-test harness for these composables/components (prior
-frontend-only features — iframe, pot-display, audio — shipped with manual QA rather than added FE unit
-tests). Verification is **manual QA (§13)** plus the audit AC (§12 AC 13). If a frontend test setup is
-introduced later, the gate logic in §7.2 (`needsWalletToCustomize` truth table) is the natural unit to
-cover.
+| Test file | Test case | Asserts |
+| --- | --- | --- |
+| `UnitTests/Handlers/GetPlayerPreferencesHandlerTests.cs` | `WalletProvided_TakesPrecedenceOverSub` | With both a `sub` row and a wallet row seeded, a request carrying `sub` + `wallet` returns the **wallet** row's prefs. |
+| `UnitTests/Handlers/UpdatePlayerPreferencesHandlerTests.cs` | `WalletInBody_TakesPrecedenceOverSub_WritesToWalletIdentity` | PATCH with `sub` in the token + `wallet` in the body writes the name to the **wallet** `OperatorPlayer`; no `sub` row is created. |
+
+**Backend integration — `Monkify.Tests.Integration` (mandatory happy path, added):**
+
+| Test file | Test case | Asserts |
+| --- | --- | --- |
+| `PlayerPreferencesTests.cs` | `CryptoPreferences_TokenAlsoHasSub_WalletTakesPrecedenceOverSub` | Reproduces the bug end-to-end: a **SolanaToken** launch token that **also carries a `sub`**, PATCH `{displayName, wallet}` → GET-by-wallet returns the name, GET-by-`sub` does **not**, and at the DB level the name is on the wallet `OperatorPlayer`, not the sub. |
+
+The `InsertBet` fix (§6.2) is covered by the wallet-precedence identity being correct plus manual QA
+(own live crypto bet shows `YOU`); asserting the live SignalR `BetNotificationEvent` payload directly
+would require a streaming client and is left to manual QA (§13).
+
+**Frontend:** `monkify-front` has no established component-test harness for these
+composables/components (prior frontend-only features — iframe, pot-display, audio — shipped with manual
+QA). Verification is **manual QA (§13)** plus the "no `sub`-keyed crypto path" audit. The
+`needsWalletToCustomize` / `useWalletIdentity` truth tables are the natural units if a FE test setup is
+added later.
 
 ---
 
