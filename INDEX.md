@@ -117,6 +117,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/session-type-stats.md` | Per-game general stats per session type (all-time): `GET /sessions/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `SessionService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
+| `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Session.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -138,6 +139,20 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created 2026-07-14):_ **Lottery pot stacking** —
+  `feature/lottery-pot-stacking` (`monkify-backend` + `monkify-front` + `monkify-meta`). Make lottery
+  pots roll over: a new `decimal Session.CarriedExtra` (default 0) holds a running jackpot above the
+  config base, so `pot = Σ bets + LotteryParameters.LotteryPot + CarriedExtra`. A **preset lottery that
+  draws a choice nobody bet on** (`NumberOfWinners == 0`) carries `prev.CarriedExtra + Σ losing stakes`
+  (stakes NOT refunded); an **under-subscribed** round refunds stakes and carries the jackpot unchanged;
+  any **paid win** (incl. a free-bet winner) resets the successor to `0`. Carry decided once at
+  rollover via a `LotteryPotCarry.NextCarriedExtra(Session)` helper (used by `RunSessionConsumer`,
+  `BetPlacedConsumer`, and startup backfill). Admin **deactivation** of a lottery holding un-won money
+  requires a `TargetLotteryId` and **transfers** `CarriedExtra` into an eligible active lottery (same
+  operator, method, and `OperatorTokenId` for SolanaToken); **blocks** when none exists. Frontend `> POT:`
+  seeds from `LotteryPot + CarriedExtra`; admin deactivate gains an eligible-target picker. Seeded
+  dev-only **1-min preset lottery** ("6L Minute Menagerie"). Spec: `specs/lottery-pot-stacking.md`;
+  Trello #53 ([1Mhgvlq6](https://trello.com/c/1Mhgvlq6)). Next: `/monkify-implement-feature`.
 - _Last shipped:_ **Display name per connected wallet for SolanaToken sessions** —
   `feature/wallet-display-name` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
   2026-07-14**. Full-stack fix so SolanaToken display-name/preferences key off the **connected wallet**
