@@ -337,17 +337,38 @@ worktree's own copy** so both resolve to the feature worktrees, never the hubs:
    ```
 
    It `docker compose down -v`s any existing stack, rebuilds `api`/`consumers`/`database`/`redis`/
-   `rabbitmq` from the backend worktree, materializes the frontend `.env.production.local` (dev launch
-   buttons force-enabled), and builds/boots `monkify-front` from the front worktree.
-4. If the build fails, **stop**, report the failing step, and leave the worktrees for inspection (don't
-   move the card).
-5. On success, **write/update the marker** (`.worktrees/.deployed-stack.json`) with this feature's
-   label, cards, branches, and date.
+   `rabbitmq` from the backend worktree (a **compose** project), materializes the frontend
+   `.env.production.local` (dev launch buttons force-enabled), and **then** builds + `docker run`s
+   `monkify-front`.
+
+   > **The frontend is deployed OUT-OF-BAND from the backend — verify them together (this is the gap
+   > that makes a deploy look half-done).** `monkify-front` is a **standalone `docker build` + `docker
+   > run`**, *not* a compose service, and it is (re)built **last**, after the whole backend rebuild.
+   > Consequences you must account for: (a) `docker compose down -v` does **not** remove the old
+   > `monkify-front` — the **previous** feature's front keeps running for the **minutes** the backend
+   > takes to rebuild, pointing at a torn-down/rebuilding backend (a real front-up / backend-down
+   > window); (b) the batch script has **no error handling** — `call` continues past a failed
+   > `docker compose build`, so a **backend** build failure still proceeds to rebuild the front,
+   > leaving a **front-up / backend-missing** stack; (c) seeing the front up — or the script returning
+   > — is **not** proof the backend deployed.
+4. **Verify the FULL stack came up together (do not trust the script's exit).** After the script
+   returns, poll `docker ps` until **all five backend compose services** — `…-api-1`, `…-consumers-1`,
+   `…-database-1`, `redis`, `rabbitmq` — **and** the `monkify-front` container are **Up / healthy at the
+   same time** (allow the backend a few minutes to pass its healthchecks). If, after that wait, the
+   **api/consumers are missing or unhealthy while the front is up** (the common split — backend build
+   failed), or the front never rebuilt, the deploy **FAILED**: report exactly which side is missing,
+   leave the containers/worktrees for inspection, and **do not** hand off as deployed or move the card.
+   Re-run the script (or fix the underlying build error) until backend **and** front are healthy together.
+5. On confirmed **joint** health (backend + front), sanity-check the served front bundle actually
+   changed (yarn.lock gotcha, step 2), then **write/update the marker** (`.worktrees/.deployed-stack.json`)
+   with this feature's label, cards, branches, and date.
 
 ### Step 11: Hand off to the user to test the running containers — WAIT for the nod
 
-Tell the user the feature is implemented, green, committed/pushed, and **deployed**, and **ask them to
-test the running app** before the card moves. Give them:
+Tell the user the feature is implemented, green, committed/pushed, and **deployed** — only claim
+**deployed** once Step 10c's **joint** health check passed (the backend compose services **and** the
+`monkify-front` container all Up/healthy together, not merely because the script returned or the front
+is up). Then **ask them to test the running app** before the card moves. Give them:
 
 - **Where it's live** — API `http://localhost:6001`, frontend `http://localhost:6003` (dev launch
   buttons enabled). If they chose **Skip** (10b), say clearly it is **not** deployed and how to deploy
@@ -396,6 +417,12 @@ Tell the user:
   (not an uncommitted tree). The **card move to Implemented** still waits for their explicit nod.
 - **Never auto-clobber a running stack** — if a different feature is already deployed, ask
   (Replace / Combine / Skip); with no answer, default to **Skip** and never wipe a running env.
+- **Frontend deploys out-of-band from the backend — verify them together.** `monkify-front` is a
+  standalone `docker build`/`docker run` (not a compose service), rebuilt **last**; `down -v` doesn't
+  remove it and the batch script doesn't stop on a backend build failure. Never claim **deployed** until
+  `docker ps` shows the backend compose services (`api`, `consumers`, `database`, `redis`, `rabbitmq`)
+  **and** `monkify-front` all Up/healthy **together** (Step 10c.4). A front-up / backend-missing stack is
+  a **failed** deploy — report it, don't hand off, don't move the card.
 - **Every new feature gets a happy-path integration test** (and one per complex flow) — see
   `constraints.md`. Fixes/QOL/minor changes are exempt.
 - **Worktree-first** — implement in `.worktrees/<slug>/<repo>`; the hub stays on `main`. Deploy by
