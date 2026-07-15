@@ -56,9 +56,10 @@ scoped to one session type (`SessionParameters`) and aggregated across every rou
 > chat log where it reads as real screen text. The collapse control is folded into the header caret
 > and, when collapsed, becomes a vertical metal **dock rail** (CHAT/STATS) that expands straight to a
 > tab (replacing the old floating green "Hide" pill). A new header **maximize** control gives the panel
-> a third state: it blows up into a **wide landscape CRT** (`w-[40vw]`/max-720, `h-56%`) pinned to the
-> **top-right play area**, where the maximize icon swaps to a **restore** icon; collapse drops maximize
-> so the dock rail always restores to the docked size. In STATS, the "0% house cut" trust tile is
+> a third state: it blows up into a **wide landscape CRT** (`w-[40vw]`/max-720, `h-50%`, kept to the
+> upper band so its bottom clears the monkey) pinned to the **top-right play area**, where the maximize
+> icon swaps to a **restore** icon; collapse drops maximize so the dock rail always restores to the
+> docked size. In STATS, the "0% house cut" trust tile is
 > **promoted to the top** as a badge and the readouts read as a hierarchy (muted Silkscreen labels
 > over VT323 values, the biggest-pot value in orange). Presentation-only — no stats logic, endpoint,
 > caching, or data shape changed. See INDEX "Feature currently in flight".
