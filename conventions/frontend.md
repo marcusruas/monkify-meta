@@ -63,6 +63,16 @@
   component libraries, or bespoke controls when a design-system primitive already exists; reuse and
   extend the existing components so new screens (modals, headers, forms) match the current look and
   feel. If a needed primitive is missing, add it to the design system rather than styling in place.
+- **Responsive / mobile layout (`< lg` / 1024px):** the app is desktop-first; below `lg` a shared
+  **`useIsMobile()`** composable (`src/hooks/useIsMobile.ts`, `matchMedia('(max-width: 1023px)')`) gates
+  mobile structure. This reuses the `GameMonkey hidden lg:block` boundary and covers landscape phones,
+  so portrait + landscape share one layout. The lobby grid is already 1-col below `md`; the game screen
+  swaps its desktop three-sibling row for a **`GAME | CHAT·STATS` segmented view** (`GameMobileTabs`)
+  whose two views are **absolutely stacked** (only the active one visible + interactive, the hidden one
+  `invisible pointer-events-none`) so a hidden view can't intercept taps, with both kept mounted so chat
+  keeps its subscription. Mobile SolanaToken bets use an "open in wallet app" deep link
+  (`src/utils/walletDeepLink.ts`). Prefer `max-lg:`/`lg:` Tailwind variants + `dvh` heights over new
+  breakpoints. See `features/mobile-layout.md`.
 - **Routing:** `src/routes.ts` — `/monkify/game/sessions`, `/monkify/game/play`, `/error`;
   `/monkify/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
   `/` redirects to `/error`.
