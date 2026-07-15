@@ -36,6 +36,15 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
   clears, input re-enables, same identity kept, chat re-registers on the new session group.
 - **No REST API** for chat. No operator-specific messaging added.
 
+> **Update (in flight, `feature/side-panel-cabinet`).** Presentation-only restyle of the chat panel as
+> part of the side-panel cabinet re-housing (see `session-type-stats.md` and INDEX "Feature currently
+> in flight"). The chat log now renders as CRT text (VT323, dim timestamps, sender names in green, your
+> **own** messages in orange — matched by your resolved display name, like the terminal's "YOU"); the
+> Send button is orange (Silkscreen); a small **connection meta line** under the input shows
+> "CONNECTED AS &lt;name&gt;" / "CONNECT WALLET TO CHAT" / "CHAT CLOSED" alongside the char counter;
+> and the empty state uses an in-world line ("&gt; comms open — say something.") instead of "No
+> messages yet." Identity, send eligibility, limits, persistence, and lifecycle are unchanged.
+
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**

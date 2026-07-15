@@ -49,6 +49,17 @@ scoped to one session type (`SessionParameters`) and aggregated across every rou
   tabs (`GameSidePanel`). It is collapsible and open by default. Both tab bodies stay mounted so chat
   keeps its live subscription while Stats is shown; the Stats tab fetches only on its first activation.
 
+> **Update (in flight, `feature/side-panel-cabinet`).** The side panel was re-housed as a **diegetic
+> arcade-cabinet module** to match the terminal (metal bezel + corner rivets + a recessed CRT screen
+> with scanlines) instead of a translucent floating web box, and moved back on-palette — orange
+> (`#ffa214`) active tab + labels on blue-grey chrome, with terminal green kept **only** inside the
+> chat log where it reads as real screen text. The collapse control is folded into the header caret
+> and, when collapsed, becomes a vertical metal **dock rail** (CHAT/STATS) that expands straight to a
+> tab (replacing the old floating green "Hide" pill). In STATS, the "0% house cut" trust tile is
+> **promoted to the top** as a badge and the readouts read as a hierarchy (muted Silkscreen labels
+> over VT323 values, the biggest-pot value in orange). Presentation-only — no stats logic, endpoint,
+> caching, or data shape changed. See INDEX "Feature currently in flight".
+
 ## Known issue (surfaced, not caused, by this feature)
 
 The stats integration test exercised a **multi-winner payout** (two players betting the same winning
