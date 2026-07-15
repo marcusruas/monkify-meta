@@ -119,6 +119,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `SessionService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
 | `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Session.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Shipped |
+| `specs/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, own registered Solana token + 3 SolanaToken default types: 6X race/preset "horse race"/24h lottery, free bets off) seeded in **all** envs (**prod = Main only**, non-prod also keeps DEV Cassino). New **production-enabled** `POST /launch-token/default` mints an **anonymous Main token** (empty `sub`, Main-only); frontend auto-mints on no-token, silent re-mint on 401, real tokens win. Seeding/config + thin mint endpoint + FE fallback — **no schema/migration; integration test waived**. | Ready |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -140,6 +141,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created):_ **Main production casino (default operator + auto-mint)** —
+  `feature/main-production-operator` (`monkify-backend` + `monkify-front` + `monkify-meta`),
+  spec created **2026-07-15**. Seeds a default **production** operator **"Main"** (fixed RFC-4122 id,
+  own registered Solana token from `GeneralSettings.Token`, three **SolanaToken** default types —
+  6-char alphanumeric race / preset "horse race" over 8 runners / 24h lottery, **free bets off**) in
+  **all** environments: **production seeds only Main**, non-prod also keeps **DEV Cassino** (+ dev
+  landing) unchanged. Adds a **production-enabled** `POST /launch-token/default` that mints an
+  **anonymous** (`sub` empty) launch token for **Main only** (never any other operator), signed with
+  Main's own launch key. Frontend `useLaunch.ensureLaunchToken()` auto-mints Main when there is no
+  fragment/stored token **and not embedded** (real tokens win; marker flags auto-minted tokens); a
+  **401 of an auto-minted token** triggers a silent **re-mint + retry** instead of `/error`
+  (real-operator 401 unchanged), and the prod token-less entry `/monkify/game` redirects to the session
+  page instead of `/error`. **No schema/migration** (data seeding). **Integration test waived** for
+  this card (seeding/config + thin mint endpoint + FE fallback; existing SolanaToken integration tests
+  cover bet→run→reward); unit tests still required. Spec `specs/main-production-operator.md`; Trello #60
+  ([bdkTZJOL](https://trello.com/c/bdkTZJOL)).
 - _Last shipped:_ **Side panel cabinet restyle + maximize** — `feature/side-panel-cabinet`
   (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-15**. **Frontend-only,
   presentation-only** UX cleanup
