@@ -95,6 +95,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/provably-fair.md` | Commit-reveal `ServerSeed` (committed on the first bet, revealed after `Ended`), portable HMAC-SHA256 keystream RNG + labelled fallback, Stake-style client seed + `Bet.Nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification` + offline `public/verify.html`; terminal shows commitment/reveal only | Shipped              |
 | `features/wallet-display-name.md` | SolanaToken player display-name/preferences key off the **connected wallet** everywhere: backend prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`); `InsertBet` carries `externalPlayerId` on live notifications; frontend reactive per-wallet load + "Connect wallet to customize" gate + currency hidden for SolanaToken | Shipped              |
 | `features/lottery-pot-stacking.md` | Un-won lottery pots **stack** into the next round via `Session.CarriedExtra` (preset no-winner draw carries losing stakes; under-subscription carries the base unchanged; paid win resets). `pot = Σ bets + LotteryPot + CarriedExtra`; carry decided once at rollover by `LotteryPotCarry`. Admin **deactivation transfers** the un-won pot to an eligible active lottery (same operator/method/token) or blocks. Player `> POT:` reflects the jackpot; seeded dev 1-min preset lottery `6L Minute Menagerie` | Shipped              |
+| `features/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** (`< lg`/1024px) for the sessions lobby + game screen, portrait + landscape phones, standalone & embedded. Lobby: 1-col condensed cards. Game: a `GAME \| CHAT·STATS` segmented view (absolutely-stacked so a hidden view can't intercept taps) — full-width fluid terminal + compact bet panel (**no amount field**, lever = PLACE BET); full-width chat/stats with an unread dot; monkey hidden. Header inline; customization modal scrolls + seed row wraps. Mobile SolanaToken bets via an **"OPEN IN WALLET APP"** deep-link (Phantom/Solflare in-app browser) reusing `sendToken`. `useIsMobile`/`useChatUnread`/`GameMobileTabs`/`walletDeepLink`. No backend. | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -119,7 +120,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /sessions/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Session.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken session OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `SessionService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
 | `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Session.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Shipped |
-| `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the sessions lobby (`/monkify/game/sessions`) and the game screen (`/monkify/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** (in-app wallet browser + "open in wallet app" deep-link + optional Android MWA). No backend change. | Ready |
+| `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the sessions lobby (`/monkify/game/sessions`) and the game screen (`/monkify/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
 | `skills/`                   | Agent Skills that power the Monkify task pipeline (see below)                            | Drafted              |
 
 
@@ -141,24 +142,26 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress (Specs created):_ **Mobile layout for the game screen** —
-  `feature/mobile-layout` (`monkify-front` + `monkify-meta`; **no backend**), spec created 2026-07-15.
-  Frontend-only responsive layout for the two main player pages (sessions lobby + game screen) for
-  **portrait + landscape phones**, standalone and embedded. Mobile layout engages **below `lg`
-  (1024px)** (reuses the existing `GameMonkey hidden lg:block` boundary, covering landscape phones).
-  **Lobby:** keep the already-responsive 1-col grid, condense the card (art + name + price + lottery
-  badge + `PRESS TO START`; description clamped). **Game:** the desktop three-sibling flex row
-  (`GamePage.vue`) becomes a column with a **`GAME | CHAT·STATS` segmented toggle** — `GAME` = the
-  full-width fluid terminal (bypass the JS height-driven width) + a **compact bet panel** (choice input
-  via native keyboard / themed preset keypad, lever = `PLACE BET`, **no amount field**); `CHAT·STATS` =
-  the chat + stats bodies full-width (no absolute cabinet/rail), with an unread badge; the monkey stays
-  hidden. Header stays inline; the customization modal's seed row wraps on narrow widths
-  (`public/verify.html` already responsive). **Net-new mobile crypto wallet-connect** (in-app wallet
-  browser + "open in wallet app" deep-link + optional Android Mobile Wallet Adapter) — the
-  highest-risk piece; the bet POST is unchanged so no backend work. Card #5
-  ([TOTAUpmq](https://trello.com/c/TOTAUpmq)); spec `specs/mobile-layout.md`. Design step (Claude Design
-  mockups → approval) precedes implementation. Corrected two card items during spec: no amount stepper;
-  the header "shield" is the dev-admin button, not a provably-fair verifier.
+- _Last shipped:_ **Mobile layout for the game screen** — `feature/mobile-layout`
+  (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-15**. **Frontend-only**
+  responsive layout for the two main player pages (sessions lobby + game screen), portrait + landscape
+  phones, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the existing
+  `GameMonkey hidden lg:block` boundary, covering landscape phones); a shared `useIsMobile()` composable
+  drives the branches. **Lobby:** the already-1-col grid, with the card description clamped to one line.
+  **Game:** `GamePage` swaps the desktop three-sibling row for a **`GAME | CHAT·STATS` segmented view**
+  (`GameMobileTabs`) — the two views are **absolutely stacked so a hidden view can't intercept taps**,
+  and both stay mounted (chat keeps its live subscription). `GAME` = a full-width fluid terminal (JS
+  height-driven width skipped) + a **compact bet panel** (native keyboard / preset keypad, lever =
+  `PLACE BET`, **no amount field**); `CHAT·STATS` = the chat + stats bodies full-width (no absolute
+  cabinet) with an **unread dot** (`useChatUnread`); the monkey stays hidden. Header stays inline; the
+  customization modal scrolls + its seed row wraps (`public/verify.html` already responsive). **Net-new
+  mobile crypto wallet-connect:** an **"OPEN IN WALLET APP"** deep-link (Phantom/Solflare in-app browser,
+  `utils/walletDeepLink.ts`) for SolanaToken bets with no injected wallet, reusing the existing
+  `sendToken` flow (Android MWA deferred); the bet POST is unchanged so no backend work. Design mockups
+  (Claude Design) were approved before build. Corrected two card items during implementation: no amount
+  stepper; the header "shield" is the dev-admin button, not a provably-fair verifier. **Front build +
+  lint green; frontend-only ⇒ no backend integration test required.** Card #5
+  ([TOTAUpmq](https://trello.com/c/TOTAUpmq)); `features/mobile-layout.md`; spec `specs/mobile-layout.md`.
 - _Last shipped:_ **Side panel cabinet restyle + maximize** — `feature/side-panel-cabinet`
   (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-15**. **Frontend-only,
   presentation-only** UX cleanup

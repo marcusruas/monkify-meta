@@ -1,8 +1,12 @@
 # Monkify — "Mobile layout for the game screen" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [(DESIGN) Mobile layout for the game screen](https://trello.com/c/TOTAUpmq) (2026-07-15).
+> **Status: Shipped** — merged via `feature/mobile-layout` on 2026-07-15. Refined via Trello card
+> [(DESIGN) Mobile layout for the game screen](https://trello.com/c/TOTAUpmq).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **No backend.**
+> Distilled summary: `../features/mobile-layout.md`. Shipped deviations from this spec: the mobile
+> wallet path shipped as **layer 1 only** (the "open in wallet app" deep link); Android Mobile Wallet
+> Adapter (§7.6 layer 2) was **deferred**. A follow-up fix stacks the mobile GAME/CHAT·STATS views
+> absolutely so a hidden view can't intercept taps.
 >
 > **Purpose:** Make Monkify's two main player screens — the **sessions lobby**
 > (`/monkify/game/sessions`) and the **main game** (`/monkify/game/play`) — usable on phones, in
