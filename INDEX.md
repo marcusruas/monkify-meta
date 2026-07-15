@@ -140,8 +140,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress:_ **Side panel cabinet restyle** — `feature/side-panel-cabinet` (`monkify-front` +
-  `monkify-meta`; **no backend**), started 2026-07-15. **Frontend-only, presentation-only** UX cleanup
+- _Last shipped:_ **Side panel cabinet restyle + maximize** — `feature/side-panel-cabinet`
+  (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-15**. **Frontend-only,
+  presentation-only** UX cleanup
   of the `/game` right-docked CHAT/STATS side panel (the `GameSidePanel` bundle). The panel is
   re-housed as a **diegetic arcade-cabinet module** — metal bezel (`terminal.border #92a1b9`) + corner
   rivets + a recessed near-black CRT screen with faint scanlines — matching the word-input housing
