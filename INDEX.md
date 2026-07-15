@@ -147,16 +147,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
   rivets + a recessed near-black CRT screen with faint scanlines — matching the word-input housing
   instead of the old translucent floating web box, and moved back on-system: orange (`#ffa214`) active
   tab + labels + Send on blue-grey chrome, with terminal green kept **only** inside the live chat log
-  (VT323 CRT text, dim timestamps, green sender names, **own** messages orange). The floating green
-  "Hide" pill is gone — collapse is a header caret, and collapsed the panel becomes a vertical metal
-  **dock rail** (CHAT/STATS) that expands straight to a tab. Chat gains a **connection meta line**
-  ("CONNECTED AS …" / "CONNECT WALLET TO CHAT" / "CHAT CLOSED") beside the char counter and warmer
-  in-world idle copy; STATS promotes "0% house cut" to a top trust badge and renders a label/value
-  hierarchy (Silkscreen labels over VT323 values, biggest-pot in orange). Touches only
-  `GameSidePanel.vue`, `GameChatPanel.vue`, `GameStatsPanel.vue`; both tab bodies still stay mounted
-  (`v-show`, incl. while collapsed) so chat keeps its live subscription, and STATS still lazy-fetches
-  on first activation. No backend / DB / SignalR / data-shape change, so no integration test required
-  (frontend-only presentation tweak). See `features/session-type-stats.md` +
+  (VT323 CRT text, green sender names, **own** messages orange). The floating green "Hide" pill is
+  gone. The panel now has **three states**, driven by header controls (a square **maximize** icon +
+  a collapse caret): **collapsed** → a vertical metal **dock rail** (CHAT/STATS) that expands straight
+  to a tab; **docked** (default) → the narrow full-height right-rail cabinet; **maximized** → a wide
+  landscape CRT (`w-[40vw]`/max-720, `h-56%`) pinned to the **top-right play area**, where the maximize
+  icon swaps to a **restore** icon. **Chat timestamps** (`HH:MM`) are hidden in the docked view and
+  **restored (with a larger log font) only when maximized**, where there's width for them. Chat also
+  gains a **connection meta line** ("CONNECTED AS …" / "CONNECT WALLET TO CHAT" / "CHAT CLOSED") beside
+  the char counter and warmer in-world idle copy; STATS promotes "0% house cut" to a top trust badge
+  and renders a label/value hierarchy (Silkscreen labels over VT323 values, biggest-pot in orange).
+  Also nudges the **monkey** to the lower-centre of the visible play area (`GameMonkey.vue`: drop the
+  `absolute bottom-20`, bottom-align + reserve the panel width on the right). Touches only
+  `GameSidePanel.vue`, `GameChatPanel.vue`, `GameStatsPanel.vue`, `GameMonkey.vue`; both tab bodies
+  still stay mounted (`v-show`, incl. while collapsed) so chat keeps its live subscription, and STATS
+  still lazy-fetches on first activation. No backend / DB / SignalR / data-shape change, so no
+  integration test required (frontend-only presentation tweak). See `features/session-type-stats.md` +
   `features/session-chat.md`.
 - _Last shipped:_ **Lottery pot stacking** —
   `feature/lottery-pot-stacking` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
