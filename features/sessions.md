@@ -88,7 +88,7 @@ production caveat.
 | 6L Savanna Stakes    | Letters | 6   | Preset race (8 animals: rabbit, monkey, donkey, pigeon, cougar, falcon, turtle, jaguar) |
 | 6L Menagerie Mayhem  | Letters | 6   | Preset race (same 8 animals)                                                            |
 | 6L Quarter Quill Pot | Letters | 6   | Lottery (pot 4, draw every 4h)                                                          |
-| 7L Sevenfold Sunset  | Letters | 7   | Lottery (pot 4, draw daily ~23h59m)                                                     |
+| 8L Octave Overnight Jackpot | Letters | 8   | Lottery (pot 4, draw daily ~23h59m)                                              |
 
 
 ---
