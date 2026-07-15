@@ -241,7 +241,17 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - Mid-session contract expiry: the running session finishes; new bets and new sessions for that
   operator are blocked.
 - SignalR hubs use session id only — no token validation on websockets.
-- Non-prod: `Monkify.Consumers` seeds **one** dev operator (fixed RFC-4122 GUID
+- **Default production operator (Main):** `Monkify.Consumers` seeds an operator named **`Main`**
+  (fixed RFC-4122 GUID `22222222-2222-4222-8222-222222222222`, contract active, no end date) in **all**
+  environments — in **production it is the only** seeded operator. Main is pre-provisioned with one
+  encrypted `OperatorToken` from `GeneralSettings.Token` and **three SolanaToken** default session types
+  (a 6-char alphanumeric race, a preset "horse race", a 24h lottery; free bets off). A
+  **production-enabled** `POST /launch-token/default` (`LaunchController`, outside the middleware's
+  protected prefixes, signed with Main's own launch key) mints an **anonymous** (empty `sub`) launch
+  token **only** for Main; the SPA auto-mints one when a standalone visitor arrives with no launch
+  token (never when embedded), so the public game works with no casino redirect, and a 401 on an
+  auto-minted token silently re-mints. See `features/main-production-operator.md`.
+- Non-prod **also** seeds **one** dev operator (fixed RFC-4122 GUID
   `11111111-1111-4111-8111-111111111111`) pre-provisioned for **both** methods — a mock wallet map
   (Standard) + one encrypted `OperatorToken` seeded from `GeneralSettings.Token` (SolanaToken) — with
   all default session types Standard plus 3 SolanaToken defaults; dev-only `POST /dev/launch-token` and

@@ -1,7 +1,7 @@
 # Monkify — "Main production casino (default operator + auto-mint)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Main Prd cassino (#60)](https://trello.com/c/bdkTZJOL/60-main-prd-cassino) (2026-07-15).
+> **Status: Shipped** — merged via `feature/main-production-operator` on 2026-07-15. Refined via Trello
+> card [Main Prd cassino (#60)](https://trello.com/c/bdkTZJOL/60-main-prd-cassino).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Give production a **default operator called "Main"** so the public game "just works"

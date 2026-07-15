@@ -86,6 +86,19 @@
   expires), **`LaunchPublicKey`** (+ optional `LaunchKeyId`), and a collection of registered
   **`OperatorToken`s**. The old operator-level `PaymentModel` is **removed** — payment is a per-session
   concern (see **PaymentMethod**). Entity: `Operator`.
+- **Main (default production operator)** — the operator named `Main` (fixed RFC-4122 GUID
+  `22222222-2222-4222-8222-222222222222`, active, no end date) seeded by `Monkify.Consumers` in
+  **every** environment and the **only** seeded operator in production. Pre-provisioned with a
+  registered `OperatorToken` (from `GeneralSettings.Token`) and three **SolanaToken** default session
+  types (`6X Main Sprint` race, `6X Main Derby` preset "horse race", `6X Main Millions` 24h lottery;
+  free bets off). A standalone visitor with no launch token is issued an **anonymous** Main token so the
+  public game works without a casino redirect. See `features/main-production-operator.md`.
+- **`POST /launch-token/default`** — a **production-enabled** endpoint (`LaunchController`, **not** under
+  `/dev`, not token-guarded) that mints an **anonymous** (empty `sub`) RS256 launch token **only** for
+  the **Main** operator, signed with Main's own launch key (`MainSigningPrivateKeyPem`; TTL
+  `MainTokenTtlSeconds`, default 3600s). The SPA calls it when no fragment/stored token exists (never
+  when embedded); a 401 on the resulting token triggers a **silent re-mint**. Real operators' launch
+  tokens are unaffected. See `features/main-production-operator.md`.
 - **Launch token** — a casino-signed **RS256 JWT** that proves operator + player identity; required
   (`X-Launch-Token` header) on every operator-scoped REST call and validated by middleware in
   `Monkify.Api` against the operator's `LaunchPublicKey`. Claims: `iss`=operatorId, `sub`=player id,
