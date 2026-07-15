@@ -150,9 +150,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (VT323 CRT text, green sender names, **own** messages orange). The floating green "Hide" pill is
   gone. The panel now has **three states**, driven by header controls (a square **maximize** icon +
   a collapse caret): **collapsed** → a vertical metal **dock rail** (CHAT/STATS) that expands straight
-  to a tab; **docked** (default) → the narrow full-height right-rail cabinet; **maximized** → a wide
-  landscape CRT (`w-[40vw]`/max-720, `h-50%` — kept to the upper band so its bottom clears the monkey)
-  pinned to the **top-right play area**, where the maximize icon swaps to a **restore** icon. **Chat timestamps** (`HH:MM`) are hidden in the docked view and
+  to a tab; **docked** (default) → the narrow right-rail cabinet (same `h-50%` upper-band height as
+  maximized, so it also clears the monkey); **maximized** → a wide landscape CRT (`w-[40vw]`/max-720,
+  `h-50%`) pinned to the **top-right play area**, where the maximize icon swaps to a **restore** icon. **Chat timestamps** (`HH:MM`) are hidden in the docked view and
   **restored (with a larger log font) only when maximized**, where there's width for them. Chat also
   gains a **connection meta line** ("CONNECTED AS …" / "CONNECT WALLET TO CHAT" / "CHAT CLOSED") beside
   the char counter and warmer in-world idle copy; STATS promotes "0% house cut" to a top trust badge
