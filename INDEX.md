@@ -123,6 +123,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, own registered Solana token + 3 SolanaToken default types: 6X race/preset "horse race"/24h lottery, free bets off) seeded in **all** envs (**prod = Main only**, non-prod also keeps DEV Cassino). New **production-enabled** `POST /launch-token/default` mints an **anonymous Main token** (empty `sub`, Main-only); frontend auto-mints on no-token, silent re-mint on 401, real tokens win. Seeding/config + thin mint endpoint + FE fallback — **no schema/migration; integration test waived**. | Shipped |
 | `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/chimpout/game/games`) and the game screen (`/chimpout/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
 | `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope. | Shipped               |
+| `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Ready |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -144,6 +145,21 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress:_ **Replace RabbitMQ with MassTransit Postgres SQL transport** —
+  `feature/masstransit-postgres-transport` (`monkify-backend` + `monkify-meta`; **no frontend**),
+  spec created 2026-07-16. Swaps the MassTransit transport from **RabbitMQ** (`UsingRabbitMq`) to the
+  **Postgres SQL transport** (`UsingPostgres`, `MassTransit.SqlTransport.PostgreSQL` 8.5.4) with **no
+  change to event contracts or consumer handler logic** — so the app can deploy to GCP with no broker
+  VM. Messaging tables live in a **separate DB `chimpout_messaging`** on the **same** Postgres instance
+  as the game DB, created at `ChimpOut.Consumers` startup by MassTransit's **Postgres migration hosted
+  service** (API stays publisher-only, no provisioning). Reuses the **game-DB app user** (needs CREATE
+  DATABASE ⇒ #61 grant) via an explicit new secret **`ConnectionStrings:Messaging`**; keeps the **8
+  explicitly-named receive endpoints**; renames the publish abstraction `IRabbitMQService`/
+  `RabbitMQService` → **`IMessageBus`/`MessageBusPublisher`** (`Services/Messaging`). Also folds in a
+  config-only game-DB rename **`monkify → chimpout`** (+ `monkify-network → chimpout-network`) and
+  drops the local `rabbitmq` container. Message-flow change ⇒ integration test runs the game happy path
+  over the Postgres transport (+ a redelivery-idempotency test). **Blocks #61** (terraform GCP deploy).
+  Spec `specs/masstransit-postgres-transport.md`; Trello #64 ([nPCH4e5R](https://trello.com/c/nPCH4e5R)).
 - _Last shipped:_ **Rebranding (new name): Monkify → ChimpOut, Session → Game** —
   `feature/rebrand-chimpout` (`monkify-backend` + `monkify-front` + `monkify-meta` +
   `monkify-lp`), **shipped 2026-07-16**. A **deep rename refactor** (not a
