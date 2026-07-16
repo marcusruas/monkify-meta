@@ -1,4 +1,4 @@
-# Monkify — "Audio Overhaul with AI" — Audio Manifest & Suno Generation Spec
+# ChimpOut — "Audio Overhaul with AI" — Audio Manifest & Suno Generation Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). Distilled in
 > `../features/audio-overhaul.md`. **Post-ship reality:** the 3/2/1 proximity "coin" bleeps were
@@ -9,7 +9,7 @@
 > Repos affected: **`monkify-front`** (assets & wiring — cards 2 & 3) + this doc in **`monkify-meta`**.
 > **No `monkify-backend` change** — frontend-only overhaul.
 >
-> **Purpose:** Give Monkify a single, cohesive AI-generated sound identity in the spirit of a **warm
+> **Purpose:** Give ChimpOut a single, cohesive AI-generated sound identity in the spirit of a **warm
 > 16-bit SNES soundtrack** — recreate the existing game sounds and add the missing feedback (win/lose,
 > proximity bleeps, button click, idle loop) so a round *feels* alive and every player gets real-time
 > audio feedback on their own bets, while staying **relaxing and easy on the ears** (this is a betting
@@ -35,7 +35,7 @@
 
 ## 1. Summary
 
-Monkify's audio today is six ad-hoc `.wav` files (~5 MB each for the loops) with no shared style, one
+ChimpOut's audio today is six ad-hoc `.wav` files (~5 MB each for the loops) with no shared style, one
 dead file, no win/lose feedback, no proximity cues, and no volume control. This overhaul gives it one
 cohesive **warm 16-bit SNES** sound identity that is **chill and relaxing** (see §5.0 art direction):
 
@@ -45,9 +45,9 @@ cohesive **warm 16-bit SNES** sound identity that is **chill and relaxing** (see
   direction).
 - **Repurposes** the currently-unused `game_waiting` slot as a new **idle loop** on `WaitingBets`.
 - **Drops** the never-referenced `success1.wav`.
-- **Restructures** two items: the **session-start sting is folded into "Game Starting"** (no standalone
+- **Restructures** two items: the **game-start sting is folded into "Game Starting"** (no standalone
   file), and **"Game Starting" is now a one-shot** (10 s), not a loop.
-- **Turns the running loop into 3 interchangeable variants** (any one plays per session; identical
+- **Turns the running loop into 3 interchangeable variants** (any one plays per game; identical
   parameters).
 - **Adds** cues: **victory**, **lose**, **3/2/1-away proximity bleeps**, and a **button-press** click.
 - **Adds** (card 3) a game-header **mute + volume control** persisted in `localStorage`.
@@ -63,8 +63,8 @@ terminal text.
 | --- | --- | --- |
 | Idle (`WaitingBets`) | *none* (`game_waiting.wav` imported-out) | **NEW idle loop** (~60 s) in the `game_waiting` slot |
 | Game Starting | `game_starting.wav` (looped) | recreated, **one-shot ~10 s**, glasses-sting baked into its tail |
-| Session-started sting | *none* (was a planned standalone) | **folded into Game Starting** — no separate file |
-| Running | `game_running.wav` (single loop) | **3 interchangeable loop variants** (~15 s), random per session |
+| Game-started sting | *none* (was a planned standalone) | **folded into Game Starting** — no separate file |
+| Running | `game_running.wav` (single loop) | **3 interchangeable loop variants** (~15 s), random per game |
 | Own-bet "call" | `phone_beep.wav` | **remastered**, mp3 |
 | Invalid-lever error | `error1.wav` | **unchanged — kept as-is** |
 | Victory | *none* | **NEW** one-shot ~5 s |
@@ -99,15 +99,15 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Recreate via AI (Suno), with two exceptions.** Music and SFX are regenerated for one cohesive style — **except** the **invalid-lever error stays as-is** (not regenerated), and the **session-start sting is not a standalone file** (folded into Game Starting). SFX may be manually trimmed/normalized after generation. |
+| 1 | **Recreate via AI (Suno), with two exceptions.** Music and SFX are regenerated for one cohesive style — **except** the **invalid-lever error stays as-is** (not regenerated), and the **game-start sting is not a standalone file** (folded into Game Starting). SFX may be manually trimmed/normalized after generation. |
 | 2 | **`success1.wav` is dropped** (never referenced); **`game_waiting`** becomes the new `WaitingBets` idle loop. |
 | 3 | **Creative briefs + Suno prompts live in this spec** (§5) — including per-item **duration, mood, instrumentation, SNES inspiration, and (where given) the reference video URL**, which **must be passed into the Suno prompt**. |
 | 4 | **Overall aesthetic (2026-07-07 art direction): warm, cozy 16-bit SNES soundtrack; relaxing and "chill".** Audio must **never be aggressive on the ears** — no very sharp/piercing tones, no harsh transients — because it plays throughout a betting game. |
-| 5 | **Session-start sting folded into "Game Starting".** When the Game Starting track ends, it resolves with a short "cool" sting for the monkey to put its glasses on — **contained within** the track's duration, never exceeding it. There is no separate sting asset. |
-| 6 | **"Starting loop" → "Game Starting", and it is no longer a loop.** It is a **one-shot ~10 s** track played once on `SessionStarting`. |
-| 7 | **Running is 3 interchangeable variants.** The running-state music is **three** separate audios; the game plays **any one** of them per session. **All three share identical parameters** (duration, key/tempo baseline, seamless loop, the two intensity "spikes"). |
+| 5 | **Game-start sting folded into "Game Starting".** When the Game Starting track ends, it resolves with a short "cool" sting for the monkey to put its glasses on — **contained within** the track's duration, never exceeding it. There is no separate sting asset. |
+| 6 | **"Starting loop" → "Game Starting", and it is no longer a loop.** It is a **one-shot ~10 s** track played once on `GameStarting`. |
+| 7 | **Running is 3 interchangeable variants.** The running-state music is **three** separate audios; the game plays **any one** of them per game. **All three share identical parameters** (duration, key/tempo baseline, seamless loop, the two intensity "spikes"). |
 | 8 | **Proximity bleeps are frontend-only, local player's own bets only.** Client-side from the streamed terminal text. No backend change, no new SignalR event. 3/2/1 escalating pitch; re-arm on match break; closest own bet drives the tier. |
-| 9 | **Victory / Lose audience = only players who bet.** Victory if the local player placed a **winning** bet; Lose if the local player bet but **did not win**; spectators (no bet) hear **neither**. Each fires once at session end. |
+| 9 | **Victory / Lose audience = only players who bet.** Victory if the local player placed a **winning** bet; Lose if the local player bet but **did not win**; spectators (no bet) hear **neither**. Each fires once at game end. |
 | 10 | **Mute + volume control** in the game header, persisted in `localStorage`, **default unmuted / full volume**, applied via a global gain/mute multiplier in `helpers.ts` (client display-only). Implemented in card 3. |
 | 11 | **Format:** compressed **mp3** for music/loops (current `.wav` loops are ~5 MB); keep SFX small; retained `error1` stays `.wav`. Reversible convention. |
 | 12 | **Existing tab-visibility gating is preserved** — audio does not start while the tab is inactive (`GameAudio.vue` `isActiveTab()`); the new idle loop obeys the same gate. |
@@ -123,7 +123,7 @@ and call sites:
 
 | File | Referenced by | Fate |
 | --- | --- | --- |
-| `game_starting.wav` | `GameAudio.vue` (loop on `SessionStarting`) | **recreate → one-shot** `game_starting.mp3` (~10 s, sting baked into tail) |
+| `game_starting.wav` | `GameAudio.vue` (loop on `GameStarting`) | **recreate → one-shot** `game_starting.mp3` (~10 s, sting baked into tail) |
 | `game_running.wav` | `GameAudio.vue` (loop on `InProgress`) | **recreate as 3 variants** `game_running_1/2/3.mp3` (~15 s each) |
 | `game_waiting.wav` | `GameAudio.vue` — **import commented out**, currently unused | **repurpose** as the idle loop → `game_waiting.mp3` (~60 s) |
 | `phone_beep.wav` | `GameMonkey.vue` (`playAudio(beep)` on own-bet call anim) | **remaster** → `phone_beep.mp3` |
@@ -138,7 +138,7 @@ and call sites:
   gain/mute** — that is the gap card 3 fills (§7.1).
 
 **Status → track mapping — `src/components/game/GameAudio.vue`:**
-`SessionStarting → starting loop`, `InProgress → running loop`, `WaitingBets / Reward / Ended →
+`GameStarting → starting loop`, `InProgress → running loop`, `WaitingBets / Reward / Ended →
 stopAudio()` (i.e. **silence on `WaitingBets` today** — the idle loop is new). Tab-visibility gating
 via `isActiveTab()` (visible **and** focused).
 
@@ -147,12 +147,12 @@ call, capped at `MAX_BET_ANIMATIONS = 2`); `GameConsole.vue` `leverError()` → 
 `GameConsole.vue` `selectPresetButton()` currently plays **nothing** (target for the new button click).
 
 **Glasses timing (for the Game Starting sting alignment):** `GameMonkey.vue` schedules the "monkey puts
-glasses on" GIF at `GLASSES_DELAY_MS = 8800` ms into `SessionStarting`. A ~10 s Game Starting track
+glasses on" GIF at `GLASSES_DELAY_MS = 8800` ms into `GameStarting`. A ~10 s Game Starting track
 whose sting lands at ~8.8–9.5 s therefore **lines up with the on-screen glasses moment** — target that.
 
 **Proximity infrastructure already exists** (shipped "Characters Away"): `src/utils/nearMiss.ts`
 (pure KMP: `advance(matcher, ch)` returns the live matched-prefix length `k`) + `src/hooks/useNearMiss.ts`
-(module-singleton fed raw `Terminal` batches from `useSession.ts`). The proximity bleeps (§7.5) **reuse
+(module-singleton fed raw `Terminal` batches from `useGame.ts`). The proximity bleeps (§7.5) **reuse
 this**, not a second matcher.
 
 ---
@@ -161,7 +161,7 @@ this**, not a second matcher.
 
 ### 5.0 Style bible & art direction (apply to EVERY Suno prompt)
 
-> **Monkify house style:** a warm, cozy **16-bit SNES soundtrack** — the era of *Donkey Kong Country*,
+> **ChimpOut house style:** a warm, cozy **16-bit SNES soundtrack** — the era of *Donkey Kong Country*,
 > *Super Mario World*, and *Super Bomberman*. Rounded chiptune/FM timbres, soft bells, mellow lo-fi
 > groove, a light jungle/monkey wink and a gentle slot-machine sparkle. **Instrumental, no vocals.**
 
@@ -186,7 +186,7 @@ SNES inspiration (+ video) · Suno prompt · post-processing.**
 
 #### 1. Idle loop — repurposes the `game_waiting` slot
 
-- **Trigger:** session status `WaitingBets` (players joining / placing bets). Loops via
+- **Trigger:** game status `WaitingBets` (players joining / placing bets). Loops via
   `playLoopingAudio`. **New behavior** — today `WaitingBets` is silent.
 - **Type:** seamless loop · **duration ~60 s (1 minute)** · target file `game_waiting.mp3`
 - **Mood:** calm, inviting, low-stakes anticipation — "the lobby before the round." The most relaxing
@@ -203,7 +203,7 @@ SNES inspiration (+ video) · Suno prompt · post-processing.**
 
 #### 2. Game Starting — one-shot, sting baked into the tail (was "Starting loop")
 
-- **Trigger:** session status `SessionStarting` (the countdown to the run). Played **once** (one-shot,
+- **Trigger:** game status `GameStarting` (the countdown to the run). Played **once** (one-shot,
   **not** a loop) via `playAudio`.
 - **Type:** one-shot · **duration ~10 s** · target file `game_starting.mp3`
 - **Mood:** upbeat "get ready" build that stays warm and playful, resolving into a short, **cool**
@@ -226,8 +226,8 @@ SNES inspiration (+ video) · Suno prompt · post-processing.**
 
 #### 3. Running loop — **3 interchangeable variants**, with two intensity spikes
 
-- **Trigger:** session status `InProgress` (the monkey is typing / the race is on). The game picks
-  **one of the three variants at random** per session and loops it (§7.2).
+- **Trigger:** game status `InProgress` (the monkey is typing / the race is on). The game picks
+  **one of the three variants at random** per game and loops it (§7.2).
 - **Type:** seamless loop · **duration ~15 s each** · target files `game_running_1.mp3`,
   `game_running_2.mp3`, `game_running_3.mp3`
 - **Identical parameters (decision #7):** all three variants share the same **duration (~15 s)**, the
@@ -276,7 +276,7 @@ SNES inspiration (+ video) · Suno prompt · post-processing.**
 
 #### 6. Victory — NEW
 
-- **Trigger:** session `Ended` **and** the local player **bet and won** (§7.4 audience rule). One-shot,
+- **Trigger:** game `Ended` **and** the local player **bet and won** (§7.4 audience rule). One-shot,
   fires once.
 - **Type:** one-shot · **duration ~5 s** · target file `victory.mp3`
 - **Mood:** joyful, warm win celebration — happy and rewarding, but **soft and pleasant**, not a harsh
@@ -293,7 +293,7 @@ SNES inspiration (+ video) · Suno prompt · post-processing.**
 
 #### 7. Lose — NEW
 
-- **Trigger:** session `Ended` **and** the local player **bet but did not win** (§7.4). Spectators
+- **Trigger:** game `Ended` **and** the local player **bet but did not win** (§7.4). Spectators
   (no bet) hear **neither** #6 nor #7. One-shot, fires once.
 - **Type:** one-shot · **duration ~5 s** · target file `lose.mp3`
 - **Mood:** gentle, good-humored "aww, so close" — sympathetic and soft, **never** punishing, alarming,
@@ -393,13 +393,13 @@ Add a module-level master gain/mute and fold it into every play call:
 - **Idle loop (#1):** on `WaitingBets`, start the `game_waiting.mp3` loop (uncomment / add the import;
   add a `'waiting'` track to `currentTrack`). Obey the existing `isActiveTab()` gate and stop it on any
   other status, same as the other tracks.
-- **Game Starting (#2) — now a one-shot, not a loop:** on `SessionStarting`, `playAudio` the ~10 s
+- **Game Starting (#2) — now a one-shot, not a loop:** on `GameStarting`, `playAudio` the ~10 s
   `game_starting.mp3` **once** (use `playAudio`, not `playLoopingAudio`; drop the old `'starting'` loop
   track). The glasses-sting is **baked into its tail**, so there is **no separate sting playback**. If
-  `SessionStarting` outlasts ~10 s, the remaining time is intentionally quiet until `InProgress`.
+  `GameStarting` outlasts ~10 s, the remaining time is intentionally quiet until `InProgress`.
 - **Running (#3) — pick one of three at random:** on `InProgress`, choose one of
   `game_running_1/2/3.mp3` at random (e.g. `arr[Math.floor(Math.random() * 3)]`) and loop it via
-  `playLoopingAudio`. Selection is per session/`InProgress` entry.
+  `playLoopingAudio`. Selection is per game/`InProgress` entry.
 - All of the above respect `isActiveTab()` and stop on status change exactly as today.
 
 ### 7.3 Own-bet call + error + button press
@@ -411,24 +411,24 @@ Add a module-level master gain/mute and fold it into every play call:
 - **Button press (#11):** `GameConsole.vue` `selectPresetButton()` currently plays nothing — add
   `playAudio(buttonPress)` (`button_press.mp3`) at the top of it.
 
-### 7.4 Victory / Lose — end-of-session, bettors only
+### 7.4 Victory / Lose — end-of-game, bettors only
 
-Driven off the existing `useSession` state on `Status → Ended`:
+Driven off the existing `useGame` state on `Status → Ended`:
 
 - **Did the local player bet?** True iff `ownBetChoices.value.length > 0` (the durable record of the
   player's own committed choices; covers crypto, regulated, and free-bet paths). If **false → play
   neither** (spectators are silent). *(Belt-and-suspenders for crypto: an own bet is also
   `bets.some(b => b.externalPlayerId === wallet)`; `ownBetChoices` already captures it via
   `recordOwnChoice`.)*
-- **Did they win?** `useSession` already exposes `winnerChoice` (= `result.firstChoiceTyped`) and
+- **Did they win?** `useGame` already exposes `winnerChoice` (= `result.firstChoiceTyped`) and
   `winners` (= `result.winners`). The player **won** iff `ownBetChoices` includes `winnerChoice`.
   *(Equivalently, own wallet ∈ `winners` for crypto; use the choice test as the primary signal since it
   works across all payment models.)*
 - **Selection:** bet & won → **victory (#6)**; bet & not won → **lose (#7)**; no bet → **neither**.
-  Fire **once** per session end (guard against the `Status` handler running twice), respect the tab
-  gate, and reset the fired-flag on rollover (`updateNewSession`).
-- **Where:** a small watcher on `sessionInstance.status === Ended` (in `useSession` or a dedicated
-  end-of-session audio composable) — no new event, no backend.
+  Fire **once** per game end (guard against the `Status` handler running twice), respect the tab
+  gate, and reset the fired-flag on rollover (`updateNewGame`).
+- **Where:** a small watcher on `gameInstance.status === Ended` (in `useGame` or a dedicated
+  end-of-game audio composable) — no new event, no backend.
 
 ### 7.5 Proximity bleeps (#8/#9/#10) — frontend-only, reuse the KMP matcher
 
@@ -460,7 +460,7 @@ which already runs every streamed `Terminal` character through a per-own-choice 
 
 - A **mute toggle + volume slider** in the game header (e.g. `GameHeader.vue`), bound to §7.1's
   `setMuted` / `setMasterVolume`.
-- **Persist** to `localStorage` (suggested key `monkify.audio` → `{ muted, volume }`); **default
+- **Persist** to `localStorage` (suggested key `chimpout.audio` → `{ muted, volume }`); **default
   unmuted, full volume**; hydrate on mount. **Client display-only** — no server, no bet/settlement
   effect.
 - Applies globally and live to any currently-playing loop (via §7.1's re-apply).
@@ -469,8 +469,8 @@ which already runs every streamed `Terminal` character through a per-own-choice 
 
 - **Tab-visibility gating** (`isActiveTab()` in `GameAudio.vue`) is preserved for the idle loop and all
   new cues — nothing starts while the tab is inactive.
-- Loops still fully stop on `Ended` / rollover (`stopAllAudio` on session change); the near-miss reset
-  on `updateNewSession` already clears proximity state.
+- Loops still fully stop on `Ended` / rollover (`stopAllAudio` on game change); the near-miss reset
+  on `updateNewGame` already clears proximity state.
 
 ---
 
@@ -533,11 +533,11 @@ Game Starting; swap `phone_beep`); `GameConsole.vue` keeps the `error1.wav` impo
 | --- | --- | --- |
 | 2 | `src/assets/audios/*.mp3` (12 files, §8) | Generate + drop in; **keep** `error1.wav`; **delete** `success1.wav` |
 | 3 | `src/constants/helpers.ts` | Master gain/mute + live re-apply to loops (§7.1) |
-| 3 | `src/components/game/GameAudio.vue` | Idle loop on `WaitingBets`; **one-shot** Game Starting on `SessionStarting` (no separate sting); **random** running variant on `InProgress` (§7.2) |
+| 3 | `src/components/game/GameAudio.vue` | Idle loop on `WaitingBets`; **one-shot** Game Starting on `GameStarting` (no separate sting); **random** running variant on `InProgress` (§7.2) |
 | 3 | `src/components/game/GameMonkey.vue` | Own-bet import → remastered `phone_beep.mp3` (§7.3) |
 | 3 | `src/components/game/GameConsole.vue` | Keep `error1.wav`; add button-press SFX (`button_press.mp3`) in `selectPresetButton` (§7.3) |
 | 3 | `src/hooks/useNearMiss.ts` | Emit proximity tier events from `feed()`; fire 3/2/1 bleeps (§7.5) |
-| 3 | `src/hooks/useSession.ts` (or new end-of-session audio composable) | Victory/lose selection on `Ended`, bettors only (§7.4) |
+| 3 | `src/hooks/useGame.ts` (or new end-of-game audio composable) | Victory/lose selection on `Ended`, bettors only (§7.4) |
 | 3 | `src/components/**/GameHeader.vue` (header) | Mute toggle + volume slider, `localStorage` persistence (§7.6) |
 
 ### 10.3 Backend (`monkify-backend`)
@@ -549,7 +549,7 @@ Game Starting; swap `phone_beep`); `GameConsole.vue` keeps the `error1.wav` impo
 ## 11. Tests
 
 - **Backend integration test:** **N/A** — frontend-only feature; the mandatory happy-path integration
-  test in `Monkify.Tests.Integration` does **not** apply (per `constraints.md` → "Scope of new feature").
+  test in `ChimpOut.Tests.Integration` does **not** apply (per `constraints.md` → "Scope of new feature").
 - **This card (1/3):** design/manifest only — **no code, no tests.**
 - **Card 3 (FE unit tests)** — the logic added there should be unit-tested (Vitest/Jest per the front
   repo's setup), specifically:
@@ -557,7 +557,7 @@ Game Starting; swap `phone_beep`); `GameConsole.vue` keeps the `error1.wav` impo
     (3/2/1) once on downward crossing, **re-arms after a break**, and picks the **closest** own bet's
     tier; short choices fire only tiers ≤ L.
   - **Victory/lose selection:** bet & won → victory; bet & not won → lose; **no bet → neither**; fires
-    once per session end.
+    once per game end.
   - **Master gain/mute:** effective volume = `base × (muted ? 0 : master)`, clamped; slider re-applies
     to a live loop; `localStorage` round-trips (default unmuted/full).
   - **Running-variant pick:** `InProgress` selects one of the three variants (deterministic when
@@ -573,7 +573,7 @@ refinements reflected).
 1. **Manifest exists & is complete** — `specs/audio-overhaul.md` exists in `monkify-meta` on
    `feature/audio-overhaul` and lists every sound, each with **trigger, type (loop/one-shot), target
    duration, source, SNES inspiration (+ video where given), and a Suno prompt** (§5). *(Structure vs.
-   the card's original "12 sounds": the session-start sting is now folded into Game Starting and the
+   the card's original "12 sounds": the game-start sting is now folded into Game Starting and the
    running loop is 3 variants, so the manifest is 11 items producing **12 generated files** + the
    retained `error1` — see §8.)*
 2. **Existing sounds accounted for** — `game_starting` (→ one-shot, sting baked in) and `game_running`
@@ -633,4 +633,4 @@ Since this card ships a **document**, "QA" is a review pass:
 | Date | Change |
 | --- | --- |
 | 2026-07-07 | Initial manifest/spec from refined card #17. Audited current audio (6 `.wav`, engine, call sites, near-miss KMP infra); authored the sound manifest with Suno prompts and the card-2/card-3 integration contract. |
-| 2026-07-07 | Art-direction pass (from card owner): overall **warm 16-bit SNES, chill/relaxing, never aggressive on the ears**; **always pass the SNES reference + video URL into the Suno prompt**. Folded the session-start **sting into "Game Starting"** and made **Game Starting a one-shot (~10 s)** with the sting in its tail (aligned to `GLASSES_DELAY_MS`). Turned the **running loop into 3 interchangeable ~15 s variants** with **two intensity "spikes"** each. **`phone_beep` → remaster**; **`error1` kept as-is** (not regenerated). Set durations + SNES inspirations: idle 60 s (*Simian Segue*, DKC), Game Starting 10 s (*Start*, Super Bomberman), victory 5 s (*Battle Victory*, Super Bomberman), lose 5 s (*Death SFX*, DKC), 3/2/1 bleeps <1 s (Mario-coin), button-press created. Updated §1/§3/§4/§5/§6/§7.2/§7.3/§8/§10/§11/§12/§13 accordingly. |
+| 2026-07-07 | Art-direction pass (from card owner): overall **warm 16-bit SNES, chill/relaxing, never aggressive on the ears**; **always pass the SNES reference + video URL into the Suno prompt**. Folded the game-start **sting into "Game Starting"** and made **Game Starting a one-shot (~10 s)** with the sting in its tail (aligned to `GLASSES_DELAY_MS`). Turned the **running loop into 3 interchangeable ~15 s variants** with **two intensity "spikes"** each. **`phone_beep` → remaster**; **`error1` kept as-is** (not regenerated). Set durations + SNES inspirations: idle 60 s (*Simian Segue*, DKC), Game Starting 10 s (*Start*, Super Bomberman), victory 5 s (*Battle Victory*, Super Bomberman), lose 5 s (*Death SFX*, DKC), 3/2/1 bleeps <1 s (Mario-coin), button-press created. Updated §1/§3/§4/§5/§6/§7.2/§7.3/§8/§10/§11/§12/§13 accordingly. |

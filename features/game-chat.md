@@ -1,20 +1,20 @@
-# Feature — Session chat (Add chat)
+# Feature — Game chat (Add chat)
 
-> Status: **shipped (v2).** Authoritative spec: `../specs/session-chat.md`
-> (merged via `feature/session-chat` on 2026-07-03).
+> Status: **shipped (v2).** Authoritative spec: `../specs/game-chat.md`
+> (merged via `feature/game-chat` on 2026-07-03).
 
 ## What it does
 
-Gives players on `/game` a lightweight **per-session chat** while watching the monkey type — during
+Gives players on `/game` a lightweight **per-game chat** while watching the monkey type — during
 the betting/waiting phase and the live run. Messages appear in a right-sidebar panel, attributed to
 each player's **display name** (same identity as bets/winners). Chat reuses the existing
-`ActiveSessionsHub` connection and session SignalR group — no third hub or connection.
+`ActiveGamesHub` connection and game SignalR group — no third hub or connection.
 
 ## Core rules
 
-- **Scope:** one chat room per **active session instance** = the existing SignalR group keyed by
-  `sessionId`. Transport: hub method `SendChatMessage(sessionId, displayName, text)`; clients listen
-  on `{sessionId}/ChatMessage` for `{ displayName, text, sentAt }`.
+- **Scope:** one chat room per **active game instance** = the existing SignalR group keyed by
+  `gameId`. Transport: hub method `SendChatMessage(gameId, displayName, text)`; clients listen
+  on `{gameId}/ChatMessage` for `{ displayName, text, sentAt }`.
 - **Identity (client-resolved):** nickname = `displayName` from `useDisplayCurrency` if set, else a
   **truncated identifier** (last-4 style of wallet or token `sub`), else `ANON` for regulated players
   with no resolved id. No auto-generated `Player-XXXX` nicknames; no `sessionStorage` guest names.
@@ -22,22 +22,22 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
 - **Send eligibility:** regulated players always have token identity → can send. **Crypto players must
   connect a wallet to send** (input disabled + connect prompt until then); they can still **read**.
 - **Persistence (audit-only):** after broadcast, the hub publishes `ChatMessagePersistedEvent` →
-  `ChatMessagePersistedConsumer` writes `SessionChatMessage` (`SessionId`, `DisplayName`, `Text`;
+  `ChatMessagePersistedConsumer` writes `GameChatMessage` (`GameId`, `DisplayName`, `Text`;
   `CreatedDate` = sent time). **Never replayed** to players — late joiners see no prior messages; no
   history-load endpoint.
 - **Retention:** daily Hangfire job `ChatMessagePurgeJob` deletes rows older than
-  `GeneralSettings.Chat.RetentionDays` (**default 7**). Migration applied by `Monkify.Consumers`.
-- **Hub guards:** reject empty/whitespace text, text **> 200** chars, empty session id, or empty
+  `GeneralSettings.Chat.RetentionDays` (**default 7**). Migration applied by `ChimpOut.Consumers`.
+- **Hub guards:** reject empty/whitespace text, text **> 200** chars, empty game id, or empty
   display name — no broadcast, no persist. **No server rate limiting.**
 - **Client limits:** plain text only; **200 chars max**, **1 message / 1 second**, inline validation
-  in `useSessionChat`. No linkify, emoji picker, or markdown.
-- **Lifecycle on `/game`:** panel **open by default**; hide/show toggle (not persisted). After session
+  in `useGameChat`. No linkify, emoji picker, or markdown.
+- **Lifecycle on `/game`:** panel **open by default**; hide/show toggle (not persisted). After game
   `Ended`: messages stay visible, input **read-only**. On rollover to a new instance: message list
-  clears, input re-enables, same identity kept, chat re-registers on the new session group.
+  clears, input re-enables, same identity kept, chat re-registers on the new game group.
 - **No REST API** for chat. No operator-specific messaging added.
 
 > **Update (in flight, `feature/side-panel-cabinet`).** Presentation-only restyle of the chat panel as
-> part of the side-panel cabinet re-housing (see `session-type-stats.md` and INDEX "Feature currently
+> part of the side-panel cabinet re-housing (see `game-type-stats.md` and INDEX "Feature currently
 > in flight"). The chat log now renders as CRT text (VT323, sender names in green, your **own** messages
 > in orange — matched by your resolved display name, like the terminal's "YOU"); the Send button is
 > orange (Silkscreen); a small **connection meta line** under the input shows "CONNECTED AS
@@ -51,19 +51,19 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
 
 **Backend (`monkify-backend`)**
 
-- `Monkify.Infrastructure/Hubs/ActiveSessionsHub.cs` — `SendChatMessage`, `MaxChatMessageLength = 200`
-- `Monkify.Infrastructure/Consumers/ChatMessagePersisted/` — event + consumer
-- `Monkify.Infrastructure/Jobs/ChatMessagePurgeJob.cs` — daily purge (registered in `Monkify.Consumers/Program.cs`)
-- `Monkify.Domain/Sessions/Entities/SessionChatMessage.cs` — EF entity
-- `Monkify.Infrastructure/Migrations/20260703145848_AddSessionChatMessages.cs`
-- `Monkify.Domain/Configs/Entities/ChatSettings.cs` — `RetentionDays`
-- `Monkify.Common/monkifysettings.json` — `Chat.RetentionDays`, `Sessions.SessionChatEndpoint`
-- Tests: `ActiveSessionsHubTests`, `ChatMessagePersistedConsumerTests`, `ChatMessagePurgeJobTests`
+- `ChimpOut.Infrastructure/Hubs/ActiveGamesHub.cs` — `SendChatMessage`, `MaxChatMessageLength = 200`
+- `ChimpOut.Infrastructure/Consumers/ChatMessagePersisted/` — event + consumer
+- `ChimpOut.Infrastructure/Jobs/ChatMessagePurgeJob.cs` — daily purge (registered in `ChimpOut.Consumers/Program.cs`)
+- `ChimpOut.Domain/Games/Entities/GameChatMessage.cs` — EF entity
+- `ChimpOut.Infrastructure/Migrations/20260703145848_AddGameChatMessages.cs`
+- `ChimpOut.Domain/Configs/Entities/ChatSettings.cs` — `RetentionDays`
+- `ChimpOut.Common/chimpoutsettings.json` — `Chat.RetentionDays`, `Games.GameChatEndpoint`
+- Tests: `ActiveGamesHubTests`, `ChatMessagePersistedConsumerTests`, `ChatMessagePurgeJobTests`
 
 **Frontend (`monkify-front`)**
 
-- `src/hooks/useSessionChat.ts` — identity, limits, send eligibility
-- `src/hooks/useSession.ts` — `{sessionId}/ChatMessage` handler, `sendChatMessage`, rollover clear
+- `src/hooks/useGameChat.ts` — identity, limits, send eligibility
+- `src/hooks/useGame.ts` — `{gameId}/ChatMessage` handler, `sendChatMessage`, rollover clear
 - `src/components/game/GameChatPanel.vue` — sidebar UI
 - `src/pages/GamePage.vue` — mounts chat panel
 - `src/types/index.ts` — `ChatMessage`

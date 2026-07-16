@@ -1,16 +1,16 @@
-# Monkify — Glossary
+# ChimpOut — Glossary
 
-> Domain vocabulary for agents. Source of truth: `monkify-backend/src/Monkify.Domain`.
+> Domain vocabulary for agents. Source of truth: `monkify-backend/src/ChimpOut.Domain`.
 > See `architecture.md` for how terms fit together; `features/operators.md` for operator rules.
 
-- **Session** — one round of the game for a given game type. Has a status lifecycle
-  (`WaitingBets → SessionStarting → InProgress → Ended → RewardForWinners…`). Entity: `Session`.
-- **SessionParameters** — a "game type" / configuration (name, required amount, allowed characters,
+- **Game** — one round of the game for a given game type. Has a status lifecycle
+  (`WaitingBets → GameStarting → InProgress → Ended → RewardForWinners…`). Entity: `Game`.
+- **GameParameters** — a "game type" / configuration (name, required amount, allowed characters,
   min players, choice length, lottery params, **required** `OperatorId`, a **`PaymentMethod`**, and a
-  nullable **`OperatorTokenId`** set only for `SolanaToken`). Entity: `SessionParameters`.
-- **Bet** — a player's wager on a `Session`: a `Choice` (the sequence they bet on), an `Amount`
+  nullable **`OperatorTokenId`** set only for `SolanaToken`). Entity: `GameParameters`.
+- **Bet** — a player's wager on a `Game`: a `Choice` (the sequence they bet on), an `Amount`
   (Standard = USD; SolanaToken = token-native), optional `OperatorPlayerId` FK (NULL for anonymous free
-  bets), a **`PaymentMethod`** (copied from the session type), a nullable **`ExternalTransactionReference`**
+  bets), a **`PaymentMethod`** (copied from the game type), a nullable **`ExternalTransactionReference`**
   (SolanaToken → the on-chain signature; Standard → the wallet debit ref), a provably-fair **`Seed`**
   (a 64-char `HMAC-SHA256(clientSeed, Nonce)` hex — the raw client seed never reaches the server), and a
   per-bet **`Nonce`**. Entity: `Bet`. The old `PaymentSignature` column is **removed**. On-chain payout/refund address is resolved from linked
@@ -18,45 +18,45 @@
 - **OperatorPlayer** — operator-scoped player identity. Fields include `ExternalPlayerId` (Solana
   wallet pubkey or casino player id), optional `DisplayName`, `Currency` (defaults to USD),
   `LastSeenAt`. Unique on `(OperatorId, ExternalPlayerId)`. No PII. (`IsCrypto` was removed; crypto-ness
-  is now the session type's `PaymentMethod`, not an operator property.) Entity: `OperatorPlayer`. See
+  is now the game type's `PaymentMethod`, not an operator property.) Entity: `OperatorPlayer`. See
   `features/operator-player-identity.md`.
-- **Free bet** — dev/QA-only bet with `Amount = 0`, allowed only when backend `AllowFreeBets`, session
+- **Free bet** — dev/QA-only bet with `Amount = 0`, allowed only when backend `AllowFreeBets`, game
   `AllowFreeBet`, and (for UI) the frontend flag are all enabled. No debit/credit/refund under **either**
-  payment method; a free `SolanaToken` session also skips wallet-connect. Detected via
+  payment method; a free `SolanaToken` game also skips wallet-connect. Detected via
   `BetExtensions.IsFreeBet` (now `Amount == 0`; the old empty-`PaymentSignature` check is gone). See
   `features/free-bet-mode.md`.
-- **AllowFreeBet** — bool on `SessionParameters` (DB default `false`). Per session type; exposed as
+- **AllowFreeBet** — bool on `GameParameters` (DB default `false`). Per game type; exposed as
   `allowFreeBet` on active-types API responses.
-- **AllowFreeBets** — bool on `GeneralSettings.Sessions` in `monkifysettings.json`. Global backend
+- **AllowFreeBets** — bool on `GeneralSettings.Games` in `chimpoutsettings.json`. Global backend
   gate; must be `true` for the API to accept free bets.
-- **Typer / MonkifyTyper** — the domain service that "types" characters until a bet's choice appears;
-  determines winners. Reads the session's committed **`ServerSeed`** and drives character selection from
+- **Typer / ChimpOutTyper** — the domain service that "types" characters until a bet's choice appears;
+  determines winners. Reads the game's committed **`ServerSeed`** and drives character selection from
   a **portable HMAC-SHA256 keystream** (rejection-sampled; no `System.Random`), with Stopwatch-scheduled
   wall-clock pacing and an HMAC-keystream fallback at the character cap.
-  `Monkify.Domain/Sessions/Services/MonkifyTyper.cs`. See `features/provably-fair.md` and
+  `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs`. See `features/provably-fair.md` and
   `features/typer-pacing-scalability.md`.
-- **DisplaySpeed** — SignalR event `{ typingSpeed }` (1–3) ramping during a session run. Driven by
+- **DisplaySpeed** — SignalR event `{ typingSpeed }` (1–3) ramping during a game run. Driven by
   elapsed-time fractions of the typer's target mean duration; the frontend maps tiers to refresh
   cadence in `GameTyper.vue`.
 - **Fallback winner** — when the typer reaches `MaxTyperCharacters` without a natural sliding-window
   match, the winner is drawn from a dedicated `HMAC-SHA256(ServerSeed, prefix + "|fallback")` label over
   ordinally-sorted choices. Same `ServerSeed` + bets → same winner in any language
   (`WinnerDecidedByFallback`). Because the winning sequence was never
-  naturally typed, `SessionService.RunSession` then emits it as a **final `<sessionId>/Terminal`
+  naturally typed, `GameService.RunGame` then emits it as a **final `<gameId>/Terminal`
   batch** so the terminal ends with the word "typed" (display-only; see `features/characters-away.md`).
 - **MaxTyperCharacters** — config cap (default 5,000,000) on characters typed before fallback
   winner selection; also bounds the pacing horizon for huge search spaces.
-- **ServerSeed** — the per-session server entropy for provably fairness: 32 CSPRNG bytes stored as a
-  64-char lowercase-hex string on `Session.ServerSeed`, generated + committed **atomically on the first
+- **ServerSeed** — the per-game server entropy for provably fairness: 32 CSPRNG bytes stored as a
+  64-char lowercase-hex string on `Game.ServerSeed`, generated + committed **atomically on the first
   bet** (first-writer-wins; never regenerated) and **revealed only after the round Ends** (via the
   verification endpoint). Keys the HMAC-SHA256 keystream that drives the typer. Replaces the removed
-  `int? Session.Seed`. See `features/provably-fair.md`.
-- **ServerSeedHash** — `SHA256(UTF8(ServerSeed))` (lowercase hex) on `Session.ServerSeedHash`, the
-  **commitment** published as soon as the seed exists (during betting, on `ActiveSessionDto` and the
+  `int? Game.Seed`. See `features/provably-fair.md`.
+- **ServerSeedHash** — `SHA256(UTF8(ServerSeed))` (lowercase hex) on `Game.ServerSeedHash`, the
+  **commitment** published as soon as the seed exists (during betting, on `ActiveGameDto` and the
   verification endpoint). After the reveal, `SHA256(ServerSeed) == ServerSeedHash` proves the seed was
   not grinded.
 - **Client seed** — the player's own provably-fair entropy: a persistent value in browser localStorage
-  (`monkify.clientSeed`), viewable/settable/rotatable in the header gear modal. Combined with a per-bet
+  (`chimpout.clientSeed`), viewable/settable/rotatable in the header gear modal. Combined with a per-bet
   **`Nonce`** to derive `Bet.Seed = HMAC-SHA256(clientSeed, String(nonce))`. The raw client seed
   **never** leaves the browser; only the derived `Bet.Seed` reaches the server. Rotating/setting resets
   the nonce to 0. Frontend `useClientSeed`.
@@ -64,11 +64,11 @@
   derived `Bet.Seed` unique and lets a bettor prove `Bet.Seed == HMAC(clientSeed, nonce)` without
   exposing the client seed.
 - **Provably-fair verification** — reproducing a round's outcome from published inputs. Exposed by the
-  reveal-gated `GET /sessions/{id}/verification` (operator-scoped): pre-Ended returns `serverSeedHash` +
+  reveal-gated `GET /games/{id}/verification` (operator-scoped): pre-Ended returns `serverSeedHash` +
   ordered bet seeds/choices/nonces + `characterPool`/`queueLength`/`maxCharacters`; post-Ended adds
   `serverSeed` + `winningChoice` + `winnerDecidedByFallback` (the raw `clientSeed` is never returned).
   Anyone replays the HMAC keystream to reproduce the winner; a standalone offline `public/verify.html`
-  does it without contacting Monkify. There is **no in-terminal recompute** — the game terminal only
+  does it without contacting ChimpOut. There is **no in-terminal recompute** — the game terminal only
   displays the commitment (during betting) and the revealed seed (after Ended). See
   `features/provably-fair.md`.
 - **Characters Away / near-miss** — a player-facing, display-only reveal: while a round runs, a
@@ -78,18 +78,18 @@
   on a win. Computed entirely client-side from the existing `Terminal` stream (`utils/nearMiss.ts` +
   `hooks/useNearMiss.ts`, rendered in `GameTerminal.vue` beside the in-game `> POT:` line). No effect
   on outcomes, payouts, pacing, or the seed. See `features/characters-away.md`.
-- **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `SessionParameters` row
+- **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `GameParameters` row
   belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
   signed **launch token** (`X-Launch-Token`; the operator id is the token `iss`); players enter at
-  `/monkify/game/sessions` (the operator is read from the token, not the URL). Fields:
+  `/chimpout/game/games` (the operator is read from the token, not the URL). Fields:
   `ContractStartDate`, optional `ContractEndDate` (null = never
   expires), **`LaunchPublicKey`** (+ optional `LaunchKeyId`), and a collection of registered
-  **`OperatorToken`s**. The old operator-level `PaymentModel` is **removed** — payment is a per-session
+  **`OperatorToken`s**. The old operator-level `PaymentModel` is **removed** — payment is a per-game
   concern (see **PaymentMethod**). Entity: `Operator`.
 - **Main (default production operator)** — the operator named `Main` (fixed RFC-4122 GUID
-  `22222222-2222-4222-8222-222222222222`, active, no end date) seeded by `Monkify.Consumers` in
+  `22222222-2222-4222-8222-222222222222`, active, no end date) seeded by `ChimpOut.Consumers` in
   **every** environment and the **only** seeded operator in production. Pre-provisioned with a
-  registered `OperatorToken` (from `GeneralSettings.Token`) and three **SolanaToken** default session
+  registered `OperatorToken` (from `GeneralSettings.Token`) and three **SolanaToken** default game
   types (`6X Main Sprint` race, `6X Main Derby` preset "horse race", `6X Main Millions` 24h lottery;
   free bets off). A standalone visitor with no launch token is issued an **anonymous** Main token so the
   public game works without a casino redirect. See `features/main-production-operator.md`.
@@ -101,33 +101,33 @@
   tokens are unaffected. See `features/main-production-operator.md`.
 - **Launch token** — a casino-signed **RS256 JWT** that proves operator + player identity; required
   (`X-Launch-Token` header) on every operator-scoped REST call and validated by middleware in
-  `Monkify.Api` against the operator's `LaunchPublicKey`. Claims: `iss`=operatorId, `sub`=player id,
+  `ChimpOut.Api` against the operator's `LaunchPublicKey`. Claims: `iss`=operatorId, `sub`=player id,
   `exp`/`iat`/`jti`. Failures return a vague 401. See `features/launch-token-validation.md`.
 - **Admin token** — an operator-signed **RS256 JWT** with `scope = "admin"`, `iss = operatorId`,
   **no `sub`**, sent as **`X-Admin-Token`** on `/admin/*` REST calls. Validated by
   `AdminTokenValidationMiddleware` against the same `LaunchPublicKey`; **not** contract-gated. Admin
   and launch tokens are not interchangeable. Entry:
-  `/monkify/admin#admin_token=<jwt>`. See `features/operator-admin-page.md`.
+  `/chimpout/admin#admin_token=<jwt>`. See `features/operator-admin-page.md`.
 - **IAdminContext** — scoped request identity set by admin middleware; carries `OperatorId` only
   (no player). Used by admin handlers; kept separate from `ILaunchContext`.
-- **PaymentMethod** — enum on **`SessionParameters`** (`Standard = 0`, `SolanaToken = 1`) that decides
-  how a session type settles. **Standard** = off-chain via the operator's wallet adapter, always USD,
+- **PaymentMethod** — enum on **`GameParameters`** (`Standard = 0`, `SolanaToken = 1`) that decides
+  how a game type settles. **Standard** = off-chain via the operator's wallet adapter, always USD,
   player = launch-token `sub`, no wallet. **SolanaToken** = on-chain in a per-operator registered
   `OperatorToken`, token-native units, player = connected wallet + signature. Replaces the removed
   operator-level `Operator.PaymentModel`. Dispatched by `IPaymentMethodResolver`. See
   `features/payment-methods.md`.
-- **OperatorToken** — a per-operator registered SPL token backing `SolanaToken` sessions. Fields:
+- **OperatorToken** — a per-operator registered SPL token backing `SolanaToken` games. Fields:
   `Label` (display symbol), `MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`,
   `TokenOwnerPrivateKey` (**encrypted at rest**, never returned/logged), `Decimals`, `Active`. Managed
   in the admin portal (register / list / deactivate — no edit). Entity: `OperatorToken`.
 - **SolanaTokenDescriptor** — an immutable record (`MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`,
   `TokenOwnerPrivateKey`, `Decimals`) passed to `ISolanaService` per call so it settles against the
-  session's token (private key already decrypted by the caller — Consumers only). Replaces per-bet reads
+  game's token (private key already decrypted by the caller — Consumers only). Replaces per-bet reads
   of the global `GeneralSettings.Token`.
 - **IPaymentMethodService / resolver** — the unified settlement strategy (`Debit`/`Credit`/`Refund` →
   `PaymentResult`) with `StandardPaymentMethodService` (→ `IOperatorWalletService`) and
   `SolanaTokenPaymentMethodService` (→ `ISolanaService` + a `SolanaTokenDescriptor`).
-  `IPaymentMethodResolver.Resolve(parameters)` keys on the session's `PaymentMethod`;
+  `IPaymentMethodResolver.Resolve(parameters)` keys on the game's `PaymentMethod`;
   `GetAvailableMethods(operatorId)` returns Standard iff a wallet provider is configured and SolanaToken
   iff ≥1 active `OperatorToken`. See `features/payment-methods.md`.
 - **CryptoTransactionLog** — on-chain detail for a `SolanaToken` movement, always tied to a `Bet`:
@@ -151,13 +151,13 @@
   See `features/payment-methods.md`.
 - **TransactionLogType** — enum on `TransactionLog` (`Credit = 0`, `Debit = 1`, `Refund = 2`); `Credit` is
   the default so legacy reward rows keep their meaning.
-- **Operator wallet API** — the off-chain settlement path for **`Standard`** session types: the
-  operator's own wallet that Monkify instructs to **debit** stakes, **credit** winnings, and **refund**
-  cancelled bets in USD (Monkify holds no float). Integrated via a per-operator adapter
+- **Operator wallet API** — the off-chain settlement path for **`Standard`** game types: the
+  operator's own wallet that ChimpOut instructs to **debit** stakes, **credit** winnings, and **refund**
+  cancelled bets in USD (ChimpOut holds no float). Integrated via a per-operator adapter
   (`IOperatorWalletService`) selected by a named provider in config (`IOperatorWalletResolver`), reached
-  through `StandardPaymentMethodService`. `SolanaToken` sessions settle on-chain instead. See
+  through `StandardPaymentMethodService`. `SolanaToken` games settle on-chain instead. See
   `features/operator-wallet-api.md` + `features/payment-methods.md`.
-- **Pre-bet check / RG hook** — an **opt-in**, per-operator responsible-gaming check Monkify calls in
+- **Pre-bet check / RG hook** — an **opt-in**, per-operator responsible-gaming check ChimpOut calls in
   `RegisterBetHandler` after local validation and **before** the wallet debit, so the operator can
   **allow or deny** a bet (self-exclusion, limits, cooling-off, KYC, blocked). Per-operator adapter
   (`IPreBetCheckService`) selected by a named provider in `GeneralSettings.OperatorRgChecks`
@@ -167,48 +167,48 @@
   KycRequired | Blocked | Other`); a timeout/error is **fail-closed** (rejected, no settlement). Skipped
   for anonymous free bets. Log-only, no DB row. See `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
-- **LotteryParameters** — config for lottery-style sessions (`Frequency`, base `LotteryPot`); scheduled
-  via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the session as
+- **LotteryParameters** — config for lottery-style games (`Frequency`, base `LotteryPot`); scheduled
+  via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the game as
   **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
 - **CarriedExtra** — the running lottery jackpot stacked from prior **un-won** rounds, stored per
-  session (`Session.CarriedExtra`, `decimal(18,9)`, default `0`) **on top of** the base `LotteryPot`.
+  game (`Game.CarriedExtra`, `decimal(18,9)`, default `0`) **on top of** the base `LotteryPot`.
   A **preset lottery** whose drawn choice had no bettors carries `prev.CarriedExtra + Σ losing stakes`
   into the successor; an **under-subscribed** round refunds stakes and carries the jackpot unchanged; a
   **paid win** (incl. a free-bet winner) resets the successor to `0`. Decided once at rollover by
-  `LotteryPotCarry.NextCarriedExtra(Session)`. `0` for every non-lottery session. On admin deactivation
+  `LotteryPotCarry.NextCarriedExtra(Game)`. `0` for every non-lottery game. On admin deactivation
   it is **transferred** to an eligible same-operator/same-method/same-token lottery (never destroyed).
   See `features/lottery-pot-stacking.md`.
 - **Pot** — the amount winners split, shown as the `> POT:` line in the game terminal for **every**
-  session type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
+  game type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
   lottery = `lotteryParameters.lotteryPot` base `+ CarriedExtra` (the stacked jackpot) `+ Σ bets`;
   seeded on load, accumulated live from the `/Bets` SignalR stream, reset/reseeded on rollover; free
   bets (`amount = 0`) add nothing. Rendered via `formatAmount` (SolanaToken → the token
   symbol/decimals; Standard → USD or preferred display currency). Settlement math is separate —
   `BetDomainService.SetPotAmount` (`= Σ bets + LotteryPot + CarriedExtra`) remains the payout source of
-  truth. See `features/session-pot-display.md` and `features/lottery-pot-stacking.md`.
+  truth. See `features/game-pot-display.md` and `features/lottery-pot-stacking.md`.
 - **Display name** — optional `OperatorPlayer.DisplayName` (1–20 chars, trimmed). Set via the
   customization modal (`PATCH /players/preferences`); rendered on bet DTOs and recent-bets SignalR
   events for self and others; falls back to truncated `externalPlayerId`. See
   `features/player-customization-modal.md`.
 - **Preferred display currency** — `OperatorPlayer.Currency` (default `USD`). Offered to **all**
   operators (chosen from the backend definitive fiat set, 33 codes), but affects **rendering of
-  `Standard` sessions only** — `SolanaToken` sessions always render token-native, regardless of the
+  `Standard` games only** — `SolanaToken` games always render token-native, regardless of the
   choice. Rendering-only — backend always stores and transmits USD; client multiplies by cached
   USD→currency rates from `GET /fx/rates`. See `features/player-customization-modal.md`.
 - **FX rates / display conversion** — token-gated `GET /fx/rates` returns the definitive currency
   list with USD-based rates (Redis cache, 6h TTL; `IExchangeRateProvider` + FreeCurrencyAPI or mock).
-  Frontend `useDisplayCurrency.formatUsd` applies conversion for **`Standard`** sessions only;
+  Frontend `useDisplayCurrency.formatUsd` applies conversion for **`Standard`** games only;
   settlement and operator-wallet amounts stay USD.
-- **Session chat message** — a plain-text line broadcast within one session instance over
-  `ActiveSessionsHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
-  `SessionChatMessage` for audit/retention only (not replayed). See `features/session-chat.md`.
-- **Session-type stats** — all-time aggregated stats for one **session type** (`SessionParameters`),
-  served read-only by token-gated, operator-scoped `GET /sessions/{parametersId}/stats`: biggest pot
+- **Game chat message** — a plain-text line broadcast within one game instance over
+  `ActiveGamesHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
+  `GameChatMessage` for audit/retention only (not replayed). See `features/game-chat.md`.
+- **Game-type stats** — all-time aggregated stats for one **game type** (`GameParameters`),
+  served read-only by token-gated, operator-scoped `GET /games/{parametersId}/stats`: biggest pot
   ever split, biggest single payout, rounds played, total paid out, and (preset types only) the
   most-picked **hottest choice**. Computed **on demand** from the type's completed
   (`RewardForWinnersCompleted`) rounds — pot reconstructed as `Σ Bet.Amount` (+ lottery base), money
   from `TransactionLog` `Credit` rows — and cached in Redis (~120s); **no stats entity or migration**.
   Free bets are excluded from money/hottest-choice (a free-only completed round still counts as a
   round). Amounts are single-currency per type. Rendered in the lazy **STATS** tab of the `/game`
-  side panel. Entity/DTO: `SessionTypeStats` / `SessionTypeStatsDto`. See
-  `features/session-type-stats.md`.
+  side panel. Entity/DTO: `GameTypeStats` / `GameTypeStatsDto`. See
+  `features/game-type-stats.md`.

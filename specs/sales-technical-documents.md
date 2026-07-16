@@ -1,4 +1,4 @@
-# Monkify — "Sales Technical Documents (B2B SaaS)" — Implementation Spec
+# ChimpOut — "Sales Technical Documents (B2B SaaS)" — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/sales-technical-documents` on 2026-07-01.
 > Refined via Trello card
@@ -43,8 +43,8 @@ so there is still one canonical definition; each doc just shows the buyer their 
 
 - **Model A (Regulated)** — operator-owned wallet; buyer example BetMGM / BR-licensed; integration =
   signed **launch token** + operator **wallet API** (debit/credit/refund) + optional **RG pre-bet hook**;
-  player identity = token `sub` (`ExternalPlayerId`). Monkify holds **no float**.
-- **Model B (Crypto-native)** — Monkify-hosted payments (SOL/USDT/etc.); buyer example BetFury-style;
+  player identity = token `sub` (`ExternalPlayerId`). ChimpOut holds **no float**.
+- **Model B (Crypto-native)** — ChimpOut-hosted payments (SOL/USDT/etc.); buyer example BetFury-style;
   integration = launch token (`iss` operator, empty `sub`) + wallet public key as the player reference,
   on-chain settlement via Solana.
 
@@ -93,7 +93,7 @@ From `monkify-meta/constraints.md` (full list there) and the refined card:
 | 6 | **Doc 01 (each version) is self-contained** — restates the pitch strategy it needs so it can be sent alone; **references** card #1 (ZowgQHZg) but does not depend on it. Messaging = *"integrate with YOUR wallet and player account"* (not "we don't do payments"). Each version shows **only its own** track (+ a one-line pointer to the other). |
 | 7 | **Pricing headline = setup fee + monthly platform fee ONLY — no %NGR / revenue share** (dropped for now). Keep **12-month minimum term** and **exclusivity as a paid add-on** as editable commercial levers (not revenue components). All figures tagged **editable**. Identical in both pitch versions. |
 | 8 | **Doc 02 = under-NDA technical detail** — endpoint-level `launch token → game load → bet → settle` flow, deeper architecture, API specifics; **no real secrets**; marked **Confidential — under NDA**. Each version covers **one** settlement path with a **single-path** Mermaid diagram (Model A = operator wallet; Model B = on-chain Solana). |
-| 9 | **Doc 02 grounded read-only in shipped code:** launch-token-validation, operator-wallet-api, rg-pre-bet-hook, and the session state machine (see §6). Accuracy over drift. |
+| 9 | **Doc 02 grounded read-only in shipped code:** launch-token-validation, operator-wallet-api, rg-pre-bet-hook, and the game state machine (see §6). Accuracy over drift. |
 | 10 | **Doc 03 = anti-clone playbook + pre-sales-call checklist** — first-reference-operator (aspirational, **no client claimed**), exclusivity, speed-to-launch, brand-by-name, cost framing, plus a short pre-sales-call checklist. |
 | 11 | **Discipline:** placeholders, no real PII/contacts; operator names (BetMGM/BetFury/Hub88/SOFTSWISS…) are **illustrative examples only, never claimed clients**; paid steps **DEFERRED**; mock-only secrets; `Draft` status where commercial terms appear. |
 | 12 | Non-code — `monkify-meta` only; **no** backend/front branches; **no** unit tests. |
@@ -125,7 +125,7 @@ Every document opens with the same front block, then Purpose and body, and close
 control:
 
 ```markdown
-# Monkify — <Document Title>
+# ChimpOut — <Document Title>
 
 > **Version:** <n> · **Date:** <YYYY-MM-DD>
 > **Audience:** <who this is for>
@@ -165,7 +165,7 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
   - **One-liner + "why it's different"** (players bet on the first word a simulated monkey types;
     fully built backend/web/mobile/ops). The Model B version adds the "provably fair" hook.
   - **Its own single-model profile block** (pasted **verbatim** from `README.md`: `MODEL-A-PROFILE` or
-    `MODEL-B-PROFILE`) — covers payments, identity, settlement, RG, integration surface, and Monkify-
+    `MODEL-B-PROFILE`) — covers payments, identity, settlement, RG, integration surface, and ChimpOut-
     vs-operator ownership for that track.
   - **Messaging guardrail:** *"integrate with YOUR wallet and player account"* — never "we don't do
     payments".
@@ -187,26 +187,26 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
   secrets/keys/credentials — any example token/config is an obvious mock.
 - **Required content (grounded in §6 code):**
   1. **Launch** — the casino signs an **RS256 launch token** with its private key; redirects to
-     `…/monkify/game/sessions#launch_token=<jwt>`. Claims: `iss` = operatorId, `sub` =
-     externalPlayerId (empty for crypto), `exp`/`iat`/`jti`. Monkify validates against
+     `…/chimpout/game/games#launch_token=<jwt>`. Claims: `iss` = operatorId, `sub` =
+     externalPlayerId (empty for crypto), `exp`/`iat`/`jti`. ChimpOut validates against
      `Operator.LaunchPublicKey` (±2 min skew) in `LaunchTokenValidationMiddleware`; every
      operator-scoped REST call carries **`X-Launch-Token`**. Any failure → **generic HTTP 401** (real
      reason logged server-side only) — never reveals contract status.
   2. **Game load** — SPA reads branding via **`GET /operators/{id}`** (returns `paymentModel`), lists
-     game types via **`GET /sessions/active-types`**, a session via **`GET /sessions/{sessionTypeId}`**;
+     game types via **`GET /games/active-types`**, a game via **`GET /games/{gameTypeId}`**;
      player prefs via **`PATCH /players/preferences`** (display name + currency, render-only).
-  3. **Bet** — **`POST /sessions/{id}/bets`** → `RegisterBetHandler`. Order: local validation →
+  3. **Bet** — **`POST /games/{id}/bets`** → `RegisterBetHandler`. Order: local validation →
      **RG pre-bet check** (`RunPreBetCheck`, opt-in per operator, allow/deny/**fail-closed**, **before**
      the debit) → **stake settlement** (Model A: operator **wallet debit**, `DebitOperatorWallet`, last
      step, fail-closed; Model B: on-chain `paymentSignature` validated). Denied/invalid bet is **never
      debited or persisted**.
-  4. **Run** — session state machine over RabbitMQ/MassTransit:
-     `BetPlacedEvent → RunSessionEvent → RewardSessionEvent`, with `RefundInvalidBetEvent` for
-     failures. The typer streams over SignalR (`/Hubs/Sessions`, `/Hubs/RecentBets`).
+  4. **Run** — game state machine over RabbitMQ/MassTransit:
+     `BetPlacedEvent → RunGameEvent → RewardGameEvent`, with `RefundInvalidBetEvent` for
+     failures. The typer streams over SignalR (`/Hubs/Games`, `/Hubs/RecentBets`).
   5. **Settle** — **credit** at reward (Model A: `CreditThroughOperatorWallet` in
-     `RewardSessionConsumer`; Model B: `ISolanaService.TransferTokensForBet`); **refund** on
+     `RewardGameConsumer`; Model B: `ISolanaService.TransferTokensForBet`); **refund** on
      post-acceptance cancellation (Model A: `RefundThroughOperatorWallet` in
-     `RefundInvalidBetConsumer`; Model B: on-chain refund). **No Monkify commission** — winners
+     `RefundInvalidBetConsumer`; Model B: on-chain refund). **No ChimpOut commission** — winners
      receive the **full pot**. Every money movement is a **`TransactionLog`** row
      (`Credit | Debit | Refund`); there is **no** `RefundLog`.
   6. **What the operator implements (Model A):** a wallet API with **Debit / Credit / Refund**
@@ -221,13 +221,13 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
 ### 5.3 `03-anti-clone-playbook.md` (+ PT-BR)
 
 - **What:** An internal **commercial/GTM positioning playbook** (1–2 pages) that makes *licensing*
-  Monkify easier than *building* internally, plus a **pre-sales-call checklist**.
+  ChimpOut easier than *building* internally, plus a **pre-sales-call checklist**.
 - **Body:**
   - **First reference operator** — even one crypto-native live deployment is social proof (framed
     **aspirationally — no client is named or claimed**; use "target" / "once live" language).
   - **Exclusivity** — a paid contract add-on (territory / vertical / time-boxed).
   - **Speed narrative** — "weeks to launch vs months to build + certify internally".
-  - **Brand** — players/operators ask for Monkify by name, not "word typer game".
+  - **Brand** — players/operators ask for ChimpOut by name, not "word typer game".
   - **Cost framing** — internal rebuild + certify vs SaaS setup + monthly (tie to Doc 01 pricing; no
     %NGR).
   - **Pre-sales-call checklist** — a short checklist sales runs before a prospect call (which doc to
@@ -244,14 +244,14 @@ map, the code is the ground truth. Confirmed touchpoints (verified 2026-07-01):
 
 | Area | Read (no edits) | Confirm |
 | --- | --- | --- |
-| Launch token | `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs`; `Monkify.Api/Launch/LaunchTokenService.cs`; `Infrastructure/Services/Launch/ILaunchContext.cs`; `features/launch-token-validation.md` | `X-Launch-Token` RS256; `iss`/`sub`; ±2 min skew; generic 401; `paymentModel` from `GET /operators/{id}` |
-| Endpoints | `Monkify.Api/Controllers/{Sessions,Operators,Players,Dev}Controller.cs` | Routes: `GET /sessions/active-types`, `GET /sessions/{sessionTypeId}`, `POST /sessions/{id}/bets`, `GET /operators/{id:guid}`, `PATCH /players/preferences`, `POST /dev/launch-token` (dev-only) |
-| Bet + RG + debit | `Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` (`RunPreBetCheck`, `DebitOperatorWallet`, `MapWalletErrorToMessage`) | RG check before debit; debit last + fail-closed; specific player wallet messages |
+| Launch token | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs`; `ChimpOut.Api/Launch/LaunchTokenService.cs`; `Infrastructure/Services/Launch/ILaunchContext.cs`; `features/launch-token-validation.md` | `X-Launch-Token` RS256; `iss`/`sub`; ±2 min skew; generic 401; `paymentModel` from `GET /operators/{id}` |
+| Endpoints | `ChimpOut.Api/Controllers/{Games,Operators,Players,Dev}Controller.cs` | Routes: `GET /games/active-types`, `GET /games/{gameTypeId}`, `POST /games/{id}/bets`, `GET /operators/{id:guid}`, `PATCH /players/preferences`, `POST /dev/launch-token` (dev-only) |
+| Bet + RG + debit | `Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` (`RunPreBetCheck`, `DebitOperatorWallet`, `MapWalletErrorToMessage`) | RG check before debit; debit last + fail-closed; specific player wallet messages |
 | RG hook | `Infrastructure/Services/PreBetChecks/IPreBetCheckService.cs`, `IPreBetCheckResolver.cs`; `features/rg-pre-bet-hook.md` | allow / deny(reason) / fail-closed; opt-in per operator; unconfigured ⇒ skipped |
 | Wallet adapter | `Infrastructure/Services/OperatorWallets/IOperatorWalletService.cs`, `MockOperatorWalletService.cs` | Debit / Credit / Refund; USD; per-operator provider resolver |
-| Credit / refund | `Infrastructure/Consumers/RewardSession/RewardSessionConsumer.cs` (`CreditThroughOperatorWallet`); `Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (`RefundThroughOperatorWallet`) | Model A wallet vs Model B Solana; free bets skipped |
-| Ledger | `Monkify.Domain/Bets/Entities/TransactionLog.cs`; `Monkify.Domain/Bets/ValueObjects/TransactionLogType.cs`; `features/operator-wallet-api.md` | Unified `TransactionLog` (`Credit`/`Debit`/`Refund`); **no** `RefundLog`; **no commission** |
-| State machine | `architecture.md` §4; `Infrastructure/Consumers/{BetPlaced,RunSession,RewardSession,RefundInvalidBet}/*` | `BetPlaced → RunSession → RewardSession`; `RefundInvalidBet`; SignalR hubs |
+| Credit / refund | `Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` (`CreditThroughOperatorWallet`); `Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (`RefundThroughOperatorWallet`) | Model A wallet vs Model B Solana; free bets skipped |
+| Ledger | `ChimpOut.Domain/Bets/Entities/TransactionLog.cs`; `ChimpOut.Domain/Bets/ValueObjects/TransactionLogType.cs`; `features/operator-wallet-api.md` | Unified `TransactionLog` (`Credit`/`Debit`/`Refund`); **no** `RefundLog`; **no commission** |
+| State machine | `architecture.md` §4; `Infrastructure/Consumers/{BetPlaced,RunGame,RewardGame,RefundInvalidBet}/*` | `BetPlaced → RunGame → RewardGame`; `RefundInvalidBet`; SignalR hubs |
 
 ---
 
@@ -273,22 +273,22 @@ Each Doc 02 version carries **only its own** diagram (no cross-model `alt`).
 ```mermaid
 sequenceDiagram
   participant Casino as Operator/Casino
-  participant SPA as Monkify SPA
-  participant API as Monkify.Api
+  participant SPA as ChimpOut SPA
+  participant API as ChimpOut.Api
   participant RG as Your RG pre-bet adapter (opt-in)
   participant Wallet as Your Wallet API
-  participant Cons as Monkify background worker
+  participant Cons as ChimpOut background worker
 
   Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss + sub=ExternalPlayerId)
   SPA->>API: GET /operators/{id} (X-Launch-Token)
   API-->>SPA: branding + paymentModel=Regulated  (bad/expired token ⇒ 401 "unavailable")
-  SPA->>API: GET /sessions/active-types → GET /sessions/{typeId}
-  SPA->>API: POST /sessions/{id}/bets (no wallet/signature)
+  SPA->>API: GET /games/active-types → GET /games/{typeId}
+  SPA->>API: POST /games/{id}/bets (no wallet/signature)
   API->>RG: pre-bet check (if configured) — allow/deny/fail-closed
   API->>Wallet: Debit(bet, amount, USD)  — last step, fail-closed
   Wallet-->>API: ok / insufficient-funds / blocked / timeout
   API-->>SPA: bet accepted (TransactionLog: Debit)
-  API->>Cons: BetPlaced → RunSession → RewardSession (RabbitMQ)
+  API->>Cons: BetPlaced → RunGame → RewardGame (RabbitMQ)
   opt winner
     Cons->>Wallet: Credit(bet, winnings, USD)  (TransactionLog: Credit)
   end
@@ -302,22 +302,22 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Casino as Operator/Casino
-  participant SPA as Monkify SPA (+ wallet)
-  participant API as Monkify.Api
+  participant SPA as ChimpOut SPA (+ wallet)
+  participant API as ChimpOut.Api
   participant RG as Your RG pre-bet adapter (opt-in)
   participant Chain as Solana
-  participant Cons as Monkify background worker
+  participant Cons as ChimpOut background worker
 
   Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss, sub empty)
   SPA->>API: GET /operators/{id} (X-Launch-Token)
   API-->>SPA: branding + paymentModel=Crypto  (bad/expired token ⇒ 401 "unavailable")
   SPA->>SPA: player connects wallet
   SPA->>Chain: SPL-token transfer (stake) → paymentSignature
-  SPA->>API: POST /sessions/{id}/bets (wallet + paymentSignature)
+  SPA->>API: POST /games/{id}/bets (wallet + paymentSignature)
   API->>Chain: validate paymentSignature
   API->>RG: pre-bet check (if configured) — allow/deny/fail-closed
   API-->>SPA: bet accepted (TransactionLog: Debit w/ Signature)
-  API->>Cons: BetPlaced → RunSession → RewardSession (RabbitMQ)
+  API->>Cons: BetPlaced → RunGame → RewardGame (RabbitMQ)
   opt winner
     Cons->>Chain: SPL token transfer to winner  (TransactionLog: Credit)
   end
@@ -369,7 +369,7 @@ None (read-only grounding — no files changed).
 ## 11. Unit tests
 
 **Not applicable.** This is a non-code, document-production story — no backend behavior changes, so
-`Monkify.Tests` is not touched and the §3 test-discipline constraint does not apply. "Verification" is
+`ChimpOut.Tests` is not touched and the §3 test-discipline constraint does not apply. "Verification" is
 the §12 acceptance-criteria review (see §13 Manual QA), not automated tests.
 
 ---
@@ -384,7 +384,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    status, purpose, body, control) with Mermaid used for any diagram.
 2. Given docs 01 and 02 come in a Model-A and a Model-B version, when reviewed, then each shows **only
    its own** track (Model A = regulated / operator wallet + launch token + RG hook; Model B = crypto /
-   Monkify-hosted, wallet as ExternalPlayerId) and includes a one-line pointer to the other version.
+   ChimpOut-hosted, wallet as ExternalPlayerId) and includes a one-line pointer to the other version.
 3. Given a per-model doc, when its single-model profile block is compared to `sales/README.md`, then it
    is byte-for-byte the matching `MODEL-A-PROFILE` / `MODEL-B-PROFILE` block (EN docs → EN block; PT-BR
    docs → PT-BR block) with no divergent wording.

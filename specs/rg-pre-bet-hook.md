@@ -1,4 +1,4 @@
-# Monkify — "Responsible-gaming pre-bet hook" Feature — Implementation Spec
+# ChimpOut — "Responsible-gaming pre-bet hook" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/rg-pre-bet-hook` on 2026-07-01. Refined via Trello card
 > [RG pre-bet hook + operator integration doc](https://trello.com/c/Dj4znhYo) (2026-06-30).
@@ -6,8 +6,8 @@
 > Distilled summary: `../features/rg-pre-bet-hook.md`.
 >
 > **Purpose:** Regulated operators own responsible gaming (RG) — self-exclusion, deposit/time
-> limits, cooling-off, KYC. Monkify must let an operator **allow or deny a bet before it is
-> accepted**, via a pluggable per-operator pre-bet check, without Monkify building an RG engine or
+> limits, cooling-off, KYC. ChimpOut must let an operator **allow or deny a bet before it is
+> accepted**, via a pluggable per-operator pre-bet check, without ChimpOut building an RG engine or
 > storing player PII. The pitch-facing RG/operator **integration document is descoped to a separate
 > story** — this spec is the backend hook only.
 
@@ -16,12 +16,12 @@
 ## 1. Summary
 
 Today `RegisterBetHandler` (the API host) validates a bet locally (choice length, duplicate,
-session accepting bets, operator active), then — for regulated operators — debits the stake through
+game accepting bets, operator active), then — for regulated operators — debits the stake through
 the operator wallet as the last step before persisting. There is **no way for an operator to reject
 a bet on responsible-gaming grounds** (a self-excluded player, a player over their deposit/time
 limit, a cooling-off period, incomplete KYC, or an operator-blocked account).
 
-This feature adds a **pre-bet check hook**: a pluggable per-operator adapter that Monkify calls
+This feature adds a **pre-bet check hook**: a pluggable per-operator adapter that ChimpOut calls
 after local validation and **before** the wallet debit. The operator answers **allow / deny(reason)
 / unavailable**; a denial rejects the bet with a specific player message and never debits.
 
@@ -47,17 +47,17 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/rg-pre-bet-hook` in `monkify-backend` and `monkify-meta`
   (already created + pushed). **No** frontend branch — card marks `monkify-front` as not affected.
-- **Unit tests:** update/add in `Monkify.Tests`; **report changed tests** at end of implementation.
+- **Unit tests:** update/add in `ChimpOut.Tests`; **report changed tests** at end of implementation.
 - **EF mapping:** N/A — this feature adds **no entity, no column, no migration** (RG decisions are
   logged, not persisted). Do not add a table.
-- **Secrets/config:** the per-operator RG config in `monkifysettings.json` uses **mock/placeholder
+- **Secrets/config:** the per-operator RG config in `chimpoutsettings.json` uses **mock/placeholder
   values only**; real base URLs/keys are bound from the environment.
 - **Operator messaging:** the vague operator-contract-status rule still applies to operator
   *availability* elsewhere. It does **not** apply here: an RG **denial** describes the *player's*
   state (self-excluded, over limit, …) and surfaces a **specific** message, exactly as the player's
   own wallet errors do (see §3 decision 6 and `operator-wallet-api.md` §2).
 - **Host split:** the check is a synchronous **outbound call only** on the bet path in
-  `Monkify.Api`; the API stays stateless and does not migrate. No work moves to `Monkify.Consumers`.
+  `ChimpOut.Api`; the API stays stateless and does not migrate. No work moves to `ChimpOut.Consumers`.
 
 ---
 
@@ -68,14 +68,14 @@ From `monkify-meta/constraints.md` (full list there):
 | 1 | **New, dedicated abstraction.** `IPreBetCheckService` (single method `Check`) + a provider `IPreBetCheckResolver`, built in the same shape as the wallet adapter but **decoupled** — chosen over adding a method to `IOperatorWalletService` because RG applies to *any* operator and is *optional*, the opposite of the wallet service. |
 | 2 | **Applies to any operator, both payment models.** The resolver selects an adapter per operator regardless of `PaymentModel`; crypto **and** regulated operators can use RG. |
 | 3 | **Optional / opt-in.** No RG provider configured for an operator ⇒ `Resolve` returns **`null`** ⇒ the check is **skipped** and the bet proceeds. Default for every existing operator → backward compatible. (Contrast the wallet resolver, which **throws** on a missing provider.) |
-| 4 | **Placement.** The check runs in `RegisterBetHandler` **after** `ValidateBetParameters` (choice/duplicate/session-accepting/operator-active all passed) and **immediately before** the wallet debit. So a malformed/duplicate/invalid bet never calls the RG endpoint, and a denied bet is never debited. Runs for both models: crypto → RG → persist; regulated → RG → debit → persist. |
+| 4 | **Placement.** The check runs in `RegisterBetHandler` **after** `ValidateBetParameters` (choice/duplicate/game-accepting/operator-active all passed) and **immediately before** the wallet debit. So a malformed/duplicate/invalid bet never calls the RG endpoint, and a denied bet is never debited. Runs for both models: crypto → RG → persist; regulated → RG → debit → persist. |
 | 5 | **Reason codes.** `PreBetCheckDenyReason` = `SelfExcluded, LimitReached, CoolingOff, KycRequired, Blocked` (+ `Other` for any operator-supplied/unmapped reason). Each of the five maps to a specific `ErrorMessages` key; `Other`/unknown → a **generic** fallback message. |
 | 6 | **Deny UX — specific message.** A denial surfaces the mapped specific player-facing message via `ApiResult.messages` (player-state, not operator-contract status — the vague rule does not apply). |
 | 7 | **Failure = fail-closed.** A timeout, transport error, or unexpected exception from the hook is treated as **`Unavailable`** and the bet is **rejected** with a specific "please try again" message; no debit, no persistence. No synchronous retry. |
 | 8 | **Free bets.** The check **applies** to a free bet that carries an external player id; it is **skipped** for identity-less (anonymous) free bets — there is no player to check. (Non-free bets always carry an identity by the time the check runs.) The single guard is "run only when a resolved external player id exists." |
 | 9 | **Audit = log only.** Each decision (outcome + reason code + a correlation id = the bet id) is written to the **server-side Serilog log only**. **No DB row, no migration, no PII stored.** |
-| 10 | **Request payload.** `operatorId`, `externalPlayerId`, `amount`, `currency` ("USD"), `sessionId`, `gameType` (`SessionParameters.Name`), `betId` (correlation). |
-| 11 | **Config & secrets** live under `GeneralSettings.OperatorRgChecks.Operators[<operatorId>]` = `{ Provider, BaseUrl, ApiKey, TimeoutSeconds }` in `monkifysettings.json`, **mock values only**; the committed block ships **empty** (`Operators: {}`) so no operator runs RG by default. |
+| 10 | **Request payload.** `operatorId`, `externalPlayerId`, `amount`, `currency` ("USD"), `gameId`, `gameType` (`GameParameters.Name`), `betId` (correlation). |
+| 11 | **Config & secrets** live under `GeneralSettings.OperatorRgChecks.Operators[<operatorId>]` = `{ Provider, BaseUrl, ApiKey, TimeoutSeconds }` in `chimpoutsettings.json`, **mock values only**; the committed block ships **empty** (`Operators: {}`) so no operator runs RG by default. |
 | 12 | **Dev/test mock — shared class.** The existing `MockOperatorWalletService` **also implements** `IPreBetCheckService` (provider `"mock"`), returning `Allowed` for every check, so dev/tests keep a single mock. Forced deny/timeout are exercised in unit tests via Moq (the concrete mock always allows, exactly like the wallet mock always succeeds). |
 
 ---
@@ -91,13 +91,13 @@ From `monkify-meta/constraints.md` (full list there):
 
 New per-operator RG config, hung off `GeneralSettings`, mirroring `OperatorWalletSettings`.
 
-**`Monkify.Domain/Configs/Entities/OperatorRgCheckSettings.cs`** — NEW:
+**`ChimpOut.Domain/Configs/Entities/OperatorRgCheckSettings.cs`** — NEW:
 
 ```csharp
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Monkify.Domain.Configs.Entities
+namespace ChimpOut.Domain.Configs.Entities
 {
     /// <summary>
     /// Per-operator responsible-gaming pre-bet check configuration, keyed by operatorId (Guid as
@@ -122,9 +122,9 @@ namespace Monkify.Domain.Configs.Entities
 ```
 
 - Add `public OperatorRgCheckSettings OperatorRgChecks { get; set; }` to
-  `Monkify.Domain/Configs/Entities/GeneralSettings.cs` (alongside `OperatorWallets`).
+  `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` (alongside `OperatorWallets`).
 - Add an **empty** `"OperatorRgChecks": { "Operators": {} }` block to
-  `Monkify.Common/monkifysettings.json` (under `GeneralSettings`, next to `OperatorWallets`).
+  `ChimpOut.Common/chimpoutsettings.json` (under `GeneralSettings`, next to `OperatorWallets`).
   **Mock values only**; keep `Operators` empty so no operator runs RG by default (preserves
   acceptance criterion 1). A local dev entry can be added to exercise the hook (see §13).
 
@@ -132,7 +132,7 @@ namespace Monkify.Domain.Configs.Entities
 
 ## 6. Backend behaviour
 
-### 6.1 The adapter abstraction (`Monkify.Infrastructure/Services/PreBetChecks/`)
+### 6.1 The adapter abstraction (`ChimpOut.Infrastructure/Services/PreBetChecks/`)
 
 New folder, sibling of `Services/OperatorWallets/`.
 
@@ -156,8 +156,8 @@ public record PreBetCheckRequest
     public string ExternalPlayerId { get; init; }
     public decimal Amount { get; init; }
     public string Currency { get; init; }        // "USD"
-    public Guid SessionId { get; init; }
-    public string GameType { get; init; }        // SessionParameters.Name
+    public Guid GameId { get; init; }
+    public string GameType { get; init; }        // GameParameters.Name
     public Guid BetId { get; init; }             // correlation
 }
 ```
@@ -245,7 +245,7 @@ public class PreBetCheckResolver : IPreBetCheckResolver
 > **config present with an unknown provider → throw** (a configured check must not be silently
 > dropped).
 
-**Mock (shared class).** Extend `Monkify.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs`
+**Mock (shared class).** Extend `ChimpOut.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs`
 to also implement `IPreBetCheckService`:
 
 ```csharp
@@ -263,7 +263,7 @@ public class MockOperatorWalletService : IOperatorWalletService, IPreBetCheckSer
 }
 ```
 
-**DI** (`Monkify.Infrastructure/DependencyInjection.cs`, next to the wallet registrations at
+**DI** (`ChimpOut.Infrastructure/DependencyInjection.cs`, next to the wallet registrations at
 lines 49–52):
 
 ```csharp
@@ -280,7 +280,7 @@ services.AddScoped<IPreBetCheckResolver, PreBetCheckResolver>();
 
 ### 6.2 The check step — `RegisterBetHandler`
 
-`Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs`. Inject
+`ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`. Inject
 `IPreBetCheckResolver` (new last constructor parameter).
 
 Current order (post-refactor): build `_bet` → `ValidateBetSignature()` → `ValidateBetParameters(request)`
@@ -324,8 +324,8 @@ private async Task RunPreBetCheck(Operator betOperator, string externalPlayerId,
             ExternalPlayerId = externalPlayerId,
             Amount = _bet.Amount,
             Currency = _bet.OperatorPlayer?.Currency ?? "USD",
-            SessionId = request.SessionId,
-            GameType = _bet.Session?.Parameters?.Name ?? request.Body?.Choice, // Name via loaded session
+            GameId = request.GameId,
+            GameType = _bet.Game?.Parameters?.Name ?? request.Body?.Choice, // Name via loaded game
             BetId = _bet.Id
         }, cancellationToken);
     }
@@ -371,15 +371,15 @@ Notes:
   body; regulated → token `sub`). Using it as the guard means: non-free bets always run the check
   (they must have an identity by line 97); a free bet with an identity runs it; an anonymous free
   bet (`resolvedExternalId == null`) skips it. This satisfies decisions 4 and 8.
-- `_bet.Session` is assigned inside `ValidateBetParameters` (handler line 233), so
-  `_bet.Session.Parameters.Name` is available for `gameType` by the time this runs.
+- `_bet.Game` is assigned inside `ValidateBetParameters` (handler line 233), so
+  `_bet.Game.Parameters.Name` is available for `gameType` by the time this runs.
 - `Messaging.ReturnValidationFailureMessage(...)` is the existing short-circuit used throughout the
   handler; after a Denied/Unavailable outcome, control does not reach the debit or `RegisterBet()`.
 - The message flows `Messaging` → `ApiResult.messages` → existing frontend toast (no FE change).
 
 ### 6.3 Player-facing messages
 
-Add to `Monkify.Common/Resources/ErrorMessages.resx` (and the generated `ErrorMessages.Designer.cs`
+Add to `ChimpOut.Common/Resources/ErrorMessages.resx` (and the generated `ErrorMessages.Designer.cs`
 regenerates from it), following the existing `Wallet*` entries:
 
 | Key | Suggested value |
@@ -400,7 +400,7 @@ regenerates from it), following the existing `Wallet*` entries:
 
 | Operation | Host | Why |
 | --- | --- | --- |
-| Pre-bet check | `Monkify.Api` (`RegisterBetHandler`) | must be synchronous to gate acceptance; outbound call only — API stays stateless, no persistence |
+| Pre-bet check | `ChimpOut.Api` (`RegisterBetHandler`) | must be synchronous to gate acceptance; outbound call only — API stays stateless, no persistence |
 
 ---
 
@@ -417,13 +417,13 @@ or copy change in `monkify-front`.
 ```mermaid
 sequenceDiagram
     actor Player
-    participant API as Monkify.Api (RegisterBetHandler)
+    participant API as ChimpOut.Api (RegisterBetHandler)
     participant RG as Operator RG check (adapter)
     participant W as Operator Wallet (regulated only)
     participant DB as PostgreSQL
 
-    Player->>API: POST /sessions/{id}/bets  (X-Launch-Token)
-    API->>API: resolve operator, local validations (choice/dup/session/active)
+    Player->>API: POST /games/{id}/bets  (X-Launch-Token)
+    API->>API: resolve operator, local validations (choice/dup/game/active)
     alt any local validation fails
         API-->>Player: reject (RG endpoint never called)
     else all valid AND identity present
@@ -431,7 +431,7 @@ sequenceDiagram
         alt no RG provider configured
             API->>API: skip check
         else RG provider configured
-            API->>RG: Check(operatorId, playerId, amount, "USD", sessionId, gameType, betId)
+            API->>RG: Check(operatorId, playerId, amount, "USD", gameId, gameType, betId)
             alt Allowed
                 RG-->>API: Allowed
             else Denied(reason)
@@ -454,8 +454,8 @@ sequenceDiagram
 
 ## 9. Out of scope
 
-- A Monkify RG engine (limits, self-exclusion DB, KYC storage).
-- Storing player PII for RG, or **persisting** RG decisions in Monkify's DB (log-only).
+- A ChimpOut RG engine (limits, self-exclusion DB, KYC storage).
+- Storing player PII for RG, or **persisting** RG decisions in ChimpOut's DB (log-only).
 - The RG / operator **integration document** — moved to a separate story.
 - Real (non-mock) per-operator RG adapters — added per onboarding later (separate cards).
 - Any frontend change.
@@ -468,22 +468,22 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `Monkify.Domain/Configs/Entities/OperatorRgCheckSettings.cs` | **NEW** settings (`OperatorRgCheckSettings`, `OperatorRgCheckConfig`). |
-| 2 | `Monkify.Domain/Configs/Entities/GeneralSettings.cs` | Add `OperatorRgChecks` property. |
-| 3 | `Monkify.Common/monkifysettings.json` | Add empty `OperatorRgChecks: { "Operators": {} }` block under `GeneralSettings` (mock-only). |
-| 4 | `Monkify.Infrastructure/Services/PreBetChecks/IPreBetCheckService.cs` | **NEW** abstraction (`Provider`, `Check`). |
-| 5 | `Monkify.Infrastructure/Services/PreBetChecks/PreBetCheckRequest.cs` | **NEW** request VO. |
-| 6 | `Monkify.Infrastructure/Services/PreBetChecks/PreBetCheckDenyReason.cs` | **NEW** enum (5 reasons + `Other`). |
-| 7 | `Monkify.Infrastructure/Services/PreBetChecks/PreBetCheckResult.cs` | **NEW** result VO + `PreBetCheckOutcome` enum. |
-| 8 | `Monkify.Infrastructure/Services/PreBetChecks/IPreBetCheckResolver.cs` + `PreBetCheckResolver.cs` | **NEW** resolver — returns `null` when unconfigured; throws only on a configured-but-unknown provider. |
-| 9 | `Monkify.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs` | Also implement `IPreBetCheckService.Check` → `Allowed` (shared mock). |
-| 10 | `Monkify.Infrastructure/DependencyInjection.cs` | Register `IPreBetCheckService` (mock) + `IPreBetCheckResolver` (near the wallet registrations). |
-| 11 | `Monkify.Infrastructure/Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` | Inject `IPreBetCheckResolver`; add `RunPreBetCheck` + `MapDenyReasonToMessage`; call after `ValidateBetParameters`, before the debit, guarded by `resolvedExternalId != null`; fail-closed try/catch; log decision. |
-| 12 | `Monkify.Common/Resources/ErrorMessages.resx` (+ regenerate `ErrorMessages.Designer.cs`) | Add the 7 `Rg*` message keys from §6.3. |
+| 1 | `ChimpOut.Domain/Configs/Entities/OperatorRgCheckSettings.cs` | **NEW** settings (`OperatorRgCheckSettings`, `OperatorRgCheckConfig`). |
+| 2 | `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` | Add `OperatorRgChecks` property. |
+| 3 | `ChimpOut.Common/chimpoutsettings.json` | Add empty `OperatorRgChecks: { "Operators": {} }` block under `GeneralSettings` (mock-only). |
+| 4 | `ChimpOut.Infrastructure/Services/PreBetChecks/IPreBetCheckService.cs` | **NEW** abstraction (`Provider`, `Check`). |
+| 5 | `ChimpOut.Infrastructure/Services/PreBetChecks/PreBetCheckRequest.cs` | **NEW** request VO. |
+| 6 | `ChimpOut.Infrastructure/Services/PreBetChecks/PreBetCheckDenyReason.cs` | **NEW** enum (5 reasons + `Other`). |
+| 7 | `ChimpOut.Infrastructure/Services/PreBetChecks/PreBetCheckResult.cs` | **NEW** result VO + `PreBetCheckOutcome` enum. |
+| 8 | `ChimpOut.Infrastructure/Services/PreBetChecks/IPreBetCheckResolver.cs` + `PreBetCheckResolver.cs` | **NEW** resolver — returns `null` when unconfigured; throws only on a configured-but-unknown provider. |
+| 9 | `ChimpOut.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs` | Also implement `IPreBetCheckService.Check` → `Allowed` (shared mock). |
+| 10 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register `IPreBetCheckService` (mock) + `IPreBetCheckResolver` (near the wallet registrations). |
+| 11 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Inject `IPreBetCheckResolver`; add `RunPreBetCheck` + `MapDenyReasonToMessage`; call after `ValidateBetParameters`, before the debit, guarded by `resolvedExternalId != null`; fail-closed try/catch; log decision. |
+| 12 | `ChimpOut.Common/Resources/ErrorMessages.resx` (+ regenerate `ErrorMessages.Designer.cs`) | Add the 7 `Rg*` message keys from §6.3. |
 
 > **Hidden blocker (constructor fan-out):** adding a parameter to the `RegisterBetHandler`
 > constructor breaks **every** `new RegisterBetHandler(...)` call site in the tests. In
-> `Monkify.Tests/UnitTests/Handlers/RegisterBetHandlerTests.cs` there are **13** instantiations (all
+> `ChimpOut.Tests/UnitTests/Handlers/RegisterBetHandlerTests.cs` there are **13** instantiations (all
 > pass `_walletResolverMock.Object` as the last arg today). Each must gain a new
 > `_preBetCheckResolverMock.Object` last argument. Grep `new RegisterBetHandler(` before finishing to
 > catch any other call site (e.g. integration tests). MediatR constructs the handler by DI at
@@ -505,7 +505,7 @@ None.
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/Monkify.Tests`. Stack: xUnit + Shouldly + Moq + Bogus, in-memory EF.
+Project: `monkify-backend/src/ChimpOut.Tests`. Stack: xUnit + Shouldly + Moq + Bogus, in-memory EF.
 
 Add a `Mock<IPreBetCheckResolver> _preBetCheckResolverMock` to `RegisterBetHandlerTests`; by default
 have it **return `null`** (`Resolve(...)` → `null`) so all **existing** tests keep passing unchanged

@@ -7,22 +7,22 @@
 
 Gives production a default operator named **`Main`** so the public game works with **no casino
 redirect**. Before this, production seeded **no operator at all** and a token-less visitor dead-ended
-on `/error`. Now `Monkify.Consumers` seeds Main (its own registered Solana token + three crypto session
+on `/error`. Now `ChimpOut.Consumers` seeds Main (its own registered Solana token + three crypto game
 types), and when a standalone visitor arrives with **no launch token** the frontend **mints an
 anonymous Main token** via a new production-enabled endpoint and uses it. All Main play is crypto
 (SolanaToken / wallet-paid), so the auto-minted token carries no player identity.
 
 ## Core rules
 
-- **Main is the default production operator.** `Monkify.Consumers` seeds an operator named **`Main`**
+- **Main is the default production operator.** `ChimpOut.Consumers` seeds an operator named **`Main`**
   (fixed RFC-4122 GUID `22222222-2222-4222-8222-222222222222`, contract **active**, `ContractEndDate =
   null`, its own `LaunchPublicKey`) in **every** environment. In **production it is the only** seeded
   operator; **non-production seeds Main *and* DEV Cassino** (DEV Cassino keeps all its existing default
-  session types and dev landing buttons unchanged). Seeding is **idempotent + self-healing** (mirrors
+  game types and dev landing buttons unchanged). Seeding is **idempotent + self-healing** (mirrors
   the dev operator seeding).
-- **Main's token + session types.** Main is pre-provisioned with **one** registered `OperatorToken`
+- **Main's token + game types.** Main is pre-provisioned with **one** registered `OperatorToken`
   built from `GeneralSettings.Token` (private key encrypted at rest via `ISecretProtector`), and
-  **exactly three active `SolanaToken`** default session types — `6X Main Sprint` (free-type race),
+  **exactly three active `SolanaToken`** default game types — `6X Main Sprint` (free-type race),
   `6X Main Derby` (preset "horse race", back 1 of 8 six-char alphanumeric runners), and `6X Main
   Millions` (24h lottery, base pot 4). All are **6-char alphanumeric** (`NumbersAndLetters`), with
   **free bets OFF**, `RequiredAmount = 1`, `MinimumNumberOfPlayers = 2`, duplicates allowed. Betting
@@ -42,10 +42,10 @@ anonymous Main token** via a new production-enabled endpoint and uses it. All Ma
   (that would render Main inside another casino's frame — embedded + no token keeps the existing
   `token-expired` relaunch path).
 - **Silent re-mint on expiry.** Auto-minted tokens are flagged in `sessionStorage`
-  (`monkify.autoLaunch`). A **401 on an auto-minted token** triggers a **silent re-mint + one retry**
+  (`chimpout.autoLaunch`). A **401 on an auto-minted token** triggers a **silent re-mint + one retry**
   of the failed request instead of routing to `/error`. A **real operator's 401** still routes to
   `/error` (vague, contract status never revealed) — unchanged.
-- **Token-less entry.** In production `/monkify/game` forwards to `/monkify/game/sessions` (whose boot
+- **Token-less entry.** In production `/chimpout/game` forwards to `/chimpout/game/games` (whose boot
   auto-mints Main), instead of redirecting to `/error`. The dev landing (`VUE_APP_DEV_LAUNCH`) is
   unchanged — its DEV Cassino Crypto/Regulated buttons still work in non-prod.
 - **Secrets.** Main's launch **private** signing key and the reused token owner private key are
@@ -56,24 +56,24 @@ anonymous Main token** via a new production-enabled endpoint and uses it. All Ma
 
 **Backend (`monkify-backend`)**
 
-- `Monkify.Consumers/Program.cs` — `CreateDefaultOperatorAsync` (seeds Main in all envs, DEV
-  non-prod-gated), `EnsureMainOperator`, `EnsureMainOperatorToken`; `CreateDefaultSessionParametersAsync`
+- `ChimpOut.Consumers/Program.cs` — `CreateDefaultOperatorAsync` (seeds Main in all envs, DEV
+  non-prod-gated), `EnsureMainOperator`, `EnsureMainOperatorToken`; `CreateDefaultGameParametersAsync`
   (Main branch seeds the 3 SolanaToken types).
-- `Monkify.Consumers/DefaultSessionParameters.cs` — `GenerateMainDefaultParameters(operatorTokenId)`
+- `ChimpOut.Consumers/DefaultGameParameters.cs` — `GenerateMainDefaultParameters(operatorTokenId)`
   (+ `MainBase`/`MainRace`/`MainPreset`/`MainLottery`).
-- `Monkify.Api/Controllers/LaunchController.cs` — `POST /launch-token/default` (anonymous, Main-only).
-- `Monkify.Api/Launch/LaunchTokenService.cs` — `Issue(...)` reused to sign the Main token.
-- `Monkify.Domain/Configs/Entities/LaunchTokenSettings.cs` — `MainSigningPrivateKeyPem`,
-  `MainOperatorPublicKeyPem`, `MainTokenTtlSeconds`; mock values in `Monkify.Common/monkifysettings.json`.
-- Tests: `Monkify.Tests/UnitTests/Controllers/LaunchControllerTests.cs`,
-  `Monkify.Tests/UnitTests/Consumers/DefaultSessionParametersTests.cs`. (No new integration test —
-  waived for this card; Main's crypto bet→run→reward is covered by existing `SessionFlowTests`.)
+- `ChimpOut.Api/Controllers/LaunchController.cs` — `POST /launch-token/default` (anonymous, Main-only).
+- `ChimpOut.Api/Launch/LaunchTokenService.cs` — `Issue(...)` reused to sign the Main token.
+- `ChimpOut.Domain/Configs/Entities/LaunchTokenSettings.cs` — `MainSigningPrivateKeyPem`,
+  `MainOperatorPublicKeyPem`, `MainTokenTtlSeconds`; mock values in `ChimpOut.Common/chimpoutsettings.json`.
+- Tests: `ChimpOut.Tests/UnitTests/Controllers/LaunchControllerTests.cs`,
+  `ChimpOut.Tests/UnitTests/Consumers/DefaultGameParametersTests.cs`. (No new integration test —
+  waived for this card; Main's crypto bet→run→reward is covered by existing `GameFlowTests`.)
 
 **Frontend (`monkify-front`)**
 
 - `src/hooks/useLaunch.ts` — auto-mint fallback (standalone, not embedded; real token wins).
 - `src/services/mainService.ts` — `getDefaultLaunchToken()`; 401 interceptor silent re-mint + retry for
   auto-minted tokens (real-operator 401 → `/error`, embedded → `token-expired`).
-- `src/utils/launchToken.ts` — `setAutoMintedLaunchToken` / `isAutoMintedLaunch` (`monkify.autoLaunch`
+- `src/utils/launchToken.ts` — `setAutoMintedLaunchToken` / `isAutoMintedLaunch` (`chimpout.autoLaunch`
   marker; `setLaunchToken` clears it).
-- `src/routes.ts` — prod `/monkify/game` → `/monkify/game/sessions` (was `/error`).
+- `src/routes.ts` — prod `/chimpout/game` → `/chimpout/game/games` (was `/error`).

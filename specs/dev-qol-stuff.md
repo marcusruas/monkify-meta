@@ -1,4 +1,4 @@
-# Monkify — "DEV QOL Stuff" Feature — Implementation Spec
+# ChimpOut — "DEV QOL Stuff" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/dev-qol-stuff` on 2026-06-30. Distilled in
 > `../features/dev-qol-stuff.md`. Refined via Trello card
@@ -9,7 +9,7 @@
 > (renamed from `create_local_environment.bat`); the dev mint token TTL shipped as non-expiring.
 >
 > **Purpose:** Four developer quality-of-life items that make local development of the launch-token
-> flow easier and add an end-to-end safety net for the session lifecycle. Audience: us (devs/QA),
+> flow easier and add an end-to-end safety net for the game lifecycle. Audience: us (devs/QA),
 > **not** players or operators. No production behaviour changes except the documented launch-URL shape
 > and a slimmed dev-only endpoint response.
 
@@ -23,13 +23,13 @@ Four largely independent work items:
 | --- | --- | --- | --- |
 | **A** | Drop `operatorId` from the game URL; resolve the operator from the launch token's `iss` claim instead | front + backend | Backend change is only the dev-mint response shape |
 | **B** | Replace the silent dev auto-mint with two explicit dev-only buttons (Crypto / Regulated) on a token-less landing | front | Buttons are the only dev entry point |
-| **C** | New `Monkify.Tests.Integration` project (Testcontainers) running sessions end-to-end | backend | **Independent — can be built by a parallel agent** |
-| **D** | Meta rule: session-flow changes must update the integration suite | meta | Doc-only |
+| **C** | New `ChimpOut.Tests.Integration` project (Testcontainers) running games end-to-end | backend | **Independent — can be built by a parallel agent** |
+| **D** | Meta rule: game-flow changes must update the integration suite | meta | Doc-only |
 
 **A, B** are coupled (same frontend launch flow + one backend response tweak). **C** is independent.
 **D** is a knowledge-base rule that lands with this feature.
 
-> **Note on "the launch token":** in production a casino redirects the player to Monkify with a
+> **Note on "the launch token":** in production a casino redirects the player to ChimpOut with a
 > signed RS256 JWT (`#launch_token=<jwt>`); the operator is the token's `iss` claim. See
 > `features/launch-token-validation.md`. This feature does **not** change token signing/validation —
 > only where the frontend reads the operatorId from, and the shape of the dev-only mint response.
@@ -42,15 +42,15 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/dev-qol-stuff` in `monkify-backend`, `monkify-front`, and `monkify-meta`
   (already created + pushed by `/monkify-create-spec`).
-- **Unit tests:** update/add in `Monkify.Tests`; **report changed tests at end of implementation.**
+- **Unit tests:** update/add in `ChimpOut.Tests`; **report changed tests at end of implementation.**
   Run `scripts/run_tests.bat` (fast suite) before declaring done. The new integration suite (item C)
   runs separately via `scripts/run_integration_tests.bat`.
 - **EF mapping / migrations:** **none needed** — this feature adds no entities, columns, or migrations.
 - **Secrets/config:** the dev launch-token signing key stays a **mock** placeholder in
-  `monkifysettings.json` — never a real key. Testcontainers connection strings are ephemeral/mock.
+  `chimpoutsettings.json` — never a real key. Testcontainers connection strings are ephemeral/mock.
 - **Operator messaging:** unchanged — auth/operator failures still route to a vague `/error`; never
   reveal contract status.
-- **Hosts:** API stays stateless and does **not** migrate; `Monkify.Consumers` keeps owning
+- **Hosts:** API stays stateless and does **not** migrate; `ChimpOut.Consumers` keeps owning
   background/typer/money work + migrations. (Relevant to how the integration harness boots both hosts.)
 
 ---
@@ -63,18 +63,18 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | `operatorId` is removed from the game route path. Operator-scoped pages no longer carry `:operatorId`. |
 | 3 | `DevController.MintLaunchToken` returns **`{ token }` only** (drop `operatorId` from the response + XML doc). |
 | 4 | The silent dev auto-mint (`mintDevToken` in `useLaunch.ts`) is **removed entirely**. |
-| 5 | Two **dev-only** buttons (Crypto / Regulated) live on a token-less landing at `/monkify/game` (prod → `/error`). Each mints via `POST /dev/launch-token?paymentModel=…`, stores the token, and navigates to the session-select page. |
-| 6 | New backend integration tests live in a **separate** `Monkify.Tests.Integration` project, excluded from the default fast suite, with their own runner script. |
-| 7 | Integration tests use **Testcontainers** (PostgreSQL + RabbitMQ + Redis), boot the **API** + **Consumers** hosts, run a representative sample of default session types end-to-end, and cover **both free and paid** bets. Solana is mocked. |
+| 5 | Two **dev-only** buttons (Crypto / Regulated) live on a token-less landing at `/chimpout/game` (prod → `/error`). Each mints via `POST /dev/launch-token?paymentModel=…`, stores the token, and navigates to the game-select page. |
+| 6 | New backend integration tests live in a **separate** `ChimpOut.Tests.Integration` project, excluded from the default fast suite, with their own runner script. |
+| 7 | Integration tests use **Testcontainers** (PostgreSQL + RabbitMQ + Redis), boot the **API** + **Consumers** hosts, run a representative sample of default game types end-to-end, and cover **both free and paid** bets. Solana is mocked. |
 | 8 | Solana is never really called in tests — `ISolanaService` is replaced with a test double (crypto/Model B paths); the regulated/Model A paid path mocks `IOperatorWalletService` instead. |
-| 9 | Meta rule: any change to the session lifecycle/flow must also update `Monkify.Tests.Integration`. |
+| 9 | Meta rule: any change to the game lifecycle/flow must also update `ChimpOut.Tests.Integration`. |
 
 ---
 
 ## 4. Data model
 
 **No data-model changes.** No new entities, columns, EF mapping, or migrations. (Item C reads/asserts
-existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
+existing tables — `Games`, `Bets`, `TransactionLogs` — but adds none.)
 
 ---
 
@@ -82,11 +82,11 @@ existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
 
 - **Backend:** no new `GeneralSettings`. The integration harness **overrides** the three connection
   strings to point at Testcontainers, via environment variables (.NET double-underscore convention):
-  - `ConnectionStrings__Monkify` → the Postgres container (also used by Hangfire).
+  - `ConnectionStrings__ChimpOut` → the Postgres container (also used by Hangfire).
   - `ConnectionStrings__RabbitMQ` → the RabbitMQ container.
   - `ConnectionStrings__Redis` → the Redis container.
-  Lower `GeneralSettings:Sessions:MinimumWaitPeriodForBets` (and related worker intervals) in the test
-  config so race sessions start promptly instead of waiting the production window.
+  Lower `GeneralSettings:Games:MinimumWaitPeriodForBets` (and related worker intervals) in the test
+  config so race games start promptly instead of waiting the production window.
 - **Frontend:** new env flag **`VUE_APP_DEV_LAUNCH`** (codebase convention is **`VUE_APP_*`**, Vue CLI,
   not `VITE_*`) gates the dev landing/buttons — `devLaunchEnabled = process.env.VUE_APP_DEV_LAUNCH !==
   'false'` in `src/constants/featureFlags.ts`, mirroring `allowFreeBets`. Default **on** (so local
@@ -96,7 +96,7 @@ existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
   - **Env files (same convention as `VUE_APP_ALLOW_FREE_BETS`):** `.env.production` and the `*.local`
     files are **git-ignored** (ops/deploy-managed); the committed template is **`.env.example`**, which
     documents `VUE_APP_DEV_LAUNCH`. The **production deploy must set `VUE_APP_DEV_LAUNCH=false`** in its
-    `.env.production` (so `/monkify/game` → `/error`).
+    `.env.production` (so `/chimpout/game` → `/error`).
   - **Local docker env:** `scripts/setup_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true`
     into the generated `.env.production.local` (Vue CLI's highest-priority file → overrides
     `.env.production`). The api/consumers containers run `ASPNETCORE_ENVIRONMENT=Development`, so the
@@ -108,7 +108,7 @@ existing tables — `Sessions`, `Bets`, `TransactionLogs` — but adds none.)
 
 ### 6.1 `DevController.MintLaunchToken` — slim the response (item A)
 
-File: `monkify-backend/src/Monkify.Api/Controllers/DevController.cs`
+File: `monkify-backend/src/ChimpOut.Api/Controllers/DevController.cs`
 
 Today (line 58): `return Ok(new { token, operatorId = devOperator.Id });`
 
@@ -136,60 +136,60 @@ with the operatorId it decodes from the token, so the existing iss-match protect
 This is **test-project work only** — no production code changes. Documented here so the implementer
 has the exact seams.
 
-**New project:** `monkify-backend/src/Monkify.Tests.Integration` (see §10.1 for csproj + §10.4 for the
-.sln entry). Namespace root `Monkify.Tests.Integration.*` — naturally excluded from
-`scripts/run_tests.bat` (which `cd`s into `Monkify.Tests` and also filters `FullyQualifiedName~UnitTests`).
+**New project:** `monkify-backend/src/ChimpOut.Tests.Integration` (see §10.1 for csproj + §10.4 for the
+.sln entry). Namespace root `ChimpOut.Tests.Integration.*` — naturally excluded from
+`scripts/run_tests.bat` (which `cd`s into `ChimpOut.Tests` and also filters `FullyQualifiedName~UnitTests`).
 
 **Containers (Testcontainers):**
 
 | Container | Module | Purpose |
 | --- | --- | --- |
-| PostgreSQL | `Testcontainers.PostgreSql` | EF store **and** Hangfire storage (`ConnectionStrings__Monkify`) |
+| PostgreSQL | `Testcontainers.PostgreSql` | EF store **and** Hangfire storage (`ConnectionStrings__ChimpOut`) |
 | RabbitMQ | `Testcontainers.RabbitMq` | MassTransit broker (`ConnectionStrings__RabbitMQ`) |
 | Redis | `Testcontainers.Redis` | Cache + SignalR backplane (`ConnectionStrings__Redis`) |
 
-> The existing `Monkify.Tests.csproj` references `Testcontainers.MsSql`, which is the **wrong** engine
-> (Monkify is Postgres/Npgsql). Do **not** reuse it — add the three modules above to the new project.
+> The existing `ChimpOut.Tests.csproj` references `Testcontainers.MsSql`, which is the **wrong** engine
+> (ChimpOut is Postgres/Npgsql). Do **not** reuse it — add the three modules above to the new project.
 
 **Booting the hosts** (collection fixture, started once, shared across the suite):
 
 1. Start the three containers; capture their connection strings into environment variables
-   (`ConnectionStrings__Monkify/RabbitMQ/Redis`) **before** building the hosts.
-2. Boot **`Monkify.Consumers`** via `WebApplicationFactory<Program>` (it is a `WebApplication`). On
+   (`ConnectionStrings__ChimpOut/RabbitMQ/Redis`) **before** building the hosts.
+2. Boot **`ChimpOut.Consumers`** via `WebApplicationFactory<Program>` (it is a `WebApplication`). On
    startup it **applies EF migrations**, **seeds the two dev operators** (`DEV Cassino` /
-   `DEV Regulated Cassino`), seeds the default session parameters, and registers the MassTransit
+   `DEV Regulated Cassino`), seeds the default game parameters, and registers the MassTransit
    consumers + Hangfire. This is the host that runs the game loop.
-3. Boot **`Monkify.Api`** via `WebApplicationFactory<Program>` against the **same** containers (it does
+3. Boot **`ChimpOut.Api`** via `WebApplicationFactory<Program>` against the **same** containers (it does
    not migrate). Use its `HttpClient` to place bets.
 4. In **both** factories' `ConfigureTestServices`, **replace Solana / wallet** with test doubles
    (§6.4) and **lower** `MinimumWaitPeriodForBets`.
    - `Program.cs` is top-level-statements; reference it via `public partial class Program { }` (add a
      one-line partial in each host project if `WebApplicationFactory<Program>` cannot see it).
 
-> **Caveat — background session creator:** `Monkify.Consumers` runs a `BaseWorker`-derived background
-> service (interval `GeneralSettings:Workers` / `CreateSessionsInterval`) plus `BetPlacedConsumer` /
-> `RunSessionConsumer`, all of which auto-create `Session` rows. For **deterministic** tests, **seed
-> the `Session` row directly** via a DbContext scope (status `WaitingBets`, tied to a chosen seeded
-> `SessionParameters`) rather than racing the worker, and key assertions on **that** session id.
+> **Caveat — background game creator:** `ChimpOut.Consumers` runs a `BaseWorker`-derived background
+> service (interval `GeneralSettings:Workers` / `CreateGamesInterval`) plus `BetPlacedConsumer` /
+> `RunGameConsumer`, all of which auto-create `Game` rows. For **deterministic** tests, **seed
+> the `Game` row directly** via a DbContext scope (status `WaitingBets`, tied to a chosen seeded
+> `GameParameters`) rather than racing the worker, and key assertions on **that** game id.
 
-**Driving a session end-to-end (per chosen session type):**
+**Driving a game end-to-end (per chosen game type):**
 
-1. Resolve a seeded `SessionParameters` for a dev operator (from the post-startup DB).
-2. Seed a `Session` (`WaitingBets`) for it via DbContext.
+1. Resolve a seeded `GameParameters` for a dev operator (from the post-startup DB).
+2. Seed a `Game` (`WaitingBets`) for it via DbContext.
 3. Mint a launch token for the operator (reuse `ILaunchTokenService` / the dev mint), then place
-   `MinimumNumberOfPlayers` bets via `POST /sessions/{id}/bets` on the API client:
+   `MinimumNumberOfPlayers` bets via `POST /games/{id}/bets` on the API client:
    - **Free** bets: `amount = 0`, no `paymentSignature` (skips payment + ledger).
    - **Paid crypto** bets (Model B / `DEV Cassino`): `amount > 0` + a (fake) `paymentSignature` + wallet;
      `ISolanaService` double validates them (§6.4).
    - **Paid regulated** bets (Model A / `DEV Regulated Cassino`): `amount > 0`, no wallet/signature
      (player from token `sub`); the operator-wallet double handles debit/credit (§6.4).
-4. The lifecycle runs on its own: `BetPlacedConsumer` → `RunSessionConsumer` (the typer always
-   produces a winner, via fallback) → `RewardSessionConsumer`. **Poll** the DB until the session
+4. The lifecycle runs on its own: `BetPlacedConsumer` → `RunGameConsumer` (the typer always
+   produces a winner, via fallback) → `RewardGameConsumer`. **Poll** the DB until the game
    reaches a terminal status (`RewardForWinnersCompleted`) or a timeout.
 5. Assert (§12 / item C).
 
-**Which session types (correction to the card):** the card text assumed "5 of the **6**" default
-types; the code actually generates **18** in `DefaultSessionParameters.GenerateDefaultParameters()`
+**Which game types (correction to the card):** the card text assumed "5 of the **6**" default
+types; the code actually generates **18** in `DefaultGameParameters.GenerateDefaultParameters()`
 (3 letter-race, 3 number-race, 3 alphanumeric-race, 3 preset-choice race, 3 four-hour lottery,
 3 daily lottery). Honour the original intent — **a representative ~5** — by covering one of each race
 flavour plus one preset:
@@ -225,7 +225,7 @@ RefundTokens(...)                     => true;                              // (
 
 **`IOperatorWalletService` / `IOperatorWalletResolver` (regulated / Model A):** mock `Credit` (and
 `Debit` for stake) to return success with a fake `ExternalTransactionReference`. The **real consumer**
-(`RewardSessionConsumer.CreditThroughOperatorWallet`, `RewardSessionConsumer.cs:158`) and the real
+(`RewardGameConsumer.CreditThroughOperatorWallet`, `RewardGameConsumer.cs:158`) and the real
 register-bet debit path then write the `TransactionLog` Debit/Credit rows — so the regulated ledger
 assertion exercises real ledger code (preferred).
 
@@ -235,7 +235,7 @@ assertion exercises real ledger code (preferred).
 | --- | --- | --- |
 | Crypto reward (Model B) | `SolanaService.TransferTokensForBet` (mocked → double must write it) | Credit |
 | Regulated stake (Model A) | register-bet debit path (real) | Debit |
-| Regulated reward (Model A) | `RewardSessionConsumer.CreditThroughOperatorWallet` (real) | Credit |
+| Regulated reward (Model A) | `RewardGameConsumer.CreditThroughOperatorWallet` (real) | Credit |
 | Free bet | **none** — free bets skip the ledger entirely | — |
 
 ---
@@ -272,18 +272,18 @@ Current routes:
 
 | Name | Path (today) | Component |
 | --- | --- | --- |
-| — | `/monkify/game` | redirect → `/error` |
-| `Session` | `/monkify/game/:operatorId` | `SessionSelectPage.vue` |
-| `Game` | `/monkify/game/:operatorId/play` | `GamePage.vue` |
+| — | `/chimpout/game` | redirect → `/error` |
+| `Game` | `/chimpout/game/:operatorId` | `GameSelectPage.vue` |
+| `Game` | `/chimpout/game/:operatorId/play` | `GamePage.vue` |
 | `Error` | `/error` | `ErrorPage.vue` |
 
 New routes:
 
 | Name | Path (new) | Component | Notes |
 | --- | --- | --- | --- |
-| `DevLanding` | `/monkify/game` | new `DevLandingPage.vue` (dev only) | In **production**, redirect → `/error` (dev-only buttons never ship/render). |
-| `Session` | `/monkify/game/sessions` | `SessionSelectPage.vue` | (exact path string is a naming choice — keep it param-free) |
-| `Game` | `/monkify/game/play` | `GamePage.vue` | |
+| `DevLanding` | `/chimpout/game` | new `DevLandingPage.vue` (dev only) | In **production**, redirect → `/error` (dev-only buttons never ship/render). |
+| `Game` | `/chimpout/game/games` | `GameSelectPage.vue` | (exact path string is a naming choice — keep it param-free) |
+| `Game` | `/chimpout/game/play` | `GamePage.vue` | |
 | `Error` | `/error` | `ErrorPage.vue` | |
 
 - **Remove** the `requireValidOperator` `beforeEnter` guard (there is no `:operatorId` to validate).
@@ -291,12 +291,12 @@ New routes:
   when no token / no operator resolves).
 - The dev-landing route must be reachable **without** a token; gate it on the **`devLaunchEnabled`**
   flag (`VUE_APP_DEV_LAUNCH !== 'false'`, see §5) and redirect to `/error` when disabled (production).
-- **Production casino launch landing.** Because `/monkify/game` is the dev landing (prod → `/error`),
-  the real casino launch lands on the **session-select route**: the new launch URL is
-  **`…/monkify/game/sessions#launch_token=<jwt>`** (replacing `…/monkify/game/<operatorId>#launch_token=<jwt>`).
-  `App.vue`'s `onMounted` already calls `loadOperator()` for the `Session`/`Game` routes, so the
+- **Production casino launch landing.** Because `/chimpout/game` is the dev landing (prod → `/error`),
+  the real casino launch lands on the **game-select route**: the new launch URL is
+  **`…/chimpout/game/games#launch_token=<jwt>`** (replacing `…/chimpout/game/<operatorId>#launch_token=<jwt>`).
+  `App.vue`'s `onMounted` already calls `loadOperator()` for the `Game`/`Game` routes, so the
   fragment token is captured, stripped, stored, and decoded on that hard load. (The dev buttons reach
-  the same `Session` route via SPA navigation and call `loadOperator()` themselves.)
+  the same `Game` route via SPA navigation and call `loadOperator()` themselves.)
 
 ### 7.3 `useLaunch` — remove the silent auto-mint (item B)
 
@@ -321,15 +321,15 @@ File: `monkify-front/src/hooks/useOperator.ts`
 
 Drop the `operatorId` param from every router navigation:
 
-- `src/components/GameHeader.vue` — `sessionHomeRoute` → `{ name: 'Session' }` (no `params`).
-- `src/pages/GamePage.vue` — `router.push({ name: 'Session' })` (no `params`).
-- `src/components/game-selection/GameTypes.vue` — `chooseSession` →
-  `router.push({ name: 'Game', query: { type: session.sessionTypeId } })` (no `params`).
+- `src/components/GameHeader.vue` — `gameHomeRoute` → `{ name: 'Game' }` (no `params`).
+- `src/pages/GamePage.vue` — `router.push({ name: 'Game' })` (no `params`).
+- `src/components/game-selection/GameTypes.vue` — `chooseGame` →
+  `router.push({ name: 'Game', query: { type: game.gameTypeId } })` (no `params`).
 
 ### 7.6 Dev landing page + two buttons (item B)
 
 New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component rendered by the
-`/monkify/game` route). Dev-only.
+`/chimpout/game` route). Dev-only.
 
 - Renders exactly two buttons: **Crypto** and **Regulated**.
 - On click:
@@ -338,9 +338,9 @@ New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component ren
     params: { paymentModel },   // 'Crypto' | 'Regulated'
   });
   setLaunchToken(data.token);            // from launchToken.ts
-  router.push({ name: 'Session' });      // session-select; useOperator decodes iss + loads branding
+  router.push({ name: 'Game' });      // game-select; useOperator decodes iss + loads branding
   ```
-- Guard: when `devLaunchEnabled` is false (production — `VUE_APP_DEV_LAUNCH=false`), `/monkify/game`
+- Guard: when `devLaunchEnabled` is false (production — `VUE_APP_DEV_LAUNCH=false`), `/chimpout/game`
   redirects to `/error` and the buttons are never rendered/shipped (see §5).
 
 ---
@@ -352,30 +352,30 @@ New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component ren
 ```mermaid
 sequenceDiagram
     participant Dev as Developer (no token)
-    participant FE as Frontend (/monkify/game, dev only)
+    participant FE as Frontend (/chimpout/game, dev only)
     participant API as DevController
-    Dev->>FE: open /monkify/game
+    Dev->>FE: open /chimpout/game
     FE-->>Dev: show [Crypto] [Regulated]
     Dev->>FE: click Regulated
     FE->>API: POST /dev/launch-token?paymentModel=Regulated
     API-->>FE: { token }
     FE->>FE: setLaunchToken(token); decode iss
-    FE->>FE: router.push(Session) -> getOperator(iss) -> branding
+    FE->>FE: router.push(Game) -> getOperator(iss) -> branding
 ```
 
-### 8.2 Integration test (one session, paid crypto)
+### 8.2 Integration test (one game, paid crypto)
 
 ```mermaid
 sequenceDiagram
     participant T as Test
-    participant API as Monkify.Api (WAF)
-    participant C as Monkify.Consumers (WAF)
+    participant API as ChimpOut.Api (WAF)
+    participant C as ChimpOut.Consumers (WAF)
     participant DB as Postgres (Testcontainers)
-    T->>DB: seed Session (WaitingBets) for a SessionParameters
-    T->>API: POST /sessions/{id}/bets x N (amount>0, fake sig)
+    T->>DB: seed Game (WaitingBets) for a GameParameters
+    T->>API: POST /games/{id}/bets x N (amount>0, fake sig)
     Note over API: ISolanaService double -> ValidateBetPayment OK
     API->>C: BetPlacedEvent (RabbitMQ)
-    C->>C: RunSession (typer -> winner) -> RewardSession
+    C->>C: RunGame (typer -> winner) -> RewardGame
     Note over C: ISolanaService double -> Transfer OK + writes TransactionLog
     T->>DB: poll until RewardForWinnersCompleted
     T->>DB: assert bet Rewarded, TransactionLog Credit, no error logs
@@ -388,7 +388,7 @@ sequenceDiagram
 - Any change to launch-token **signing/validation**, claims, or middleware (only the dev-mint
   *response shape* changes).
 - A new backend operator-resolution endpoint (decided against — the client decodes `iss`).
-- Running **all** default session types in the integration suite, or load/perf testing.
+- Running **all** default game types in the integration suite, or load/perf testing.
 - Driving **lottery** draws in the integration suite (optional/advanced; excluded from the default run).
 - Real Solana calls in tests (always mocked).
 - Knowledge-base `features/` updates beyond item D's rule (the post-merge `features/` sync is handled
@@ -402,47 +402,47 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/Monkify.Api/Controllers/DevController.cs` | `MintLaunchToken` returns `{ token }` only; update XML doc |
-| 2 | `src/Monkify.Tests/UnitTests/Controllers/DevControllerTests.cs` | Drop `operatorId` assertions (see §11) |
-| 3 | `src/Monkify.Tests.Integration/Monkify.Tests.Integration.csproj` | **New** project (see §10.3) |
-| 4 | `src/Monkify.Tests.Integration/*` | **New** collection fixture (containers + 2 WAF hosts), test doubles, session-flow tests |
-| 5 | `src/Monkify.Api/Program.cs` & `src/Monkify.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
-| 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_session_tests.bat`) |
-| 7 | `src/Monkify.sln` | Add the new project + build configs |
+| 1 | `src/ChimpOut.Api/Controllers/DevController.cs` | `MintLaunchToken` returns `{ token }` only; update XML doc |
+| 2 | `src/ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs` | Drop `operatorId` assertions (see §11) |
+| 3 | `src/ChimpOut.Tests.Integration/ChimpOut.Tests.Integration.csproj` | **New** project (see §10.3) |
+| 4 | `src/ChimpOut.Tests.Integration/*` | **New** collection fixture (containers + 2 WAF hosts), test doubles, game-flow tests |
+| 5 | `src/ChimpOut.Api/Program.cs` & `src/ChimpOut.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
+| 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_game_tests.bat`) |
+| 7 | `src/ChimpOut.sln` | Add the new project + build configs |
 | 8 | `scripts/setup_local_environment.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
-| 9 | `src/Monkify.Api/Dockerfile` & `src/Monkify.Consumers/Dockerfile` | Add `COPY` for `Monkify.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
+| 9 | `src/ChimpOut.Api/Dockerfile` & `src/ChimpOut.Consumers/Dockerfile` | Add `COPY` for `ChimpOut.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/utils/launchToken.ts` | Add `getOperatorIdFromToken()` |
-| 2 | `src/routes.ts` | Drop `:operatorId`; remove `requireValidOperator`; `/monkify/game` → dev landing (prod → `/error`) |
+| 2 | `src/routes.ts` | Drop `:operatorId`; remove `requireValidOperator`; `/chimpout/game` → dev landing (prod → `/error`) |
 | 3 | `src/hooks/useLaunch.ts` | Remove `mintDevToken` + auto-mint; `ensureLaunchToken()` no arg |
 | 4 | `src/hooks/useOperator.ts` | Derive `operatorId` from token; call `ensureLaunchToken()`/`getOperatorIdFromToken()` |
-| 5 | `src/components/GameHeader.vue` | `sessionHomeRoute` → `{ name: 'Session' }` (no params) |
-| 6 | `src/pages/GamePage.vue` | `router.push({ name: 'Session' })` (no params) |
-| 7 | `src/components/game-selection/GameTypes.vue` | `chooseSession` push without `operatorId` param |
+| 5 | `src/components/GameHeader.vue` | `gameHomeRoute` → `{ name: 'Game' }` (no params) |
+| 6 | `src/pages/GamePage.vue` | `router.push({ name: 'Game' })` (no params) |
+| 7 | `src/components/game-selection/GameTypes.vue` | `chooseGame` push without `operatorId` param |
 | 8 | `src/pages/DevLandingPage.vue` | **New** dev-only landing with Crypto/Regulated buttons |
 | 9 | `src/constants/featureFlags.ts` | Add `devLaunchEnabled` (`VUE_APP_DEV_LAUNCH !== 'false'`) |
 | 10 | `.env.example` (committed) | Document `VUE_APP_DEV_LAUNCH`. NB `.env.production` is git-ignored/ops-managed — production deploy must set `VUE_APP_DEV_LAUNCH=false` there |
 
-### 10.3 New integration csproj (mirror of `Monkify.Tests.csproj`)
+### 10.3 New integration csproj (mirror of `ChimpOut.Tests.csproj`)
 
 `net8.0`, `IsTestProject=true`. Package references: `Microsoft.NET.Test.Sdk` 17.6.0, `xunit` 2.4.2,
 `xunit.runner.visualstudio` 2.4.5, `Shouldly` 4.2.1, `Moq` 4.20.70, `Bogus` 35.5.0,
 `coverlet.collector` 6.0.2, **`Microsoft.AspNetCore.Mvc.Testing`** (8.0.x, for `WebApplicationFactory`),
 **`Testcontainers.PostgreSql`**, **`Testcontainers.RabbitMq`**, **`Testcontainers.Redis`** (4.6.0, to
-match the existing Testcontainers 4.6.0). Project references: `Monkify.Api`, `Monkify.Consumers`,
-`Monkify.Infrastructure`, `Monkify.Domain`, `Monkify.Common`. (Do **not** copy `Testcontainers.MsSql`.)
+match the existing Testcontainers 4.6.0). Project references: `ChimpOut.Api`, `ChimpOut.Consumers`,
+`ChimpOut.Infrastructure`, `ChimpOut.Domain`, `ChimpOut.Common`. (Do **not** copy `Testcontainers.MsSql`.)
 
 ### 10.4 Meta (`monkify-meta`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `conventions/backend.md` | Add the rule: session-flow changes must update `Monkify.Tests.Integration` |
+| 1 | `conventions/backend.md` | Add the rule: game-flow changes must update `ChimpOut.Tests.Integration` |
 | 2 | `constraints.md` | Add a one-line pointer (in §3 Unit tests) to that rule |
-| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example: production launch lands on the session route — `…/monkify/game/sessions#launch_token=<jwt>` (was `…/monkify/game/<operatorId>#launch_token=<jwt>`) |
+| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example: production launch lands on the game route — `…/chimpout/game/games#launch_token=<jwt>` (was `…/chimpout/game/<operatorId>#launch_token=<jwt>`) |
 | 4 | `specs/dev-qol-stuff.md` | This spec |
 | 5 | `INDEX.md` | Map row + "Feature currently in flight" |
 
@@ -450,12 +450,12 @@ match the existing Testcontainers 4.6.0). Project references: `Monkify.Api`, `Mo
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/Monkify.Tests` (fast suite) + the new `Monkify.Tests.Integration`.
+Project: `monkify-backend/src/ChimpOut.Tests` (fast suite) + the new `ChimpOut.Tests.Integration`.
 **Report all changed/added tests at end of implementation.**
 
 ### 11.1 `DevControllerTests` (existing — must update)
 
-File: `src/Monkify.Tests/UnitTests/Controllers/DevControllerTests.cs`
+File: `src/ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs`
 
 | Test case | Change |
 | --- | --- |
@@ -464,17 +464,17 @@ File: `src/Monkify.Tests/UnitTests/Controllers/DevControllerTests.cs`
 | `MintLaunchToken_DefaultsToCrypto` / `_NoDevOperator_Returns404` / `_Production_Returns404` | Unchanged (no `operatorId` assertion) |
 | **New** | Assert the response shape has **no** `operatorId` property (reflection: `GetProperty("operatorId") == null`) |
 
-### 11.2 `Monkify.Tests.Integration` (new)
+### 11.2 `ChimpOut.Tests.Integration` (new)
 
-Namespace `Monkify.Tests.Integration.*`. One collection fixture (containers + both WAF hosts + doubles).
+Namespace `ChimpOut.Tests.Integration.*`. One collection fixture (containers + both WAF hosts + doubles).
 
 | Test | Expect |
 | --- | --- |
-| Letters-race, free bets | Session → `RewardForWinnersCompleted`; ≥1 winner `Rewarded`; **no** `TransactionLog` rows; no error logs |
-| Numbers-race, paid crypto (Model B) | Session completes; winner `Rewarded`; one `Credit` `TransactionLog` (via Solana double); no error logs |
+| Letters-race, free bets | Game → `RewardForWinnersCompleted`; ≥1 winner `Rewarded`; **no** `TransactionLog` rows; no error logs |
+| Numbers-race, paid crypto (Model B) | Game completes; winner `Rewarded`; one `Credit` `TransactionLog` (via Solana double); no error logs |
 | Alphanumeric-race, paid crypto | As above |
-| Preset-race, paid regulated (Model A) | Session completes; winner `Rewarded`; `Debit` + `Credit` `TransactionLog` rows (real consumer); no error logs |
-| Mixed free + paid in one session | Pot from paid only; free winner `Rewarded` with no ledger row; paid winner with ledger row |
+| Preset-race, paid regulated (Model A) | Game completes; winner `Rewarded`; `Debit` + `Credit` `TransactionLog` rows (real consumer); no error logs |
+| Mixed free + paid in one game | Pot from paid only; free winner `Rewarded` with no ledger row; paid winner with ledger row |
 | Error-log capture | Assert API + Consumers emit **no** `Error`-level logs across all runs (e.g. an in-memory/Serilog sink the fixture inspects) |
 
 > The typer always yields a winner (fallback winner mechanism — see `features/typer-pacing-scalability.md`),
@@ -493,27 +493,27 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
    then it uses the operatorId decoded from the token's `iss` (validated by `isValidOperatorGuid`).
 3. **A3** — Given a successful `POST /dev/launch-token` in dev, when the response is returned, then its
    body contains only `{ token }` and no `operatorId`.
-4. **B1** — Given dev environment with no token, when a dev opens `/monkify/game`, then a dev-only
+4. **B1** — Given dev environment with no token, when a dev opens `/chimpout/game`, then a dev-only
    landing renders exactly two buttons: Crypto and Regulated.
 5. **B2** — Given the dev landing, when the dev clicks Crypto (or Regulated), then
    `POST /dev/launch-token?paymentModel=Crypto` (or `Regulated`) is called, the returned token is
-   stored via `setLaunchToken`, and the dev is navigated to the session-select page for that operator.
-6. **B3** — Given production build, when a user navigates to `/monkify/game`, then they are redirected
+   stored via `setLaunchToken`, and the dev is navigated to the game-select page for that operator.
+6. **B3** — Given production build, when a user navigates to `/chimpout/game`, then they are redirected
    to `/error` and no dev buttons are present in the shipped bundle.
 7. **B4** — Given dev environment and no token, when the app loads, then no token is auto-minted
    silently (the `mintDevToken` fallback is removed); entry requires clicking a button.
-8. **C1** — Given the `Monkify.Tests.Integration` suite with Testcontainers (Postgres + RabbitMQ +
-   Redis), when it runs the representative default session types end-to-end (free and paid bets, Solana
-   mocked), then each session reaches a terminal status and winners are marked `Rewarded`.
-9. **C2** — Given the integration run, when the API and Consumers process the sessions, then no
+8. **C1** — Given the `ChimpOut.Tests.Integration` suite with Testcontainers (Postgres + RabbitMQ +
+   Redis), when it runs the representative default game types end-to-end (free and paid bets, Solana
+   mocked), then each game reaches a terminal status and winners are marked `Rewarded`.
+9. **C2** — Given the integration run, when the API and Consumers process the games, then no
    error-level logs are emitted by either host.
 10. **C3** — Given the containerized DB after a run, when assertions execute, then paid winners have
     correct payout and `TransactionLog` rows, free bets are excluded from the pot, and all bets
     persisted with expected statuses.
 11. **C4** — Given the default fast suite (`scripts/run_tests.bat`), when it runs, then
-    `Monkify.Tests.Integration` is excluded and runs only via its own `scripts/run_integration_tests.bat`.
-12. **D1** — Given a change to the session lifecycle/flow, when the work is done, then `monkify-meta`
-    (`conventions/backend.md` + `constraints.md §3` pointer) documents that `Monkify.Tests.Integration`
+    `ChimpOut.Tests.Integration` is excluded and runs only via its own `scripts/run_integration_tests.bat`.
+12. **D1** — Given a change to the game lifecycle/flow, when the work is done, then `monkify-meta`
+    (`conventions/backend.md` + `constraints.md §3` pointer) documents that `ChimpOut.Tests.Integration`
     must also be updated.
 
 ---
@@ -521,15 +521,15 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
 ## 13. Manual QA (dev)
 
 1. Run backend (Consumers + API) locally with docker-compose (Postgres/RabbitMQ/Redis up).
-2. Run the frontend in dev. Open `/monkify/game` → see **Crypto** / **Regulated** buttons.
-3. Click **Crypto** → lands on the session-select page, branded for `DEV Cassino`, with a token in
-   `sessionStorage` and **no** `operatorId` in the URL. Play a session.
+2. Run the frontend in dev. Open `/chimpout/game` → see **Crypto** / **Regulated** buttons.
+3. Click **Crypto** → lands on the game-select page, branded for `DEV Cassino`, with a token in
+   `sessionStorage` and **no** `operatorId` in the URL. Play a game.
 4. Click **Regulated** (fresh tab) → branded for `DEV Regulated Cassino`; bet without a wallet.
-5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/monkify/game` →
+5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/chimpout/game` →
    redirected to `/error`, no buttons. (The docker local env sets it back to `true` via
    `setup_local_environment.bat`, so the buttons appear there.)
 6. `cd backend && scripts/run_tests.bat` → passes, integration suite **not** run.
-7. `scripts/run_integration_tests.bat` → containers spin up, sessions run, suite passes.
+7. `scripts/run_integration_tests.bat` → containers spin up, games run, suite passes.
 
 ---
 
@@ -547,4 +547,4 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
 
 | Date | Change |
 | --- | --- |
-| 2026-06-30 | Initial spec from the refined card (#28) + backend code exploration (hosts, session lifecycle, ledger, test project). |
+| 2026-06-30 | Initial spec from the refined card (#28) + backend code exploration (hosts, game lifecycle, ledger, test project). |

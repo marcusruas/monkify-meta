@@ -1,9 +1,9 @@
-# Monkify — "Audio Overhaul with AI" — (3/3) Wiring Spec
+# ChimpOut — "Audio Overhaul with AI" — (3/3) Wiring Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:**
 > proximity bleeps were **omitted** (their assets were dropped); shipped **extras beyond this spec** —
-> a menu loop on the sessions page (`LobbyAudio.vue`), a `/`→`/monkify/game` redirect, and a
-> session-connection teardown fix (`disconnectAllPreviousConnections`). See
+> a menu loop on the games page (`LobbyAudio.vue`), a `/`→`/chimpout/game` redirect, and a
+> game-connection teardown fix (`disconnectAllPreviousConnections`). See
 > `../features/audio-overhaul.md`. Originally refined via Trello card
 > [Overhaul audio/songs with AI — (3/3) Wire new audio into the game](https://trello.com/c/RvVdpO25/35-overhaul-audio-songs-with-ai-3-3-wire-new-audio-into-the-game)
 > (2026-07-07).
@@ -42,9 +42,9 @@ settlement, or outcomes) and **preserves the existing tab-visibility gating**.
 | Area | Change | Card 1 ref |
 | --- | --- | --- |
 | Engine | `helpers.ts` master gain + mute multiplier, live re-apply to loops | §7.1 |
-| Idle / Starting / Running | `GameAudio.vue`: idle loop on `WaitingBets`; **one-shot** Game Starting on `SessionStarting`; **random** running variant on `InProgress` | §7.2 |
+| Idle / Starting / Running | `GameAudio.vue`: idle loop on `WaitingBets`; **one-shot** Game Starting on `GameStarting`; **random** running variant on `InProgress` | §7.2 |
 | Own-bet / error / button | `GameMonkey.vue` (`phone_beep`), `GameConsole.vue` (keep `error1`, add `button_press`) | §7.3 |
-| Victory / Lose | end-of-session selection, bettors only | §7.4 |
+| Victory / Lose | end-of-game selection, bettors only | §7.4 |
 | Proximity bleeps | extend `useNearMiss` to fire 3/2/1 on the raw KMP match | §7.5 |
 | Mute + volume | header speaker icon (mute click + hover/expand slider), `localStorage` | §7.6 |
 | Timing fixes | (1) sting-on-glasses alignment, (2) clean loop handoff, (3) own-bet beep sync | this card §6.8 |
@@ -67,7 +67,7 @@ From `monkify-meta/constraints.md` (full list there):
 - **EF / migrations / API / SignalR / operator-messaging** constraints are **N/A** — nothing backend
   is touched.
 - **Format is a reversible convention:** the new assets are mp3; `error1.wav` is retained.
-- **Display-only:** audio must never affect bets, settlement, winners, or session state.
+- **Display-only:** audio must never affect bets, settlement, winners, or game state.
 
 ---
 
@@ -76,9 +76,9 @@ From `monkify-meta/constraints.md` (full list there):
 | # | Decision |
 | --- | --- |
 | 1 | **Implement `specs/audio-overhaul.md` §7 verbatim** — §7.1–§7.7 are the contract; this spec adds the concrete file/line edits and the timing fixes. |
-| 2 | **Session-start sting is baked into `game_starting.mp3`** — no separate sting playback. Game Starting is a **one-shot** on `SessionStarting`, not a loop. |
+| 2 | **Game-start sting is baked into `game_starting.mp3`** — no separate sting playback. Game Starting is a **one-shot** on `GameStarting`, not a loop. |
 | 3 | **Running music = random of 3 variants** (`game_running_1/2/3.mp3`) chosen per `InProgress`. |
-| 4 | **Victory/Lose — bettors only** (bet & won → victory; bet & lost → lose; no bet → neither), fires once, via existing `useSession` state. |
+| 4 | **Victory/Lose — bettors only** (bet & won → victory; bet & lost → lose; no bet → neither), fires once, via existing `useGame` state. |
 | 5 | **Proximity bleeps** reuse `useNearMiss`, firing on the **raw per-char KMP `k`** (not `displayK`), 3/2/1 escalating, re-arm on break, closest-bet drives the tier, short choices fire only tiers ≤ L. Frontend-only. |
 | 6 | **Mute + volume UI:** header **speaker icon** — mute on click, **volume slider on hover/expand**; `localStorage` (default unmuted/full); master gain/mute in `helpers.ts` with **live re-apply** to a playing loop. Client display-only. |
 | 7 | **Three timing fixes:** (1) Game Starting sting lands on the glasses moment (~8.8s); (2) clean loop start/stop handoff (one loop at a time); (3) own-bet beep in sync with the call animation. |
@@ -101,7 +101,7 @@ All paths in `monkify-front`. Verified against the live code (`feature/audio-ove
 
 - Imports `runningAudio` (`game_running.wav`), `startingAudio` (`game_starting.wav`); `waitingAudio`
   import is **commented out**. `currentTrack: 'none' | 'starting' | 'running'`.
-- `updateAudioForStatus(status)`: `SessionStarting → playTrack('starting')` (looped);
+- `updateAudioForStatus(status)`: `GameStarting → playTrack('starting')` (looped);
   `InProgress → playTrack('running')` (looped); `WaitingBets`/`Reward`/`Ended`/default → `stopAudio()`.
 - `playTrack()` gates on `isActiveTab()` (visible **and** focused), stops current, then
   `playLoopingAudio(...)` in a `requestAnimationFrame`. Visibility/focus handlers re-sync on refocus.
@@ -125,12 +125,12 @@ All paths in `monkify-front`. Verified against the live code (`feature/audio-ove
 - **Changes (§6.3):** keep `error1.wav`; add `playAudio(buttonPress)` (`button_press.mp3`) at the top
   of `selectPresetButton`.
 
-### 4.5 `src/hooks/useSession.ts` (state + terminal feed)
+### 4.5 `src/hooks/useGame.ts` (state + terminal feed)
 
-- Exposes `ownBetChoices` (durable own choices this session), `winnerChoice`
-  (`result.firstChoiceTyped`), `winners` (`result.winners`), `sessionInstance.status`. The `Terminal`
+- Exposes `ownBetChoices` (durable own choices this game), `winnerChoice`
+  (`result.firstChoiceTyped`), `winners` (`result.winners`), `gameInstance.status`. The `Terminal`
   handler already calls `nearMiss.feed(data)`; the `Status` handler calls `nearMiss.finish(...)` on
-  `Ended`; `updateNewSession()` calls `nearMiss.reset()`.
+  `Ended`; `updateNewGame()` calls `nearMiss.reset()`.
 - **Changes (§6.4):** on `Status → Ended`, run the victory/lose selection (bettors only), once.
 
 ### 4.6 `src/utils/nearMiss.ts` + `src/hooks/useNearMiss.ts` (proximity)
@@ -158,7 +158,7 @@ All paths in `monkify-front`. Verified against the live code (`feature/audio-ove
 ## 5. Configuration
 
 **None.** No new env var, no `GeneralSettings`, no `VUE_APP_*`. The mute/volume state lives only in
-`localStorage` (suggested key `monkify.audio` → `{ muted: boolean, volume: number }`).
+`localStorage` (suggested key `chimpout.audio` → `{ muted: boolean, volume: number }`).
 
 ---
 
@@ -183,9 +183,9 @@ Order the work engine-first so the triggers can rely on the master gain.
   `runningVariants = [game_running_1.mp3, game_running_2.mp3, game_running_3.mp3]`.
 - **`WaitingBets`:** `playTrack('waiting')` → `playLoopingAudio(waiting)`; add `'waiting'` to
   `currentTrack`'s union.
-- **`SessionStarting`:** **one-shot** — `stopAudio()` (stop the idle loop) then `playAudio(starting)`
+- **`GameStarting`:** **one-shot** — `stopAudio()` (stop the idle loop) then `playAudio(starting)`
   (do **not** loop; drop the old `'starting'` loop branch). The baked-in glasses sting plays near the
-  end (timing fix 1). Guard so it plays **once** per entry into `SessionStarting`.
+  end (timing fix 1). Guard so it plays **once** per entry into `GameStarting`.
 - **`InProgress`:** `stopAudio()` then `playLoopingAudio(runningVariants[Math.floor(Math.random() *
   runningVariants.length)])`. Track `currentTrack = 'running'`.
 - **`Ended` / reward / default:** `stopAudio()` (victory/lose one-shots are fired from §6.4, not here).
@@ -202,16 +202,16 @@ Order the work engine-first so the triggers can rely on the master gain.
 - `GameConsole.vue`: keep `error1.wav` + `leverError()` unchanged; import `button_press.mp3` and call
   `playAudio(buttonPress)` at the start of `selectPresetButton()`.
 
-### 6.4 Victory / Lose — end of session (bettors only)
+### 6.4 Victory / Lose — end of game (bettors only)
 
-- Add a small watcher (in `useSession` or a dedicated `useEndSessionAudio` composable) on
-  `sessionInstance.value?.status === SessionStatus.Ended`:
+- Add a small watcher (in `useGame` or a dedicated `useEndGameAudio` composable) on
+  `gameInstance.value?.status === GameStatus.Ended`:
   - `didBet = ownBetChoices.value.length > 0` → if false, **play neither** and return.
   - `won = ownBetChoices.value.includes(winnerChoice.value)` *(primary, works across payment models;
     for crypto, `won ||= winners.value.includes(wallet)` as belt-and-suspenders)*.
   - `won ? playAudio(victory) : playAudio(lose)`.
-- Fire **once** per session end (a `firedForSession` guard keyed by `sessionId`); reset on
-  `updateNewSession()`. Respect `isActiveTab()`.
+- Fire **once** per game end (a `firedForGame` guard keyed by `gameId`); reset on
+  `updateNewGame()`. Respect `isActiveTab()`.
 
 ### 6.5 Proximity bleeps — extend `useNearMiss`
 
@@ -237,21 +237,21 @@ Order the work engine-first so the triggers can rely on the master gain.
   `setMasterVolume`; on input, call `applyVolumeToActive()` so a playing loop updates live.
 - **Persist** `{ muted, volume }` to `localStorage` on change; **hydrate** on mount and call
   `setMuted`/`setMasterVolume` so state survives reloads. **Default unmuted, volume 1.**
-- Purely presentational — no wallet/bet/session coupling.
+- Purely presentational — no wallet/bet/game coupling.
 
 ### 6.7 Preserved behaviour (§7.7)
 
 - Keep `isActiveTab()` gating (nothing starts while inactive; re-sync on refocus).
-- Loops fully stop on `Ended`/rollover; `nearMiss.reset()` on `updateNewSession()` clears proximity
+- Loops fully stop on `Ended`/rollover; `nearMiss.reset()` on `updateNewGame()` clears proximity
   (extend it to clear the new armed-tier state).
 
 ### 6.8 The three timing fixes (summary)
 
 1. **Sting on glasses:** Game Starting is a ~10s one-shot whose sting sits at ~8.8–9.5s to match
-   `GLASSES_DELAY_MS = 8800` — realized by playing `game_starting.mp3` once at `SessionStarting` entry
+   `GLASSES_DELAY_MS = 8800` — realized by playing `game_starting.mp3` once at `GameStarting` entry
    (asset shaped by card 1/2; wiring just plays it as a one-shot).
 2. **Clean loop handoff:** one loop at a time; stop-before-start; no overlap/double-play/stray loop
-   across `WaitingBets → SessionStarting → InProgress → Ended` (§6.2).
+   across `WaitingBets → GameStarting → InProgress → Ended` (§6.2).
 3. **Own-bet beep sync:** beep fires with the call animation, once per own bet, 2-cap consistent
    (§6.3).
 
@@ -268,11 +268,11 @@ Order the work engine-first so the triggers can rely on the master gain.
 stateDiagram-v2
   [*] --> WaitingBets
   WaitingBets: idle loop (game_waiting.mp3)
-  SessionStarting: game_starting.mp3 ONE-SHOT (sting ~8.8s)
+  GameStarting: game_starting.mp3 ONE-SHOT (sting ~8.8s)
   InProgress: random game_running_1/2/3.mp3 loop<br/>+ 3/2/1 proximity bleeps (own bets)
   Ended: victory/lose one-shot (bettors only)
-  WaitingBets --> SessionStarting: stop idle → play starting one-shot
-  SessionStarting --> InProgress: stop → play random running loop
+  WaitingBets --> GameStarting: stop idle → play starting one-shot
+  GameStarting --> InProgress: stop → play random running loop
   InProgress --> Ended: stop loop → victory/lose (if local bet)
   Ended --> WaitingBets: rollover (reset)
   note right of WaitingBets
@@ -306,11 +306,11 @@ stateDiagram-v2
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/constants/helpers.ts` | Master `masterVolume`/`muted` + `effective()` + setters + `applyVolumeToActive()` (§6.1) |
-| 2 | `src/components/game/GameAudio.vue` | Idle loop (`WaitingBets`); one-shot Game Starting (`SessionStarting`); random running variant (`InProgress`); clean handoff; keep tab gating (§6.2) |
+| 2 | `src/components/game/GameAudio.vue` | Idle loop (`WaitingBets`); one-shot Game Starting (`GameStarting`); random running variant (`InProgress`); clean handoff; keep tab gating (§6.2) |
 | 3 | `src/components/game/GameMonkey.vue` | Import `phone_beep.mp3`; beep synced to call animation (§6.3) |
 | 4 | `src/components/game/GameConsole.vue` | Keep `error1.wav`; add `button_press.mp3` in `selectPresetButton` (§6.3) |
 | 5 | `src/hooks/useNearMiss.ts` | Emit proximity tier from `feed()` on raw `k`; fire 3/2/1 bleeps; clear armed state on reset/finish (§6.5) |
-| 6 | `src/hooks/useSession.ts` (or new `useEndSessionAudio.ts`) | Victory/lose on `Ended`, bettors only, once (§6.4) |
+| 6 | `src/hooks/useGame.ts` (or new `useEndGameAudio.ts`) | Victory/lose on `Ended`, bettors only, once (§6.4) |
 | 7 | `src/components/game/GameHeader.vue` (or the header host) | Mute icon + hover/expand volume slider + `localStorage` (§6.6) |
 | 8 | `src/assets/audios/` | Import the 12 new mp3s; delete the 4 old `.wav` originals; keep `error1.wav` (§6.9) |
 
@@ -333,11 +333,11 @@ stateDiagram-v2
 
 Run the app (`npm run serve`) and play through:
 
-1. **Idle:** enter a session in `WaitingBets` (tab focused) → idle loop plays; blur the tab → nothing
+1. **Idle:** enter a game in `WaitingBets` (tab focused) → idle loop plays; blur the tab → nothing
    new starts; refocus → re-syncs.
-2. **Starting:** on `SessionStarting` → `game_starting.mp3` plays **once** (not looping); the glasses
+2. **Starting:** on `GameStarting` → `game_starting.mp3` plays **once** (not looping); the glasses
    sting lands as the monkey puts glasses on (~8.8s); no separate sting.
-3. **Running:** on `InProgress` → one of the 3 running variants loops (varies across sessions); no
+3. **Running:** on `InProgress` → one of the 3 running variants loops (varies across games); no
    overlap with the starting one-shot; only one loop audible.
 4. **Own-bet:** place your own bet → beep fires once with the call animation; place a second → still
    capped/synced; **error:** invalid lever → `error1` still plays; **button:** click a preset button →
@@ -360,7 +360,7 @@ Run the app (`npm run serve`) and play through:
 - **Depends on:** [#17 `9qiDtDAe`](https://trello.com/c/9qiDtDAe) (§7 contract) + [#34
   `OuXhyqyU`](https://trello.com/c/OuXhyqyU) (assets — must be generated/committed first).
 - **Next:** `/monkify-implement-feature` for **#34** (needs the real `ACEDATACLOUD_API_TOKEN` +
-  session restart), then **#35**; **ship all three together** via `/monkify-ship-feature`.
+  game restart), then **#35**; **ship all three together** via `/monkify-ship-feature`.
 
 ---
 
@@ -368,4 +368,4 @@ Run the app (`npm run serve`) and play through:
 
 | Date | Change |
 | --- | --- |
-| 2026-07-07 | Initial wiring spec from refined card #35. Audited the live audio code (helpers/GameAudio/GameMonkey/GameConsole/useSession/useNearMiss); mapped card 1 §7 to concrete edits; specified engine master gain/mute, idle+one-shot-starting+random-running, victory/lose (bettors-only), proximity bleeps on raw KMP `k`, header mute/volume UI, the three timing fixes, asset swap+cleanup, and manual-QA-only verification (no FE test runner). |
+| 2026-07-07 | Initial wiring spec from refined card #35. Audited the live audio code (helpers/GameAudio/GameMonkey/GameConsole/useGame/useNearMiss); mapped card 1 §7 to concrete edits; specified engine master gain/mute, idle+one-shot-starting+random-running, victory/lose (bettors-only), proximity bleeps on raw KMP `k`, header mute/volume UI, the three timing fixes, asset swap+cleanup, and manual-QA-only verification (no FE test runner). |

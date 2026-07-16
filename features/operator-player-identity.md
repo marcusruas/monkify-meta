@@ -31,33 +31,33 @@ distinguished by the owning **`Operator.PaymentModel`**. Identified bets link vi
 - **Anonymous free bet:** no wallet and no `externalPlayerId` → no `OperatorPlayer` row;
   `Bet.OperatorPlayerId` stays NULL.
 - **Paid bet without identity:** rejected (unchanged).
-- **Duplicate bets:** when `OperatorPlayerId` set → `(SessionId, OperatorPlayerId, Choice)`;
-  when NULL (anonymous free) → `(SessionId, Choice)` only.
+- **Duplicate bets:** when `OperatorPlayerId` set → `(GameId, OperatorPlayerId, Choice)`;
+  when NULL (anonymous free) → `(GameId, Choice)` only.
 - **Min-player count:** distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` per bet
   (`BetPlacedConsumer`). **Exception — free bets always count individually** (`Bet.Id`), even when they
-  resolve to the same `OperatorPlayer`, so a single tester can start a session (see `free-bet-mode.md`).
+  resolve to the same `OperatorPlayer`, so a single tester can start a game (see `free-bet-mode.md`).
 - **Solana validate/reward/refund:** resolve payout address from `OperatorPlayer.ExternalPlayerId`
   via `Bet.GetWalletAddress()` — not from a bet column.
 - **API/DTOs:** bet responses and SignalR events expose `externalPlayerId` (nullable). Register-bet
   still accepts `wallet` for crypto UX.
 - **Migration:** `AddOperatorPlayerIdentity` backfills crypto wallets into `OperatorPlayers` before
-  dropping `SessionBets.Wallet`.
+  dropping `GameBets.Wallet`.
 
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
 
-- Entity: `Monkify.Domain/Sessions/Entities/OperatorPlayer.cs`.
+- Entity: `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs`.
 - Bet: nullable `OperatorPlayerId` FK; helper `BetExtensions.GetWalletAddress(Bet)`.
 - DbContext + migration: `20260629141822_AddOperatorPlayerIdentity`.
 - Handler: `RegisterBetHandler` — `UpsertOperatorPlayerAsync`, identity resolution, duplicate keys.
-- Consumers: `BetPlacedConsumer`, `RewardSessionConsumer` (include `OperatorPlayer` on bets).
-- Services: `SessionService`, `SolanaService`; DTO/event: `BetDto`, `BetNotificationEvent`.
-- History filter: `GetSessionHistoryHandler` joins `OperatorPlayer.ExternalPlayerId`.
+- Consumers: `BetPlacedConsumer`, `RewardGameConsumer` (include `OperatorPlayer` on bets).
+- Services: `GameService`, `SolanaService`; DTO/event: `BetDto`, `BetNotificationEvent`.
+- History filter: `GetGameHistoryHandler` joins `OperatorPlayer.ExternalPlayerId`.
 - Tests: `RegisterBetHandlerTests`, `BetPlacedHandlerTests`, `BetTestFactory`, `SolanaServiceTests`.
 
 **Frontend (`monkify-front`)**
 
 - Types: `AppliedBet.externalPlayerId` in `src/types/index.ts`.
-- Composable: `useSession.ts` — maps SignalR `externalPlayerId`; register-bet still sends `wallet`.
+- Composable: `useGame.ts` — maps SignalR `externalPlayerId`; register-bet still sends `wallet`.
 - UI: `GameTerminal.vue`, `GameMonkey.vue` — player count, "YOU", winners use `externalPlayerId`.

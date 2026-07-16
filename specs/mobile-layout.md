@@ -1,4 +1,4 @@
-# Monkify — "Mobile layout for the game screen" Feature — Implementation Spec
+# ChimpOut — "Mobile layout for the game screen" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/mobile-layout` on 2026-07-15. Refined via Trello card
 > [(DESIGN) Mobile layout for the game screen](https://trello.com/c/TOTAUpmq).
@@ -8,8 +8,8 @@
 > Adapter (§7.6 layer 2) was **deferred**. A follow-up fix stacks the mobile GAME/CHAT·STATS views
 > absolutely so a hidden view can't intercept taps.
 >
-> **Purpose:** Make Monkify's two main player screens — the **sessions lobby**
-> (`/monkify/game/sessions`) and the **main game** (`/monkify/game/play`) — usable on phones, in
+> **Purpose:** Make ChimpOut's two main player screens — the **games lobby**
+> (`/chimpout/game/games`) and the **main game** (`/chimpout/game/play`) — usable on phones, in
 > portrait and landscape, standalone **and** inside a regulated casino's mobile `<iframe>`. Today the
 > app is effectively desktop-fixed (the game page is a single non-wrapping flex row with
 > JS/`vh`-driven widths). Reflow both pages for narrow viewports while preserving the pixel / arcade /
@@ -24,7 +24,7 @@ Two pages, one responsive breakpoint, one net-new capability.
 
 | Area | Desktop today | Mobile target (this spec) |
 | --- | --- | --- |
-| **Lobby** (`SessionSelectPage` → `GameTypes` → `GameTypeCard`) | Grid `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`; already 1-col on phones | Keep 1-col; **condense the card** — lead with art + name + price + lottery badge + `PRESS TO START`, description truncated to ~1 line |
+| **Lobby** (`GameSelectPage` → `GameTypes` → `GameTypeCard`) | Grid `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`; already 1-col on phones | Keep 1-col; **condense the card** — lead with art + name + price + lottery badge + `PRESS TO START`, description truncated to ~1 line |
 | **Game** (`GamePage` → `GameTerminal`(+`GameConsole`), `GameMonkey`, `GameSidePanel`) | Single non-wrapping flex **row**: terminal (JS-computed px width) + monkey (`flex-1`, `hidden lg:block`) + side-panel (absolute overlay `w-64`/`w-[40vw]`) | Below `lg`: a **column** with a top **`GAME | CHAT·STATS` segmented toggle**. `GAME` = terminal + bet input, full-width, fluid (not height-driven). `CHAT·STATS` = the chat + stats panels full-width. Monkey stays hidden. |
 | **Bet input** (`GameConsole`) | Fixed % columns (`w-[30%]` input / lever / `w-[37%]` keypad), `h-[36%]` | One compact themed panel: choice input (native keyboard for masked word entry, themed preset keypad for preset games) + the lever = `PLACE BET`. **No amount field** (price is fixed at `requiredAmount`). |
 | **Header** (`GameHeader`) | `h-[64px]`, logo + mute + wallet cluster + gear + dev-admin | Stays inline, slightly smaller; no hamburger |
@@ -47,8 +47,8 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** work in `.worktrees/mobile-layout/monkify-front` and
   `.worktrees/mobile-layout/monkify-meta` on `feature/mobile-layout` (created off `origin/main`); the
   shared hubs stay on `main`. Push the branch for the PR.
-- **Frontend-only:** no backend behaviour, DB, EF, migration, SignalR, or session-flow change ⇒ **no
-  new backend integration test required** and no `Monkify.Tests` changes. Keep the frontend build/lint
+- **Frontend-only:** no backend behaviour, DB, EF, migration, SignalR, or game-flow change ⇒ **no
+  new backend integration test required** and no `ChimpOut.Tests` changes. Keep the frontend build/lint
   green.
 - **Front worktree build gotcha:** `monkify-front` builds from a worktree can boot a **stale image**
   because `yarn.lock` is gitignored — copy the hub's `yarn.lock` into the worktree before building and
@@ -62,7 +62,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ## 3. Resolved product decisions
 
-Sourced from the card **Decisions** + this session's refinement, **corrected against the live code**
+Sourced from the card **Decisions** + this game's refinement, **corrected against the live code**
 (see §3.1).
 
 | # | Decision |
@@ -85,7 +85,7 @@ Sourced from the card **Decisions** + this session's refinement, **corrected aga
 These refine two card decisions/AC items that were written before reading the code:
 
 - **No amount stepper.** `GameConsole.vue` has **no amount field**; the bet amount is fixed at
-  `selectedSession.requiredAmount` and the **lever** is the place-bet action
+  `selectedGame.requiredAmount` and the **lever** is the place-bet action
   (`GameConsole.vue:216-225`). The mobile bet panel therefore has **choice input + `PLACE BET`**, no
   amount control. (Card AC referencing an "amount stepper" is corrected here.)
 - **The header "shield" is the dev-admin button, not provably-fair.** `GameHeader.vue` contains mute,
@@ -138,7 +138,7 @@ classes keep winning at `≥ lg`.
 - `App.vue:103` root already has `overflow-x-hidden` — keep; ensure no mobile child forces horizontal
   scroll.
 
-### 7.2 Lobby (`SessionSelectPage.vue` → `GameTypes.vue` → `GameTypeCard.vue`)
+### 7.2 Lobby (`GameSelectPage.vue` → `GameTypes.vue` → `GameTypeCard.vue`)
 
 - **Grid** (`GameTypes.vue:97-100`) is already `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` → phones get
   1 column. Keep. Verify `gap`/padding read well on ~360px (existing `max-md:gap-4`).
@@ -205,7 +205,7 @@ classes keep winning at `≥ lg`.
     stats tab selected".
 - **Unread hint:** when a chat message arrives while the **GAME** segment is active, show a small badge
   on the `CHAT·STATS` tab; clear it when the user opens that segment. (Chat message arrival is already
-  observed in `GameChatPanel`/`useSession`; surface a count/flag to the tabs component.)
+  observed in `GameChatPanel`/`useGame`; surface a count/flag to the tabs component.)
 - At `≥ lg`, the existing side-panel cabinet (collapsed/docked/maximized) is unchanged.
 
 ### 7.6 Mobile crypto wallet-connect (`SolanaToken`) — the net-new, highest-risk piece
@@ -213,7 +213,7 @@ classes keep winning at `≥ lg`.
 **Problem:** `useConnection.sendToken` (`:127-189`) signs via `useWallet().sendTransaction` — an
 **injected desktop extension** (Phantom/Solflare). The embedded flow opens a **`window.open` popup**
 (`useEmbeddedWallet.openWalletPopup`, `:27-33`). Neither is reliable on mobile browsers, and no
-WalletConnect / Mobile Wallet Adapter / deep-link path exists. Standard (USD) sessions are unaffected
+WalletConnect / Mobile Wallet Adapter / deep-link path exists. Standard (USD) games are unaffected
 (no wallet).
 
 **Recommended approach (layered, cross-platform; confirm before building):**
@@ -231,11 +231,11 @@ WalletConnect / Mobile Wallet Adapter / deep-link path exists. Standard (USD) se
    an embedded **mobile** context, prefer the **"open in wallet app" deep-link** handoff (or a
    full-window bridge) over `window.open`; if a popup is attempted and blocked, keep the existing
    visible **"Connect wallet"** affordance (`GameConsole.vue:206-213`, `retryWalletConnect`) — **never
-   a silent failure**. Free (amount 0) SolanaToken sessions still bypass wallet entirely.
+   a silent failure**. Free (amount 0) SolanaToken games still bypass wallet entirely.
 
 **Touchpoints:** `hooks/useConnection.ts` (adapter registration / provider detection),
 `hooks/useEmbeddedWallet.ts` (mobile branch of `openWalletPopup`/availability),
-`hooks/useSession.ts:373-439` (the SolanaToken bet branch that chooses in-frame vs popup — add the
+`hooks/useGame.ts:373-439` (the SolanaToken bet branch that chooses in-frame vs popup — add the
 mobile path), `components/game/GameConsole.vue` (affordance), `pages/WalletBridgePage.vue` (copy
 mentions "Connect Phantom or Solflare" — keep working when reachable). The bet POST body
 (`{ paymentSignature, wallet, seed, nonce }`) is unchanged, so **the API needs nothing**.
@@ -286,7 +286,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   participant U as Player (mobile browser)
-  participant App as Monkify SPA
+  participant App as ChimpOut SPA
   participant W as Wallet app (Phantom/Solflare)
   U->>App: Pull lever (SolanaToken, amount>0)
   alt injected provider present (in wallet in-app browser)
@@ -305,8 +305,8 @@ sequenceDiagram
 ## 9. Out of scope
 
 - Tablet-specific layouts (graceful degradation only; tablets get the mobile layout below `lg`).
-- Landing page (`monkify-lp`) and the operator admin page (`/monkify/admin`, `AdminPage.vue`).
-- Any backend / gameplay / session-flow change; any change to `Monkify.Tests`.
+- Landing page (`monkify-lp`) and the operator admin page (`/chimpout/admin`, `AdminPage.vue`).
+- Any backend / gameplay / game-flow change; any change to `ChimpOut.Tests`.
 - Redesigning the desktop (`≥ lg`) layout — desktop rendering stays as-is.
 - (Conditional) MWA + embedded-mobile deep-link layers, **if** the user later chooses to keep this card
   to layer-1 wallet only (see §7.6 flag).
@@ -337,7 +337,7 @@ sequenceDiagram
 | 12 | `src/components/header/PlayerCustomizationModal.vue` | Wrap/stack the client-seed button row + full-width inputs on narrow widths |
 | 13 | `src/hooks/useConnection.ts` | Mobile wallet: provider detection + (optional) MWA adapter registration |
 | 14 | `src/hooks/useEmbeddedWallet.ts` | Mobile branch for `openWalletPopup`/availability (deep-link / full-window vs `window.open`) |
-| 15 | `src/hooks/useSession.ts` | SolanaToken bet branch (`:373-439`): add the mobile connect/sign path; bet POST unchanged |
+| 15 | `src/hooks/useGame.ts` | SolanaToken bet branch (`:373-439`): add the mobile connect/sign path; bet POST unchanged |
 | 16 | `src/pages/WalletBridgePage.vue` | Ensure it works when reachable on mobile (or is bypassed by the deep-link path) |
 | 17 | `src/main.css` / component styles | `dvh` for mobile height where the header/tabs subtract; avoid horizontal overflow |
 | 18 | `.env.example` | Document any new `VUE_APP_*` (mock value) if a wallet lib needs app identity |
@@ -354,8 +354,8 @@ sequenceDiagram
 
 ## 11. Tests
 
-- **Backend:** none (frontend-only; no `Monkify.Tests` / `Monkify.Tests.Integration` changes; no
-  session-flow change).
+- **Backend:** none (frontend-only; no `ChimpOut.Tests` / `ChimpOut.Tests.Integration` changes; no
+  game-flow change).
 - **Frontend:** the repo has no established unit-test runner for these components; **do not** invent
   one for this card. Verification is **manual QA (§13) against real device widths** plus keeping the
   build/lint green. If a component test harness exists at implementation time, add a light render test
@@ -386,17 +386,17 @@ Mapped from the Trello **Acceptance Criteria** checklist, corrected per §3.1 (n
    provides the choice input (native keyboard for word/number entry; themed preset keypad for
    preset-digit games) and the lever = `PLACE BET` (no amount field), and the bet succeeds — with the
    terminal still showing status, POT, `N AWAY!` near-miss, bets, and countdown.
-7. Given a phone across all game states, when the session moves waiting/betting → running → ended
+7. Given a phone across all game states, when the game moves waiting/betting → running → ended
    (win/lose), then each state renders correctly at phone widths with no clipped/overflowing content.
 8. Given a phone in landscape, when the player uses either page, then the same mobile layout is used
-   (just wider) and remains usable; and when the device rotates mid-session, then game state is
+   (just wider) and remains usable; and when the device rotates mid-game, then game state is
    preserved and the layout reflows without breaking.
 9. Given a phone, when the player taps the settings-gear, then the customization modal renders
    mobile-friendly (fits the viewport, no horizontal scroll, seed-row controls reachable); and
    `public/verify.html` renders correctly on a phone.
-10. Given a `SolanaToken` session on a mobile browser, when the player connects a wallet and places a
+10. Given a `SolanaToken` game on a mobile browser, when the player connects a wallet and places a
     bet, then the mobile wallet-connect path completes and the on-chain bet is accepted — standalone
-    and inside a mobile iframe (free amount-0 SolanaToken sessions need no wallet).
+    and inside a mobile iframe (free amount-0 SolanaToken games need no wallet).
 11. Given the game embedded in a mobile-width iframe, when it loads, then the mobile layout fills the
     frame identically to standalone; and when an embedded 401 / expired / inactive-operator occurs,
     then the vague "Relaunching…" state shows (never `/error`, never contract status).
@@ -417,7 +417,7 @@ phone if possible), standalone and via `public/embed-example.html` (mobile ifram
    client post → unread badge; open `CHAT·STATS` → badge clears; STATS tab lazy-loads.
 4. **Header**: mute toggles + volume; gear opens the customization modal (seed row usable; name/currency
    reflow). Confirm the third icon is the dev-admin button.
-5. **Crypto**: on a `SolanaToken` session, exercise the mobile wallet path (in-app wallet browser +
+5. **Crypto**: on a `SolanaToken` game, exercise the mobile wallet path (in-app wallet browser +
    the "open in wallet app" affordance; Android MWA if implemented). Confirm a real on-chain bet
    settles. Repeat **embedded** in the example page.
 6. **Embedded auth**: force a 401 in the frame → "Relaunching…", never `/error`.

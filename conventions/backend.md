@@ -4,14 +4,14 @@
 
 ## Patterns observed (fill in / verify)
 
-- **EF mapping is INLINE** in `MonkifyDbContext.OnModelCreating` — no `IEntityTypeConfiguration`
+- **EF mapping is INLINE** in `ChimpOutDbContext.OnModelCreating` — no `IEntityTypeConfiguration`
   classes. Add new entity config as a `modelBuilder.Entity<T>(builder => { … })` block in the
   existing style.
-- **Migrations** live in `Monkify.Infrastructure/Migrations/` and are applied **only** at
-  `Monkify.Consumers` startup via `Database.Migrate()`. Generate with `dotnet ef migrations add`;
+- **Migrations** live in `ChimpOut.Infrastructure/Migrations/` and are applied **only** at
+  `ChimpOut.Consumers` startup via `Database.Migrate()`. Generate with `dotnet ef migrations add`;
   never hand-edit the snapshot.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
-  `Monkify.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
+  `ChimpOut.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **Single-responsibility classes read top-down — isolate behaviours into named methods.** When a
   class exists to do one thing (a MediatR handler, a MassTransit consumer, a domain service entry
   point), the **main method should orchestrate, not implement**. Pull each distinct behaviour /
@@ -21,7 +21,7 @@
 
   ```csharp
   // Prefer — the main method shows the shape of the work:
-  var service = paymentResolver.Resolve(session.Parameters);   // by session PaymentMethod
+  var service = paymentResolver.Resolve(game.Parameters);   // by game PaymentMethod
   var result = await service.Refund(bet, refundAmount, message.Reason, ct);
 
   // Avoid — the whole method branch (resolve + call + persist + log) inlined in the main method.
@@ -34,7 +34,7 @@
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
   `IMessaging.ReturnValidationFailureMessage(...)`.
 - **Operator/player identity comes from the launch token, not headers.**
-  `LaunchTokenValidationMiddleware` (`Monkify.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
+  `LaunchTokenValidationMiddleware` (`ChimpOut.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
   on operator-scoped paths and populates the scoped `ILaunchContext` (`{ operatorId, externalPlayerId }`);
   controllers read it instead of binding a header. Any token failure → generic **HTTP 401** (vague;
   real reason logged with a correlation id). The old `x-operator-id` `[FromHeader]` binding is gone.
@@ -42,19 +42,19 @@
   per-operator key) rather than querying `Operators` directly — it's shared by the middleware,
   `GetOperatorByIdHandler`, and `RegisterBetHandler`. When signing/validating JWTs, build the
   `RsaSecurityKey` from exported `RSAParameters` with provider caching off (avoids a disposed-RSA error).
-- **Async messaging via MassTransit/RabbitMQ:** consumers in `Monkify.Infrastructure/Consumers/…`
-  (one receive endpoint each), registered in `Monkify.Consumers/Program.cs`. Publish via
+- **Async messaging via MassTransit/RabbitMQ:** consumers in `ChimpOut.Infrastructure/Consumers/…`
+  (one receive endpoint each), registered in `ChimpOut.Consumers/Program.cs`. Publish via
   `IRabbitMQService`.
 - **Caching via `ICacheService`** (Redis or in-memory). Keys built by `CacheHelper`; active-params
   cache is operator-aware.
-- **Domain stays pure:** entities/value-objects/domain-services in `Monkify.Domain` have no
+- **Domain stays pure:** entities/value-objects/domain-services in `ChimpOut.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
-- **Money movement routes by the session's `PaymentMethod`, via `IPaymentMethodResolver`.** Handlers and
-  consumers call `paymentResolver.Resolve(session.Parameters).Debit/Credit/Refund(...)` — **never** branch
+- **Money movement routes by the game's `PaymentMethod`, via `IPaymentMethodResolver`.** Handlers and
+  consumers call `paymentResolver.Resolve(game.Parameters).Debit/Credit/Refund(...)` — **never** branch
   on an operator enum (`Operator.PaymentModel` is gone). `StandardPaymentMethodService` settles off-chain
   via `IOperatorWalletService` (USD; resolved per operator by `IOperatorWalletResolver` from
   `GeneralSettings.OperatorWallets`); `SolanaTokenPaymentMethodService` settles on-chain via
-  `ISolanaService` using a per-call `SolanaTokenDescriptor` built from the session's registered
+  `ISolanaService` using a per-call `SolanaTokenDescriptor` built from the game's registered
   `OperatorToken` (its private key decrypted via `ISecretProtector` in Consumers only). Every movement is
   recorded in the **unified `TransactionLog`** ledger (`TransactionLogType` = `Credit`/`Debit`/`Refund`,
   carrying `PaymentMethod` + `ExternalTransactionReference`), plus a `CryptoTransactionLog` for SolanaToken;
@@ -64,46 +64,46 @@
   from the `GeneralSettings.SecretProtection.Key` passphrase): `Protect` in the API before persisting,
   `Unprotect` in Consumers only when the plaintext is needed for an outbound call. Never return an
   encrypted secret in a DTO or log it.
-- **Tests:** `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
+- **Tests:** `ChimpOut.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
-- **Session-flow changes MUST update the integration tests.** End-to-end coverage of the session
-  lifecycle lives in the separate **`Monkify.Tests.Integration`** project (Testcontainers:
-  PostgreSQL + RabbitMQ + Redis; boots the `Monkify.Api` + `Monkify.Consumers` hosts and runs real
-  sessions bet→run→reward with Solana/operator-wallet mocked). It is **excluded** from the default
-  fast suite (`scripts/run_tests.bat`, which scopes to `Monkify.Tests` / `~UnitTests`) and runs on
-  demand via **`scripts/run_integration_tests.bat`**. **Any change to the session lifecycle/flow**
-  (consumers `BetPlaced`/`RunSession`/`RewardSession`/`RefundInvalidBet`, `SessionService`,
-  `MonkifyTyper`, session/bet state machine, reward/refund/ledger paths, or the register-bet handler)
-  **must also update `Monkify.Tests.Integration`** so the end-to-end assertions still reflect reality.
-- **Every new feature MUST add a happy-path integration test here.** Beyond session-flow changes,
+- **Game-flow changes MUST update the integration tests.** End-to-end coverage of the game
+  lifecycle lives in the separate **`ChimpOut.Tests.Integration`** project (Testcontainers:
+  PostgreSQL + RabbitMQ + Redis; boots the `ChimpOut.Api` + `ChimpOut.Consumers` hosts and runs real
+  games bet→run→reward with Solana/operator-wallet mocked). It is **excluded** from the default
+  fast suite (`scripts/run_tests.bat`, which scopes to `ChimpOut.Tests` / `~UnitTests`) and runs on
+  demand via **`scripts/run_integration_tests.bat`**. **Any change to the game lifecycle/flow**
+  (consumers `BetPlaced`/`RunGame`/`RewardGame`/`RefundInvalidBet`, `GameService`,
+  `ChimpOutTyper`, game/bet state machine, reward/refund/ledger paths, or the register-bet handler)
+  **must also update `ChimpOut.Tests.Integration`** so the end-to-end assertions still reflect reality.
+- **Every new feature MUST add a happy-path integration test here.** Beyond game-flow changes,
   `constraints.md` → "Integration tests are mandatory for every new feature" requires each **new
-  feature** to ship with at least one `Monkify.Tests.Integration` test that drives its happy path end
-  to end (and one per particularly complex flow). Follow the `SessionFlowTests` pattern: seed via the
+  feature** to ship with at least one `ChimpOut.Tests.Integration` test that drives its happy path end
+  to end (and one per particularly complex flow). Follow the `GameFlowTests` pattern: seed via the
   fixture, drive the real API, let the Consumers host process, assert terminal DB state + ledger +
-  no error logs. Bug fixes / QOL / minor changes are exempt unless they touch session flow.
+  no error logs. Bug fixes / QOL / minor changes are exempt unless they touch game flow.
 - **Running tests — always use `scripts/run_tests.bat`.** Whenever you need to run the test suite to
   assert changes made to `monkify-backend`, run `scripts/run_tests.bat` (it executes
-  `dotnet test` over the unit tests). It **excludes the `ProductionSessions` metrics tests** on
+  `dotnet test` over the unit tests). It **excludes the `ProductionGames` metrics tests** on
   purpose — that is the long-running typer-pacing Monte Carlo suite, which paces each simulated
-  session in real wall-clock time and is not part of the normal change-assertion loop.
-- **Typer-pacing metrics suite:** lives under the `…Domain.ProductionSessions` namespace as **one
-  test class per default session parameter** (named for the parameters they exercise — character
-  count, charset, race/preset/lottery). These tests measure each session's real paced wall-clock
+  game in real wall-clock time and is not part of the normal change-assertion loop.
+- **Typer-pacing metrics suite:** lives under the `…Domain.ProductionGames` namespace as **one
+  test class per default game parameter** (named for the parameters they exercise — character
+  count, charset, race/preset/lottery). These tests measure each game's real paced wall-clock
   duration, so xUnit **collection parallelization is disabled** (`xunit.runner.json`): running games
   in parallel oversubscribes the CPU and inflates the measured durations past the bounds. The safe
-  concurrency (the `RunCount` sessions within each case) still runs concurrently. Run it on demand
-  via `scripts/run_production_session_tests.bat`. It runs only that suite with the detailed console
+  concurrency (the `RunCount` games within each case) still runs concurrently. Run it on demand
+  via `scripts/run_production_game_tests.bat`. It runs only that suite with the detailed console
   logger, captures a `.trx`, and (via `scripts/generate_production_report.ps1`) renders a **PDF
   report** that opens automatically when the run finishes. The report lists, per case, pass/fail +
-  duration, the per-session metrics (duration, characters typed, average char/s, winner) and the
+  duration, the per-game metrics (duration, characters typed, average char/s, winner) and the
   aggregate mean / p95 / fallback-winner lines. PDFs are rendered with headless Edge (Chrome
   fallback; HTML is opened if neither is available) and written to `TestReports/` (git-ignored).
-  Set `MONKIFY_TEST_RUNCOUNT` to shrink the Monte Carlo sample size for faster local runs.
-- **Application settings** live in **`Monkify.Common/monkifysettings.json`** — the single source
-  for backend configuration. Both `Monkify.Api` and `Monkify.Consumers` load it via
-  `AddMonkifySettings()` (environment variables can override keys at runtime). Do **not** add
+  Set `CHIMPOUT_TEST_RUNCOUNT` to shrink the Monte Carlo sample size for faster local runs.
+- **Application settings** live in **`ChimpOut.Common/chimpoutsettings.json`** — the single source
+  for backend configuration. Both `ChimpOut.Api` and `ChimpOut.Consumers` load it via
+  `AddChimpOutSettings()` (environment variables can override keys at runtime). Do **not** add
   `appsettings.json` / `appsettings.Development.json` overlays for app settings; put new keys in
-  `monkifysettings.json` under the appropriate `GeneralSettings` section.
+  `chimpoutsettings.json` under the appropriate `GeneralSettings` section.
 
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, logging
      (Serilog) patterns, and add concrete examples. -->

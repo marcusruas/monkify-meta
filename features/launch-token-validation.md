@@ -4,36 +4,36 @@
 > (merged via `feature/launch-token-validation` on 2026-06-30).
 >
 > ⚠️ **Partly superseded by `features/payment-methods.md` (2026-07-08).** The `Operator.PaymentModel`
-> (`Regulated | Crypto`) this feature introduced is **removed**. Payment is now decided **per session
-> type** via `SessionParameters.PaymentMethod` (`Standard | SolanaToken`). Wherever this doc says the
-> launch flow / wallet-skip / identity keys on the operator's payment model, read it as the **session's
+> (`Regulated | Crypto`) this feature introduced is **removed**. Payment is now decided **per game
+> type** via `GameParameters.PaymentMethod` (`Standard | SolanaToken`). Wherever this doc says the
+> launch flow / wallet-skip / identity keys on the operator's payment model, read it as the **game's
 > `PaymentMethod`**: Standard → player = token `sub`, no wallet; SolanaToken → connected wallet +
 > signature. The launch token itself (RS256, `iss`/`sub`, vague-401, param-free entry) is unchanged.
 
 ## What it does
 
 Replaces the trusted **`x-operator-id`** header with a **cryptographically signed launch token**
-(JWT, RS256) that the operator's casino signs and Monkify validates before the game loads. The token
+(JWT, RS256) that the operator's casino signs and ChimpOut validates before the game loads. The token
 proves which operator launched the game and which player it acts for. Every operator-scoped REST call
 must now carry a valid `X-Launch-Token`; operator and player identity come from the token, not from
 headers or request-body fields. Supersedes the `x-operator-id` model in `features/operators.md`.
 
 ## Core rules
 
-- **Token required for every operator.** All operator-scoped REST endpoints (`/sessions/*`,
+- **Token required for every operator.** All operator-scoped REST endpoints (`/games/*`,
   `/operators/*`, `/players/*`) require an `X-Launch-Token` header. The `x-operator-id` header is gone;
   `operatorId` is the token's `iss`, the player id is its `sub`.
-- **Asymmetric RS256.** The casino signs with its private key; Monkify validates against the operator's
+- **Asymmetric RS256.** The casino signs with its private key; ChimpOut validates against the operator's
   stored **`Operator.LaunchPublicKey`** (PEM). Optional `Operator.LaunchKeyId` supports rotation.
 - **Claims:** `iss = operatorId`, `sub = externalPlayerId` (empty for crypto operators), `exp`, `iat`,
   `jti` (audit/log only). `displayName`/`currency` are **not** claims.
-- **Validation** (stateless middleware in `Monkify.Api`): signature, `exp`/`iat` with **±2 min** clock
+- **Validation** (stateless middleware in `ChimpOut.Api`): signature, `exp`/`iat` with **±2 min** clock
   skew, and — when the path carries an operatorId — `iss` must equal it. Replay protection is
   **expiry-only**. The operator must exist and be contract-active and have a `LaunchPublicKey`.
 - **Vague failures.** Every failure (missing/expired/bad-signature/unknown-operator/iss-mismatch)
   returns a single generic **HTTP 401**; the real reason + a correlationId are logged **server-side
   only**. The SPA routes any 401 to `/error`. A token expiring mid-play takes the same path (re-launch).
-- **SignalR unchanged.** Hubs are session-id scoped — no token on websockets. `/dev/*`, Swagger, and
+- **SignalR unchanged.** Hubs are game-id scoped — no token on websockets. `/dev/*`, Swagger, and
   `OPTIONS` preflight are not token-guarded.
 - **`Operator.PaymentModel` (`Regulated` | `Crypto`)** replaces `OperatorPlayer.IsCrypto` (the column
   is dropped). Crypto-ness is a property of the operator. It drives **wallet-skip**: crypto operators
@@ -43,7 +43,7 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 - **Register-bet identity from the token.** For crypto operators the wallet still comes from the body
   (post wallet-connect); for regulated operators the player id is the token `sub` and **body identity
   fields are ignored**. The operator/`PaymentModel` is read via the cached `IOperatorService`; an
-  inactive/unknown operator → vague `SessionNotValidForBets` (the middleware already blocks this path).
+  inactive/unknown operator → vague `GameNotValidForBets` (the middleware already blocks this path).
 - **Player preferences.** `GET /players/preferences` (token-gated) reads `{ externalPlayerId,
   displayName, currency }` (defaults when no row; no upsert on read). `PATCH /players/preferences`
   upserts the `OperatorPlayer`'s **display-only** `DisplayName` and preferred `Currency` (default
@@ -58,7 +58,7 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   long-lived (effectively non-expiring) for local convenience. Two dev operators are seeded:
   **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
   (Regulated), both with a mock launch keypair; the private signing key is a mock placeholder in
-  `monkifysettings.json`. Seeding is idempotent and self-heals operators that predate the feature.
+  `chimpoutsettings.json`. Seeding is idempotent and self-heals operators that predate the feature.
 - **Cached operator lookup.** `IOperatorService.GetActiveOperatorById` caches the active operator under
   the per-operator cache key, shared by the middleware (every request), the branding endpoint, and
   register-bet. Seeding invalidates that cache entry after create/patch.
@@ -68,17 +68,17 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 ## Frontend behaviour
 
 - **Launch (operator from the token, not the URL):** the casino redirects to
-  `…/monkify/game/sessions#launch_token=<jwt>` — there is **no `/<operatorId>` path segment**.
+  `…/chimpout/game/games#launch_token=<jwt>` — there is **no `/<operatorId>` path segment**.
   `useLaunch.ensureLaunchToken()` reads the token from the URL fragment, **strips it from the URL**,
   and persists it in **`sessionStorage`** (per-tab; survives reloads/hard navigation); a fresh
   fragment token overrides a stored one. The operator id is decoded from the token's `iss` claim via
   `getOperatorIdFromToken` (`utils/launchToken.ts`) and used by `useOperator.loadOperator` to fetch
-  branding — operator-scoped routes are param-free (`/monkify/game/sessions`, `/monkify/game/play`).
+  branding — operator-scoped routes are param-free (`/chimpout/game/games`, `/chimpout/game/play`).
   Missing/undecodable token → `/error`.
-- **Dev entry (no silent auto-mint):** `/monkify/game` is a dev-only landing (`DevLandingPage.vue`)
+- **Dev entry (no silent auto-mint):** `/chimpout/game` is a dev-only landing (`DevLandingPage.vue`)
   with **Crypto** and **Regulated** buttons that mint a token from `/dev/launch-token` and drop into
-  the session-select page. It is gated by **`VUE_APP_DEV_LAUNCH`** (`featureFlags.ts` — default on;
-  `.env.production` sets it `false`, so `/monkify/game` redirects to `/error` and the buttons never
+  the game-select page. It is gated by **`VUE_APP_DEV_LAUNCH`** (`featureFlags.ts` — default on;
+  `.env.production` sets it `false`, so `/chimpout/game` redirects to `/error` and the buttons never
   ship). `scripts/setup_local_environment.bat` forces it on for the local docker build. See
   `features/dev-qol-stuff.md`.
 - The axios interceptor (`mainService.ts`) reads the token lazily from the store and sends
@@ -92,19 +92,19 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 **Backend (`monkify-backend`)**
 
 - Entity/enum: `Operator.PaymentModel`, `Operator.LaunchPublicKey`/`LaunchKeyId`
-  (`Sessions/ValueObjects/OperatorPaymentModel.cs`); `OperatorPlayer.IsCrypto` removed.
+  (`Games/ValueObjects/OperatorPaymentModel.cs`); `OperatorPlayer.IsCrypto` removed.
 - Migration: `Migrations/20260630133341_AddOperatorLaunchAndPaymentModel` (adds columns, drops
   `IsCrypto`, backfills `PaymentModel = Crypto`).
-- Middleware + token: `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs`,
-  `Monkify.Api/Launch/LaunchTokenService.cs` (RS256 sign/validate; key from `RSAParameters`, provider
+- Middleware + token: `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs`,
+  `ChimpOut.Api/Launch/LaunchTokenService.cs` (RS256 sign/validate; key from `RSAParameters`, provider
   caching off); request identity in `Infrastructure/Services/Launch/ILaunchContext.cs`.
 - Cached operator lookup: `Infrastructure/Services/Operators/{I,}OperatorService.cs` (used by
   middleware, `GetOperatorByIdHandler`, `RegisterBetHandler`).
-- Endpoints: `Monkify.Api/Controllers/{Players,Dev}Controller.cs`;
-  `Handlers/Players/UpdatePlayerPreferences/*`; `SessionsController` (no `x-operator-id`).
-- Bet path: `Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequest.ExternalPlayerId`).
+- Endpoints: `ChimpOut.Api/Controllers/{Players,Dev}Controller.cs`;
+  `Handlers/Players/UpdatePlayerPreferences/*`; `GamesController` (no `x-operator-id`).
+- Bet path: `Handlers/Games/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequest.ExternalPlayerId`).
 - Config/seed: `GeneralSettings.LaunchTokens` (`Configs/Entities/LaunchTokenSettings.cs`,
-  `Monkify.Common/monkifysettings.json` — mock keys); `Monkify.Consumers/Program.cs` (seed + self-heal).
+  `ChimpOut.Common/chimpoutsettings.json` — mock keys); `ChimpOut.Consumers/Program.cs` (seed + self-heal).
 
 **Frontend (`monkify-front`)**
 
@@ -112,5 +112,5 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   (`getOperatorIdFromToken` — decode `iss`), `src/pages/DevLandingPage.vue` + `src/routes.ts`
   (param-free routes + dev landing), `src/constants/featureFlags.ts` (`devLaunchEnabled`).
 - `src/services/mainService.ts` (`X-Launch-Token` interceptor, 401→`/error`, `updatePlayerPreferences`).
-- `src/hooks/useOperator.ts` (`paymentModel`), `src/hooks/useSession.ts` (payment-model-gated bet).
+- `src/hooks/useOperator.ts` (`paymentModel`), `src/hooks/useGame.ts` (payment-model-gated bet).
 - `src/types/index.ts` (`OperatorPaymentModel`, `OperatorBranding.paymentModel`, prefs types).

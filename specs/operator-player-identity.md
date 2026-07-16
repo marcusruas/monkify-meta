@@ -1,4 +1,4 @@
-# Monkify — "OperatorPlayer identity (unified player model)" Feature — Implementation Spec
+# ChimpOut — "OperatorPlayer identity (unified player model)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/operator-player-identity` (2026-06-29).
 > Trello: [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG).
@@ -7,7 +7,7 @@
 > **Partially superseded (2026-06-30):** `OperatorPlayer.IsCrypto` (referenced throughout this spec)
 > was **removed** by the launch-token feature; crypto-ness is now `Operator.PaymentModel`, and player
 > identity arrives via the launch token. See `specs/launch-token-validation.md`.
-> Conversation context in the same chat session is authoritative for the unified-model decisions.
+> Conversation context in the same chat game is authoritative for the unified-model decisions.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Introduce a single operator-scoped player identity for crypto-native and regulated
@@ -46,9 +46,9 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/operator-player-identity` in `monkify-backend`, `monkify-front`,
   `monkify-meta`.
-- **Unit tests:** update/add in `Monkify.Tests`; report changed tests at end of implementation.
-- **EF mapping:** inline in `MonkifyDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `Monkify.Infrastructure/Migrations/`; applied only by `Monkify.Consumers`.
+- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at end of implementation.
+- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied only by `ChimpOut.Consumers`.
 - **Secrets/config:** mock-only values in committed files.
 - **Operator messaging:** vague errors only; never reveal contract status.
 - **No PII** on `OperatorPlayer` (no CPF, email, phone, full legal name, address).
@@ -66,7 +66,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 5 | **Anonymous free bets** — player may bet without connecting wallet; `OperatorPlayerId` stays NULL (no `OperatorPlayer` row) |
 | 6 | **Paid bets without wallet** — reject (unchanged) |
 | 7 | **Regulated path** — request body `externalPlayerId` required when no wallet; upsert with `IsCrypto=false` |
-| 8 | **Duplicate bets** — with FK: `(SessionId, OperatorPlayerId, Choice)`; anonymous: `(SessionId, Choice)` only |
+| 8 | **Duplicate bets** — with FK: `(GameId, OperatorPlayerId, Choice)`; anonymous: `(GameId, Choice)` only |
 | 9 | **Min-player count** — distinct key = `OperatorPlayerId` when set; when NULL use `Bet.Id` (preserves free-bet behaviour in `BetPlacedConsumer`) |
 | 10 | **Register-bet API** — keep sending `wallet` for crypto UX; add `externalPlayerId`, optional `displayName` for regulated; currency defaults to USD (not in request body) |
 | 11 | **Response DTOs** — expose `externalPlayerId` (nullable) from joined `OperatorPlayer`; drop `wallet` on persisted bet DTOs |
@@ -78,7 +78,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 New entity — `OperatorPlayer`
 
-File: `monkify-backend/src/Monkify.Domain/Sessions/Entities/OperatorPlayer.cs` (new)
+File: `monkify-backend/src/ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` (new)
 
 ```csharp
 public class OperatorPlayer : TableEntity
@@ -96,7 +96,7 @@ public class OperatorPlayer : TableEntity
 
 ### 4.2 `Bet` entity changes
 
-File: `monkify-backend/src/Monkify.Domain/Bets/Entities/Bet.cs`
+File: `monkify-backend/src/ChimpOut.Domain/Bets/Entities/Bet.cs`
 
 - **Remove** property `Wallet` and constructor parameters that accept `wallet`.
 - **Add** nullable FK:
@@ -108,12 +108,12 @@ public OperatorPlayer? OperatorPlayer { get; set; }
 
 Update constructors:
 
-- Primary create constructor: `(Guid sessionId, string seed, string paymentSignature, Guid? operatorPlayerId, string choice, decimal amount)`.
+- Primary create constructor: `(Guid gameId, string seed, string paymentSignature, Guid? operatorPlayerId, string choice, decimal amount)`.
 - Refund stub constructor: `(string paymentSignature, decimal amount)` — wallet resolved at publish time for events, not stored on bet.
 
 ### 4.3 EF configuration (inline)
 
-File: `monkify-backend/src/Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs`
+File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`
 
 Add `DbSet<OperatorPlayer> OperatorPlayers`.
 
@@ -146,7 +146,7 @@ builder.HasOne(x => x.OperatorPlayer).WithMany(x => x.Bets).HasForeignKey(x => x
 Add composite index for duplicate detection (optional but recommended):
 
 ```csharp
-builder.HasIndex(x => new { x.SessionId, x.OperatorPlayerId, x.Choice });
+builder.HasIndex(x => new { x.GameId, x.OperatorPlayerId, x.Choice });
 ```
 
 ### 4.4 Migration
@@ -158,17 +158,17 @@ Steps in migration `Up()`:
 1. Create `OperatorPlayers` table.
 2. Add nullable `OperatorPlayerId` to `Bets` with FK.
 3. **Backfill** (SQL or EF raw):
-   - For each bet with non-empty `Wallet`, join `Sessions` → `SessionParameters` for `OperatorId`.
+   - For each bet with non-empty `Wallet`, join `Games` → `GameParameters` for `OperatorId`.
    - Upsert `OperatorPlayer` per distinct `(OperatorId, Wallet)` with `IsCrypto = true`, `LastSeenAt = UtcNow`.
    - Set `Bets.OperatorPlayerId` on matching rows.
    - Bets with empty/null `Wallet` (free bets): leave `OperatorPlayerId` NULL.
 4. Drop column `Bets.Wallet` and its index.
 
 ```bash
-# from monkify-backend/src/Monkify.Infrastructure
+# from monkify-backend/src/ChimpOut.Infrastructure
 dotnet ef migrations add AddOperatorPlayerIdentity \
-  --startup-project ../Monkify.Consumers/Monkify.Consumers.csproj \
-  --context MonkifyDbContext
+  --startup-project ../ChimpOut.Consumers/ChimpOut.Consumers.csproj \
+  --context ChimpOutDbContext
 ```
 
 Review generated migration; ensure backfill runs **before** dropping `Wallet`.
@@ -179,7 +179,7 @@ Review generated migration; ensure backfill runs **before** dropping `Wallet`.
 erDiagram
     Operator ||--o{ OperatorPlayer : has
     OperatorPlayer ||--o{ Bet : identifies
-    Session ||--o{ Bet : contains
+    Game ||--o{ Bet : contains
 
     OperatorPlayer {
         guid Id PK
@@ -193,7 +193,7 @@ erDiagram
 
     Bet {
         guid Id PK
-        guid SessionId FK
+        guid GameId FK
         guid OperatorPlayerId FK "nullable"
         string PaymentSignature
         string Choice
@@ -246,9 +246,9 @@ File: `RegisterBetHandler.cs`
 5. `ValidateBetSignature` — for paid bets, load wallet as
    `bet.OperatorPlayer!.ExternalPlayerId` (include `OperatorPlayer` in query or pass string).
 6. `ValidateBetParameters` — duplicate check:
-   - `OperatorPlayerId` set: `(SessionId, OperatorPlayerId, Choice)`.
-   - NULL: `(SessionId, Choice)` only (free anonymous).
-7. Operator/session validation — unchanged.
+   - `OperatorPlayerId` set: `(GameId, OperatorPlayerId, Choice)`.
+   - NULL: `(GameId, Choice)` only (free anonymous).
+7. Operator/game validation — unchanged.
 8. `RegisterBet` persist — unchanged insert path.
 9. `RefundInvalidBet` — publish `RefundInvalidBetEvent(wallet, ...)` where `wallet` is
    `_bet.OperatorPlayer?.ExternalPlayerId ?? string.Empty`; skip publish for free bets (unchanged).
@@ -285,24 +285,24 @@ Throw/log clear error if paid bet has no operator player.
 | `BetPlacedConsumer` | Player count: `.Select(b => b.OperatorPlayerId?.ToString() ?? b.Id.ToString())` |
 | `BetPlacedConsumer` | Lottery refund event: wallet from `bet.OperatorPlayer?.ExternalPlayerId ?? ""` |
 | `RefundInvalidBetConsumer` | Unchanged — still uses `message.Wallet` string |
-| `RewardSessionConsumer` | Ensure bets loaded with `OperatorPlayer` before `TransferTokensForBet` |
+| `RewardGameConsumer` | Ensure bets loaded with `OperatorPlayer` before `TransferTokensForBet` |
 | `BetNotificationEvent` | Rename payload field `Wallet` → `ExternalPlayerId` (nullable string) |
 | `BetNotificationConsumer` | Forward `ExternalPlayerId` to SignalR hub |
-| `SessionService.InsertBet` | Notification event uses joined external id |
-| `SessionService.RunSession` | Winners list: `Select(b => b.OperatorPlayer!.ExternalPlayerId)` for paid winners |
+| `GameService.InsertBet` | Notification event uses joined external id |
+| `GameService.RunGame` | Winners list: `Select(b => b.OperatorPlayer!.ExternalPlayerId)` for paid winners |
 
 **Breaking change note:** SignalR recent-bets payload field rename affects frontend — update together.
 
-### 6.6 Session history
+### 6.6 Game history
 
-File: `GetSessionHistoryHandler.cs`
+File: `GetGameHistoryHandler.cs`
 
 - Request query param remains `wallet` for now (filter by connected pubkey) OR rename to
   `externalPlayerId` — **prefer keep `wallet` query param** for backward-compatible frontend URL;
   filter becomes `b.OperatorPlayer.ExternalPlayerId == request.Wallet`.
 - `PlayerHasWon`: same join condition.
 
-File: `SessionsController.cs` — update XML doc only if param renamed.
+File: `GamesController.cs` — update XML doc only if param renamed.
 
 ### 6.7 `BetDto`
 
@@ -336,7 +336,7 @@ Ensure handlers that project `BetDto` `.Include(b => b.OperatorPlayer)` where ne
 
 ### 7.1 Register bet (unchanged request shape)
 
-File: `useSession.ts` — continue POST with `wallet: publicKey ?? ''` for crypto/free-with-wallet.
+File: `useGame.ts` — continue POST with `wallet: publicKey ?? ''` for crypto/free-with-wallet.
 No `externalPlayerId` until regulated launch integration (backend ready).
 
 ### 7.2 Types & DTO consumption
@@ -351,7 +351,7 @@ On bet/recent-bet types, replace `wallet: string` with `externalPlayerId: string
 | --- | --- |
 | `GameTerminal.vue` | Player count: `externalPlayerId ?? \`free:${index}\`` for anonymous; "YOU" compares `externalPlayerId === publicKey`; winner check uses `externalPlayerId` |
 | `GameMonkey.vue` | `isMyBet`: compare `bet.externalPlayerId === publicKey` |
-| `useSession.ts` | Map SignalR `externalPlayerId`; dedupe animations by `paymentSignature` (unchanged) or `externalPlayerId` |
+| `useGame.ts` | Map SignalR `externalPlayerId`; dedupe animations by `paymentSignature` (unchanged) or `externalPlayerId` |
 
 **Display:** show truncated `externalPlayerId` in bet list when present; show `YOU` for connected wallet match; anonymous free bets show generic label (existing free-bet UX).
 
@@ -366,7 +366,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant SOL as SolanaService
 
-    FE->>API: POST /sessions/{id}/bets (x-operator-id, wallet?)
+    FE->>API: POST /games/{id}/bets (x-operator-id, wallet?)
     alt wallet provided
         API->>DB: Upsert OperatorPlayer (IsCrypto=true)
         API->>DB: Insert Bet (OperatorPlayerId set)
@@ -401,29 +401,29 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `Monkify.Domain/Sessions/Entities/OperatorPlayer.cs` | New entity |
-| 2 | `Monkify.Domain/Bets/Entities/Bet.cs` | Remove Wallet; add OperatorPlayerId FK; update constructors |
-| 3 | `Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs` | OperatorPlayer mapping; Bet FK; remove Wallet |
-| 4 | `Monkify.Infrastructure/Migrations/*AddOperatorPlayerIdentity*` | Table + backfill + drop Wallet |
+| 1 | `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` | New entity |
+| 2 | `ChimpOut.Domain/Bets/Entities/Bet.cs` | Remove Wallet; add OperatorPlayerId FK; update constructors |
+| 3 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | OperatorPlayer mapping; Bet FK; remove Wallet |
+| 4 | `ChimpOut.Infrastructure/Migrations/*AddOperatorPlayerIdentity*` | Table + backfill + drop Wallet |
 | 5 | `RegisterBetRequestBody.cs` | Add externalPlayerId, displayName, currency |
 | 6 | `RegisterBetHandler.cs` | Upsert operator player; duplicate rules; refund wallet resolution |
 | 7 | `SolanaService.cs` | Resolve wallet from OperatorPlayer |
 | 8 | `BetPlacedConsumer.cs` | Player count + refund wallet resolution |
-| 9 | `RewardSessionConsumer.cs` | Include OperatorPlayer on bet load |
+| 9 | `RewardGameConsumer.cs` | Include OperatorPlayer on bet load |
 | 10 | `RefundInvalidBetConsumer.cs` | No entity change; events still carry wallet string |
-| 11 | `SessionService.cs` | Notifications + winner selection |
+| 11 | `GameService.cs` | Notifications + winner selection |
 | 12 | `BetNotificationEvent.cs` | Wallet → ExternalPlayerId |
 | 13 | `BetNotificationConsumer.cs` | Pass through renamed field |
 | 14 | `BetDto.cs` | Wallet → ExternalPlayerId |
-| 15 | `GetSessionHistoryHandler.cs` | Filter/join on OperatorPlayer |
-| 16 | `Monkify.Tests/**` | Update all Bet constructions and assertions |
+| 15 | `GetGameHistoryHandler.cs` | Filter/join on OperatorPlayer |
+| 16 | `ChimpOut.Tests/**` | Update all Bet constructions and assertions |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/types/index.ts` | `wallet` → `externalPlayerId` on bet types |
-| 2 | `src/hooks/useSession.ts` | Map SignalR field; register-bet still sends wallet |
+| 2 | `src/hooks/useGame.ts` | Map SignalR field; register-bet still sends wallet |
 | 3 | `src/components/game/GameTerminal.vue` | Player count, YOU, winners |
 | 4 | `src/components/game/GameMonkey.vue` | isMyBet comparison |
 
@@ -438,7 +438,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/Monkify.Tests`.
+Project: `monkify-backend/src/ChimpOut.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -446,8 +446,8 @@ Project: `monkify-backend/src/Monkify.Tests`.
 | `RegisterBetHandlerTests.cs` | Free bet with wallet | OperatorPlayer created; FK set |
 | `RegisterBetHandlerTests.cs` | Free bet without wallet | OperatorPlayerId NULL; no OperatorPlayer row |
 | `RegisterBetHandlerTests.cs` | Regulated bet with externalPlayerId | IsCrypto=false; FK set; no wallet required |
-| `RegisterBetHandlerTests.cs` | Duplicate (SessionId, OperatorPlayerId, Choice) | Rejected |
-| `RegisterBetHandlerTests.cs` | Anonymous duplicate (SessionId, Choice) | Rejected on second same choice |
+| `RegisterBetHandlerTests.cs` | Duplicate (GameId, OperatorPlayerId, Choice) | Rejected |
+| `RegisterBetHandlerTests.cs` | Anonymous duplicate (GameId, Choice) | Rejected on second same choice |
 | `RegisterBetHandlerTests.cs` | Paid bet without wallet or externalPlayerId | Validation failure |
 | `RegisterBetHandlerTests.cs` | Missing operatorId | Rejected (existing tests) |
 | `BetPlacedHandlerTests.cs` | Three free bets without identity | Three distinct players (Bet.Id keys) |
@@ -472,10 +472,10 @@ Add migration integration test only if project already has migration test patter
    `OperatorPlayer` has `IsCrypto=false` and the bet links to it.
 6. Given an anonymous free bet (no wallet, no externalPlayerId), when processed, then
    `OperatorPlayerId` is NULL and no `OperatorPlayer` row is created.
-7. Given two bets with the same `(SessionId, OperatorPlayerId, Choice)`, when the second is placed,
+7. Given two bets with the same `(GameId, OperatorPlayerId, Choice)`, when the second is placed,
    then duplicate-bet logic rejects it.
 8. Given anonymous free bets on the same choice, when the second is placed, then duplicate logic
-   rejects it (SessionId + Choice).
+   rejects it (GameId + Choice).
 9. Given a paid bet requiring Solana validation, reward, or refund, when executed, then the wallet
    address is resolved from `OperatorPlayer.ExternalPlayerId`, not from a removed `Bet.Wallet` column.
 10. Given every register-bet call, when `x-operator-id` is missing, then the request is rejected.
@@ -488,8 +488,8 @@ Add migration integration test only if project already has migration test patter
    bet has FK; recent bets SignalR shows `externalPlayerId`.
 2. Free bet mode ON, wallet disconnected → bet succeeds; `OperatorPlayerId` NULL in DB.
 3. Same wallet, second bet same choice → duplicate error.
-4. Session history with `?wallet=<pubkey>` returns sessions where player participated.
-5. Run full `Monkify.Tests` suite.
+4. Game history with `?wallet=<pubkey>` returns games where player participated.
+5. Run full `ChimpOut.Tests` suite.
 
 ---
 

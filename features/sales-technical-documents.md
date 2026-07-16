@@ -20,7 +20,7 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
   doc via the canonical track table and `MODEL-A-PROFILE` / `MODEL-B-PROFILE` blocks (EN + PT-BR).
   - **Model A (Regulated):** operator-owned wallet; player = launch-token `sub` (`ExternalPlayerId`);
     settlement via operator wallet API (debit / credit / refund); optional RG pre-bet hook.
-  - **Model B (Crypto-native):** Monkify-hosted on-chain payments; player = wallet public key;
+  - **Model B (Crypto-native):** ChimpOut-hosted on-chain payments; player = wallet public key;
     settlement via Solana SPL transfers; launch token has empty `sub`.
 - **Per-model docs:** `sales/model-a/` and `sales/model-b/` each hold `01-pitch` and
   `02-integration-overview`. Doc 03 stays at `sales/03-anti-clone-playbook.md`.
@@ -52,4 +52,4 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
 - `features/launch-token-validation.md` — `X-Launch-Token` RS256, `iss`/`sub`, vague 401
 - `features/operator-wallet-api.md` — Model A debit/credit/refund, unified `TransactionLog`, no commission
 - `features/rg-pre-bet-hook.md` — optional pre-bet allow/deny/fail-closed before wallet debit
-- `features/sessions.md` — session state machine (BetPlaced → RunSession → RewardSession)
+- `features/games.md` — game state machine (BetPlaced → RunGame → RewardGame)

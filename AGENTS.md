@@ -131,7 +131,7 @@ local Docker stack for the user to test before the card advances.
    Read `constraints.md` too — those rules are non-negotiable.
 2. **Implementation specs live in `specs/`.** Treat them as the authoritative design for in-flight
    features and **follow their format** when writing or updating specs.
-3. **Backend changes:** when you change behavior in `monkify-backend`, **run `Monkify.Tests`**, fix
+3. **Backend changes:** when you change behavior in `monkify-backend`, **run `ChimpOut.Tests`**, fix
    the affected tests, add tests for new behavior, and **report which unit tests changed** at the end.
 4. **Multi-repo work:** create the feature's worktree — and its branch (for the PR) — in **EACH
    affected repository** (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature
@@ -164,16 +164,16 @@ local Docker stack for the user to test before the card advances.
 8. **Every new feature needs a backend integration test (happy path).** For every **new feature**
    (this rule does **not** apply to bug fixes, QOL/dev-experience tweaks, or minor changes): the
    feature **must** have **at least one integration test** in `monkify-backend`
-   (`Monkify.Tests.Integration`, the Testcontainers suite) that exercises the feature's **happy path
+   (`ChimpOut.Tests.Integration`, the Testcontainers suite) that exercises the feature's **happy path
    end to end and asserts it works 100%**. If the feature introduces a **particularly complex flow**
    (beyond the happy path), that flow **must** get its own integration test too. See
    `constraints.md` → "Integration tests" for the full rule.
 
 ## Quick context
 
-- **monkify-backend** — .NET 8: `Monkify.Api` (stateless HTTP API + SignalR) and
-  `Monkify.Consumers` (background workers, the game loop, payouts, EF migrations). Shared:
-  `Monkify.Domain`, `Monkify.Infrastructure`, `Monkify.Common`. Tests: `Monkify.Tests`.
+- **monkify-backend** — .NET 8: `ChimpOut.Api` (stateless HTTP API + SignalR) and
+  `ChimpOut.Consumers` (background workers, the game loop, payouts, EF migrations). Shared:
+  `ChimpOut.Domain`, `ChimpOut.Infrastructure`, `ChimpOut.Common`. Tests: `ChimpOut.Tests`.
 - **monkify-front** — Vue 3 + TypeScript SPA (composables in `src/hooks`, services in
   `src/services`, types in `src/types`).
 - **monkify-meta** — the knowledge base (this guidance's source of truth).
@@ -182,8 +182,8 @@ local Docker stack for the user to test before the card advances.
 
 - **Secrets/config files:** you may edit them, but only ever write **mock/placeholder** values —
   never real credentials, and never print/commit real secrets.
-- **EF config is inline** in `MonkifyDbContext.OnModelCreating`; **migrations are applied only by
-  `Monkify.Consumers`** at startup.
+- **EF config is inline** in `ChimpOutDbContext.OnModelCreating`; **migrations are applied only by
+  `ChimpOut.Consumers`** at startup.
 - **Do not run production queries or external API requests** that could expose sensitive
   data — ask the user to run them.
 - For expired/inactive operators, only ever surface a **vague** "not found / unavailable" message.

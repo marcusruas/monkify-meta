@@ -1,4 +1,4 @@
-# Monkify — "Player Customization Modal" Feature — Implementation Spec
+# ChimpOut — "Player Customization Modal" Feature — Implementation Spec
 
 > **Status: Shipped** — merged `feature/player-customization-modal` → `main` on 2026-07-02.
 > Trello: [Player Customization Modal](https://trello.com/c/ZyJViMKI). Distilled rules:
@@ -39,12 +39,12 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/player-customization-modal` in `monkify-backend`, `monkify-front`,
   and `monkify-meta`.
-- **Unit tests:** update/add in `Monkify.Tests`; report changed tests at the end of implementation.
-  The bet-DTO / recent-bets change is session-flow-adjacent → also update `Monkify.Tests.Integration`.
-- **EF mapping:** inline in `MonkifyDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
+- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at the end of implementation.
+  The bet-DTO / recent-bets change is game-flow-adjacent → also update `ChimpOut.Tests.Integration`.
+- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
   feature adds no columns and no migration.**
 - **Secrets/config:** the FreeCurrencyAPI key is written as a **MOCK/placeholder** in
-  `monkifysettings.json`; the real key is bound only from the environment. Never commit a real key.
+  `chimpoutsettings.json`; the real key is bound only from the environment. Never commit a real key.
 - **Operator messaging:** vague errors only; every token-gated endpoint returns a generic **401** on
   any auth failure (real reason logged server-side only). Never reveal contract status.
 - **Display-only conversion:** conversion must **never** feed settlement, payout, refund, bet
@@ -58,17 +58,17 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | Entry point is a **gear icon on the right of the header** (`GameHeader.vue`). Because `GameHeader` renders once in `App.vue` (outside `<router-view>`), the gear + modal appear on both the lobby (`/monkify/game/sessions`) and live game (`/monkify/game/play`) screens automatically. |
+| 1 | Entry point is a **gear icon on the right of the header** (`GameHeader.vue`). Because `GameHeader` renders once in `App.vue` (outside `<router-view>`), the gear + modal appear on both the lobby (`/chimpout/game/games`) and live game (`/chimpout/game/play`) screens automatically. |
 | 2 | Modal has two controls: **Display name** (text, all operators) and **Preferred currency** (dropdown, **regulated only** — hidden for crypto). One **Save** button issues a single `PATCH /players/preferences` with both fields; on success the active currency updates and live amounts re-render. |
 | 3 | **Currency conversion applies to regulated operators only.** Crypto operators keep showing their native SPL token; the crypto token↔{SOL,USDT} idea from the prior refinement is **dropped**. |
 | 4 | **Definitive currency set** = the currencies returned by FreeCurrencyAPI `latest` (base = USD): `AUD, BGN, BRL, CAD, CHF, CNY, CZK, DKK, EUR, GBP, HKD, HRK, HUF, IDR, ILS, INR, ISK, JPY, KRW, MXN, MYR, NOK, NZD, PHP, PLN, RON, RUB, SEK, SGD, THB, TRY, USD, ZAR` (33 incl. USD; USD rate = 1.0). |
 | 5 | **Backend is the source of truth** for currency metadata (`code → { symbol, name }`, e.g. `BRL → R$ / "Brazilian Real"`) and the allow-list. The frontend renders the dropdown from `GET /fx/rates`; it does **not** hardcode the list. |
-| 6 | **Conversion is display-only and client-side.** Backend returns USD everywhere (REST + SignalR — sockets are session-scoped and carry no token, so the backend cannot know the viewer's currency; the frontend does). The frontend multiplies USD amounts by the USD→currency rate. |
+| 6 | **Conversion is display-only and client-side.** Backend returns USD everywhere (REST + SignalR — sockets are game-scoped and carry no token, so the backend cannot know the viewer's currency; the frontend does). The frontend multiplies USD amounts by the USD→currency rate. |
 | 7 | **Rate source:** an `IExchangeRateProvider` abstraction — `FreeCurrencyApiExchangeRateProvider` (prod; the first outbound `HttpClient` in the codebase) and `MockExchangeRateProvider` (dev/tests). The full USD rate table is cached in **Redis, 6-hour TTL** (respects the provider's 1000-req/month limit). |
 | 8 | `GET /fx/rates` returns the **full definitive list** with metadata and rates (rate populated when available, `null` when the provider is unavailable and the cache is empty). It never returns 5xx for a provider outage — the frontend falls back to USD. |
 | 9 | **New** `GET /players/preferences` (token-gated) returns `{ externalPlayerId, displayName, currency }` (defaults `displayName: null`, `currency: "USD"` when no `OperatorPlayer` row). Identity: regulated = token `sub`; crypto = optional `?wallet=` query param (crypto `sub` is empty). No row is created on read. |
 | 10 | `PATCH /players/preferences` gains payment-model-scoped **currency allow-list** validation: regulated → the 33 codes; crypto → `USD` only (fiat rejected). Plus **display-name** validation: trimmed, length **1–20**, reject empty/whitespace-only. Invalid → generic validation failure, stored value unchanged. |
-| 11 | **Display name renders for self + others.** Backend adds `DisplayName` to `BetDto` (covers the initial `GET /sessions/{id}` bets) and to `BetNotificationEvent` + the recent-bets push (covers streamed bets). The frontend renders it in the bets list and derives **winner** names client-side from the bets it already holds — the typer/status flow (`SessionResult`) is left unchanged. |
+| 11 | **Display name renders for self + others.** Backend adds `DisplayName` to `BetDto` (covers the initial `GET /games/{id}` bets) and to `BetNotificationEvent` + the recent-bets push (covers streamed bets). The frontend renders it in the bets list and derives **winner** names client-side from the bets it already holds — the typer/status flow (`GameResult`) is left unchanged. |
 | 12 | **Amount surfaces (regulated):** lobby ticket/stake price, live pot/total, recent-bets amounts, winnings. Format: chosen currency primary; when `!= USD` show `≈ {symbol}{value}` (2 decimals) with the authoritative USD amount on hover; `USD` selected → plain USD, no `≈`. Rate unavailable/stale → silent USD fallback, no error. |
 | 13 | **No migration; settlement unchanged.** Existing players keep `Currency = USD`. Stake/payout/refund and operator-API amounts always use USD. |
 
@@ -78,10 +78,10 @@ From `monkify-meta/constraints.md` (full list there):
 
 **No entity, column, EF-mapping, or migration changes.** The feature reuses existing columns:
 
-- `Monkify.Domain/Sessions/Entities/OperatorPlayer.cs` — `DisplayName` (nullable, DB maxlen 100) and
+- `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` — `DisplayName` (nullable, DB maxlen 100) and
   `Currency` (nullable, DB maxlen 10, defaults `"USD"` on new rows in the upsert handler). The 1–20
   display-name bound and the currency allow-list are **application-level** validation, not schema.
-- Unique index `(OperatorId, ExternalPlayerId)` already enforced inline in `MonkifyDbContext`.
+- Unique index `(OperatorId, ExternalPlayerId)` already enforced inline in `ChimpOutDbContext`.
 
 ### 4.1 New (non-persistent) domain types
 
@@ -89,10 +89,10 @@ A static, in-code **supported-currency registry** — the single source of truth
 set, its metadata, and the allow-list:
 
 ```csharp
-// Monkify.Domain/Fx/SupportedCurrency.cs
+// ChimpOut.Domain/Fx/SupportedCurrency.cs
 public sealed record SupportedCurrency(string Code, string Symbol, string Name);
 
-// Monkify.Domain/Fx/SupportedCurrencies.cs
+// ChimpOut.Domain/Fx/SupportedCurrencies.cs
 public static class SupportedCurrencies
 {
     // 33 entries; USD first. Symbol + human name per code.
@@ -122,10 +122,10 @@ public static class SupportedCurrencies
 ### 5.1 `GeneralSettings.Fx` (new section)
 
 Model it on the existing `OperatorWalletConfig` pattern
-(`Monkify.Domain/Configs/Entities/OperatorWalletSettings.cs`).
+(`ChimpOut.Domain/Configs/Entities/OperatorWalletSettings.cs`).
 
 ```csharp
-// Monkify.Domain/Configs/Entities/FxSettings.cs
+// ChimpOut.Domain/Configs/Entities/FxSettings.cs
 public class FxSettings
 {
     public string Provider { get; set; } = "Mock";       // "Mock" | "FreeCurrencyApi"
@@ -137,9 +137,9 @@ public class FxSettings
 ```
 
 Add `public FxSettings Fx { get; set; } = new();` to
-`Monkify.Domain/Configs/Entities/GeneralSettings.cs`.
+`ChimpOut.Domain/Configs/Entities/GeneralSettings.cs`.
 
-`Monkify.Common/monkifysettings.json` — add under `GeneralSettings` (**mock values only**):
+`ChimpOut.Common/chimpoutsettings.json` — add under `GeneralSettings` (**mock values only**):
 
 ```json
 "Fx": {
@@ -156,7 +156,7 @@ Add `public FxSettings Fx { get; set; } = new();` to
 
 ### 5.2 Provider selection
 
-In `Monkify.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), select the provider by the
+In `ChimpOut.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), select the provider by the
 `Fx.Provider` discriminator (same pattern as cache selection by config):
 
 - `"FreeCurrencyApi"` → `AddHttpClient<FreeCurrencyApiExchangeRateProvider>()` (BaseUrl + timeout from
@@ -164,7 +164,7 @@ In `Monkify.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), selec
 - anything else (default `"Mock"`) → `IExchangeRateProvider → MockExchangeRateProvider` (static
   table, no HTTP). This keeps dev + all tests off the network and within the rate limit.
 
-Registered in the shared `AddDefaultServices` so **both** `Monkify.Api` and `Monkify.Consumers` get
+Registered in the shared `AddDefaultServices` so **both** `ChimpOut.Api` and `ChimpOut.Consumers` get
 it (only the API serves `/fx/rates`, but keeping it shared matches the existing wiring).
 
 ### 5.3 Frontend env
@@ -177,7 +177,7 @@ here.)
 
 ## 6. Backend behaviour
 
-### 6.1 FX rate provider (`Monkify.Infrastructure/Services/Fx/`)
+### 6.1 FX rate provider (`ChimpOut.Infrastructure/Services/Fx/`)
 
 ```csharp
 public interface IExchangeRateProvider
@@ -195,7 +195,7 @@ public interface IExchangeRateProvider
 - **`MockExchangeRateProvider`** — returns a static USD-based table covering all
   `SupportedCurrencies.Codes` (use the sample values from the card for realism). No network.
 
-### 6.2 `GET /fx/rates` (new — `Monkify.Api/Controllers/FxController.cs`)
+### 6.2 `GET /fx/rates` (new — `ChimpOut.Api/Controllers/FxController.cs`)
 
 - `[Route("fx")] FxController : BaseController`; `[HttpGet("rates")]` → `ProcessRequest(new GetFxRatesRequest())`.
   Add an `[HttpOptions("rates")]` CORS method mirroring the other controllers.
@@ -207,10 +207,10 @@ public interface IExchangeRateProvider
      `rate = table?[code]` (USD always `1.0`; `null` when unavailable).
   4. Return `FxRatesDto { Base = "USD", AsOf = DateTime.UtcNow, Rates = [{ Code, Symbol, Name, Rate }] }`.
      Never returns 5xx for a provider outage — a missing table yields `rate: null` for non-USD codes.
-- **Host:** stateless `Monkify.Api` (read-only). No Consumers work.
+- **Host:** stateless `ChimpOut.Api` (read-only). No Consumers work.
 
 **Hidden blocker — token gating:** `/fx` is **not** in
-`LaunchTokenValidationMiddleware.ProtectedPrefixes` (currently `/sessions`, `/operators`, `/players`).
+`LaunchTokenValidationMiddleware.ProtectedPrefixes` (currently `/games`, `/operators`, `/players`).
 **Add `/fx`** so `GET /fx/rates` is token-gated and returns a generic 401 on any token failure.
 (`OPTIONS` stays exempt, as for the other prefixes.)
 
@@ -248,18 +248,18 @@ default for new rows.
 
 ### 6.5 `DisplayName` on bets (self + others)
 
-- **`BetDto`** (`Contracts/Sessions/BetDto.cs`) — add `DisplayName = bet.OperatorPlayer?.DisplayName`
-  alongside the existing `ExternalPlayerId`. This flows through `GET /sessions/{id}` (initial bets,
-  built via `SessionService.GetBetsBySessionId` which already `.Include`s `OperatorPlayer`).
+- **`BetDto`** (`Contracts/Games/BetDto.cs`) — add `DisplayName = bet.OperatorPlayer?.DisplayName`
+  alongside the existing `ExternalPlayerId`. This flows through `GET /games/{id}` (initial bets,
+  built via `GameService.GetBetsByGameId` which already `.Include`s `OperatorPlayer`).
 - **`BetNotificationEvent`** (`Consumers/BetNotification/BetNotificationEvent.cs`) — add
-  `string? DisplayName`. In **`SessionService.InsertBet`**, capture `bet.OperatorPlayer?.DisplayName`
+  `string? DisplayName`. In **`GameService.InsertBet`**, capture `bet.OperatorPlayer?.DisplayName`
   into a local **before** the existing `bet.OperatorPlayer = null` line, and pass it to the event
-  constructor. `BetNotificationConsumer` already serializes the whole event to the `{sessionId}/Bets`
+  constructor. `BetNotificationConsumer` already serializes the whole event to the `{gameId}/Bets`
   channel, so the field reaches the client with no consumer change.
-- **Winners:** unchanged on the backend. `SessionResult.Winners` stays `IEnumerable<string>`
+- **Winners:** unchanged on the backend. `GameResult.Winners` stays `IEnumerable<string>`
   (external ids). The frontend resolves winner display names from the bets it already holds (§7.5).
-- **Integration tests:** `Monkify.Tests.Integration/SessionFlowTests.cs` — add an assertion that the
-  recent-bets notification / `BetDto` carries `DisplayName` when the better set one (session-flow
+- **Integration tests:** `ChimpOut.Tests.Integration/GameFlowTests.cs` — add an assertion that the
+  recent-bets notification / `BetDto` carries `DisplayName` when the better set one (game-flow
   change per `constraints.md §3`).
 
 ### 6.6 Caching helper
@@ -348,16 +348,16 @@ Module-scoped singleton (matching the other hooks):
     render `appliedBet.displayName` when present (still show `YOU` for the current player), else fall
     back to the truncated `externalPlayerId`, else `ANON`.
   - **Winners** (`> PAID TO` / winners list): resolve each winner id to a display name via a
-    `Map<externalPlayerId, displayName>` built from `sessionInstance.bets` (initial fetch) +
+    `Map<externalPlayerId, displayName>` built from `gameInstance.bets` (initial fetch) +
     streamed recent bets — the client already holds these. Fall back to the truncated id.
-- **`useSession.ts`:** carry `displayName` through when appending streamed bets
+- **`useGame.ts`:** carry `displayName` through when appending streamed bets
   (`externalPlayerId: newBet.externalPlayerId ?? null, displayName: newBet.displayName ?? null`), and
   expose (or let `GameTerminal` build) the id→name map used for winners.
 - **`GameMonkey.vue`:** no change (animation only; identity match unchanged).
 
 ### 7.6 Where prefs/rates load
 
-`App.vue onMounted` already calls `useOperator().loadOperator()` on the `Session`/`Game` routes.
+`App.vue onMounted` already calls `useOperator().loadOperator()` on the `Game`/`Game` routes.
 Add `useDisplayCurrency().loadRates()` + `loadPreferences()` there (after operator/paymentModel is
 known, so crypto vs regulated is decided and the wallet is available for crypto identity).
 
@@ -373,7 +373,7 @@ sequenceDiagram
   participant H as GameHeader (gear)
   participant M as CustomizationModal
   participant S as mainService
-  participant API as Monkify.Api
+  participant API as ChimpOut.Api
   U->>H: click gear
   H->>M: open (prefill from useDisplayCurrency)
   M->>S: getPlayerPreferences() (if not loaded)
@@ -419,7 +419,7 @@ sequenceDiagram
 - Crypto (SPL token) display-currency conversion and SOL/USDT (dropped; possible future card).
 - Expanding the currency set beyond the FreeCurrencyAPI definitive list.
 - Historical backfill of display names onto past bets.
-- Enriching the `SessionResult` winners payload (winner names are resolved client-side instead).
+- Enriching the `GameResult` winners payload (winner names are resolved client-side instead).
 
 ---
 
@@ -429,28 +429,28 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `Monkify.Domain/Fx/SupportedCurrency.cs` | **New** record `{ Code, Symbol, Name }`. |
-| 2 | `Monkify.Domain/Fx/SupportedCurrencies.cs` | **New** static registry: 33 entries, `Codes` set, `IsSupported`. |
-| 3 | `Monkify.Domain/Configs/Entities/FxSettings.cs` | **New** settings class (Provider, BaseUrl, ApiKey, TimeoutSeconds, CacheTtlHours). |
-| 4 | `Monkify.Domain/Configs/Entities/GeneralSettings.cs` | Add `Fx` property. |
-| 5 | `Monkify.Common/monkifysettings.json` | Add `GeneralSettings.Fx` block — **mock values only**. |
-| 6 | `Monkify.Infrastructure/Services/Fx/IExchangeRateProvider.cs` | **New** interface `GetUsdRatesAsync`. |
-| 7 | `Monkify.Infrastructure/Services/Fx/FreeCurrencyApiExchangeRateProvider.cs` | **New** typed-HttpClient provider; parse `data` map; null on failure. |
-| 8 | `Monkify.Infrastructure/Services/Fx/MockExchangeRateProvider.cs` | **New** static USD table for dev/tests. |
-| 9 | `Monkify.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateFxRatesCacheSettings(ttlHours)` → key `Fx:Rates:USD`. |
-| 10 | `Monkify.Infrastructure/Contracts/Fx/FxRatesDto.cs` | **New** `{ Base, AsOf, Rates:[{Code,Symbol,Name,Rate?}] }`. |
-| 11 | `Monkify.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesRequest.cs` | **New** request → `FxRatesDto`. |
-| 12 | `Monkify.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` | **New** cache-first; join rates + metadata; never 5xx on outage. |
-| 13 | `Monkify.Api/Controllers/FxController.cs` | **New** `[Route("fx")]`, `GET rates` + `OPTIONS`. |
-| 14 | `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **Add `/fx`** to protected prefixes (token-gate `/fx/rates`). |
-| 15 | `Monkify.Api/Controllers/PlayersController.cs` | Add `[HttpGet("preferences")]`; extend `OPTIONS` `Allow` with `GET`. |
-| 16 | `Monkify.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesRequest.cs` | **New** `(OperatorId, ExternalPlayerId?, Wallet?)`. |
-| 17 | `Monkify.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | **New** read-only prefs lookup; defaults when no row; no row creation. |
-| 18 | `Monkify.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Add operator-scoped currency allow-list + 1–20 display-name validation before upsert. |
-| 19 | `Monkify.Infrastructure/Contracts/Sessions/BetDto.cs` | Add `DisplayName = bet.OperatorPlayer?.DisplayName`. |
-| 20 | `Monkify.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs` | Add `string? DisplayName`. |
-| 21 | `Monkify.Infrastructure/Services/Sessions/SessionService.cs` | In `InsertBet`, capture `DisplayName` before nulling `OperatorPlayer`; pass to the event. |
-| 22 | `Monkify.Infrastructure/DependencyInjection.cs` | Register `IExchangeRateProvider` by `Fx.Provider`; `AddHttpClient` for the real provider. |
+| 1 | `ChimpOut.Domain/Fx/SupportedCurrency.cs` | **New** record `{ Code, Symbol, Name }`. |
+| 2 | `ChimpOut.Domain/Fx/SupportedCurrencies.cs` | **New** static registry: 33 entries, `Codes` set, `IsSupported`. |
+| 3 | `ChimpOut.Domain/Configs/Entities/FxSettings.cs` | **New** settings class (Provider, BaseUrl, ApiKey, TimeoutSeconds, CacheTtlHours). |
+| 4 | `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` | Add `Fx` property. |
+| 5 | `ChimpOut.Common/chimpoutsettings.json` | Add `GeneralSettings.Fx` block — **mock values only**. |
+| 6 | `ChimpOut.Infrastructure/Services/Fx/IExchangeRateProvider.cs` | **New** interface `GetUsdRatesAsync`. |
+| 7 | `ChimpOut.Infrastructure/Services/Fx/FreeCurrencyApiExchangeRateProvider.cs` | **New** typed-HttpClient provider; parse `data` map; null on failure. |
+| 8 | `ChimpOut.Infrastructure/Services/Fx/MockExchangeRateProvider.cs` | **New** static USD table for dev/tests. |
+| 9 | `ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateFxRatesCacheSettings(ttlHours)` → key `Fx:Rates:USD`. |
+| 10 | `ChimpOut.Infrastructure/Contracts/Fx/FxRatesDto.cs` | **New** `{ Base, AsOf, Rates:[{Code,Symbol,Name,Rate?}] }`. |
+| 11 | `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesRequest.cs` | **New** request → `FxRatesDto`. |
+| 12 | `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` | **New** cache-first; join rates + metadata; never 5xx on outage. |
+| 13 | `ChimpOut.Api/Controllers/FxController.cs` | **New** `[Route("fx")]`, `GET rates` + `OPTIONS`. |
+| 14 | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **Add `/fx`** to protected prefixes (token-gate `/fx/rates`). |
+| 15 | `ChimpOut.Api/Controllers/PlayersController.cs` | Add `[HttpGet("preferences")]`; extend `OPTIONS` `Allow` with `GET`. |
+| 16 | `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesRequest.cs` | **New** `(OperatorId, ExternalPlayerId?, Wallet?)`. |
+| 17 | `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | **New** read-only prefs lookup; defaults when no row; no row creation. |
+| 18 | `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Add operator-scoped currency allow-list + 1–20 display-name validation before upsert. |
+| 19 | `ChimpOut.Infrastructure/Contracts/Games/BetDto.cs` | Add `DisplayName = bet.OperatorPlayer?.DisplayName`. |
+| 20 | `ChimpOut.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs` | Add `string? DisplayName`. |
+| 21 | `ChimpOut.Infrastructure/Services/Games/GameService.cs` | In `InsertBet`, capture `DisplayName` before nulling `OperatorPlayer`; pass to the event. |
+| 22 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register `IExchangeRateProvider` by `Fx.Provider`; `AddHttpClient` for the real provider. |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -462,8 +462,8 @@ sequenceDiagram
 | 4 | `src/components/header/PlayerCustomizationModal.vue` | **New** DaisyUI modal (name + currency dropdown; currency regulated-only); Save → PATCH. |
 | 5 | `src/components/GameHeader.vue` | Add gear button (outside `v-if="!isRegulated"`); mount the modal. |
 | 6 | `src/components/game/GameTerminal.vue` | Regulated: `format()` on BET/POT/bet amounts; render `displayName` in bets list + winners (id→name map). |
-| 7 | `src/hooks/useSession.ts` | Carry `displayName` on streamed bets; expose/support the winner id→name map. |
-| 8 | `src/App.vue` | On `Session`/`Game` mount, call `useDisplayCurrency().loadRates()` + `loadPreferences()`. |
+| 7 | `src/hooks/useGame.ts` | Carry `displayName` on streamed bets; expose/support the winner id→name map. |
+| 8 | `src/App.vue` | On `Game`/`Game` mount, call `useDisplayCurrency().loadRates()` + `loadPreferences()`. |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -477,7 +477,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/Monkify.Tests`.
+Project: `monkify-backend/src/ChimpOut.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -487,8 +487,8 @@ Project: `monkify-backend/src/Monkify.Tests`.
 | `UnitTests/Handlers/GetPlayerPreferencesHandlerTests.cs` (new) | Regulated by `sub` returns stored prefs; no row → defaults (`USD`, null name), no row created; crypto by `?wallet=`; no identity → defaults. | Correct DTO; never creates a row. |
 | `UnitTests/Handlers/UpdatePlayerPreferencesHandlerTests.cs` (extend) | Regulated accepts in-list (BRL), rejects out-of-list; crypto rejects fiat (EUR), accepts USD; display name empty/whitespace/>20 rejected, 1–20 trimmed accepted; stored value unchanged on any failure. | Generic validation failures; upsert only on valid. |
 | `UnitTests/Contracts/BetDtoTests.cs` (new or extend) | `BetDto(bet)` surfaces `DisplayName` from `OperatorPlayer`; null when no player. | Field mapped. |
-| `UnitTests/Services/SessionServiceTests.cs` (extend) | `InsertBet` publishes `BetNotificationEvent` with `DisplayName` captured before the `OperatorPlayer` null-out. | Event carries name. |
-| `Monkify.Tests.Integration/SessionFlowTests.cs` (extend) | Recent-bets notification / `BetDto` includes `DisplayName` for a named better through bet→run→reward. | Session flow unchanged; name present. |
+| `UnitTests/Services/GameServiceTests.cs` (extend) | `InsertBet` publishes `BetNotificationEvent` with `DisplayName` captured before the `OperatorPlayer` null-out. | Event carries name. |
+| `ChimpOut.Tests.Integration/GameFlowTests.cs` (extend) | Recent-bets notification / `BetDto` includes `DisplayName` for a named better through bet→run→reward. | Game flow unchanged; name present. |
 
 Run via `scripts/run_tests.bat` (unit) and `scripts/run_integration_tests.bat` (integration).
 **Report changed/added tests at the end of implementation.**
@@ -506,7 +506,7 @@ Run via `scripts/run_tests.bat` (unit) and `scripts/run_integration_tests.bat` (
 5. Given a Regulated-operator player opens the currency dropdown, then it lists exactly the backend-served definitive currency set, each shown as `CODE — symbol (Name)` (e.g. `BRL — R$ (Brazilian Real)`).
 6. Given a Regulated-operator player who selected EUR, when they view the lobby ticket price, live pot/total, recent-bets amounts, and winnings, then each shows the USD amount converted to EUR as `≈ €{value}` (2 decimals) with the authoritative USD amount on hover.
 7. Given a Regulated-operator player with USD selected (default), when they view amounts, then they render as plain USD with no `≈` indicator and no FX rate dependency.
-8. Given a live session in progress, when the player changes their display currency and saves, then live amounts (pot, recent bets) re-render using the latest rate without disrupting the session.
+8. Given a live game in progress, when the player changes their display currency and saves, then live amounts (pot, recent bets) re-render using the latest rate without disrupting the game.
 9. Given the FX provider is down, the cached rate is stale beyond the 6h TTL, or no rate exists for the chosen currency, when amounts are displayed, then they silently fall back to the native USD amount + `$` with no error toast and the game stays fully playable.
 10. Given a valid `X-Launch-Token`, when `GET /fx/rates` is called, then it returns `{ base:"USD", asOf, rates:[{code,symbol,name,rate}] }` covering the definitive set, with USD rate = 1.0.
 11. Given a rate table was fetched within the 6h TTL, when `GET /fx/rates` is called again, then the cached Redis value is returned without calling FreeCurrencyAPI again.
@@ -518,18 +518,18 @@ Run via `scripts/run_tests.bat` (unit) and `scripts/run_integration_tests.bat` (
 17. Given bets exist from players who set a display name, when a player views the recent-bets feed and winners, then each player is shown by their DisplayName (their own row shows their name/`YOU`), falling back to the truncated external id when no name is set.
 18. Given any display currency is selected, when a bet is placed and a winner is paid out, then the stake/payout/refund and any operator-API amount still use USD (conversion never feeds money math).
 19. Given a request without a valid `X-Launch-Token`, when `GET /fx/rates` or `GET /players/preferences` is called, then it returns a generic 401 (real reason logged server-side only), consistent with other operator-scoped endpoints.
-20. Given the backend changes ship, then the FreeCurrencyAPI key is a MOCK placeholder (dev uses `MockExchangeRateProvider`) and `Monkify.Tests` covers the provider (http+mock), the `/fx/rates` handler + 6h caching, GET/PATCH preferences (defaults, allow-list, name validation), and `DisplayName` DTO/event mapping — all passing — and `Monkify.Tests.Integration` is updated for the DTO/SignalR change; changed tests reported.
+20. Given the backend changes ship, then the FreeCurrencyAPI key is a MOCK placeholder (dev uses `MockExchangeRateProvider`) and `ChimpOut.Tests` covers the provider (http+mock), the `/fx/rates` handler + 6h caching, GET/PATCH preferences (defaults, allow-list, name validation), and `DisplayName` DTO/event mapping — all passing — and `ChimpOut.Tests.Integration` is updated for the DTO/SignalR change; changed tests reported.
 
 ---
 
 ## 13. Manual QA
 
-1. `scripts/setup_local_environment.bat`, launch the stack (`docker-compose`), open `/monkify/game`
+1. `scripts/setup_local_environment.bat`, launch the stack (`docker-compose`), open `/chimpout/game`
    → **Regulated** dev button.
 2. Click the header **gear** → modal opens on the lobby; set a display name + pick **BRL**; Save.
 3. Confirm the BET/POT/bet amounts render `≈ R$…` with the USD value on hover; reopen the modal →
    values prefilled.
-4. Enter a session, place a bet, confirm the bets list shows your **display name** (as `YOU`) and the
+4. Enter a game, place a bet, confirm the bets list shows your **display name** (as `YOU`) and the
    winner line shows a display name.
 5. Switch currency to **USD** → amounts show plain `$…`, no `≈`.
 6. Relaunch via the **Crypto** dev button → the gear opens a modal with **only** the display-name

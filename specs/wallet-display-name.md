@@ -1,17 +1,17 @@
-# Monkify — "Display name per connected wallet for SolanaToken sessions" — Implementation Spec
+# ChimpOut — "Display name per connected wallet for SolanaToken games" — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/wallet-display-name` on 2026-07-14. Refined via Trello card
-> [Display name per connected wallet for SolanaToken sessions](https://trello.com/c/sohAuZN0).
+> [Display name per connected wallet for SolanaToken games](https://trello.com/c/sohAuZN0).
 > Repos affected: `monkify-front`, `monkify-backend`, and this doc in `monkify-meta`. **Full-stack** —
 > the original "frontend-only / backend no-change" scope was corrected during implementation (see §6).
 > Distilled summary: `../features/wallet-display-name.md`.
 >
-> **Purpose:** For **SolanaToken** sessions a player's identity is their **connected wallet**, but the
+> **Purpose:** For **SolanaToken** games a player's identity is their **connected wallet**, but the
 > display-name / preferences flow does not consistently key off it: the app loads preferences on mount
 > with no wallet, the customization gear has no wallet gate, and nothing reloads on wallet
 > connect/switch. This makes crypto display names come back empty and lets a save run against a
 > wrong/empty identity. This feature makes the display name (and the `YOU` / recent-bets / winner
-> labels) resolve **per connected wallet** everywhere for SolanaToken sessions, and gates the
+> labels) resolve **per connected wallet** everywhere for SolanaToken games, and gates the
 > customization modal behind a connected wallet when there is no other identity to write to.
 
 Child of the umbrella **#46 refactor solana wallet flow** ([SX7avQTT](https://trello.com/c/SX7avQTT)).
@@ -23,13 +23,13 @@ Child of the umbrella **#46 refactor solana wallet flow** ([SX7avQTT](https://tr
 
 A **frontend-only consistency + gating** change in `monkify-front`. Two axes, kept distinct but
 consistent in practice (a **paid** SolanaToken bet already requires a connected wallet, so
-wallet-identity == session-identity in a live crypto session):
+wallet-identity == game-identity in a live crypto game):
 
 | Axis | Rule |
 | --- | --- |
 | **Identity keying** | Whenever preferences load/save: **wallet connected → key by wallet** (`GET /players/preferences?wallet=<wallet>`, `PATCH` body `wallet=<wallet>`); **no wallet → key by launch-token `sub`** (backend default). Today's rule, made **reactive** — reload on wallet connect / switch / disconnect, not only on mount / modal-open. |
-| **The gate** | When the modal has **no identity to write to**, show a **"Connect wallet to customize"** state in place of the name form. Trigger: **no wallet connected AND (selected session is `SolanaToken` OR there is no usable launch-token `sub`)**. |
-| **Currency field** | Hidden when the selected session's `paymentMethod === SolanaToken` (token-native amounts ignore it). Shown for Standard sessions / the sessions list. |
+| **The gate** | When the modal has **no identity to write to**, show a **"Connect wallet to customize"** state in place of the name form. Trigger: **no wallet connected AND (selected game is `SolanaToken` OR there is no usable launch-token `sub`)**. |
+| **Currency field** | Hidden when the selected game's `paymentMethod === SolanaToken` (token-native amounts ignore it). Shown for Standard games / the games list. |
 
 The backend already resolves preference identity correctly (`sub`-first, wallet-second; empty crypto
 `sub` falls through to `?wallet=`), so **no backend change and no new backend integration test** — this
@@ -46,7 +46,7 @@ From `monkify-meta/constraints.md` (full list there):
   `git checkout -b` there). Branch pushed to `origin` for the PR.
 - **Backend unit tests + a happy-path integration test (now required).** The scope correction (§6) made
   this a backend change, so per `constraints.md` → "Integration tests are mandatory for every new
-  feature" it ships with updated/added `Monkify.Tests` unit tests **and** a `Monkify.Tests.Integration`
+  feature" it ships with updated/added `ChimpOut.Tests` unit tests **and** a `ChimpOut.Tests.Integration`
   happy-path test proving the wallet-keyed display name end to end (see §11). Report the changed tests.
 - **EF / migrations:** none — no entity, mapping, or migration change (§6.3).
 - **Secrets/config:** none touched; only mock values ever committed.
@@ -63,12 +63,12 @@ From `monkify-meta/constraints.md` (full list there):
 | --- | --- |
 | 1 | **Identity keying is driven by the connected wallet (global rule):** wallet connected → key by wallet (`?wallet=` on GET, `body.wallet` on PATCH); else launch-token `sub`. This is the existing rule made **reactive** — the fix is that preferences must (re)load on wallet connect / switch / disconnect, not only on mount / modal-open. |
 | 2 | **Core bug — reactive per-wallet load.** `App.vue`'s mount load calls `loadPreferences()` with **no wallet** (`App.vue:59`), so SolanaToken preferences are empty until an incidental modal-open / chat-connect reload. Add a watcher on the connected wallet address so preferences reload with `?wallet=` as soon as a wallet is available and again on switch/disconnect. |
-| 3 | **The gate — "Connect wallet to customize".** Show the connect prompt (with the wallet-connect affordance) **in place of the name form** when **no wallet is connected AND (the selected session is `SolanaToken` OR there is no usable launch-token `sub`)**. The last clause covers a crypto-only operator on the sessions list. Show the form only when there is a real identity (wallet connected, or a non-empty `sub`). |
-| 4 | **Currency dropdown hidden in a SolanaToken context** (`selectedSession.paymentMethod === SolanaToken`); the modal then shows display name only. Standard / lobby: dropdown shown as today. |
-| 5 | **In-session label resolution stays per method:** `YOU` / recent-bets / winner names resolve SolanaToken → wallet, Standard → `sub` (current `GameTerminal.vue` behaviour). The real fix is that the crypto name is now actually **loaded per wallet**, so it appears instead of a truncated id. |
-| 6 | **~~Backend verified — no change needed~~ — CORRECTED (2026-07-14): the card is full-stack.** The original assumption (crypto `sub` is empty, so `sub`-first resolution is fine) is **false** for the dev operator and any operator offering both Standard + SolanaToken sessions — their launch token always carries a non-empty `sub`, so `sub`-first made the handlers **ignore the wallet**, saving/reading the display name on the `sub` identity while SolanaToken bets are keyed by the **wallet** → crypto bets showed ANON. See §6. |
+| 3 | **The gate — "Connect wallet to customize".** Show the connect prompt (with the wallet-connect affordance) **in place of the name form** when **no wallet is connected AND (the selected game is `SolanaToken` OR there is no usable launch-token `sub`)**. The last clause covers a crypto-only operator on the games list. Show the form only when there is a real identity (wallet connected, or a non-empty `sub`). |
+| 4 | **Currency dropdown hidden in a SolanaToken context** (`selectedGame.paymentMethod === SolanaToken`); the modal then shows display name only. Standard / lobby: dropdown shown as today. |
+| 5 | **In-game label resolution stays per method:** `YOU` / recent-bets / winner names resolve SolanaToken → wallet, Standard → `sub` (current `GameTerminal.vue` behaviour). The real fix is that the crypto name is now actually **loaded per wallet**, so it appears instead of a truncated id. |
+| 6 | **~~Backend verified — no change needed~~ — CORRECTED (2026-07-14): the card is full-stack.** The original assumption (crypto `sub` is empty, so `sub`-first resolution is fine) is **false** for the dev operator and any operator offering both Standard + SolanaToken games — their launch token always carries a non-empty `sub`, so `sub`-first made the handlers **ignore the wallet**, saving/reading the display name on the `sub` identity while SolanaToken bets are keyed by the **wallet** → crypto bets showed ANON. See §6. |
 | 7 | **No per-wallet preferences cache** (remembering multiple wallets at once). One active identity at a time — reload-on-change overwrites the shared `useDisplayCurrency` singleton (YAGNI). |
-| 8 | **Backend fix (added):** `Get`/`UpdatePlayerPreferencesHandler` now **prefer the wallet when it is provided** (`request.Wallet ?? sub`), so SolanaToken preferences key off the wallet even when a `sub` exists. `SessionService.InsertBet` captures `GetWalletAddress()` **before** nulling `OperatorPlayer`, so live bet notifications carry `externalPlayerId` (restores the `YOU` match on live crypto bets). Frontend sends the wallet to the preference calls **only in a SolanaToken context** so a Standard player with a stray connected wallet is not mis-routed to the wallet under the new precedence. |
+| 8 | **Backend fix (added):** `Get`/`UpdatePlayerPreferencesHandler` now **prefer the wallet when it is provided** (`request.Wallet ?? sub`), so SolanaToken preferences key off the wallet even when a `sub` exists. `GameService.InsertBet` captures `GetWalletAddress()` **before** nulling `OperatorPlayer`, so live bet notifications carry `externalPlayerId` (restores the `YOU` match on live crypto bets). Frontend sends the wallet to the preference calls **only in a SolanaToken context** so a Standard player with a stray connected wallet is not mis-routed to the wallet under the new precedence. |
 
 ---
 
@@ -92,14 +92,14 @@ untouched.
 > **Correction (2026-07-14, during implementation).** The pre-implementation reading concluded the
 > backend needed no change because "the crypto `sub` is empty." Testing disproved this: the **dev
 > launch token always carries `sub = "dev-player"`** (`DevController`), and any operator offering both
-> Standard **and** SolanaToken sessions issues a launch token with a real `sub`. With the handlers
+> Standard **and** SolanaToken games issues a launch token with a real `sub`. With the handlers
 > resolving **`sub`-first**, a SolanaToken player's `?wallet=` was **ignored**, so the display name was
 > written to / read from the `sub` `OperatorPlayer` while SolanaToken bets are keyed by the **wallet**
 > `OperatorPlayer` (which had no name) → crypto bets rendered **ANON**. Two backend fixes are required.
 
 ### 6.1 Preference identity — prefer the wallet when provided
 
-`Monkify.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` and
+`ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` and
 `.../UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`: change identity resolution from
 `sub`-first to **wallet-first-when-present**:
 
@@ -115,7 +115,7 @@ The client only sends a wallet in a SolanaToken context (§7), so Standard prefs
 
 ### 6.2 Live bet notification — capture the wallet before detaching `OperatorPlayer`
 
-`Monkify.Infrastructure/Services/Sessions/SessionService.cs` → `InsertBet` set `bet.OperatorPlayer =
+`ChimpOut.Infrastructure/Services/Games/GameService.cs` → `InsertBet` set `bet.OperatorPlayer =
 null` **before** calling `bet.GetWalletAddress()` (which reads `OperatorPlayer.ExternalPlayerId`), so
 every **live** `BetNotificationEvent` shipped `ExternalPlayerId = null` — breaking the `YOU` match on
 live bets. Capture the id (like the display name already is) **before** nulling:
@@ -123,16 +123,16 @@ live bets. Capture the id (like the display name already is) **before** nulling:
 ```csharp
 var displayName = bet.OperatorPlayer?.DisplayName;
 var externalPlayerId = bet.GetWalletAddress();   // BEFORE nulling the nav
-bet.Session = null;
+bet.Game = null;
 bet.OperatorPlayer = null;
 ...
-var notificationEvent = new BetNotificationEvent(bet.SessionId, externalPlayerId, displayName, bet.Amount, bet.Choice);
+var notificationEvent = new BetNotificationEvent(bet.GameId, externalPlayerId, displayName, bet.Amount, bet.Choice);
 ```
 
 ### 6.3 Host / migration / DTO impact
 
 None beyond the above. No entity, EF mapping, migration, DTO, or SignalR-contract change. Runs in the
-existing hosts (API validates + reads prefs; `SessionService.InsertBet` runs where bets are inserted).
+existing hosts (API validates + reads prefs; `GameService.InsertBet` runs where bets are inserted).
 
 ---
 
@@ -152,18 +152,18 @@ existing hosts (API validates + reads prefs; `SessionService.InsertBet` runs whe
   import { useWallet } from 'solana-wallets-vue';
   import { PaymentMethod } from '@/types';
   const { connected, publicKey } = useWallet();
-  const { typingSpeed, selectedSession } = useSession();
+  const { typingSpeed, selectedGame } = useGame();
   // ...
-  // Send the wallet ONLY for SolanaToken sessions — the backend now prefers a wallet when present
-  // (§6.1), so sending a stray wallet in a Standard session would mis-route that player's prefs.
+  // Send the wallet ONLY for SolanaToken games — the backend now prefers a wallet when present
+  // (§6.1), so sending a stray wallet in a Standard game would mis-route that player's prefs.
   const walletForPrefs = () =>
-    selectedSession.value?.paymentMethod === PaymentMethod.SolanaToken
+    selectedGame.value?.paymentMethod === PaymentMethod.SolanaToken
       ? (publicKey.value?.toString() ?? undefined)
       : undefined;
   watch(
-    [() => publicKey.value?.toString(), () => selectedSession.value?.paymentMethod],
+    [() => publicKey.value?.toString(), () => selectedGame.value?.paymentMethod],
     () => {
-      if (route.name === 'Session' || route.name === 'Game') loadPreferences(walletForPrefs());
+      if (route.name === 'Game' || route.name === 'Game') loadPreferences(walletForPrefs());
     }
   );
   ```
@@ -178,26 +178,26 @@ The modal currently (`lines 15-19, 56-77, 81-110`) always renders the name + cur
 
 Add the SolanaToken context + gate:
 
-- **Import the current session + sub helper:**
+- **Import the current game + sub helper:**
 
   ```ts
-  import { useSession } from '@/hooks/useSession';
+  import { useGame } from '@/hooks/useGame';
   import { getPlayerIdFromToken } from '@/utils/launchToken';
   import { PaymentMethod } from '@/types';
-  const { selectedSession } = useSession();
+  const { selectedGame } = useGame();
   ```
 
 - **Derived flags:**
 
   ```ts
   const hasWallet = computed(() => !!publicKey.value);
-  const isCryptoSession = computed(
-    () => selectedSession.value?.paymentMethod === PaymentMethod.SolanaToken
+  const isCryptoGame = computed(
+    () => selectedGame.value?.paymentMethod === PaymentMethod.SolanaToken
   );
   const hasUsableSub = computed(() => !!getPlayerIdFromToken());
   // Show the connect prompt instead of the form when there is no identity to write to.
   const needsWalletToCustomize = computed(
-    () => !hasWallet.value && (isCryptoSession.value || !hasUsableSub.value)
+    () => !hasWallet.value && (isCryptoGame.value || !hasUsableSub.value)
   );
   ```
 
@@ -206,7 +206,7 @@ Add the SolanaToken context + gate:
   in place of the Display name / Preferred currency / Save controls. The **Provably-fair client seed**
   block is localStorage-only and identity-independent — keep it visible in both states (or, if
   simpler, keep the whole seed section always rendered below the gate). CANCEL still closes.
-- **Currency field:** wrap the Preferred-currency `<label>` (`lines 137-147`) in `v-if="!isCryptoSession"`
+- **Currency field:** wrap the Preferred-currency `<label>` (`lines 137-147`) in `v-if="!isCryptoGame"`
   so it is hidden in a SolanaToken context; the Display name field always shows (when not gated).
 - **Reactivity while open:** replace the `watch(() => props.open, …)` (`lines 66-77`) so it **also
   watches the wallet**, reloading preferences and re-evaluating the gate live when the player connects
@@ -234,11 +234,11 @@ Add the SolanaToken context + gate:
 ### 7.3 Gear — `src/components/GameHeader.vue`
 
 - The gear stays gated on `hasOperatorContext` only (`line 171`) — **no change**; the wallet gate
-  lives inside the modal's connect-prompt state so the gear remains discoverable. `selectedSession`
+  lives inside the modal's connect-prompt state so the gear remains discoverable. `selectedGame`
   is already available here (`line 25`) and is a shared singleton, so the modal reading it directly
   needs no prop drilling. No new import required in `GameHeader.vue`.
 
-### 7.4 In-session labels — `src/components/game/GameTerminal.vue` (no code change expected)
+### 7.4 In-game labels — `src/components/game/GameTerminal.vue` (no code change expected)
 
 - `myId()` (`line 52`) already prefers `publicKey` then `ownExternalId`; `betPlayerLabel` /
   `winnerLabel` (`lines 69-82`) resolve names from held bets and `ownDisplayName`. These already key
@@ -254,11 +254,11 @@ Add the SolanaToken context + gate:
 - `mainService.getPlayerPreferences(wallet?)` (`src/services/mainService.ts:96-101`) already passes
   `?wallet=`; `updatePlayerPreferences(body)` (`lines 88-94`) already carries `body.wallet`. **No
   change** — just ensure every call site threads the wallet (App mount/watcher §7.1, modal §7.2; chat
-  already does at `useSessionChat.ts:43-51`).
+  already does at `useGameChat.ts:43-51`).
 
 ### 7.6 User-facing copy
 
-- **`"Connect wallet to customize"** — connect a wallet to set your display name for token sessions."
+- **`"Connect wallet to customize"** — connect a wallet to set your display name for token games."
   (SolanaToken / no-identity state.) No operator-status wording.
 
 ---
@@ -269,7 +269,7 @@ Add the SolanaToken context + gate:
 flowchart TD
   A[Open customization modal] --> B{Wallet connected?}
   B -- yes --> F[Show form: name<br/>+ currency if NOT SolanaToken<br/>identity = wallet ?wallet=]
-  B -- no --> C{SolanaToken session<br/>OR no usable sub?}
+  B -- no --> C{SolanaToken game<br/>OR no usable sub?}
   C -- yes --> G["Connect wallet to customize" panel<br/>+ WalletButtons]
   C -- no --> D[Show form: name + currency<br/>identity = launch-token sub]
   G -- wallet connects --> F
@@ -286,7 +286,7 @@ flowchart TD
 - A **per-wallet preferences cache** (remembering several wallets at once) — one active identity at a
   time (decision 7).
 - Settlement / payout / persistence / DTO / SignalR changes — display-only, all unchanged.
-- Standard-session behaviour — unchanged (identity = `sub`, currency dropdown shown).
+- Standard-game behaviour — unchanged (identity = `sub`, currency dropdown shown).
 
 ---
 
@@ -298,14 +298,14 @@ flowchart TD
 | --- | --- | --- |
 | 1 | `.../Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | Prefer `request.Wallet` when non-empty, else the token `sub` (§6.1). |
 | 2 | `.../Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Prefer `request.Body.Wallet` when non-empty, else the token `sub` (§6.1). |
-| 3 | `.../Services/Sessions/SessionService.cs` (`InsertBet`) | Capture `bet.GetWalletAddress()` before nulling `OperatorPlayer`; pass the captured id into `BetNotificationEvent` (§6.2). |
+| 3 | `.../Services/Games/GameService.cs` (`InsertBet`) | Capture `bet.GetWalletAddress()` before nulling `OperatorPlayer`; pass the captured id into `BetNotificationEvent` (§6.2). |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/App.vue` | Import `PaymentMethod` + destructure `selectedSession`; add a watcher on `[publicKey, selectedSession.paymentMethod]` that reloads `loadPreferences(walletForPrefs())` on the game routes — sending the wallet **only** when the session is SolanaToken (§7.1). Keep the mount load + `watch(connected) → startConnection()`. |
-| 2 | `src/components/header/PlayerCustomizationModal.vue` | Import `useSession`, `getPlayerIdFromToken`, `PaymentMethod`, `WalletButtons`; add `isCryptoSession` / `hasWallet` / `hasUsableSub` / `useWalletIdentity` / `needsWalletToCustomize`; `walletId()` returns the wallet only when `useWalletIdentity`; render the "Connect wallet to customize" panel when gated (SAVE hidden); wrap the currency `<label>` in `v-if="!isCryptoSession"`; load watcher also watches `publicKey`. |
+| 1 | `src/App.vue` | Import `PaymentMethod` + destructure `selectedGame`; add a watcher on `[publicKey, selectedGame.paymentMethod]` that reloads `loadPreferences(walletForPrefs())` on the game routes — sending the wallet **only** when the game is SolanaToken (§7.1). Keep the mount load + `watch(connected) → startConnection()`. |
+| 2 | `src/components/header/PlayerCustomizationModal.vue` | Import `useGame`, `getPlayerIdFromToken`, `PaymentMethod`, `WalletButtons`; add `isCryptoGame` / `hasWallet` / `hasUsableSub` / `useWalletIdentity` / `needsWalletToCustomize`; `walletId()` returns the wallet only when `useWalletIdentity`; render the "Connect wallet to customize" panel when gated (SAVE hidden); wrap the currency `<label>` in `v-if="!isCryptoGame"`; load watcher also watches `publicKey`. |
 | 3 | `src/components/game/GameTerminal.vue` | **No change** — benefits from §7.1 + the backend fixes (own live crypto bets now carry `externalPlayerId` → `YOU`; others → the per-wallet name). |
 
 ### 10.3 Meta (`monkify-meta`)
@@ -319,14 +319,14 @@ flowchart TD
 
 ## 11. Tests
 
-**Backend unit — `Monkify.Tests` (added, all green — 342 total):**
+**Backend unit — `ChimpOut.Tests` (added, all green — 342 total):**
 
 | Test file | Test case | Asserts |
 | --- | --- | --- |
 | `UnitTests/Handlers/GetPlayerPreferencesHandlerTests.cs` | `WalletProvided_TakesPrecedenceOverSub` | With both a `sub` row and a wallet row seeded, a request carrying `sub` + `wallet` returns the **wallet** row's prefs. |
 | `UnitTests/Handlers/UpdatePlayerPreferencesHandlerTests.cs` | `WalletInBody_TakesPrecedenceOverSub_WritesToWalletIdentity` | PATCH with `sub` in the token + `wallet` in the body writes the name to the **wallet** `OperatorPlayer`; no `sub` row is created. |
 
-**Backend integration — `Monkify.Tests.Integration` (mandatory happy path, added):**
+**Backend integration — `ChimpOut.Tests.Integration` (mandatory happy path, added):**
 
 | Test file | Test case | Asserts |
 | --- | --- | --- |
@@ -348,7 +348,7 @@ added later.
 
 Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 
-1. Given a SolanaToken session with no connected wallet, when the player opens the customization
+1. Given a SolanaToken game with no connected wallet, when the player opens the customization
    modal, then a "Connect wallet to customize" state (with the wallet-connect affordance) is shown in
    place of the name form, with no editable name field.
 2. Given the customization modal is open in a SolanaToken context, when the player connects a wallet,
@@ -362,21 +362,21 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 5. Given a connected wallet is switched to a different wallet, when the switch completes, then
    preferences reload for the new wallet and the displayed name (and the `YOU`/bet-row/winner labels)
    update to the new wallet's identity.
-6. Given the selected session's `paymentMethod` is SolanaToken, when the customization modal shows the
+6. Given the selected game's `paymentMethod` is SolanaToken, when the customization modal shows the
    form, then the preferred-currency dropdown is hidden and only the display-name field is shown.
-7. Given a Standard session or the sessions list (no SolanaToken session selected), when the
+7. Given a Standard game or the games list (no SolanaToken game selected), when the
    customization modal is shown, then the preferred-currency dropdown remains visible (unchanged).
-8. Given a SolanaToken session with a connected wallet and a saved display name, when bets and results
+8. Given a SolanaToken game with a connected wallet and a saved display name, when bets and results
    render, then the `YOU` label, recent-bets rows and winner names show that name resolved per wallet
    (not a truncated wallet id).
-9. Given a crypto-only operator (empty launch-token `sub`) on the sessions list with no connected
+9. Given a crypto-only operator (empty launch-token `sub`) on the games list with no connected
    wallet, when the player opens the modal, then the "Connect wallet to customize" prompt is shown (no
    editing against an empty id).
-10. Given a Standard session with a usable launch-token `sub` and no connected wallet, when the player
+10. Given a Standard game with a usable launch-token `sub` and no connected wallet, when the player
     opens the modal, then the name form is shown (no gate) and edits the `sub` identity as today.
 11. Given a SolanaToken player with the modal open, when they disconnect the wallet, then the modal
     reverts to the "Connect wallet to customize" state.
-12. Given a free SolanaToken session (amount 0, wallet-connect skipped) with no connected wallet, when
+12. Given a free SolanaToken game (amount 0, wallet-connect skipped) with no connected wallet, when
     the player opens the modal, then customization is unavailable (connect prompt) and the player
     renders as ANON until they optionally connect a wallet.
 13. Given the implemented code, when the preferences/identity paths are audited, then no SolanaToken
@@ -387,23 +387,23 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 ## 13. Manual QA
 
 Run the local stack (`setup_local_environment.bat`) with the dev operator (both Standard + SolanaToken
-default session types seeded — see `features/payment-methods.md`).
+default game types seeded — see `features/payment-methods.md`).
 
-1. **Crypto empty-name-on-load:** enter a **SolanaToken** session, connect a wallet, set a display
+1. **Crypto empty-name-on-load:** enter a **SolanaToken** game, connect a wallet, set a display
    name, save. Hard-reload. Confirm the name renders (`YOU`, bet rows) without opening the modal
    (§7.1). ✔ ACs 4, 8.
-2. **Gate:** in a SolanaToken session with **no** wallet connected, open the gear → "Connect wallet to
+2. **Gate:** in a SolanaToken game with **no** wallet connected, open the gear → "Connect wallet to
    customize" panel (no name field). Connect a wallet from the panel → form appears with that wallet's
    name. ✔ ACs 1, 2.
 3. **Wallet switch:** with the modal open, switch wallet accounts → the shown name updates to the new
    wallet; disconnect → reverts to the connect prompt. ✔ ACs 5, 11.
-4. **Currency visibility:** SolanaToken session → currency dropdown hidden; Standard session / sessions
+4. **Currency visibility:** SolanaToken game → currency dropdown hidden; Standard game / games
    list → dropdown shown. ✔ ACs 6, 7.
-5. **Standard unaffected:** Standard session, no wallet → form shows, edits `sub` identity, name
+5. **Standard unaffected:** Standard game, no wallet → form shows, edits `sub` identity, name
    renders. ✔ AC 10.
-6. **Crypto-only lobby:** on the sessions list with only SolanaToken types and no wallet → gear opens
+6. **Crypto-only lobby:** on the games list with only SolanaToken types and no wallet → gear opens
    the connect prompt. ✔ AC 9.
-7. **Free SolanaToken:** free (amount 0) SolanaToken session, no wallet → connect prompt; player shows
+7. **Free SolanaToken:** free (amount 0) SolanaToken game, no wallet → connect prompt; player shows
    ANON. ✔ AC 12.
 8. **Network check:** DevTools → confirm `GET /players/preferences?wallet=…` and `PATCH` body carry the
    connected wallet. ✔ AC 3.
@@ -412,9 +412,9 @@ default session types seeded — see `features/payment-methods.md`).
 
 ## 14. Trello / pipeline
 
-- **Source card:** [Display name per connected wallet for SolanaToken sessions](https://trello.com/c/sohAuZN0)
+- **Source card:** [Display name per connected wallet for SolanaToken games](https://trello.com/c/sohAuZN0)
   — moved to **Specs created**; **Implementation** section on the card lists branch + spec + worktree.
-- **Next:** `/monkify-implement-feature Display name per connected wallet for SolanaToken sessions`
+- **Next:** `/monkify-implement-feature Display name per connected wallet for SolanaToken games`
   to build it, then `/monkify-ship-feature …` to sync the KB and merge `feature/wallet-display-name`
   → `main` (`monkify-front` + `monkify-meta`).
 
@@ -424,4 +424,4 @@ default session types seeded — see `features/payment-methods.md`).
 
 | Date | Change |
 | --- | --- |
-| 2026-07-14 | Initial spec from the refined card (grounded in a read of `App.vue`, `PlayerCustomizationModal.vue`, `GameHeader.vue`, `useDisplayCurrency.ts`, `useSessionChat.ts`, `GameTerminal.vue`, `mainService.ts`, `types/index.ts`, and the two backend preference handlers + `PlayersController`). Backend verified no-change. |
+| 2026-07-14 | Initial spec from the refined card (grounded in a read of `App.vue`, `PlayerCustomizationModal.vue`, `GameHeader.vue`, `useDisplayCurrency.ts`, `useGameChat.ts`, `GameTerminal.vue`, `mainService.ts`, `types/index.ts`, and the two backend preference handlers + `PlayersController`). Backend verified no-change. |

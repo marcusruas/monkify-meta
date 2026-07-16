@@ -2,12 +2,12 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/mobile-layout.md`
 > (merged via `feature/mobile-layout` on 2026-07-15). **Frontend-only** (`monkify-front`); no backend,
-> DB, SignalR, or session-flow change.
+> DB, SignalR, or game-flow change.
 
 ## What it does
 
-Makes Monkify's two main player pages — the sessions lobby (`/monkify/game/sessions`) and the game
-screen (`/monkify/game/play`) — usable on phones, in portrait and landscape, standalone **and** inside
+Makes ChimpOut's two main player pages — the games lobby (`/chimpout/game/games`) and the game
+screen (`/chimpout/game/play`) — usable on phones, in portrait and landscape, standalone **and** inside
 a regulated casino's mobile `<iframe>`. The desktop-first arcade layout (a single non-wrapping flex row
 of terminal + monkey + docked chat/stats cabinet with JS/`vh`-driven widths) reflows for narrow
 viewports while keeping the pixel / arcade / space identity. It also adds a mobile crypto
@@ -22,7 +22,7 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
 - **Header stays inline on phones.** Logo + mute/volume + wallet cluster (SolanaToken only) + settings
   gear + dev-admin stay on the single 64px row (smaller sizes, `flex-nowrap`); no hamburger/overflow.
 - **Lobby cards condense.** The grid is already 1-column below `md`; on phones the card's long
-  description clamps to one line (`max-lg:`) so the art, session name, price, lottery badge, and
+  description clamps to one line (`max-lg:`) so the art, game name, price, lottery badge, and
   `PRESS TO START` stay the focus.
 - **The game screen is a `GAME | CHAT·STATS` segmented view.** Below `lg`, `GamePage` replaces the
   desktop three-sibling row with a segmented control (`GameMobileTabs`). The two views are **absolutely
@@ -52,7 +52,7 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
   `SolanaToken` **paid** bet with no connected/injected wallet the bet panel shows an **"OPEN IN WALLET
   APP"** button that deep-links the current page into the wallet app's in-app browser (Phantom /
   Solflare universal links; `utils/walletDeepLink.ts`), where the provider injects and the existing
-  `useConnection.sendToken` flow works unchanged. Free (amount 0) SolanaToken and all Standard sessions
+  `useConnection.sendToken` flow works unchanged. Free (amount 0) SolanaToken and all Standard games
   need no wallet. The bet POST is unchanged, so there is **no backend work**. (Android-native Mobile
   Wallet Adapter was considered and **deferred** — the in-app-browser deep link covers iOS + Android.)
 - **Embedded on mobile.** The layout is width-driven, so it renders the same inside a mobile iframe; the

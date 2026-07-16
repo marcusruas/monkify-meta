@@ -5,8 +5,8 @@
 >
 > ⚠️ **Adjusted by `features/payment-methods.md` (2026-07-08).** The preferred **display currency** is
 > now offered to **all** operators (the old crypto/regulated gate is gone), but it affects **rendering of
-> `Standard` sessions only** — **`SolanaToken`** sessions always render token-native amounts, regardless
-> of the chosen currency. "Regulated operators only" below now means "**Standard** sessions only".
+> `Standard` games only** — **`SolanaToken`** games always render token-native amounts, regardless
+> of the chosen currency. "Regulated operators only" below now means "**Standard** games only".
 > Settlement stays USD for Standard; conversion remains display-only.
 
 ## What it does
@@ -22,14 +22,14 @@ operator-wallet API amounts stay USD.
 ## Core rules
 
 - **Entry point:** gear icon on the right of `GameHeader.vue` (rendered once in `App.vue`, so it
-  appears on session select and live play). Modal built with the design system (DaisyUI modal +
+  appears on game select and live play). Modal built with the design system (DaisyUI modal +
   `PrimaryButton`/`SecondaryButton`).
 - **Modal fields:** display name (text, all operators) + preferred currency (dropdown, **regulated
   only** — hidden for crypto). One **Save** → single `PATCH /players/preferences` with both fields;
   on success currency state refreshes and live amounts re-render.
 - **Display name validation:** trimmed, **1–20** characters; empty/whitespace-only rejected. Renders
   for self and others on bet rows and winners; falls back to truncated `externalPlayerId` when unset.
-  Winner names are resolved **client-side** from bets already held — `SessionResult` is unchanged.
+  Winner names are resolved **client-side** from bets already held — `GameResult` is unchanged.
 - **Currency model:** fiat-only, USD-based, **regulated operators only**. Definitive set = 33 codes
   from `SupportedCurrencies` (FreeCurrencyAPI `latest` with USD base; USD rate = 1.0). Crypto
   allow-list = **USD only** (fiat rejected on `PATCH`).
@@ -51,7 +51,7 @@ operator-wallet API amounts stay USD.
   query param (token `sub` is empty for crypto).
 - **`PATCH /players/preferences`:** extended with payment-model-scoped currency allow-list and display
   name validation (reuses generic validation-failure messaging).
-- **Bet DTO / SignalR:** `DisplayName` on `BetDto` and `BetNotificationEvent`; `SessionService.InsertBet`
+- **Bet DTO / SignalR:** `DisplayName` on `BetDto` and `BetNotificationEvent`; `GameService.InsertBet`
   captures display name before nulling `OperatorPlayer` for the event payload.
 - **Formatting (regulated):** chosen currency primary; when `!= USD` show `≈ {symbol}{value}` (2 dp)
   with authoritative USD on hover; USD selected → plain USD, no `≈`. Rate unavailable → silent USD
@@ -63,18 +63,18 @@ operator-wallet API amounts stay USD.
 
 **Backend (`monkify-backend`)**
 
-- `Monkify.Api/Controllers/FxController.cs` — `GET /fx/rates`
-- `Monkify.Api/Controllers/PlayersController.cs` — `GET /players/preferences`, `PATCH /players/preferences`
-- `Monkify.Api/Middleware/LaunchTokenValidationMiddleware.cs` — `/fx` protected prefix
-- `Monkify.Domain/Fx/SupportedCurrencies.cs` — definitive currency registry
-- `Monkify.Infrastructure/Services/Fx/IExchangeRateProvider.cs`, `FreeCurrencyApiExchangeRateProvider.cs`,
+- `ChimpOut.Api/Controllers/FxController.cs` — `GET /fx/rates`
+- `ChimpOut.Api/Controllers/PlayersController.cs` — `GET /players/preferences`, `PATCH /players/preferences`
+- `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` — `/fx` protected prefix
+- `ChimpOut.Domain/Fx/SupportedCurrencies.cs` — definitive currency registry
+- `ChimpOut.Infrastructure/Services/Fx/IExchangeRateProvider.cs`, `FreeCurrencyApiExchangeRateProvider.cs`,
   `MockExchangeRateProvider.cs`
-- `Monkify.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` — Redis cache
-- `Monkify.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs`
-- `Monkify.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`
-- `Monkify.Infrastructure/Contracts/Sessions/BetDto.cs`, `Events/BetNotification/BetNotificationEvent.cs`
-- `Monkify.Infrastructure/Services/Sessions/SessionService.cs` — `DisplayName` capture on insert
-- `Monkify.Common/monkifysettings.json` — `GeneralSettings.Fx` (Provider, BaseUrl, ApiKey mock, CacheTtlHours)
+- `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` — Redis cache
+- `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs`
+- `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`
+- `ChimpOut.Infrastructure/Contracts/Games/BetDto.cs`, `Events/BetNotification/BetNotificationEvent.cs`
+- `ChimpOut.Infrastructure/Services/Games/GameService.cs` — `DisplayName` capture on insert
+- `ChimpOut.Common/chimpoutsettings.json` — `GeneralSettings.Fx` (Provider, BaseUrl, ApiKey mock, CacheTtlHours)
 - Tests: `GetFxRatesHandlerTests`, `GetPlayerPreferencesHandlerTests`, `UpdatePlayerPreferencesHandlerTests`,
   `BetDtoTests`, `FreeCurrencyApiExchangeRateProviderTests`, `MockExchangeRateProviderTests`
 
@@ -85,5 +85,5 @@ operator-wallet API amounts stay USD.
 - `src/hooks/useDisplayCurrency.ts` — rates, prefs, `formatUsd`
 - `src/services/mainService.ts` — `getFxRates()`, `getPlayerPreferences(wallet?)`
 - `src/components/game/GameTerminal.vue` — display names + converted amounts
-- `src/hooks/useSession.ts`, `src/types/index.ts` — `AppliedBet.displayName`, FX types
+- `src/hooks/useGame.ts`, `src/types/index.ts` — `AppliedBet.displayName`, FX types
 - `src/App.vue` — loads rates + preferences on mount

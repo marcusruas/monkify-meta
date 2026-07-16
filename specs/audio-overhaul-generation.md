@@ -1,4 +1,4 @@
-# Monkify — "Audio Overhaul with AI" — (2/3) Asset Generation Spec
+# ChimpOut — "Audio Overhaul with AI" — (2/3) Asset Generation Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:** assets
 > were generated **manually in the Suno UI** (the MCP ran out of credits) then post-processed with
@@ -62,7 +62,7 @@ From `monkify-meta/constraints.md` (full list there):
 - **Shared branch/worktree:** work in the **existing** `feature/audio-overhaul` worktrees
   (`.worktrees/audio-overhaul/monkify-front` for assets, `.worktrees/audio-overhaul/monkify-meta` for
   this spec). The hubs stay on `main`. **Do not create a new branch/slug.**
-- **Mock secrets only:** the `ACEDATACLOUD_API_TOKEN` in any committed file (`E:\Monkify\.mcp.json`)
+- **Mock secrets only:** the `ACEDATACLOUD_API_TOKEN` in any committed file (`E:\ChimpOut\.mcp.json`)
   stays a **placeholder**. The real token is supplied by the user at runtime (environment / local
   edit) and is **never printed, echoed, or committed**.
 - **Frontend-only → no backend integration test** (no backend behavior). **No unit tests** are added
@@ -77,8 +77,8 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Agent-automated generation via the Suno MCP.** Server `suno` = `mcp-suno` (`uvx mcp-suno`, env `ACEDATACLOUD_API_TOKEN`), installed + registered in `E:\Monkify\.mcp.json`. |
-| 2 | **Verify before generating.** The `suno` MCP must be loaded (session restarted after the token is set) and its tools must respond. If the token/MCP is missing or failing → **stop and tell the user**; never fabricate or hand-fake assets. |
+| 1 | **Agent-automated generation via the Suno MCP.** Server `suno` = `mcp-suno` (`uvx mcp-suno`, env `ACEDATACLOUD_API_TOKEN`), installed + registered in `E:\ChimpOut\.mcp.json`. |
+| 2 | **Verify before generating.** The `suno` MCP must be loaded (game restarted after the token is set) and its tools must respond. If the token/MCP is missing or failing → **stop and tell the user**; never fabricate or hand-fake assets. |
 | 3 | **Post-processing with `ffmpeg`/`ffprobe`** (n7.1.1, confirmed present): trim to target durations, **slice** the escalating bleep take into 3 files, loudness-normalize, convert to mp3. No manual audio editor. |
 | 4 | **Generate strictly to card 1's manifest** — each item uses card 1 §5's prompt (instrumental; SNES reference + video URL passed **verbatim** per §5.0). This card does not alter the sound design. |
 | 5 | **Human review loop — approve each before commit.** Present each generated + processed asset for the user to listen; **nothing is committed until the user signs off on all 12.** The agent does **not** self-approve audio. |
@@ -98,7 +98,7 @@ Confirmed on this machine during refinement (2026-07-07):
 | `mcp-suno` | 2026.7.4.0 (installed via `uv tool install`) | Suno MCP server |
 | `ffmpeg` / `ffprobe` | n7.1.1 (`C:\Program Files (x86)\ffmpeg\bin`) | trim / slice / normalize / mp3 |
 
-**MCP registration** — `E:\Monkify\.mcp.json` (workspace root, untracked):
+**MCP registration** — `E:\ChimpOut\.mcp.json` (workspace root, untracked):
 
 ```json
 {
@@ -117,7 +117,7 @@ Confirmed on this machine during refinement (2026-07-07):
 1. **User sets the real `ACEDATACLOUD_API_TOKEN`** (from https://platform.acedata.cloud → API docs →
    Acquire). Keep the committed value a placeholder; inject the real token via environment or a local,
    uncommitted edit.
-2. **Restart Claude Code** so the `suno` server loads (MCP servers load only at session start), and
+2. **Restart Claude Code** so the `suno` server loads (MCP servers load only at game start), and
    **approve** the project MCP server when prompted.
 3. **Smoke-test** the MCP: call `list_models` / `list_actions` and one cheap `generate_*` to confirm
    the token works. If it fails → stop and report.
@@ -175,7 +175,7 @@ conservative target) and **reject anything harsh/piercing in review** rather tha
 mastering. Loops should sit quieter than SFX (matches the engine's base levels: loops `0.02`, SFX
 `0.1`).
 
-**Working directory:** generate/download/process in a scratch dir (e.g. the session scratchpad), and
+**Working directory:** generate/download/process in a scratch dir (e.g. the game scratchpad), and
 copy only the **approved** finals into
 `.worktrees/audio-overhaul/monkify-front/src/assets/audios/`.
 

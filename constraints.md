@@ -1,4 +1,4 @@
-# Monkify — Constraints (non-negotiable)
+# ChimpOut — Constraints (non-negotiable)
 
 > Read this **before** writing code, running commands, or touching git. These rules override
 > convenience. When in doubt, stop and ask the user.
@@ -6,7 +6,7 @@
 ## 1. Secrets & configuration — only ever write MOCK values
 
 - You **may** read, create, and edit secrets/config files (e.g. `appsettings.json`,
-  `appsettings.*.json`, `secrets.json`, `web.config`, `monkifysettings.json`, `.env`, `.env.*`),
+  `appsettings.*.json`, `secrets.json`, `web.config`, `chimpoutsettings.json`, `.env`, `.env.*`),
   **but only ever put MOCK / placeholder values in them.** Never write a real credential, key,
   token, connection string, or secret into any file.
 - Never print, echo, copy, or commit a **real** secret value. If you encounter a real secret while
@@ -67,40 +67,40 @@ agents work different features at once without colliding.
 
 - When you change **backend** behavior in `monkify-backend`, **update the affected unit tests so
   they pass and assert the intended behavior**, and **add tests** for new behavior. Test project:
-  `Monkify.Tests` (xUnit + Shouldly + Moq + Bogus; in-memory EF).
+  `ChimpOut.Tests` (xUnit + Shouldly + Moq + Bogus; in-memory EF).
 - At the **end of the work, report exactly which unit tests were changed or added.**
 - Run the full suite before declaring done.
-- **Session-flow changes also update the integration tests.** Any change to the session
-  lifecycle/flow must update the separate **`Monkify.Tests.Integration`** (Testcontainers) project,
+- **Game-flow changes also update the integration tests.** Any change to the game
+  lifecycle/flow must update the separate **`ChimpOut.Tests.Integration`** (Testcontainers) project,
   run via `scripts/run_integration_tests.bat`. See `conventions/backend.md` → Tests.
 
 ### Integration tests are mandatory for every new feature
 
 - **Every new feature ships with a backend integration test for its happy path.** For each **new
-  feature**, `Monkify.Tests.Integration` (the Testcontainers suite in `monkify-backend`) **must**
+  feature**, `ChimpOut.Tests.Integration` (the Testcontainers suite in `monkify-backend`) **must**
   contain **at least one integration test** that drives the feature's **happy path end to end** and
   **asserts it works 100%** (real API + Consumers hosts against real Postgres/RabbitMQ/Redis
-  containers, following the `SessionFlowTests` pattern — not a mock-only unit test).
+  containers, following the `GameFlowTests` pattern — not a mock-only unit test).
 - **Complex flows get their own integration test.** If the feature introduces a **particularly
   complex flow** beyond the happy path (e.g. a multi-step state transition, a refund/rollback path,
   a fail-closed branch), that flow **must** have a dedicated integration test as well.
 - **Scope of "new feature".** This mandate applies to **features** only. It does **not** apply to
   **bug fixes**, **QOL / dev-experience tweaks**, or **minor changes** — those still follow the unit
-  test discipline above but do not require a new integration test unless they change session flow.
+  test discipline above but do not require a new integration test unless they change game flow.
 - This is checked at ship time: `monkify-ship-feature` verifies the integration suite is green
   before syncing the KB.
 
 > Note on the team rule "always run unit tests for Central de Reservas": that rule is for **CR**,
-> a different app. For **Monkify** the equivalent expectation is the test discipline above
+> a different app. For **ChimpOut** the equivalent expectation is the test discipline above
 > (update + add + report changed tests).
 
 ## 4. Database & migrations
 
-- **EF configuration is inline** in `MonkifyDbContext.OnModelCreating`. Do **not** introduce
+- **EF configuration is inline** in `ChimpOutDbContext.OnModelCreating`. Do **not** introduce
   `IEntityTypeConfiguration` classes — keep new mapping inline in the existing style.
-- **Migrations are applied only by `Monkify.Consumers`** at startup (`Database.Migrate()`). The API
-  does not migrate. Add new migrations under `Monkify.Infrastructure/Migrations/`.
-- Never hand-edit `MonkifyDbContextModelSnapshot.cs`; regenerate it with `dotnet ef migrations add`.
+- **Migrations are applied only by `ChimpOut.Consumers`** at startup (`Database.Migrate()`). The API
+  does not migrate. Add new migrations under `ChimpOut.Infrastructure/Migrations/`.
+- Never hand-edit `ChimpOutDbContextModelSnapshot.cs`; regenerate it with `dotnet ef migrations add`.
 
 ## 5. Production data, queries & external APIs
 
@@ -121,4 +121,4 @@ agents work different features at once without colliding.
 - For reversible, low-risk choices (naming, formatting, equivalent approaches), decide and note it.
   For scope changes or destructive actions, ask first.
 - Keep the two deployable hosts' responsibilities intact: the **API** stays stateless and does not
-  migrate; background/money/typer work stays in **`Monkify.Consumers`**.
+  migrate; background/money/typer work stays in **`ChimpOut.Consumers`**.

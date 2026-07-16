@@ -1,4 +1,4 @@
-# Feature — Payment methods (per-session settlement)
+# Feature — Payment methods (per-game settlement)
 
 > Status: **shipped.** Authoritative spec: `../specs/payment-methods-refactor.md`
 > (merged via `feature/payment-methods-refactor` on 2026-07-08).
@@ -7,11 +7,11 @@
 > (`Regulated | Crypto`) and the `OperatorPaymentModel` enum are **gone**. Anything in
 > `features/launch-token-validation.md`, `features/operator-wallet-api.md`,
 > `features/operator-admin-page.md`, or `features/player-customization-modal.md` that talks about an
-> operator-level payment model now means **per-session `PaymentMethod`** as described here.
+> operator-level payment model now means **per-game `PaymentMethod`** as described here.
 
 ## What it does
 
-Payment is now decided **per session type**, not per operator. Each `SessionParameters` row carries a
+Payment is now decided **per game type**, not per operator. Each `GameParameters` row carries a
 `PaymentMethod`:
 
 - **`Standard`** — off-chain settlement through the operator's wallet adapter, always **USD**. This is
@@ -21,34 +21,34 @@ Payment is now decided **per session type**, not per operator. Each `SessionPara
   USD). This is the old "Crypto (Model B)" mechanic, but parameterized by a per-operator **registered
   token** instead of a single global `GeneralSettings.Token`.
 
-A single operator can offer **both** — Standard session types and SolanaToken session types side by
+A single operator can offer **both** — Standard game types and SolanaToken game types side by
 side. All settlement (Debit / Credit / Refund) is dispatched by a unified **`IPaymentMethodService`
-strategy + `IPaymentMethodResolver`**, keyed on the session's `PaymentMethod`, mirroring the existing
+strategy + `IPaymentMethodResolver`**, keyed on the game's `PaymentMethod`, mirroring the existing
 `IOperatorWalletService` resolver shape.
 
 ## Core rules
 
 - **No operator payment model.** `Operator.PaymentModel` / `OperatorPaymentModel` are removed. Operators
-  are uniform; crypto-ness is a property of the **session type**, not the operator. Nothing (handler,
+  are uniform; crypto-ness is a property of the **game type**, not the operator. Nothing (handler,
   consumer, DTO, frontend type) branches on an operator-level payment model any more.
-- **`SessionParameters.PaymentMethod`** (`Standard = 0`, `SolanaToken = 1`) + nullable
+- **`GameParameters.PaymentMethod`** (`Standard = 0`, `SolanaToken = 1`) + nullable
   `OperatorTokenId` (set **only** for `SolanaToken`, and it must reference an **active** `OperatorToken`
-  owned by the same operator). `SessionParametersValidation` enforces: method defined; for `SolanaToken`
+  owned by the same operator). `GameParametersValidation` enforces: method defined; for `SolanaToken`
   a token that is present, active, and operator-owned; for `Standard` the token id must be null.
-- **Strategy dispatch.** `IPaymentMethodResolver.Resolve(SessionParameters)` returns the
+- **Strategy dispatch.** `IPaymentMethodResolver.Resolve(GameParameters)` returns the
   `IPaymentMethodService` whose `Method == parameters.PaymentMethod`. `Debit / Credit / Refund` return a
   `PaymentResult` (`{ IsSuccess, PaymentError?, ExternalTransactionReference? }`, reusing the
   `OperatorWalletError` codes: `InsufficientFunds | PlayerBlocked | Duplicate | Timeout | Unavailable`).
   - `StandardPaymentMethodService` delegates to `IOperatorWalletResolver.Resolve(operator)` (USD),
     unchanged mechanics.
-  - `SolanaTokenPaymentMethodService` builds a `SolanaTokenDescriptor` from the session's
+  - `SolanaTokenPaymentMethodService` builds a `SolanaTokenDescriptor` from the game's
     `OperatorToken` and calls `ISolanaService`. **Debit at bet time is validation-only** (the player
     already paid on-chain); Credit/Refund transfer tokens. It writes a `CryptoTransactionLog`.
 - **Availability gating** (`IPaymentMethodResolver.GetAvailableMethods(operatorId)`, drives the admin
   form): **Standard** is offered iff the operator has a resolvable wallet provider configured
   (`GeneralSettings.OperatorWallets.Operators[operatorId].Provider` set); **SolanaToken** is offered iff
   the operator has **≥ 1 active** registered `OperatorToken`. An operator with neither can create no paid
-  session type.
+  game type.
 - **`OperatorToken` entity (per operator).** Fields: `Label` (display symbol, e.g. `USDC`, `MONK`),
   `MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`, `TokenOwnerPrivateKey` (**encrypted at rest**),
   `Decimals`, `Active`. Managed in the admin portal: **register / list / deactivate** — **no in-place
@@ -62,7 +62,7 @@ strategy + `IPaymentMethodResolver`**, keyed on the session's `PaymentMethod`, m
   passphrase — a deliberate deviation from the spec's ASP.NET Data-Protection + Redis key-ring plan;
   it avoids the extra dependency and cross-host key-ring while keeping the key out of the DB.)*
 - **Ledger split.**
-  - `Bet` **drops** `PaymentSignature`; **gains** `PaymentMethod` (copied from the session at bet time)
+  - `Bet` **drops** `PaymentSignature`; **gains** `PaymentMethod` (copied from the game at bet time)
     and `ExternalTransactionReference` (SolanaToken → the on-chain signature; Standard → the wallet debit
     ref).
   - `TransactionLog` **drops** `Signature`; **gains** `PaymentMethod`; keeps
@@ -71,23 +71,23 @@ strategy + `IPaymentMethodResolver`**, keyed on the session's `PaymentMethod`, m
     token-native `Amount`, `RawTokenAmount`, `Decimals`, reason). Its `TransactionLogId` is **null** for
     the bet-**placement** record ("what the user passed") and **set** for Credit/Refund movements.
   - `BetDomainService` idempotency math is unchanged (reads the ledger by `TransactionLogType`).
-- **Identity per session method** (launch token still required everywhere — operator = `iss`):
+- **Identity per game method** (launch token still required everywhere — operator = `iss`):
   - `Standard` → player = launch-token **`sub`**; body `wallet`/`paymentSignature` are ignored.
-  - `SolanaToken` → player = connected **wallet** + a valid on-chain **signature** (unless the session
+  - `SolanaToken` → player = connected **wallet** + a valid on-chain **signature** (unless the game
     allows free bets). `RegisterBetRequestBody`'s `wallet`/`paymentSignature` are **optional** and
-    validated **conditionally** on the session's method.
+    validated **conditionally** on the game's method.
 - **RG pre-bet hook unchanged.** It still runs after local validation and **before** settlement, for
   **both** methods.
 - **Free bets** (amount 0) make no debit/credit/refund under either method; a free **SolanaToken**
-  session **skips wallet-connect**. Free-bet detection is now `IsFreeBet => bet.Amount == 0` (the
+  game **skips wallet-connect**. Free-bet detection is now `IsFreeBet => bet.Amount == 0` (the
   dropped `PaymentSignature` check is gone). `AllowFreeBet` stays hidden in the admin form / false in
   prod.
-- **Host split preserved.** Standard debit + SolanaToken bet-time validation run in **`Monkify.Api`**
-  (validation only, no private-key decrypt); Credit/Refund for both methods run in **`Monkify.Consumers`**
+- **Host split preserved.** Standard debit + SolanaToken bet-time validation run in **`ChimpOut.Api`**
+  (validation only, no private-key decrypt); Credit/Refund for both methods run in **`ChimpOut.Consumers`**
   (SolanaToken decrypts the key there). Token registration `Protect`s in the API.
 - **Amounts are method-native and never converted.** Standard = USD; SolanaToken = the token's own units
   (scaled by the token's `Decimals`, not the global `GeneralSettings.Token.Decimals`). No SOL↔USD, no
-  price oracle. **Preferred display currency applies to Standard sessions only** (§ customization modal);
+  price oracle. **Preferred display currency applies to Standard games only** (§ customization modal);
   SolanaToken amounts always render token-native.
 - **`GeneralSettings.Token` is no longer read for settlement.** It survives only as (a) the global Solana
   **`ClusterUrl`** for all RPC and (b) the **seed source** for the dev operator's `OperatorToken`.
@@ -98,44 +98,44 @@ strategy + `IPaymentMethodResolver`**, keyed on the session's `PaymentMethod`, m
 - **`POST /admin/operator-tokens`** → validate + `Protect` the private key + persist; returns the id.
 - **`POST /admin/operator-tokens/{id}/deactivate`** → `Active = false` (deactivate-or-create, no edit).
 - **`GET /admin/payment-methods`** → `GetAvailableMethods(operatorId)` + the active token list, so the
-  session-type form only offers available methods and (for SolanaToken) selectable tokens.
-- The session-type create form (`SessionTypeRequestBody` / `CreateSessionTypeHandler`) now carries
+  game-type form only offers available methods and (for SolanaToken) selectable tokens.
+- The game-type create form (`GameTypeRequestBody` / `CreateGameTypeHandler`) now carries
   `PaymentMethod` + `OperatorTokenId` and validates availability + token ownership/active before create.
-  `SessionTypeAdminDto` / `SessionTypeList` expose the method + token label. All under the existing
+  `GameTypeAdminDto` / `GameTypeList` expose the method + token label. All under the existing
   `/admin` guard (`X-Admin-Token`); no middleware change.
 
 ## Frontend behaviour
 
 Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel` gate is replaced by the
-**selected session's `paymentMethod`**.
+**selected game's `paymentMethod`**.
 
 - **Types (`src/types/index.ts`):** `OperatorPaymentModel` removed; `enum PaymentMethod { Standard,
-  SolanaToken }` added. `ActiveSession` gains `paymentMethod` + optional `tokenSymbol`, `tokenDecimals`,
-  `tokenMintAddress`, `tokenReceiverPublicKey` (present for SolanaToken). Admin `SessionTypeAdmin` /
-  `SessionTypeBody` gain `paymentMethod` + `operatorTokenId`; new `OperatorTokenDto` / `OperatorTokenBody`
+  SolanaToken }` added. `ActiveGame` gains `paymentMethod` + optional `tokenSymbol`, `tokenDecimals`,
+  `tokenMintAddress`, `tokenReceiverPublicKey` (present for SolanaToken). Admin `GameTypeAdmin` /
+  `GameTypeBody` gain `paymentMethod` + `operatorTokenId`; new `OperatorTokenDto` / `OperatorTokenBody`
   / `PaymentMethodAvailability` types.
 - **`useOperator.ts`:** payment-model state (`paymentModel`, `isCrypto/isRegulated`) removed — branding
   no longer carries a payment model.
-- **`useSession.ts` `bet()`:** branches on `selectedSession.paymentMethod`. Standard (non-free) posts
+- **`useGame.ts` `bet()`:** branches on `selectedGame.paymentMethod`. Standard (non-free) posts
   `{ amount, choice, seed }` with empty wallet/signature (identity via launch token); SolanaToken
-  (non-free) `sendToken` to the session's `tokenReceiverPublicKey` / `tokenMintAddress`, then posts with
+  (non-free) `sendToken` to the game's `tokenReceiverPublicKey` / `tokenMintAddress`, then posts with
   the signature + wallet. Free = amount 0, empty signature.
-- **`GameHeader.vue`:** the wallet cluster + `TokenBalance` show **only** when the current session is
-  SolanaToken (`showWallet = selectedSession?.paymentMethod === PaymentMethod.SolanaToken`), using the
-  session's `tokenSymbol` / `tokenMintAddress`; hidden on the sessions list and for Standard sessions.
+- **`GameHeader.vue`:** the wallet cluster + `TokenBalance` show **only** when the current game is
+  SolanaToken (`showWallet = selectedGame?.paymentMethod === PaymentMethod.SolanaToken`), using the
+  game's `tokenSymbol` / `tokenMintAddress`; hidden on the games list and for Standard games.
   The player-settings **gear** is gated on **operator context derived from the launch token**
   (`hasOperatorContext = operatorId ?? getOperatorIdFromToken()`) so it survives an operatorId reset from
   a hard reload (e.g. a transient 401 → `/error` → back).
-- **`GameConsole.vue`:** the connected-wallet bet gate applies **only** to SolanaToken sessions.
+- **`GameConsole.vue`:** the connected-wallet bet gate applies **only** to SolanaToken games.
 - **`GameTerminal.vue`:** `formatAmount` branches on the method — SolanaToken → `` `${amount}
   ${tokenSymbol}` `` (token decimals); Standard → `formatUsd` (preferred display currency). Applies to
   `> BET:` and `> POT:`.
 - **`PlayerCustomizationModal.vue`:** the currency selector is offered to **all** operators (it only
   affects Standard rendering); the old crypto-operator gate is gone.
-- **Admin UI:** `SessionTypeForm.vue` gains a **Payment method** dropdown (available methods only) and,
-  for SolanaToken, a **token** dropdown; `SessionTypeList.vue` adds a centered method/token column (and
+- **Admin UI:** `GameTypeForm.vue` gains a **Payment method** dropdown (available methods only) and,
+  for SolanaToken, a **token** dropdown; `GameTypeList.vue` adds a centered method/token column (and
   the deactivate action no longer overflows the table). New **`OperatorTokenManager.vue`** (register /
-  list / deactivate tokens, private key is a write-only input) mounts in the admin session-type manager.
+  list / deactivate tokens, private key is a write-only input) mounts in the admin game-type manager.
   `adminService.ts` gains `getOperatorTokens`, `registerOperatorToken`, `deactivateOperatorToken`,
   `getPaymentMethods`.
 - **Dev entry:** `DevLandingPage.vue` + `DevAdminButton.vue` collapse to a single "Enter (dev)" /
@@ -151,12 +151,12 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   GUID (`GeneralSettings.OperatorWallets`, `Provider = "mock"`) → **Standard available**, and **one
   seeded `OperatorToken`** built from `GeneralSettings.Token` with its private key **encrypted** via
   `ISecretProtector` → **SolanaToken available**.
-- **Default session types:** all of `GenerateDefaultParameters()` are **Standard**; a separate
+- **Default game types:** all of `GenerateDefaultParameters()` are **Standard**; a separate
   `GenerateCryptoDefaultParameters(operatorTokenId)` adds **three** SolanaToken defaults — **6L Solana
   Sprint**, **6N Token Tumble**, **6X Crypto Clash** — referencing the seeded token.
 - `DevController` resolves the single dev operator; the dev launch token carries `sub = dev-player` so
-  Standard identity works, and SolanaToken sessions still get their wallet from wallet-connect.
-- **Config:** `GeneralSettings.SecretProtection.Key` (mock passphrase) added to `monkifysettings.json`;
+  Standard identity works, and SolanaToken games still get their wallet from wallet-connect.
+- **Config:** `GeneralSettings.SecretProtection.Key` (mock passphrase) added to `chimpoutsettings.json`;
   `OperatorWallets.Operators` re-keyed to the dev GUID. **Mock values only** — the token private key in
   config is a placeholder.
 
@@ -164,14 +164,14 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
 
 **Backend (`monkify-backend`)**
 
-- Value objects / enums: `Sessions/ValueObjects/PaymentMethod.cs` (new),
-  `Sessions/ValueObjects/SolanaTokenDescriptor.cs` (new); `OperatorPaymentModel.cs` **deleted**.
-- Entities: `Sessions/Entities/OperatorToken.cs` (new), `Operator.cs` (drop `PaymentModel`, add `Tokens`),
-  `SessionParameters.cs` (`PaymentMethod` + `OperatorTokenId` + nav); `Bets/Entities/Bet.cs` (drop
+- Value objects / enums: `Games/ValueObjects/PaymentMethod.cs` (new),
+  `Games/ValueObjects/SolanaTokenDescriptor.cs` (new); `OperatorPaymentModel.cs` **deleted**.
+- Entities: `Games/Entities/OperatorToken.cs` (new), `Operator.cs` (drop `PaymentModel`, add `Tokens`),
+  `GameParameters.cs` (`PaymentMethod` + `OperatorTokenId` + nav); `Bets/Entities/Bet.cs` (drop
   `PaymentSignature`, add `PaymentMethod` + `ExternalTransactionReference`), `TransactionLog.cs` (drop
   `Signature`, add `PaymentMethod`), `CryptoTransactionLog.cs` (new).
 - Domain services: `Bets/Services/BetExtensions.cs` (`IsFreeBet => amount == 0`),
-  `Sessions/Services/SessionParametersValidation.cs` (method/token rules).
+  `Games/Services/GameParametersValidation.cs` (method/token rules).
 - Encryption: `Infrastructure/Services/Encryption/{ISecretProtector,AesSecretProtector}.cs` (new);
   `Domain/Configs/Entities/SecretProtectionSettings.cs` (+ `GeneralSettings.SecretProtection`).
 - Payments strategy: `Infrastructure/Services/Payments/` — `IPaymentMethodService`, `PaymentResult`,
@@ -179,39 +179,39 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   `PaymentMethodResolver`. Registered in `Infrastructure/DependencyInjection.cs`.
 - Solana: `Infrastructure/Services/Solana/{ISolanaService,SolanaService}.cs` — methods take a
   `SolanaTokenDescriptor`, build the owner account per call, return the signature, write no ledger rows.
-- Settlement: `Handlers/Sessions/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequestBody` optional
-  wallet/signature), `Consumers/RewardSession/RewardSessionConsumer.cs`,
+- Settlement: `Handlers/Games/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequestBody` optional
+  wallet/signature), `Consumers/RewardGame/RewardGameConsumer.cs`,
   `Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (+ event).
 - Admin: `Handlers/Admin/OperatorTokens/{Register,Get,Deactivate}OperatorToken*`,
   `Handlers/Admin/PaymentMethods/GetAvailablePaymentMethods*`,
-  `Handlers/Admin/CreateSessionType/CreateSessionTypeHandler.cs`; `Api/Controllers/AdminController.cs`;
+  `Handlers/Admin/CreateGameType/CreateGameTypeHandler.cs`; `Api/Controllers/AdminController.cs`;
   `Contracts/Admin/{OperatorTokenDto,OperatorTokenRequestBody,PaymentMethodAvailabilityDto,
-  SessionTypeRequestBody,SessionTypeAdminDto}.cs`.
-- DTOs / prefs: `Contracts/Sessions/{SessionParametersDto,BetDto,OperatorDto}.cs`;
+  GameTypeRequestBody,GameTypeAdminDto}.cs`.
+- DTOs / prefs: `Contracts/Games/{GameParametersDto,BetDto,OperatorDto}.cs`;
   `Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` (fiat allowed for all).
-- EF + migration: inline mapping in `MonkifyDbContext.OnModelCreating` (DbSets `OperatorTokens`,
+- EF + migration: inline mapping in `ChimpOutDbContext.OnModelCreating` (DbSets `OperatorTokens`,
   `CryptoTransactionLogs`; drops + new columns); migration
   `Migrations/20260707210000_RefactorPaymentMethods.cs`.
-- Config / dev: `Monkify.Common/monkifysettings.json` (`SecretProtection`, `OperatorWallets` re-keyed),
-  `Monkify.Consumers/Program.cs` (single dev operator, `EnsureDevOperatorToken`, seeding),
-  `Monkify.Consumers/DefaultSessionParameters.cs`, `Api/Controllers/DevController.cs`.
+- Config / dev: `ChimpOut.Common/chimpoutsettings.json` (`SecretProtection`, `OperatorWallets` re-keyed),
+  `ChimpOut.Consumers/Program.cs` (single dev operator, `EnsureDevOperatorToken`, seeding),
+  `ChimpOut.Consumers/DefaultGameParameters.cs`, `Api/Controllers/DevController.cs`.
 - Tests: unit — `PaymentMethodResolverTests`, `AesSecretProtectorTests`, `OperatorTokenHandlerTests`
   (new) + updated `RegisterBetHandlerTests`, `RewardWinnersHandlerTests`, `RefundInvalidBetConsumerTests`,
   `SolanaServiceTests`, `DevControllerTests`, `UpdatePlayerPreferencesHandlerTests`, `BetDtoTests`,
-  `OperatorServiceTests`, `SessionTypeDeactivatedConsumerTests`, `BetDomainServiceTests`,
-  `BetPlacedHandlerTests`, `AdminSessionTypeHandlerTests`, `Shared/BetTestFactory`. Integration —
-  `SessionFlowTests` seeds both a **Standard** (`PresetRace_PaidRegulated…`) and a **SolanaToken**
+  `OperatorServiceTests`, `GameTypeDeactivatedConsumerTests`, `BetDomainServiceTests`,
+  `BetPlacedHandlerTests`, `AdminGameTypeHandlerTests`, `Shared/BetTestFactory`. Integration —
+  `GameFlowTests` seeds both a **Standard** (`PresetRace_PaidRegulated…`) and a **SolanaToken**
   (`NumbersRace_PaidCrypto…`, `AlphanumericRace_PaidCrypto…`) bet→reward happy path;
   `OperatorWalletRefundTests` covers the refund path; harness `Harness/{TestDoubles(FakeSolanaService),
   IntegrationTestFixture}` seeds "IT Standard Cassino" / "IT SolanaToken Cassino" + token config.
 
 **Frontend (`monkify-front`)**
 
-- `src/types/index.ts`, `src/hooks/{useOperator,useSession,useSessionChat}.ts`,
+- `src/types/index.ts`, `src/hooks/{useOperator,useGame,useGameChat}.ts`,
   `src/services/adminService.ts`.
 - `src/components/GameHeader.vue`, `src/components/game/{GameTerminal,GameConsole}.vue`,
   `src/components/header/{PlayerCustomizationModal,DevAdminButton}.vue`, `src/pages/DevLandingPage.vue`.
-- `src/components/admin/{SessionTypeForm,SessionTypeList,SessionTypeManager,OperatorTokenManager}.vue`.
+- `src/components/admin/{GameTypeForm,GameTypeList,GameTypeManager,OperatorTokenManager}.vue`.
 - `src/utils/{launchToken.ts,operatorRoute.ts}` (RFC-4122 GUID validation).
 
 ## Notes / drift
