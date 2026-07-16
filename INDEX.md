@@ -127,6 +127,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/lp-chimpout-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **ChimpOut** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/chimpout/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Shipped |
 | `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
 | `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `chimpout_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→chimpout`. | Shipped |
+| `specs/lp-redesign.md` | **Frontend-only (LP):** selective visual revamp cherry-picking a Claude design mock onto the **live** LP (`monkify-lp`, off `master`) — 2-col hero (coin + mascot chimp + drifting comet + a cosmetic **local** "EDSON'S TYPING" LIVE pill, no network), 3-card how-it-works + full-width FAIR PLAY bar, a **new image-forward `#modes` "SELECT YOUR GAME"** section, an EDSON.LOG story **restyle** (the CRT terminal already exists), richer per-section space art, a 2-col "No token. Yet." card, header (coin + `Modes/Story/Roadmap/Troop` + PLAY NOW), footer "BET ON THE MONKEY" tagline, roadmap detail items de-emojified + perk box dropped. **Skips** the fabricated wins/pot ticker. Preserves brand/USDC/trust/`TODO(ship)` placeholders; no new art; no backend/front/DB/test. | Ready |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -148,6 +149,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In flight (spec created):_ **LP visual redesign — selective Claude-mock cherry-pick** —
+  `feature/lp-redesign` (`monkify-lp` off `master` + `monkify-meta` off `main`; **no
+  backend/front-app**), spec created **2026-07-16**. **Frontend-only** selective visual revamp of the
+  shipped ChimpOut LP: cherry-pick the winning pieces of a Claude design mock onto the **live** LP,
+  re-implemented in Astro/Vue — a **2-col hero** (glowing coin + mascot chimp + drifting comet + a
+  cosmetic **local** "EDSON'S TYPING" LIVE pill, no network), **3-card how-it-works + a full-width
+  FAIR PLAY bar**, a **new image-forward `#modes` "SELECT YOUR GAME"** section (modes leave the
+  how-it-works column), an **EDSON.LOG story restyle** (the CRT terminal already exists — restyle, not
+  rebuild), **richer per-section space art**, a **2-col "No token. Yet."** card, a **header** with a
+  coin + `Modes/Story/Roadmap/Troop` nav + a PLAY NOW button, a footer **"BET ON THE MONKEY"** tagline,
+  and a **roadmap** whose detail items go no-emoji with the per-phase perk box dropped. **Skips** the
+  mock's fabricated wins/pot ticker (clashes with the honest/anti-scam tone). Preserves the ChimpOut
+  brand/CHIMP·OUT, token-free/USDC + anti-scam line, the 3 trust points, and the `PLAY_URL` + social
+  `// TODO(ship)` placeholders; no new art; **no backend/front/DB/test** (DoD = `npm run build` +
+  browser QA; 15 acceptance criteria). Spec `specs/lp-redesign.md`; Trello #65
+  ([hp9GJjuQ](https://trello.com/c/hp9GJjuQ)).
 - _Last shipped:_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
   `feature/rebranding-chimpout` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
   backend/front-app change**), **shipped 2026-07-16**. **Frontend-only** copy/structure/brand pass on
