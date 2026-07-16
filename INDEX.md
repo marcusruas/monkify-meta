@@ -125,6 +125,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/chimpout/game/games`) and the game screen (`/chimpout/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
 | `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope. | Shipped               |
 | `specs/lp-chimpout-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **ChimpOut** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/chimpout/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Shipped |
+| `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Assumes **#64** (Postgres transport). | Ready |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -146,6 +147,28 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (in progress):_ **Create Terraform to deploy the app (GCP)** —
+  `feature/terraform-gcp-deploy` (`monkify-meta` **primary** + `monkify-backend` + `monkify-front`; `monkify-lp`
+  built by the tool, no repo change), spec written 2026-07-16. Production **GCP** deploy as
+  **Infrastructure-as-Code + two local C# console apps**, all in `monkify-meta/deploy/`: a **Terraform** project
+  split into a **persistent layer** (Cloud DNS zone + domain + remote-state bucket, `prevent_destroy`) and a
+  **workload layer** (everything `teardown` may destroy); a **deploy** console app (`deploy [api|consumers|front|lp]`
+  + `teardown`) that syncs a local unversioned `secrets.<env>.json` → **Secret Manager**, builds/pushes, and
+  `terraform apply`s; and a read-write **DB REPL** over both DBs via the Cloud SQL Auth Proxy. Topology: **API**
+  (Cloud Run autoscale, min≥1) + **Consumers** (Cloud Run CPU-always-on, `var.consumer_count`=1, **internal
+  ingress** — hosts `/hangfire` + owns EF migrations/seeding, deployed **before** the API) + **front/lp** (GCS +
+  Cloud CDN) behind an external **HTTPS LB + Cloud Armor** WAF; **Cloud SQL 16** (one instance, DBs `chimpout` +
+  `chimpout_messaging`) + **Memorystore Redis 7** on a **private-only** VPC (no public IPs, Cloud NAT egress,
+  Serverless VPC connector); **Artifact Registry** images; Cloud DNS + Google-managed TLS on the new
+  **chimpout.com** (hosts as TF variables). **Teardown keeps the domain** (workload-only destroy, typed
+  confirmation, overrides Cloud SQL deletion-protection). Backend changes are Cloud-Run-readiness only (no game
+  behaviour): add **`/health`** to both hosts (neither has one today), **forwarded-headers** before HTTPS-redirect,
+  and make the CORS origin **config-driven** (was hardcoded `app.monkify.net`). Front: production build baked with
+  chimpout hosts + **Solana `mainnet-beta`** + dev flags off; CSP `frame-ancestors *` moves from `nginx.conf` to an
+  **LB response-header policy**. **Blocked by / assumes #64** (Postgres SQL transport, DB rename `monkify→chimpout`
+  + `chimpout_messaging`, `ConnectionStrings:Messaging`, `CREATE DATABASE` grant) — implement after/in lockstep.
+  **No new integration test** (infra tooling, not a game feature); backend gets unit tests for `/health`. Spec
+  `specs/terraform-gcp-deploy.md`; Trello #61 ([QrjmQttY](https://trello.com/c/QrjmQttY)).
 - _Last shipped:_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
   `feature/rebranding-chimpout` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
   backend/front-app change**), **shipped 2026-07-16**. **Frontend-only** copy/structure/brand pass on
