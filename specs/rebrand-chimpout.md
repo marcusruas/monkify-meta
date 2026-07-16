@@ -3,7 +3,6 @@
 > **Status: Shipped (2026-07-16)** — `feature/rebrand-chimpout` merged to `main` (lp: `master`) in all repos. Refined via Trello card
 > [Rebranding (new name)](https://trello.com/c/UBbiaz0d/49-rebranding-new-name) (2026-07-16).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
-> (`monkify-deployer` is in product scope but is **not a git repo** — see §9.4, handled out-of-band.)
 >
 > **Purpose:** Apply a company rebrand across the whole product by renaming two tokens **deeply**
 > (code identifiers, DB schema, SignalR, routes, config, and docs): the brand proper noun
@@ -74,13 +73,12 @@ From `monkify-meta/constraints.md` (full list there):
 | 1 | Rename depth = **deep/everything** in code + DB + SignalR + routes + config + docs. Not copy-only. |
 | 2 | `Monkify → ChimpOut` = **brand proper noun only**; keep the monkey character/imagery and the common noun "monkey". |
 | 3 | `Session → Game` = **pure mechanical** across the whole `Session*` family. A `Game` is one round; `GameParameters` is its definition. |
-| 4 | Repos in scope: `monkify-backend`, `monkify-front`, `monkify-meta`, `monkify-deployer`, `monkify-lp` — **contents-only** (folder/remote names unchanged). |
+| 4 | Repos in scope: `monkify-backend`, `monkify-front`, `monkify-meta`, `monkify-lp` — **contents-only** (folder/remote names unchanged). |
 | 5 | **Product-only** — internal tooling (MonkAIfy board, `monkify-*` skills, workspace automation) is untouched. |
 | 6 | **DB = greenfield rename migration**, no data preserved (pre-launch). |
 | 7 | **Clean break** — no aliases/redirects, no old-identifier acceptance, no dual SignalR. |
 | 8 | **Token/on-chain branding OUT OF SCOPE** → the Solana token symbol/name is decided by cards #62/#63. On the LP, the ticker `$MONKIFY` and the domain `app.monkify.net` are **deferred** (see §9.3). |
 | 9 | JWT `iss` (operator GUID) and the `launch-token`/`admin`/`players`/`operators`/`fx`/`dev` routes are **unaffected** (they carry neither `Monkify` nor `Session`). |
-| 10 | `monkify-deployer` is not a git repo → **no branch/worktree**; its rebrand is a documented **out-of-band** manual task (§9.4). |
 
 ---
 
@@ -219,8 +217,7 @@ Exclude and leave verbatim:
 - `AGENTS.md` clone URLs (`github.com/marcusruas/monkify-backend.git`,
   `github.com/VitorIsaacSM/monkify-front.git`), the `<!-- monkify-agents-pointer -->` marker, and the
   `.cursor/skills/` `.claude/skills/` discovery paths.
-- All repo-folder names (`monkify-backend`, `monkify-front`, `monkify-meta`, `monkify-lp`,
-  `monkify-deployer`).
+- All repo-folder names (`monkify-backend`, `monkify-front`, `monkify-meta`, `monkify-lp`).
 
 Practical guard: run the doc find/replace **excluding** `skills/**`, `AGENTS.md`, and any line
 containing `trello.com/b/Yi42y6Xy` or a `.git` clone URL, then eyeball the diff.
@@ -266,13 +263,6 @@ name → **leave** (contents-only). Coin art `monk-coin*.png` is monkey imagery 
 - **`app.monkify.net` domain (×3 hrefs):** the production domain is an **ops/DNS task** (like the repo
   rename, out of scope). Leave the real href `https://app.monkify.net` so links stay live, until a
   real ChimpOut domain exists. Do **not** point them at a dead placeholder.
-
-### 9.4 monkify-deployer — out-of-band (NOT a git repo)
-`monkify-deployer` has no `.git`, so it gets no `feature/rebrand-chimpout` branch/worktree in this
-card. Its rebrand is a **manual, out-of-band task**: rename only **safe brand labels/tags/strings**;
-**never** rename a stateful Terraform resource identifier (that forces resource replacement / state
-churn). To bring it into the automated pipeline later it must be `git init`-ed with an `origin`
-remote. Not a blocker for the four git repos.
 
 ---
 
@@ -346,8 +336,6 @@ After each repo's rename, these must hold (the definition of done for the mechan
 | --- | --- | --- |
 | 1 | `src/pages/index.astro`, `layouts/Layout.astro`, `components/Footer.vue`, `components/SpaceRoadmap.vue` | Brand name → ChimpOut; **keep** `$MONKIFY` ticker + `app.monkify.net` (§9.3) |
 
-### 11.5 Deployer — out-of-band (§9.4), not in this branch.
-
 ---
 
 ## 12. Unit / integration tests
@@ -380,7 +368,7 @@ older "copy-only" items are from an abandoned refinement and are **not** part of
 7. Given the game screen after the rename, when a round plays end-to-end (bet → run → reward) on the local stack, then behaviour is identical to before (names only).
 8. Given the "infinite monkey" theme, when UI/imagery/copy are reviewed, then the monkey character/imagery and the common noun "monkey" are unchanged — only "Monkify" became "ChimpOut".
 9. Given `monkify-meta`, when docs are read, then product-brand prose reads "ChimpOut" and product terminology reads "Game", while the `skills/monkify-*` identifiers, the "MonkAIfy" board references, `AGENTS.md` clone URLs, and repo-folder names are unchanged.
-10. Given `monkify-lp` (and `monkify-deployer`), when reviewed, then visible brand strings read "ChimpOut"; no Terraform stateful resource identifier is renamed in a way that forces replacement.
+10. Given `monkify-lp`, when reviewed, then visible brand strings read "ChimpOut".
 11. Given the full `Monkify.Tests` + `Monkify.Tests.Integration` suites, when run after the rename, then every test is updated to the new identifiers and both suites are green, with changed tests reported (no NEW integration test required).
 
 ---
