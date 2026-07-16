@@ -164,13 +164,20 @@ see "Skills — ensure installed" in `AGENTS.md`.
   Serverless VPC connector); **Artifact Registry** images; Cloud DNS + Google-managed TLS on the new
   **chimpout.com** (hosts as TF variables). **Teardown keeps the domain** (workload-only destroy, typed
   confirmation, overrides Cloud SQL deletion-protection). Backend changes are Cloud-Run-readiness only (no game
-  behaviour): add **`/health`** to both hosts (neither has one today), **forwarded-headers** before HTTPS-redirect,
-  and make the CORS origin **config-driven** (was hardcoded `app.monkify.net`). Front: production build baked with
+  behaviour): **forwarded-headers** before HTTPS-redirect, config-driven **CORS** origin (was hardcoded
+  `app.monkify.net`), and **`/health` on `ChimpOut.Consumers`** — the **API already had `/health` via
+  `HomeController`** (correction; only Consumers lacked one). Front: production build baked with
   chimpout hosts + **Solana `mainnet-beta`** + dev flags off; CSP `frame-ancestors *` moves from `nginx.conf` to an
   **LB response-header policy**. **Builds on #64** (Postgres SQL transport, DB rename `monkify→chimpout`
-  + `chimpout_messaging`, `ConnectionStrings:Messaging`, `CREATE DATABASE` grant) — **now shipped to `main`**, so
-  the feature branches were synced with `main` before implementation.
-  **No new integration test** (infra tooling, not a game feature); backend gets unit tests for `/health`. Spec
+  + `chimpout_messaging`, `ConnectionStrings:Messaging`, `CREATE DATABASE` grant) — **shipped to `main`**; the
+  feature branches were synced with `main` before implementation.
+  **IMPLEMENTED 2026-07-16** in two passes on `feature/terraform-gcp-deploy` (all pushed; card still in
+  **Specs created** pending the user's sign-off): **pass 1** = backend Cloud-Run-readiness + front
+  `.env.example` — **deployed + `curl /health`-verified locally**, 366 unit tests green (+3
+  `CorsOriginResolverTests`); **pass 2** = the full `deploy/` tree (Terraform persistent + workload/9 modules +
+  `ChimpOut.Deploy`/`ChimpOut.DbConsole` + README + `secrets.example.json`) — **static-validated**
+  (`terraform fmt`+`validate` both layers, `dotnet build` both apps); **no real `apply`**.
+  **No new integration test** (infra tooling, not a game feature). Spec
   `specs/terraform-gcp-deploy.md`; Trello #61 ([QrjmQttY](https://trello.com/c/QrjmQttY)).
 - _Last shipped:_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
   `feature/rebranding-chimpout` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
