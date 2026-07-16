@@ -123,7 +123,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Game.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Shipped |
 | `specs/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, own registered Solana token + 3 SolanaToken default types: 6X race/preset "horse race"/24h lottery, free bets off) seeded in **all** envs (**prod = Main only**, non-prod also keeps DEV Cassino). New **production-enabled** `POST /launch-token/default` mints an **anonymous Main token** (empty `sub`, Main-only); frontend auto-mints on no-token, silent re-mint on 401, real tokens win. Seeding/config + thin mint endpoint + FE fallback — **no schema/migration; integration test waived**. | Shipped |
 | `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/chimpout/game/games`) and the game screen (`/chimpout/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
-| `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`ChimpOut → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Game → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`chimpout-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope; `monkify-deployer` handled out-of-band (not a git repo). | Ready                |
+| `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope; `monkify-deployer` handled out-of-band (not a git repo). | Shipped               |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -145,11 +145,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In progress (spec created 2026-07-16):_ **Rebranding (new name): ChimpOut → ChimpOut, Game →
-  Game** — `feature/rebrand-chimpout` (`monkify-backend` + `monkify-front` + `monkify-meta` +
-  `monkify-lp`; `monkify-deployer` out-of-band, not a git repo). A **deep rename refactor** (not a
-  behaviour change): the brand proper noun **`ChimpOut → ChimpOut`** (only the token — the monkey
-  character/theme and the common noun "monkey" stay) and the domain term **`Game → Game`** (pure
+- _Last shipped:_ **Rebranding (new name): Monkify → ChimpOut, Session → Game** —
+  `feature/rebrand-chimpout` (`monkify-backend` + `monkify-front` + `monkify-meta` +
+  `monkify-lp`; `monkify-deployer` out-of-band, not a git repo), **shipped 2026-07-16**. A **deep rename refactor** (not a
+  behaviour change): the brand proper noun **`Monkify → ChimpOut`** (only the token — the monkey
+  character/theme and the common noun "monkey" stay) and the domain term **`Session → Game`** (pure
   mechanical across the whole `Game*` family — a `Game` is one round, `GameParameters` its
   definition) across code identifiers, DB schema (greenfield EF rename migration — `Games`,
   `GameParameters`, `GameBets`, …; FK `GameId`), SignalR (`ActiveGamesHub` at `/Hubs/Games`), API
@@ -157,10 +157,10 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `GeneralSettings:Games`, `ConnectionStrings:ChimpOut`), storage/postMessage keys (`chimpout.*`,
   `source:'chimpout'`), and all living + spec docs. **Clean break** (no aliases/redirects/dual
   channels). **Out of scope:** the Solana token symbol/`$MONKIFY` ticker + `app.monkify.net` domain
-  (→ cards #62/#63 + ops), all tooling (`chimpout-*` skills, MonkAIfy board, `AGENTS.md` clone URLs,
+  (→ cards #62/#63 + ops), all tooling (`monkify-*` skills, MonkAIfy board, `AGENTS.md` clone URLs,
   repo-folder names). Rebrand/refactor ⇒ **no new integration test** (existing suites renamed + kept
-  green). Spec `specs/rebrand-chimpout.md`; Trello #49 ([UBbiaz0d](https://trello.com/c/UBbiaz0d)).
-- _Last shipped:_ **Main production casino (default operator + auto-mint)** —
+  green — 363 unit + 34 integration). Spec `specs/rebrand-chimpout.md`; Trello #49 ([UBbiaz0d](https://trello.com/c/UBbiaz0d)).
+- _Previously shipped:_ **Main production casino (default operator + auto-mint)** —
   `feature/main-production-operator` (`monkify-backend` + `monkify-front` + `monkify-meta`),
   **shipped 2026-07-15**. Seeds a default **production** operator **"Main"** (fixed RFC-4122 id,
   own registered Solana token from `GeneralSettings.Token`, three **SolanaToken** default types —

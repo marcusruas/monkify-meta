@@ -1,6 +1,6 @@
 # Monkify — "Rebranding (new name): Monkify → ChimpOut, Session → Game" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-07-16)** — `feature/rebrand-chimpout` merged to `main` (lp: `master`) in all repos. Refined via Trello card
 > [Rebranding (new name)](https://trello.com/c/UBbiaz0d/49-rebranding-new-name) (2026-07-16).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 > (`monkify-deployer` is in product scope but is **not a git repo** — see §9.4, handled out-of-band.)
