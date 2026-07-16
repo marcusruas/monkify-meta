@@ -1,6 +1,6 @@
 # ChimpOut — "Landing-page launch relaunch — ChimpOut rebrand + token-free (USDC)" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-07-16)** — merged via `feature/rebranding-chimpout` (`monkify-lp` → `master`, `monkify-meta` → `main`). Refined via Trello card
 > [Revisar landing page para lançamento — rebrand para ChimpOut + launch sem token (USDC)](https://trello.com/c/Y0PpEDii) (2026-07-16).
 > Repos affected: **`monkify-lp`** (the only app repo touched) and this doc in `monkify-meta`.
 > **Branch:** `feature/rebranding-chimpout` (⚠️ reuses the pre-existing arcade-overhaul branch — see §4).

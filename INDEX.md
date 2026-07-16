@@ -53,7 +53,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | ------------------ | ------------------------------------------------------------------------ | ------------------ |
 | `monkify-backend`  | .NET 8 backend: API, background consumers, domain, infrastructure, tests | Yes (primary)      |
 | `monkify-front`    | Vue 3 + TypeScript frontend (the game UI)                                | Yes (primary)      |
-| `monkify-lp`       | Landing page                                                             | Not yet documented |
+| `monkify-lp`       | Landing page (Astro 5 + Vue 3 + Tailwind v4)                             | LP relaunch: `features/lp-chimpout-relaunch.md` |
 | `monkify-meta`     | **This knowledge base**                                                  | —                  |
 
 
@@ -96,6 +96,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/lottery-pot-stacking.md` | Un-won lottery pots **stack** into the next round via `Game.CarriedExtra` (preset no-winner draw carries losing stakes; under-subscription carries the base unchanged; paid win resets). `pot = Σ bets + LotteryPot + CarriedExtra`; carry decided once at rollover by `LotteryPotCarry`. Admin **deactivation transfers** the un-won pot to an eligible active lottery (same operator/method/token) or blocks. Player `> POT:` reflects the jackpot; seeded dev 1-min preset lottery `6L Minute Menagerie` | Shipped              |
 | `features/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, registered Solana token from `GeneralSettings.Token`, 3 SolanaToken default types: `6X Main Sprint` race / `6X Main Derby` preset "horse race" / `6X Main Millions` 24h lottery, free bets off) seeded in **all** envs (**prod = Main only**; non-prod also keeps DEV Cassino). Production-enabled `POST /launch-token/default` mints an **anonymous Main-only** launch token; SPA auto-mints on no-token (never embedded), silent re-mint on 401, real tokens win; prod `/chimpout/game` → games. No schema/migration | Shipped              |
 | `features/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** (`< lg`/1024px) for the games lobby + game screen, portrait + landscape phones, standalone & embedded. Lobby: 1-col condensed cards. Game: a `GAME \| CHAT·STATS` segmented view (absolutely-stacked so a hidden view can't intercept taps) — full-width fluid terminal + compact bet panel (**no amount field**, lever = PLACE BET); full-width chat/stats with an unread dot; monkey hidden. Header inline; customization modal scrolls + seed row wraps. Mobile SolanaToken bets via an **"OPEN IN WALLET APP"** deep-link (Phantom/Solflare in-app browser) reusing `sendToken`. `useIsMobile`/`useChatUnread`/`GameMobileTabs`/`walletDeepLink`. No backend. | Shipped              |
+| `features/lp-chimpout-relaunch.md` | **Frontend-only (LP):** the `monkify-lp` landing page relaunched as **ChimpOut**, **token-free/USDC** — CHIMP·OUT wordmark, USDC stake, **Tokenomics removed** → honest **"No token. Yet."** note (token maybe later, no ticker/CA), roadmap de-tokenized + future-token tease, "Buy" gone / "Play now" + community "Join the troop", trust points (provably-fair + instant on-chain payouts + auto-refund). App URL + socials are flagged `TODO(ship)` placeholders. Art/story/skin unchanged. | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -123,7 +124,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, own registered Solana token + 3 SolanaToken default types: 6X race/preset "horse race"/24h lottery, free bets off) seeded in **all** envs (**prod = Main only**, non-prod also keeps DEV Cassino). New **production-enabled** `POST /launch-token/default` mints an **anonymous Main token** (empty `sub`, Main-only); frontend auto-mints on no-token, silent re-mint on 401, real tokens win. Seeding/config + thin mint endpoint + FE fallback — **no schema/migration; integration test waived**. | Shipped |
 | `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/chimpout/game/games`) and the game screen (`/chimpout/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
 | `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope. | Shipped               |
-| `specs/lp-chimpout-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **ChimpOut** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/chimpout/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Ready |
+| `specs/lp-chimpout-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **ChimpOut** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/chimpout/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -145,26 +146,26 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created 2026-07-16):_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
-  `feature/rebranding-chimpout` (`monkify-lp` + `monkify-meta`; **no backend/front-app change**).
-  **Frontend-only** copy/structure/brand pass on the **arcade-overhaul LP redesign**, finishing the LP
-  work the rebrand (#49) deliberately **deferred** (`specs/rebrand-chimpout.md` §9.3). Full user-visible
-  **ChimpOut** rebrand (hero/footer wordmark **CHIMP·OUT**, coin `alt` de-tokenized; Header wordmark +
-  Layout `<title>` already ChimpOut from the #49 merge), **token-free/USDC** launch messaging (stake =
-  USDC, kill every `$MONKIFY`), **Tokenomics section removed** → a short honest **"no token (yet)"** note
-  (a token may come later; **no ticker/CA/"$MONKIFY"**; anti-scam line), **roadmap** perks reframed
-  future/earned (no holder-gating, phase 1 no "$MONKIFY live") with a light "token later / early players
-  first" tease, hero secondary CTA "Buy $MONKIFY" → community **"Join the troop"** (`#community`), header
-  "Buy" removed + "Tokenomics" nav → **"Token"** (desktop + mobile), and "Play now" → a **flagged
-  placeholder** app URL (`https://PLACEHOLDER-app-url/chimpout/game`; real route confirmed, domain TBD).
-  Trust points kept + completed (provably-fair + instant on-chain Solana payouts + auto-refund). Edson,
-  all art, the 6-slide story, and the retro/arcade skin **unchanged**. **Branch reconciliation done first
-  ("one coherent landing"):** the overhaul (was un-merged on `feature/rebranding-chimpout`) had
-  `origin/master`'s #49 brand-string patch merged into it (tip `755102c`); the LP hub was reset clean to
-  `master`; the whole branch lands on `master` **once at ship**. ⚠️ #49's "delete the abandoned
-  `feature/rebranding-chimpout` branch" cleanup is **superseded** — this branch is active. **No backend
-  ⇒ no integration/unit test** (DoD = `npm run build` + browser QA). 11 acceptance criteria. See
-  `specs/lp-chimpout-relaunch.md`; Trello #51 ([Y0PpEDii](https://trello.com/c/Y0PpEDii)).
+- _Last shipped:_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
+  `feature/rebranding-chimpout` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
+  backend/front-app change**), **shipped 2026-07-16**. **Frontend-only** copy/structure/brand pass on
+  the **arcade-overhaul LP redesign**, finishing the LP work the rebrand (#49) deliberately **deferred**
+  (`specs/rebrand-chimpout.md` §9.3) — landed as **"one coherent landing"**: the overhaul + roadmap
+  overhaul + this launch pass in a single merge (LP `master` fast-forwarded `c6e1c36` → `f4f9da3`). Full
+  user-visible **ChimpOut** rebrand (hero/footer wordmark **CHIMP·OUT**, coin `alt` de-tokenized),
+  **token-free/USDC** launch messaging (stake = USDC, no `$MONKIFY`), **Tokenomics section removed** → a
+  short honest **"No token. Yet."** note (a token may come later; **no ticker/CA**; anti-scam line),
+  **roadmap** perks reframed future/earned (no holder-gating, phase 1 no "$MONKIFY live") + a light
+  "token later / early players first" tease, hero secondary CTA → community **"Join the troop"**
+  (`#community`), header "Buy" removed + "Tokenomics" nav → **"Token"** (desktop + mobile). **"Play now"
+  → a flagged placeholder app URL** (`https://PLACEHOLDER-app-url/chimpout/game`; real route confirmed,
+  **domain still TBD**); social links stay `#` — both carry `// TODO(ship)` and **must be filled before
+  the public launch**. Trust points kept + completed (provably-fair + instant on-chain Solana payouts +
+  auto-refund); Edson, all art, the 6-slide story, and the retro/arcade skin **unchanged**. **No backend
+  ⇒ no integration/unit test** (DoD = `npm run build` + browser QA; 11 acceptance criteria). A **full
+  visual redesign** (keep sprites + story, reimagine layout/motion) is a planned follow-up card off
+  `master`. See `features/lp-chimpout-relaunch.md`; spec `specs/lp-chimpout-relaunch.md`; Trello #51
+  ([Y0PpEDii](https://trello.com/c/Y0PpEDii)).
 - _Last shipped:_ **Rebranding (new name): Monkify → ChimpOut, Session → Game** —
   `feature/rebrand-chimpout` (`monkify-backend` + `monkify-front` + `monkify-meta` +
   `monkify-lp`), **shipped 2026-07-16**. A **deep rename refactor** (not a
