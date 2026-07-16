@@ -15,25 +15,32 @@
                  ┌───────────────▼───────────────┐          │
                  │        ChimpOut.Api             │◄─────────┘  (Hubs: /Hubs/Games, /Hubs/RecentBets)
                  │  Controllers → MediatR handlers│
-                 └───────┬───────────────┬────────┘
-                         │               │ publish events
-                         │               ▼
-                 ┌───────▼──────┐   ┌──────────────┐
-                 │ PostgreSQL   │   │  RabbitMQ    │  (MassTransit)
-                 │ (EF / Npgsql)│   └──────┬───────┘
-                 └───────┬──────┘          │ consume
-                         │          ┌──────▼──────────────────┐
-                 ┌───────▼──────┐   │   ChimpOut.Consumers      │
-                 │    Redis     │◄──┤  MassTransit consumers   │
-                 │ cache + SignalR│ │  + Hangfire scheduler    │
-                 │  backplane    │  │  + EF migrations/seeding │
-                 └──────────────┘   └──────┬───────────────────┘
-                                           │ pay out / refund
-                                    ┌──────▼───────────────────┐
-                                    │ SolanaService             │
-                                    │ SPL token transfers       │
-                                    └───────────────────────────┘
+                 └───────┬────────────────────────┬────────┘
+                         │                        │ publish events
+                         │                        │ (MassTransit SQL transport)
+                 ┌───────▼────────────────────────▼────────┐
+                 │ PostgreSQL (EF / Npgsql), one instance   │
+                 │  • chimpout            (game DB)          │
+                 │  • chimpout_messaging  (MassTransit SQL   │
+                 │     transport: queues/topics/messages)    │
+                 └───────┬────────────────────────┬─────────┘
+                         │                        │ consume (SKIP-LOCKED + LISTEN/NOTIFY)
+                 ┌───────▼──────┐          ┌───────▼──────────────────┐
+                 │    Redis     │◄─────────┤   ChimpOut.Consumers      │
+                 │ cache+SignalR│          │  MassTransit consumers   │
+                 │  backplane   │          │  + Hangfire scheduler    │
+                 └──────────────┘          │  + EF + transport         │
+                                           │    migrations/seeding     │
+                                           └──────┬───────────────────┘
+                                                  │ pay out / refund
+                                           ┌──────▼───────────────────┐
+                                           │ SolanaService             │
+                                           │ SPL token transfers       │
+                                           └───────────────────────────┘
 ```
+
+> **No message broker.** Events ride the **MassTransit Postgres SQL transport** — there is no
+> RabbitMQ/AMQP broker. See §4.
 
 Two deployable .NET hosts share the same domain/infrastructure libraries:
 
@@ -48,7 +55,7 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 | `ChimpOut.Api` | ASP.NET Core Web API. Controllers, SignalR hub mapping, Swagger, IP rate limiting, CORS. Thin: delegates to MediatR handlers. |
 | `ChimpOut.Consumers` | Worker host (also a `WebApplication` for the Hangfire dashboard + health). MassTransit consumers, Hangfire server, startup migrations & seeding. |
 | `ChimpOut.Domain` | Pure domain: entities, value objects/enums, and domain services (`ChimpOutTyper`, `BetDomainService`). No EF/infra dependencies. |
-| `ChimpOut.Infrastructure` | EF `DbContext`, MediatR request handlers, MassTransit consumers, SignalR hubs, services (Games, Cache, RabbitMQ, Solana, Payments), DI wiring. |
+| `ChimpOut.Infrastructure` | EF `DbContext`, MediatR request handlers, MassTransit consumers, SignalR hubs, services (Games, Cache, Messaging, Solana, Payments), DI wiring. |
 | `ChimpOut.Common` | Cross-cutting: `IMessaging`, extensions, `Result`/`ApiResult` types, error-message resources, `TableEntity` base. |
 | `ChimpOut.Tests` | xUnit + Shouldly + Moq + Bogus. In-memory EF for handler/service/domain tests. |
 | `ChimpOut.LoadTester` | Load-testing utilities. |
@@ -75,7 +82,12 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
 - **Provider:** PostgreSQL via `UseNpgsql`.
-- **Single DbContext:** `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`.
+- **Two databases, one instance:** the game/EF store is **`chimpout`** (`ConnectionStrings:ChimpOut`);
+  the MassTransit message transport lives in a **separate database `chimpout_messaging`**
+  (`ConnectionStrings:Messaging`) on the **same** Postgres instance, reusing the same user (see §4).
+  Hangfire storage stays in the **game** DB. (The game DB was renamed from `monkify` → `chimpout`.)
+- **Single DbContext:** `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` (game DB only — the
+  transport schema is MassTransit-owned, not in the DbContext).
 - **EF configuration is INLINE** in `OnModelCreating` — there are **no** `IEntityTypeConfiguration`
   classes. All entity mapping is in the `modelBuilder.Entity<T>(builder => { … })` blocks.
 - Default query behavior is `NoTracking` (set in `OnConfiguring`). `SaveChangesAsync` stamps
@@ -103,11 +115,26 @@ Relationships: `Operator 1—* GameParameters 1—* Game 1—* Bet 1—* Transac
 `Bet 1—* CryptoTransactionLog`; `Operator 1—* OperatorPlayer 1—* Bet` (nullable FK — anonymous free bets
 have no `OperatorPlayer`). See `features/payment-methods.md`.
 
-## 4. Messaging: RabbitMQ via MassTransit
+## 4. Messaging: MassTransit Postgres SQL transport
 
-- The **API** registers MassTransit only as a **publisher**. The **Consumers** host registers and
-  binds the consumers (one receive endpoint per consumer).
-- `IRabbitMQService` / `RabbitMQService` is a thin wrapper over `IPublishEndpoint.Publish`.
+- **No broker.** Events flow over the **MassTransit Postgres SQL transport**
+  (`MassTransit.SqlTransport.PostgreSQL`, `UsingPostgres`) — there is **no** RabbitMQ/AMQP broker to
+  run. Queues, topics, subscriptions, and messages are tables under schema **`transport`** in the
+  **`chimpout_messaging`** database (a separate DB on the same Postgres instance as the game DB; see
+  §3). Delivery is at-least-once with competing consumers via `SKIP LOCKED` + `LISTEN/NOTIFY`.
+- The **API** registers MassTransit only as a **publisher** (`UsingPostgres()`, no consumers, no
+  provisioning — it stays stateless). The **Consumers** host registers and binds the consumers (one
+  named receive endpoint per consumer) and **provisions the transport**: `AddPostgresMigrationHostedService()`
+  creates the `chimpout_messaging` database + `transport` schema at startup (mirroring how it owns EF
+  migrations), before the bus connects.
+- Both hosts bind `SqlTransportOptions` from `ConnectionStrings:Messaging` (helper
+  `MessagingRegistration.AddChimpOutSqlTransportOptions`, parsed via `NpgsqlConnectionStringBuilder`),
+  **reusing the game-DB user** — so that user needs `CREATE DATABASE` on the instance.
+- The publish abstraction is `IMessageBus` / `MessageBusPublisher`
+  (`ChimpOut.Infrastructure.Services.Messaging`), a thin wrapper over `IPublishEndpoint.Publish`.
+- **Event contracts and consumer handler logic are unchanged** by the transport swap — only the wire
+  changed. Reward/refund idempotency (ledger-based in `TransactionLog`) holds under at-least-once
+  redelivery. See `features/masstransit-postgres-transport.md`.
 
 ### Events and consumers (the game state machine)
 
@@ -151,8 +178,9 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 ## 7. Scheduling: Hangfire
 
-- Configured in `ChimpOut.Consumers` with **PostgreSQL storage** (`UsePostgreSqlStorage`), with a
-  dashboard at `/hangfire`.
+- Configured in `ChimpOut.Consumers` with **PostgreSQL storage** (`UsePostgreSqlStorage`) in the
+  **game** DB (`chimpout`, `ConnectionStrings:ChimpOut` — not the messaging DB), with a dashboard at
+  `/hangfire`.
 - Used to **schedule lottery games**: `GameService.ScheduleLottery` enqueues a delayed
   `BetPlacedEvent` publish for the game's start time.
 - **Game chat purge:** daily recurring job `game-chat-purge` runs `ChatMessagePurgeJob`, deleting
@@ -313,8 +341,11 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 `monkify-backend/docker-compose.yml` brings up the full stack for development:
 
 - `api` (port 6001 → 8080), `consumers` (port 6002 → 8080, hosts `/hangfire`),
-- `database` (Postgres 16), `redis` (7), `rabbitmq` (3-management, UI on 15672).
-- The API depends on the Consumers being healthy (so migrations/seeding run first).
+- `database` (Postgres 16 — hosts both `chimpout` and the MassTransit `chimpout_messaging` DB), `redis` (7).
+- **No `rabbitmq` service** — the MassTransit Postgres SQL transport uses the `database` container.
+- All services share the `chimpout-network` docker network.
+- The API depends on the Consumers being healthy (so migrations/seeding — incl. the transport schema —
+  run first).
 
 > Connection strings and provider credentials are supplied via environment/config and **must not
 > be read or edited** by the agent — see `constraints.md`.
