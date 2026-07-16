@@ -212,3 +212,18 @@
   round). Amounts are single-currency per type. Rendered in the lazy **STATS** tab of the `/game`
   side panel. Entity/DTO: `GameTypeStats` / `GameTypeStatsDto`. See
   `features/game-type-stats.md`.
+- **MassTransit Postgres SQL transport** — the message transport carrying the game state-machine events
+  (`BetPlaced → RunGame → RewardGame`, refunds, notifications, chat). Uses `MassTransit.SqlTransport.PostgreSQL`
+  (`UsingPostgres`) instead of a RabbitMQ/AMQP broker — **there is no broker**. Queues/topics/messages
+  are tables under schema `transport` in the **`chimpout_messaging`** database. At-least-once delivery,
+  competing consumers via `SKIP LOCKED` + `LISTEN/NOTIFY`. The API is publisher-only; `ChimpOut.Consumers`
+  provisions the DB + schema at startup (`AddPostgresMigrationHostedService`). See
+  `features/masstransit-postgres-transport.md`.
+- **chimpout_messaging** — the dedicated database (schema `transport`) holding the MassTransit SQL
+  transport tables, on the **same** Postgres instance as the game DB (`chimpout`). Its connection is
+  `ConnectionStrings:Messaging`, reusing the game-DB user (which therefore needs `CREATE DATABASE`).
+  Isolates queue churn from the game schema while keeping one instance/one bill. (The game DB itself was
+  renamed `monkify → chimpout`.)
+- **IMessageBus / MessageBusPublisher** — the thin publish abstraction over MassTransit's
+  `IPublishEndpoint.Publish` (`ChimpOut.Infrastructure.Services.Messaging`). Renamed from the old
+  transport-specific `IRabbitMQService` / `RabbitMQService` when the transport moved to Postgres.

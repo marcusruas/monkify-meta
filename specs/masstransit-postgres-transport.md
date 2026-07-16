@@ -1,5 +1,9 @@
 # ChimpOut — "Replace RabbitMQ with MassTransit Postgres SQL transport" — Implementation Spec
 
+> **Status: Shipped** — merged via `feature/masstransit-postgres-transport` on 2026-07-16
+> (`monkify-backend` + `monkify-meta`). Distilled summary: `../features/masstransit-postgres-transport.md`.
+> 363 unit + 35 integration tests green. This spec is retained as the deep design archive.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [Replace RabbitMQ with MassTransit Postgres SQL transport](https://trello.com/c/nPCH4e5R) (2026-07-16).
 > Repos affected: `monkify-backend` and this doc in `monkify-meta`. **No `monkify-front` change.**
