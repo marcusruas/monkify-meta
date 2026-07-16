@@ -298,18 +298,20 @@ A .NET 8 console REPL:
 Grounded in the current code (file:line). **No game behaviour changes**; these make the two hosts
 deployable on Cloud Run behind an LB.
 
-### 9.1 Add health endpoints to BOTH hosts (hidden blocker)
+### 9.1 Health endpoints for Cloud Run probes
 
-Today **neither** host exposes `/health` (no `AddHealthChecks`/`MapHealthChecks` anywhere; the compose
-`api` healthcheck even probes a non-existent `/health`, and `consumers` probes `/hangfire`). Cloud Run
-startup/liveness probes need a cheap, dependency-light endpoint.
+**Correction (found in implementation):** the **API already exposes `GET /health`** via
+`HomeController` (`[Route("/")]` + `[HttpGet("health")]` → `Ok("Api running!")`, 200) — the compose
+`api` healthcheck already targets it and passes. So only **`ChimpOut.Consumers`** genuinely lacked a
+health endpoint (its compose healthcheck probed `/hangfire`).
 
-- `src/ChimpOut.Api/Program.cs` (~line 12 services / ~139 pipeline): `builder.Services.AddHealthChecks();`
-  and `app.MapHealthChecks("/health")` (allow-anonymous, excluded from rate limiting/auth middleware).
-- `src/ChimpOut.Consumers/Program.cs` (~line 29 / ~152): same — add `AddHealthChecks()` +
-  `app.MapHealthChecks("/health")` so Cloud Run can probe Consumers without relying on `/hangfire`.
-- Keep them **liveness-only** (return `Healthy` when the host is up); do **not** gate on DB/Redis so a
-  transient dependency blip doesn't kill the instance. (A deeper readiness check is out of scope.)
+- `src/ChimpOut.Api/Program.cs`: **no health-endpoint change** — the existing `HomeController` `/health`
+  is the Cloud Run probe. (Do **not** add `MapHealthChecks("/health")` here — it duplicates the
+  controller route and risks an ambiguous match.)
+- `src/ChimpOut.Consumers/Program.cs`: add `builder.Services.AddHealthChecks()` +
+  `app.MapHealthChecks("/health")` (after `UseRouting`) so Cloud Run can probe Consumers without relying
+  on `/hangfire`. Liveness-only (`Healthy` when the host is up; not gated on DB/Redis). The compose
+  consumers healthcheck moves from `/hangfire` → `/health`.
 
 ### 9.2 Honor the proxy — forwarded headers + HTTPS redirect (redirect-loop risk)
 
@@ -472,8 +474,8 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Api/Program.cs` | `AddHealthChecks()` + `MapHealthChecks("/health")`; add `UseForwardedHeaders` (before HTTPS redirect); make CORS allowed origin config-driven |
-| 2 | `src/ChimpOut.Consumers/Program.cs` | `AddHealthChecks()` + `MapHealthChecks("/health")` |
+| 1 | `src/ChimpOut.Api/Program.cs` | add `UseForwardedHeaders` (before HTTPS redirect/rate-limiting); make CORS allowed origin config-driven. **No** health change — `HomeController` already serves `/health`. |
+| 2 | `src/ChimpOut.Consumers/Program.cs` | `AddHealthChecks()` + `MapHealthChecks("/health")` (the host that lacked one); CORS config-driven |
 | 3 | `src/ChimpOut.Api/Dockerfile`, `src/ChimpOut.Consumers/Dockerfile` | (optional) `ASPNETCORE_URLS=http://+:${PORT}` with 8080 default (§9.3) |
 | 4 | `src/ChimpOut.Common/chimpoutsettings.json` | add a mock CORS `AllowedOrigins` config key (placeholder) for §9.4 |
 | 5 | `docker-compose.yml` | (optional) point the `api` healthcheck at the now-real `/health` |
