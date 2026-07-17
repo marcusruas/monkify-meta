@@ -1,8 +1,11 @@
 # ChimpOut — "Live wallet balance refresh on the game page" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-17) — merged via `feature/wallet-balance-refresh` into `main`
+> (`monkify-front` + `monkify-meta`). Refined via Trello card
 > [wallet amount not updating on game page](https://trello.com/c/m4rcHArM) (2026-07-17).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **No `monkify-backend` change.**
+> Shipped with two post-implementation refinements (see §7.4 / §3 #4): **instant optimistic decrement
+> on bet** and the **win-payout read ~5 s after `Ended`**.
 >
 > **Purpose:** On a **SolanaToken** game, the SPL-token balance shown in the header does not update
 > on its own after the player bets or receives cash (a win payout or a refund). Make that balance

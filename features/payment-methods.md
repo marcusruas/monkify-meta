@@ -123,6 +123,12 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
 - **`GameHeader.vue`:** the wallet cluster + `TokenBalance` show **only** when the current game is
   SolanaToken (`showWallet = selectedGame?.paymentMethod === PaymentMethod.SolanaToken`), using the
   game's `tokenSymbol` / `tokenMintAddress`; hidden on the games list and for Standard games.
+  `TokenBalance` **keeps itself current** (bug-fix `wallet-balance-refresh`, 2026-07-17): a ~10 s
+  poll while on a connected SolanaToken game (paused when the tab is hidden, stopped on
+  unmount/disconnect) plus an **instant optimistic decrement on the player's own bet**, a **win-payout
+  read ~5 s after `Ended`**, and a refresh on refund (`NotEnoughPlayersToStart`) / reward-error. There
+  is **no balance surface for Standard games** (ChimpOut holds no player float). See
+  `../specs/wallet-balance-refresh.md`.
   The player-settings **gear** is gated on **operator context derived from the launch token**
   (`hasOperatorContext = operatorId ?? getOperatorIdFromToken()`) so it survives an operatorId reset from
   a hard reload (e.g. a transient 401 → `/error` → back).
