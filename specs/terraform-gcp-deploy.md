@@ -333,13 +333,13 @@ still binds. Low-risk; note in the PR.
 
 ### 9.4 CORS allowed origin (config-driven)
 
-`ChimpOut.Api/Program.cs:99-120` hardcodes the non-dev CORS origin as `https://app.monkify.net`. For the
-chimpout deploy this must allow **`https://app.chimpout.com`** (and the SignalR `AllowCredentials` path).
-Make the allowed origin(s) **config-driven** (e.g. `GeneralSettings:Cors:AllowedOrigins` or an env var) and
-supply the value from the secrets/config at deploy time, rather than leaving `app.monkify.net` baked in.
-Commit only a **mock/placeholder** default. (The old `app.monkify.net` domain is retired — coordinate the
-final value with the domain/ops cards #62/#63; this card only makes it configurable + supplies the prod host
-via config.)
+`ChimpOut.Api/Program.cs` previously hardcoded the non-dev CORS origin as `https://app.monkify.net`. It is
+now **config-driven** via `CorsOriginResolver.ResolveAllowedOrigins(config)` reading
+`GeneralSettings:Cors:AllowedOrigins` (both hosts). The **committed default is `https://app.chimpout.com`**
+(`CorsOriginResolver.DefaultOrigins` + `chimpoutsettings.json`) — the retired `monkify.net` domain is gone
+from the code; production can still override the origin list via `GeneralSettings__Cors__AllowedOrigins__0`.
+The Main-operator seed `MainPageUrl`/`IconUrl` (`ChimpOut.Consumers/Program.cs`) were likewise moved to
+`https://app.chimpout.com`.
 
 ### 9.5 Hangfire dashboard exposure
 
