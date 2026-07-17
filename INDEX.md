@@ -129,6 +129,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
 | `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `chimpout_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→chimpout`. | Shipped |
 | `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
+| `specs/wallet-balance-refresh.md` | **Frontend-only bug fix:** the header **SolanaToken** balance (`TokenBalance.vue`) now keeps itself current — a **~10 s periodic poll** (scoped to a connected SolanaToken game, paused when the tab is hidden, stopped on unmount/disconnect) **plus an immediate refresh** on own bet / win (`RewardForWinnersCompleted`) / refund (adds **`NotEnoughPlayersToStart`** + `ErrorWhenProcessingRewards`) + token-switch refetch + resilient last-known reads. No backend/Standard-balance change (Standard shows no balance by design). | Ready |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -150,6 +151,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In flight (spec ready):_ **Live wallet balance refresh on the game page** —
+  `feature/wallet-balance-refresh` (`monkify-front` + `monkify-meta`; **no backend**), spec created
+  **2026-07-17**. **Frontend-only bug fix** for the SolanaToken header balance (`TokenBalance.vue`)
+  not updating after a bet or payout: it is read single-shot with no retry and usually fires before
+  the RPC node propagates the change → stale until the next bet/round. Fix = a **~10 s periodic poll**
+  (scoped to a connected SolanaToken game via the component lifecycle; **paused when the tab is
+  hidden** with an immediate read on re-show; **stopped** on unmount / leaving the crypto game /
+  disconnect) as the self-correcting safety net, **plus an immediate one-off refresh** on own bet
+  (already wired via `updateBalanceCallback`), win (`RewardForWinnersCompleted`) and **refund**
+  (widen the status watch to include **`NotEnoughPlayersToStart`** + `ErrorWhenProcessingRewards`);
+  a token-switch refetch (`watch(props.tokenAddress)`) and resilient last-known reads (no flash to
+  `0`/blank, no per-tick spinner). **Standard games are unchanged** (they show no balance — ChimpOut
+  holds no player float; a Standard/USD balance is out of scope). All contained in `TokenBalance.vue`;
+  no backend/DTO/SignalR/data change. No integration test (frontend-only bug fix per AGENTS.md rule 8);
+  `monkify-front` has no unit-test harness → verify via `yarn lint`/`yarn build` + manual QA. See
+  `specs/wallet-balance-refresh.md`; Trello #67 ([m4rcHArM](https://trello.com/c/m4rcHArM)).
 - _Last shipped:_ **Create Terraform to deploy the app (GCP)** —
   `feature/terraform-gcp-deploy` (`monkify-meta` **primary** + `monkify-backend` + `monkify-front`; `monkify-lp`
   built by the tool, no repo change), **shipped 2026-07-17**. Production **GCP** deploy as
