@@ -36,12 +36,22 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
   (+ the lottery base pot for lottery), formatted with the existing currency logic (USDC for crypto,
   the player's display currency for regulated). Free bets (amount 0) contribute nothing. (This overlaps
   the separate "show pot value" story; both compute the pot client-side.)
-- **Lifecycle.** Rows appear when the player bets and are cleared on game rollover
-  (`updateNewGame`). On end they freeze and persist through the reward view.
+- **Lifecycle.** Rows appear when the player bets **and are re-derived on every game load** — after a
+  page refresh or rejoin, `updateNewGame` re-seeds the player's own choices from the loaded game's bets
+  (matched by identity), so a returning bettor is **not** treated as a spectator (this is the fix in
+  `../specs/restore-own-bets-on-refresh.md`). They are cleared on genuine game rollover
+  (`updateNewGame`'s reset). On end they freeze and persist through the reward view.
 - **Best-effort / display-only.** Detection runs entirely client-side from the existing
   `<gameId>/Terminal` stream — no new SignalR event, no backend call for the near-miss itself, and
-  no change to outcomes, payouts, pacing, or the seed audit trail. A late joiner/reconnect only sees
-  near-misses that occur after it (re)connects (no stream replay).
+  no change to outcomes, payouts, pacing, or the seed audit trail. There is **no** `<gameId>/Terminal`
+  stream replay, so after a refresh/rejoin the **rows are restored** (re-seeded from the loaded bets)
+  but each climbs fresh from reconnection onward (starting at `away = L`); the pre-refresh progression
+  is not reconstructed.
+- **Own-bet cues restored together.** Because the returning-bettor **victory/lose sound** and the
+  embedded **`bet-settled`** signal also gate on `ownBetChoices`, the same load-time re-seed restores
+  them: a bettor who refreshes mid-run and stays connected still gets the winning-word type-out + the
+  victory/lose sound on the live `Ended`. Reloading into an **already-ended** reward view is out of
+  scope (the active-game GET never returns an `Ended` game).
 
 ### Backend: fallback terminal reveal
 
@@ -61,12 +71,18 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
 - `src/hooks/useNearMiss.ts` — module-singleton: per-choice display high-water, the 2 s stall-reset
   loop, and the win type-out. Exposes `nearMissEntries`, `trackChoice`, `feed`, `finish`, `reset`.
 - `src/hooks/useGame.ts` — durable `ownBetChoices` recorded after each successful bet (regulated /
-  crypto / free); `nearMiss.feed(data)` in the `<gameId>/Terminal` handler; `nearMiss.finish(
-  result.firstChoiceTyped)` on `Ended`; `nearMiss.reset()` in `updateNewGame`. `lastOwnBetChoice`
-  (the one-shot marker consumed by `GameMonkey.vue`) is left untouched.
+  crypto / free) **and re-derived on load**: `reseedOwnBetsFromInstance()` (called at the end of
+  `updateNewGame`, after the reset) matches the loaded `gameInstance.bets` against a shared reactive
+  `currentPlayerId` (SolanaToken → connected wallet; else launch-token `externalPlayerId`/`sub`) and
+  replays owned choices through the idempotent `recordOwnChoice`; a **per-consumer** `watch(currentPlayerId)`
+  re-runs it when a wallet reconnects, and the live `{gameId}/Bets` handler also matches by identity.
+  `nearMiss.feed(data)` in the `<gameId>/Terminal` handler; `nearMiss.finish(result.firstChoiceTyped)`
+  on `Ended`; `nearMiss.reset()` in `updateNewGame`. `lastOwnBetChoice` (the one-shot marker consumed
+  by `GameMonkey.vue`) is left untouched.
 - `src/components/game/GameTerminal.vue` — the bottom dock: `> POT:` line (`displayPot`) + one
   near-miss row per `nearMissEntries` with an escalating colour ramp; `GameTyper.vue` renders just the
-  live stream tail.
+  live stream tail. `betPlayerLabel`/`myId` (the "YOU" label) key off the shared `currentPlayerId` from
+  `useGame`, so the label and the near-miss re-seed mark the same bets.
 
 **Backend (`monkify-backend`):**
 - `ChimpOut.Infrastructure/Services/Games/GameService.cs` → `RunGame` — appends

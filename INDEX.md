@@ -133,7 +133,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/wallet-balance-refresh.md` | **Frontend-only bug fix:** the header **SolanaToken** balance (`TokenBalance.vue`) now keeps itself current — a **~10 s periodic poll** (scoped to a connected SolanaToken game, paused when the tab is hidden, stopped on unmount/disconnect) **plus immediate refreshes**: own bet updates **instantly** via an optimistic stake decrement, the **win payout reads ~5 s after `Ended`**, and refund (`NotEnoughPlayersToStart` + `ErrorWhenProcessingRewards`) refreshes on settlement; + token-switch refetch + resilient last-known reads. No backend/Standard-balance change (Standard shows no balance by design). | Shipped |
 | `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. Shipped alongside a pre-existing multi-winner reward-division fix (frozen winner set + paid-winner divisor). | Shipped |
 | `features/crypto-commission.md` | Distilled: crypto (`SolanaToken`) house **commission** on winnings — default 0.5% (`GeneralSettings.Token.CommissionPercentage`), taken from profit above each winner's own stake, house-funded lottery base excluded; realized by a smaller on-chain credit (no transfer/ledger/migration); STATS-badge-only UI; Standard unchanged. Includes the multi-winner **paid-winner divisor / frozen winner-set** reward fix. | Shipped |
-| `specs/restore-own-bets-on-refresh.md` | **Frontend-only bug fix:** after a refresh/rejoin the player's **own-bet cues** (the `> N AWAY!` near-miss rows, the returning-bettor victory/lose sound, the embedded `bet-settled`) vanished because `ownBetChoices` (`useGame.ts`) is only written on the live PLACE BET click. Fix: on the load path re-derive ownership from the fetched `gameInstance.bets` (which already carry `externalPlayerId`) via a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice`; reactive re-run for SolanaToken wallet reconnect; live `{gameId}/Bets` identity match. **No backend change.** Ended-view reload out of scope (GET excludes ended games; DTO lacks `winners`). | Ready |
+| `specs/restore-own-bets-on-refresh.md` | **Frontend-only bug fix:** after a refresh/rejoin the player's **own-bet cues** (the `> N AWAY!` near-miss rows, the returning-bettor victory/lose sound, the embedded `bet-settled`) vanished because `ownBetChoices` (`useGame.ts`) is only written on the live PLACE BET click. Fix: on the load path re-derive ownership from the fetched `gameInstance.bets` (which already carry `externalPlayerId`) via a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice`; reactive re-run for SolanaToken wallet reconnect; live `{gameId}/Bets` identity match. **No backend change.** Ended-view reload out of scope (GET excludes ended games; DTO lacks `winners`). | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -155,25 +155,26 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created):_ **Restore your own bets after a refresh** —
-  `feature/restore-own-bets-on-refresh` (`monkify-front` + `monkify-meta`; **no backend**),
-  spec created **2026-07-17**. **Frontend-only bug fix** for card #70: after a player bets and then
-  refreshes/rejoins a round, their **own-bet UI cues** disappear (most visibly the `> N AWAY!`
-  near-miss rows), so they render like a spectator who never played. Root cause: the near-miss/audio
-  cues all gate on `ownBetChoices` (`useGame.ts`), which is only written by the **live PLACE BET
+- _Last shipped:_ **Restore your own bets after a refresh** —
+  `feature/restore-own-bets-on-refresh` (`monkify-front` + `monkify-meta`; **no backend**), **shipped
+  2026-07-17**. **Frontend-only bug fix** for card #70: after a player bets and then
+  refreshes/rejoins a round, their **own-bet UI cues** disappeared (most visibly the `> N AWAY!`
+  near-miss rows), so they rendered like a spectator who never played. Root cause: the near-miss/audio
+  cues all gate on `ownBetChoices` (`useGame.ts`), which was only written by the **live PLACE BET
   click** and reset to `[]` on every load — `getBets` re-fetches the bets (each already carrying
-  `externalPlayerId`) but never matches them to the current player. Fix (no backend): on the load
+  `externalPlayerId`) but never matched them to the current player. Fix (no backend): on the load
   path (`updateNewGame`, **after** the reset) re-derive ownership by matching `gameInstance.bets`
   against a shared reactive **`currentPlayerId`** (SolanaToken → connected wallet; else launch-token
   `externalPlayerId`/`sub`) and replay owned choices through the idempotent `recordOwnChoice` (which
-  re-seeds `ownBetChoices` + `nearMiss.trackChoice`); a **reactive watch** re-runs it when the wallet
+  re-seeds `ownBetChoices` + `nearMiss.trackChoice`); a **per-consumer watch** re-runs it when the wallet
   reconnects (crypto), and the live `{gameId}/Bets` handler also matches by identity. Restores near-miss
   rows + returning-bettor victory/lose sound + embedded `bet-settled`. **Ended-view reload is out of
   scope** — `GET /games/{gameTypeId}` never returns an `Ended` game (`ActiveGamesStatus`) and
   `ActiveGameDto` lacks `winners`, so a just-ended reward screen can't be reconstructed frontend-only
-  (kept a Minor change). Frontend-only ⇒ no integration test, no new `features/` doc;
-  `features/characters-away.md` corrected at ship. Spec `specs/restore-own-bets-on-refresh.md`;
-  Trello #70 ([IkVOurKA](https://trello.com/c/IkVOurKA)). **Next:** `/monkify-implement-feature`.
+  (kept a Minor change). Frontend-only ⇒ **no integration test, no new `features/` doc** (Minor-change
+  exemptions); `features/characters-away.md` corrected. **`yarn lint` + `yarn build` green.** See
+  `features/characters-away.md`; spec `specs/restore-own-bets-on-refresh.md`; Trello #70
+  ([IkVOurKA](https://trello.com/c/IkVOurKA)).
 - _Last shipped:_ **Add commission (crypto games)** —
   `feature/crypto-commission` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
   2026-07-17**. Re-adds a house **commission on winnings, `SolanaToken` games only**: `0.5%` of each

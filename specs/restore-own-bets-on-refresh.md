@@ -1,6 +1,7 @@
 # ChimpOut — "Restore your own bets after a refresh" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-17) — merged via `feature/restore-own-bets-on-refresh` into `main`
+> (`monkify-front` + `monkify-meta`). Refined via Trello card
 > [Bug: on refresh doesn't show your bets on spectator](https://trello.com/c/IkVOurKA/70-bug-on-refresh-doesnt-show-your-bets-on-spectator) (2026-07-17).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **No `monkify-backend` change.**
 >
