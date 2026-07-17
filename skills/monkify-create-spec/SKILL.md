@@ -314,6 +314,10 @@ Before moving the card, persist implementation metadata **in the card descriptio
      - **Repos:** comma-separated affected repos (always include `monkify-meta`)
      - **Worktree:** the worktree path the feature work lives in (e.g. `.worktrees/<slug>`, per repo),
        matching what you registered in Step 8b
+     - **Level:** `Feature` or `Minor change`, copied from the refined card's **`## Level`** section
+       (Step 2). If the refined card has no `## Level` (older card), default to **`Feature`** and note
+       it in the report. This field gates the downstream feature artifacts (integration test in
+       `/monkify-implement-feature`, `features/<slug>.md` doc in `/monkify-ship-feature`).
    - Set **`## Status`** to `Spec created — ready for implementation.` (replace
      `Refined — ready for spec.` if present).
 
@@ -333,7 +337,9 @@ Do **not** move the card if Step 9 failed, Step 11 push failed, or the spec file
 
 Tell the user:
 
-1. **Card** — name + link; moved to **Specs created**; **Implementation** section written.
+1. **Card** — name + link; moved to **Specs created**; **Implementation** section written (including
+   the **Level:** `Feature` / `Minor change` carried from the refined card — note if it defaulted to
+   `Feature` because the card had no `## Level`).
 2. **Spec** — full path `monkify-meta/specs/<slug>.md` (brief summary of what it covers).
 3. **Branch** — `feature/<slug>` created **in an isolated worktree** and **pushed** in which repos;
    confirm **`monkify-meta` spec + INDEX are committed and pushed** (not left local-only).

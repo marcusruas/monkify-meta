@@ -89,9 +89,13 @@ Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
    - **`repos`** — from `**Repos:**` (comma-separated; default all three if the line is missing)
    - **`worktree`** — from `**Worktree:**` (base path, e.g. `.worktrees/<slug>`; each repo at
      `<base>/<repo>`) — where the feature work lives
+   - **`level`** — from `**Level:**` (`Feature` or `Minor change`; case-insensitive — anything not
+     clearly `Minor change` is treated as `Feature`). If absent, fall back to the card's `## Level`
+     section, else default to **`Feature`**. This drives the integration-test check (Step 5) and the
+     `features/<slug>.md` doc decision (Step 7).
 5. Verify `monkify-meta/<specPath-relative>` exists on disk. If missing, **stop**.
 
-Keep `cardId`, `branch`, `specPath`, `repos`, and `worktree` for the rest of the workflow.
+Keep `cardId`, `branch`, `specPath`, `repos`, `worktree`, and `level` for the rest of the workflow.
 
 ### Step 2: Load context
 
@@ -159,10 +163,11 @@ When `monkify-backend` is affected:
 1. **Unit tests** — from `.worktrees/<slug>/monkify-backend`, run `scripts/run_tests.bat` (excludes
    the slow `ProductionSessions` Monte Carlo suite; never run the full `dotnet test` for this).
 2. **Integration tests** — `scripts/run_integration_tests.bat` (Docker must be running). Per
-   `constraints.md` → "Integration tests are mandatory for every new feature", a **feature** must have
-   at least one happy-path integration test (plus one per complex flow). If this is a genuine feature
-   and has **no** integration test covering its happy path, **stop** and flag the gap — it isn't ready
-   to ship. (Bug fixes / QOL / minor changes are exempt.)
+   `constraints.md` → "Integration tests are mandatory for every new feature", a **`Feature`** must
+   have at least one happy-path integration test (plus one per complex flow). If the card's `level`
+   (Step 1) is `Feature` and it has **no** integration test covering its happy path, **stop** and flag
+   the gap — it isn't ready to ship. If `level == Minor change`, the integration test is **exempt**
+   (still run whatever suite exists, but its absence is not a blocker).
 3. If any suite fails, **stop** — report failures; do not update the KB to claim behavior the tests
    contradict, and do not merge.
 4. Note which unit + integration test areas cover the feature (for the report).
@@ -197,7 +202,7 @@ Minimum updates (as relevant — do not touch unrelated files):
 
 | Document | When / what |
 | --- | --- |
-| `features/<feature>.md` | **For a new feature.** Distilled rules + code touchpoints. Use `references/feature-doc-template.md`. **Exempt** for bug fixes / QOL / minor changes — see the note below. |
+| `features/<feature>.md` | **When `level == Feature`.** Distilled rules + code touchpoints. Use `references/feature-doc-template.md`. **Exempt when `level == Minor change`** — see the note below. |
 | `architecture.md` | New/changed services, flows, integrations, or endpoints. |
 | `glossary.md` | New or changed domain terms; fix definitions the feature superseded. |
 | `conventions/backend.md` or `frontend.md` | New patterns the feature introduced. |
@@ -205,11 +210,14 @@ Minimum updates (as relevant — do not touch unrelated files):
 | `INDEX.md` | Feature map row status; update "Feature currently in flight" → shipped; add skill cross-links if needed. |
 | The spec file | Add/update a **Status: Shipped** (date, branch) banner at the top — spec stays the deep design archive. |
 
-> **Feature-doc exemption:** bug fixes, QOL / dev-experience tweaks, and minor changes do **not**
-> require a dedicated `features/<feature>.md` (this mirrors the integration-test exemption in Step 5).
-> If the card is one of those and the user agrees it isn't a "feature", **skip creating a new feature
-> doc** and note that in the report. The exemption only skips the *new dedicated feature artifact*,
-> never the "keep the KB current" duty (INDEX.md → "Keeping the knowledge base current"):
+> **Feature-doc exemption (driven by `level`):** when the card's `level` (Step 1) is
+> **`Minor change`** — a bug fix, QOL / dev-experience tweak, or small change — do **not** create a
+> dedicated `features/<feature>.md` (this mirrors the integration-test exemption in Step 5). When
+> `level == Feature`, the dedicated doc is **required**. The classification comes from refinement (the
+> `## Level` → `## Implementation` `**Level:**` field), not an ad-hoc call here; only override it (with
+> the user) if what actually shipped clearly contradicts the recorded level. The exemption only skips
+> the *new dedicated feature artifact*, never the "keep the KB current" duty (INDEX.md → "Keeping the
+> knowledge base current"):
 >
 > - **You MUST still update every relevant existing `features/*.md`.** A minor change / bug fix
 >   usually changes behavior that an existing feature doc already describes — find those docs and
@@ -340,8 +348,9 @@ Tell the user:
    **Shipped**.
 2. **Verified** — backend unit + integration test result (run on the feature branch before merge).
 3. **KB synced** — files changed and the headline business-rule changes; committed on `feature/<slug>`
-   **before** the merge, so it landed on `main` with the feature. If this was a bug fix / QOL / minor
-   change, note that **no dedicated `features/<slug>.md` was created** (feature-doc exemption) and which
+   **before** the merge, so it landed on `main` with the feature. Note the card's **Level**: if
+   `Feature`, confirm the dedicated `features/<slug>.md` was created; if `Minor change`, note that
+   **no dedicated `features/<slug>.md` was created** (level-based feature-doc exemption) and which
    existing KB docs were updated instead.
 4. **Merged** — `<branch>` → `main` per repo (from a ship worktree, **pushed** to `origin`).
 5. **Drift** — any code vs spec vs Trello mismatches worth a follow-up.
@@ -355,6 +364,10 @@ Tell the user:
 
 - **KB first, then merge** — sync and commit the KB on `feature/<slug>` **before** merging, so it
   lands on `main` with the feature (not as a separate main commit).
+- **The card's `Level` drives the `features/<slug>.md` doc** (read from the `## Implementation`
+  block): `Feature` → the dedicated feature doc is required; `Minor change` → exempt (but every
+  existing affected `features/*.md` and the rest of the KB must still be kept current). The
+  classification comes from refinement, not an ad-hoc call here.
 - **Confirm before merge** — never merge without explicit user approval of the plan in Step 3.
 - **Stop on conflict or test failure** — a half-shipped feature or docs that contradict failing tests
   are worse than stopping.

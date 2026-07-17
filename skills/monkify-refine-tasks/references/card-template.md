@@ -9,6 +9,13 @@ checklist (see SKILL.md Step 5).
 ## Problem
 <One short paragraph: what we're solving and for whom.>
 
+## Level
+<`Feature` or `Minor change` — the Step 4b classification, one line of rationale.>
+- **Feature** — new capability / substantive behavior change → downstream skills create the feature
+  artifacts (mandatory happy-path integration test + a dedicated `features/<slug>.md` KB doc).
+- **Minor change** — bug fix / QOL / dev-experience tweak / small change → exempt from those new
+  artifacts (still unit-tested; existing `features/*.md` docs are still kept current).
+
 ## Decisions (from refinement)
 <Bullet list of the concrete answers reached during refinement — especially the "how does it behave
 when X" clarifications. This is what makes the card unambiguous.>

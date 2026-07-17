@@ -13,6 +13,7 @@ above). Update **`## Status`** to `Spec created — ready for implementation`.
 - **Branch:** `feature/<slug>`
 - **Spec:** `monkify-meta/specs/<slug>.md`
 - **Repos:** monkify-backend, monkify-front, monkify-meta
+- **Level:** Feature
 
 ## Status
 Spec created — ready for implementation.
@@ -29,6 +30,7 @@ is the merge/PR ref (still required; ship-feature merges it into `main`).
 | **Branch** | **Required.** Same branch name in every listed repo: `feature/<slug>` in backticks (the merge/PR ref) |
 | **Spec** | Full path from workspace root: `monkify-meta/specs/<slug>.md` in backticks |
 | **Repos** | Comma-separated repo folder names (include `monkify-meta` when spec lives there) |
+| **Level** | **Required.** `Feature` or `Minor change`, copied from the refined card's `## Level` section. Gates the downstream **feature artifacts**: `Feature` → mandatory happy-path integration test (`monkify-implement-feature`) **and** a dedicated `features/<slug>.md` doc (`monkify-ship-feature`); `Minor change` → both waived (unit tests + existing-doc updates still apply). If the refined card has no `## Level`, default to **`Feature`** (never skip an artifact by guessing). |
 
 The slug in **Spec** and **Branch** must match (`free-bet-mode` → `feature/free-bet-mode` +
 `specs/free-bet-mode.md`).
@@ -42,6 +44,8 @@ Extract with regex or line match:
 - `**Branch:**` → branch inside backticks (the merge/PR ref)
 - `**Spec:**` → path inside backticks
 - `**Repos:**` → remainder of line (split on commas, trim)
+- `**Level:**` → `Feature` or `Minor change` (case-insensitive; anything not clearly `Minor change`
+  is treated as `Feature`). If the line is absent (older cards), default to `Feature`.
 
 If **Implementation** or **Branch** is missing, stop and tell the user to run `/monkify-create-spec`
 again or add the block manually. (Older cards may lack **Worktree:** — that's tolerated; ship-feature

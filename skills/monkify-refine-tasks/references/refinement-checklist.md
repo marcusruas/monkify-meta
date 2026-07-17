@@ -10,7 +10,11 @@ about anything the card does not already answer. The point is to surface impact 
 ## 1. Scope & intent
 
 - [ ] What problem does this card solve, in one sentence? Who is it for (player, operator, ops)?
-- [ ] Is it a new feature, a change to existing behavior, or a bug fix?
+- [ ] **Level (required output):** is it a **`Feature`** (new capability / substantive behavior
+      change) or a **`Minor change`** (bug fix / QOL / dev-experience tweak / small change)? Agree
+      this explicitly with the user (Step 4b) and record it in the card's `## Level` section — it
+      gates whether the downstream skills create the integration test + `features/<slug>.md` doc.
+      When in doubt, choose `Feature`.
 - [ ] What is explicitly **out of scope**?
 
 ## 2. Feature-by-feature impact (ask which apply)
@@ -65,5 +69,6 @@ For each area: does this card change it, depend on it, or break an assumption it
 ## 7. Exit bar
 
 - [ ] Every "how should it behave when…" question has a concrete, agreed answer.
+- [ ] The **Level** (`Feature` / `Minor change`) is agreed with the user and written to `## Level`.
 - [ ] Acceptance criteria are testable (Given / When / Then).
 - [ ] A spec-writer could produce an implementation spec from this card **without** asking anything.

@@ -92,10 +92,14 @@ Copy this checklist and track progress:
    - **`repos`** — from `**Repos:**` (comma-separated; default all three if the line is missing)
    - **`worktree`** — from `**Worktree:**` (base path, e.g. `.worktrees/<slug>`; each repo at
      `<base>/<repo>`)
+   - **`level`** — from `**Level:**` (`Feature` or `Minor change`; case-insensitive — anything not
+     clearly `Minor change` is treated as `Feature`). If the line is absent (older card), fall back to
+     the card's `## Level` section, and if that's missing too, default to **`Feature`**. This drives
+     the mandatory-integration-test decision in Step 7.
 5. Verify `monkify-meta/<specPath-relative>` exists on disk. If missing, **stop** and send the user to
    `/monkify-create-spec`.
 
-Keep `cardId`, `branch`, `specPath`, `repos`, and `worktree` for the rest of the workflow.
+Keep `cardId`, `branch`, `specPath`, `repos`, `worktree`, and `level` for the rest of the workflow.
 
 ### Step 2: Load context
 
@@ -197,16 +201,23 @@ Follow `references/implementation-checklist.md` for the per-repo quality bar.
 
 ### Step 7: Add the mandatory happy-path integration test
 
-Per `constraints.md` → "Integration tests are mandatory for every new feature": a **new feature**
-must ship with **at least one** `Monkify.Tests.Integration` (Testcontainers) test that drives the
-happy path **end to end** and asserts it works 100% (real API + Consumers hosts against real
-Postgres/RabbitMQ/Redis, following the `SessionFlowTests` pattern — not a mock-only unit test). If the
-feature introduces a **particularly complex flow** (multi-step transition, refund/rollback,
-fail-closed branch), add a **dedicated** integration test for it too.
+**Gate this step on the card's `level`** (parsed in Step 1):
 
-> **Exemption:** bug fixes, QOL / dev-experience tweaks, and minor changes do **not** require a new
-> integration test (they still follow the unit-test discipline). If the card is one of those and the
-> user agrees it isn't a "feature", note that in the report and skip this step.
+- **`level == Feature`** → this step is **mandatory**. Per `constraints.md` → "Integration tests are
+  mandatory for every new feature", the feature must ship with **at least one**
+  `Monkify.Tests.Integration` (Testcontainers) test that drives the happy path **end to end** and
+  asserts it works 100% (real API + Consumers hosts against real Postgres/RabbitMQ/Redis, following the
+  `SessionFlowTests` pattern — not a mock-only unit test). If the feature introduces a **particularly
+  complex flow** (multi-step transition, refund/rollback, fail-closed branch), add a **dedicated**
+  integration test for it too.
+- **`level == Minor change`** → **exempt.** Bug fixes, QOL / dev-experience tweaks, and minor changes
+  do **not** require a new integration test (they still follow the unit-test discipline). Note the
+  exemption in the report and skip the rest of this step.
+
+> The `level` comes from refinement (`/monkify-refine-tasks` → `## Level`) via the `## Implementation`
+> block, so this is **not** an ad-hoc judgment. If the code you actually wrote clearly contradicts the
+> recorded level (e.g. a card marked `Minor change` turned into a substantial new capability), **stop
+> and confirm with the user** before skipping the test — don't silently honor a stale classification.
 
 See the mandatory-integration-test memory / the `dev-qol-stuff` feature for how the Testcontainers
 harness (RG operator, tokens, SignalR) is extended.
@@ -400,8 +411,8 @@ Tell the user:
 2. **Plan** — where the writing-plans plan lives.
 3. **Implemented** — per-repo summary of what was built; acceptance criteria covered.
 4. **Tests** — **exactly which unit tests** were added/changed (per `constraints.md` §3) and the
-   integration test(s) added; confirm both suites are green (or note the integration-test exemption
-   if this was a fix/QOL change).
+   integration test(s) added; confirm both suites are green (or, if `level == Minor change`, note that
+   the integration test was skipped under the level-based exemption).
 5. **Committed + pushed** — `feature/<slug>` in which repos.
 6. **Deployed** — how the feature was deployed (clean / redeploy / **Replace** / **Combine** / not
    deployed because the user chose **Skip**); the running URLs (API `:6001`, front `:6003`) and, for a
@@ -423,8 +434,10 @@ Tell the user:
   `docker ps` shows the backend compose services (`api`, `consumers`, `database`, `redis`, `rabbitmq`)
   **and** `monkify-front` all Up/healthy **together** (Step 10c.4). A front-up / backend-missing stack is
   a **failed** deploy — report it, don't hand off, don't move the card.
-- **Every new feature gets a happy-path integration test** (and one per complex flow) — see
-  `constraints.md`. Fixes/QOL/minor changes are exempt.
+- **The card's `Level` drives the integration test** (read from the `## Implementation` block):
+  `Feature` → a happy-path integration test is mandatory (and one per complex flow, see
+  `constraints.md`); `Minor change` → exempt. The classification comes from refinement, not an ad-hoc
+  call here; only override it (with the user) if the code written clearly contradicts the level.
 - **Worktree-first** — implement in `.worktrees/<slug>/<repo>`; the hub stays on `main`. Deploy by
   running the **backend worktree's** `setup_local_environment.bat` so `..\monkify-front` resolves to
   the front worktree, never the hubs.

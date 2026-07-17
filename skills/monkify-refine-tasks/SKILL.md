@@ -35,6 +35,7 @@ Copy this checklist and track progress:
 - [ ] Step 2: Resolve the board and pick the card
 - [ ] Step 3: Read EVERYTHING on the card
 - [ ] Step 4: Refine with the user (Superpowers brainstorming)
+- [ ] Step 4b: Classify the level with the user (Feature vs Minor change)
 - [ ] Step 5: Write the refined result back to the card
 - [ ] Step 5b: Register any git worktree you used on the card
 - [ ] Step 6: Move the card to "Refined"
@@ -92,14 +93,36 @@ Keep asking until there are **no** open ambiguities a spec-writer would have to 
 The exit bar: the card now contains enough detail to write an implementation spec for an AI agent
 **without further clarification**.
 
+### Step 4b: Classify the level with the user (Feature vs Minor change)
+
+Before writing the card back, agree on **one** classification with the user. This is a required
+refinement output — it decides whether the downstream skills create the **feature artifacts** or
+skip them, so don't leave it implicit:
+
+- **`Feature`** — a new capability or a substantive change to existing behavior. A `Feature`
+  **requires** the downstream feature artifacts: a **mandatory happy-path integration test** in
+  `/monkify-implement-feature`, and a dedicated **`features/<slug>.md`** knowledge-base doc in
+  `/monkify-ship-feature`.
+- **`Minor change`** — a bug fix, a QOL / dev-experience tweak, or a small change to existing
+  behavior. A `Minor change` is **exempt** from both of those new artifacts. It still needs unit
+  tests, and it still keeps the KB current — any existing `features/*.md` docs the change affects
+  must still be corrected downstream; only the *new dedicated* artifacts are waived.
+
+Ask directly ("Is this a **Feature** or a **Minor change**?") and confirm the user understands the
+downstream effect. **When in doubt, classify as `Feature`** — that is the safe default; never skip an
+artifact by guessing "minor". Record the agreed level (plus a one-line rationale) in the card's
+`## Level` section in Step 5. `/monkify-create-spec` carries it into the `## Implementation` block,
+and `/monkify-implement-feature` + `/monkify-ship-feature` read it from there.
+
 ### Step 5: Write the refined result back to the card
 
 When the user confirms refinement is complete:
 
 1. Update the description via `update_card_details` using the structure in
-   `references/card-template.md` (Problem, Refinement notes/decisions, Backend impact, Frontend
-   impact, Edge cases, Out of scope, Affected repos, Constraints). Preserve any original intent;
-   integrate, don't blindly overwrite history.
+   `references/card-template.md` (Problem, Level, Refinement notes/decisions, Backend impact,
+   Frontend impact, Edge cases, Out of scope, Affected repos, Constraints). The **`## Level`** section
+   records the Step 4b classification (`Feature` or `Minor change`) with its one-line rationale.
+   Preserve any original intent; integrate, don't blindly overwrite history.
 2. Acceptance criteria → the **"Acceptance Criteria"** checklist (so `get_acceptance_criteria`
    finds them later). If the checklist does not exist, `create_checklist`
    (name: `Acceptance Criteria`); add each criterion with `add_checklist_item`
@@ -133,9 +156,10 @@ registration"):
 ### Step 7: Report
 
 Tell the user: the card name + link, what changed (description, N acceptance criteria), the
-decisions captured, whether a **worktree** was used (and registered on the card) or the refinement
-stayed read-only, and confirm it was moved to **Refined** and is ready for a spec via
-`/monkify-create-spec`.
+**Level** it was classified as (`Feature` or `Minor change`) and what that means downstream (whether
+the integration test + `features/` doc will be created), the decisions captured, whether a
+**worktree** was used (and registered on the card) or the refinement stayed read-only, and confirm it
+was moved to **Refined** and is ready for a spec via `/monkify-create-spec`.
 
 ## Trello tools used (server `trello` / `user-trello`)
 
@@ -147,6 +171,9 @@ stayed read-only, and confirm it was moved to **Refined** and is ready for a spe
 
 - **Do not** write a spec or any code in this skill — refinement only. (Spec writing is a separate,
   later step.)
+- **Always classify the Level** (`Feature` / `Minor change`) with the user and record it in `## Level`
+  — it gates whether the integration test and `features/` doc get created downstream. When unsure,
+  choose `Feature` (never skip an artifact by guessing "minor").
 - **Do not** move the card to `Refined` until the user confirms refinement is complete.
 - Honor `constraints.md` — never surface real secrets; never reveal operator contract status in
   user-facing copy; respect worktree-per-repo (hub stays on `main`) and unit-test expectations when
