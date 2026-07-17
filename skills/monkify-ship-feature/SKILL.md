@@ -197,13 +197,26 @@ Minimum updates (as relevant — do not touch unrelated files):
 
 | Document | When / what |
 | --- | --- |
-| `features/<feature>.md` | **Always.** Distilled rules + code touchpoints. Use `references/feature-doc-template.md`. |
+| `features/<feature>.md` | **For a new feature.** Distilled rules + code touchpoints. Use `references/feature-doc-template.md`. **Exempt** for bug fixes / QOL / minor changes — see the note below. |
 | `architecture.md` | New/changed services, flows, integrations, or endpoints. |
 | `glossary.md` | New or changed domain terms; fix definitions the feature superseded. |
 | `conventions/backend.md` or `frontend.md` | New patterns the feature introduced. |
 | `constraints.md` | Only if the feature adds/clarifies a **non-negotiable** rule already enforced in code. |
 | `INDEX.md` | Feature map row status; update "Feature currently in flight" → shipped; add skill cross-links if needed. |
 | The spec file | Add/update a **Status: Shipped** (date, branch) banner at the top — spec stays the deep design archive. |
+
+> **Feature-doc exemption:** bug fixes, QOL / dev-experience tweaks, and minor changes do **not**
+> require a dedicated `features/<feature>.md` (this mirrors the integration-test exemption in Step 5).
+> If the card is one of those and the user agrees it isn't a "feature", **skip creating a new feature
+> doc** and note that in the report. The exemption only skips the *new dedicated feature artifact*,
+> never the "keep the KB current" duty (INDEX.md → "Keeping the knowledge base current"):
+>
+> - **You MUST still update every relevant existing `features/*.md`.** A minor change / bug fix
+>   usually changes behavior that an existing feature doc already describes — find those docs and
+>   correct them so they match what now runs. Skipping this is not allowed; the dedicated *new* doc
+>   is the only thing waived.
+> - Also fold the change into `glossary.md`, `architecture.md`, `conventions/`, `constraints.md`,
+>   and the spec's **Status: Shipped** banner as relevant.
 
 Write business rules as **present-tense behavior** (what the system does now), not a todo list.
 Include edge cases from the spec **and** Trello that survived in code. Do **not** delete the spec —
@@ -327,7 +340,9 @@ Tell the user:
    **Shipped**.
 2. **Verified** — backend unit + integration test result (run on the feature branch before merge).
 3. **KB synced** — files changed and the headline business-rule changes; committed on `feature/<slug>`
-   **before** the merge, so it landed on `main` with the feature.
+   **before** the merge, so it landed on `main` with the feature. If this was a bug fix / QOL / minor
+   change, note that **no dedicated `features/<slug>.md` was created** (feature-doc exemption) and which
+   existing KB docs were updated instead.
 4. **Merged** — `<branch>` → `main` per repo (from a ship worktree, **pushed** to `origin`).
 5. **Drift** — any code vs spec vs Trello mismatches worth a follow-up.
 6. **Cleanup** — feature + ship worktrees removed; `feature/<slug>` deleted (local + origin) per repo,

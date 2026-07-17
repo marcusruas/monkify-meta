@@ -20,7 +20,14 @@ Before editing files, capture (from code, spec, **and Trello card when available
 - [ ] **Frontend** — routes, composables, services, theming/copy.
 - [ ] **Out of scope** — from spec and/or Trello; do not document as current behavior.
 
-## 2. `features/<feature>.md` (required)
+## 2. `features/<feature>.md` (required for a new feature)
+
+> **Exemption:** bug fixes, QOL / dev-experience tweaks, and minor changes do **not** require a
+> dedicated feature doc. If the card is one of those and the user agrees it isn't a "feature", **skip
+> creating a new doc in this section** — but you **must still update every relevant existing
+> `features/*.md`** so it matches what now runs (a minor change / bug fix almost always alters
+> behavior an existing feature doc describes), plus the sections below (glossary, architecture,
+> conventions, constraints, spec banner). The rest of this checklist still applies.
 
 - [ ] Create or rewrite using `feature-doc-template.md`.
 - [ ] Present tense; link to spec: `../specs/<file>.md`.
@@ -79,6 +86,7 @@ Only document patterns that appear in merged code, not one-offs.
 ## 10. Exit bar
 
 - [ ] A new agent reading only `INDEX.md` → `features/<feature>.md` understands how the feature
-      behaves in production.
+      behaves in production. (Exempt cards without a dedicated feature doc: the updated existing docs
+      must still reflect the change accurately.)
 - [ ] Business rules are stated as behavior, not implementation tasks.
 - [ ] User has seen a summary of KB diffs before any commit.
