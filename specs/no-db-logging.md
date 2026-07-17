@@ -1,6 +1,12 @@
 # ChimpOut — "Make log not stored in DB" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-07-17** via `feature/no-db-logging`
+> (`monkify-backend` + `monkify-meta`). 366 unit + 35 integration tests green (no unit tests changed,
+> no new integration test — QOL/infra exemption). Distilled summary lives in `INDEX.md` → "Feature
+> currently in flight" (last shipped) and `conventions/backend.md` (logging); no dedicated
+> `features/` doc (QOL/infra change).
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [Make log not stored in DB](https://trello.com/c/ZlNLBc5C) (2026-07-17).
 > Repos affected: `monkify-backend`, and this doc in `monkify-meta` (**no `monkify-front`**).
 >

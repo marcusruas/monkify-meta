@@ -105,5 +105,14 @@
   `appsettings.json` / `appsettings.Development.json` overlays for app settings; put new keys in
   `chimpoutsettings.json` under the appropriate `GeneralSettings` section.
 
-<!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, logging
-     (Serilog) patterns, and add concrete examples. -->
+- **Logging is Serilog, console-only.** Both hosts configure Serilog once via
+  `builder.AddLogs()` (`ChimpOut.Infrastructure/DependencyInjection.cs`) — a single **Console** sink
+  (stdout), minimum level **Information** in non-production and **Warning** in production. **Logs are
+  not persisted to the database** (the old `Serilog.Sinks.PostgreSQL` sink and its `ChimpOutApiLogs`/
+  `ChimpOutConsumerLogs` tables were removed — see `specs/no-db-logging.md`); stdout is captured by
+  Cloud Run → Cloud Logging in production and shown in the terminal locally. Code logs via the static
+  `Serilog.Log`.
+
+<!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, and add
+     concrete examples. -->
+

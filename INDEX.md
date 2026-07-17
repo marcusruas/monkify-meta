@@ -129,7 +129,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
 | `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `chimpout_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→chimpout`. | Shipped |
 | `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
-| `specs/no-db-logging.md` | **Backend infra cleanup:** stop persisting Serilog output to Postgres. Remove the Serilog **PostgreSQL sink** from `AddLogs` (Console-only), drop the `Serilog.Sinks.PostgreSQL` package + the `tableName` param + the connection-string read, update both call sites, and add a raw-SQL EF migration `DropLogTables` (`DROP TABLE IF EXISTS "ChimpOutApiLogs"/"ChimpOutConsumerLogs"`, no-op Down, empty model diff). Log levels/content unchanged; no frontend; no game-flow change ⇒ no integration test. | Ready |
+| `specs/no-db-logging.md` | **Backend infra cleanup:** stop persisting Serilog output to Postgres. Remove the Serilog **PostgreSQL sink** from `AddLogs` (Console-only), drop the `Serilog.Sinks.PostgreSQL` package + the `tableName` param + the connection-string read, update both call sites, and add a raw-SQL EF migration `DropLogTables` (`DROP TABLE IF EXISTS "ChimpOutApiLogs"/"ChimpOutConsumerLogs"`, no-op Down, empty model diff). Log levels/content unchanged; no frontend; no game-flow change ⇒ no integration test. | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -151,20 +151,23 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created 2026-07-17):_ **Make log not stored in DB** —
-  `feature/no-db-logging` (`monkify-backend` + `monkify-meta`; **no frontend**). Backend-only
-  infra/config cleanup: stop persisting the app's Serilog output into Postgres. Remove the Serilog
-  **PostgreSQL sink** from `AddLogs` so logging is **Console-only** (stdout → Cloud Run/Cloud Logging
-  in prod), drop the `Serilog.Sinks.PostgreSQL` package reference + the now-unused `tableName`
-  parameter + the `ConnectionStrings:ChimpOut` read inside `AddLogs`, and update both call sites
-  (`ChimpOut.Api`/`ChimpOut.Consumers` → `builder.AddLogs()`). A new raw-SQL EF migration
-  `DropLogTables` drops the two sink-created tables (`ChimpOutApiLogs`, `ChimpOutConsumerLogs`) with
-  `DROP TABLE IF EXISTS` (no-op `Down`; empty model diff — the tables were never in the EF model, so
-  the snapshot is unchanged), applied by Consumers at startup. Log **levels/content unchanged**; the
-  integration harness (swaps `Log.Logger` post-build) is unaffected; no game-flow change ⇒ **no
-  integration test required**. Spec `specs/no-db-logging.md`; Trello #68
-  ([ZlNLBc5C](https://trello.com/c/ZlNLBc5C)).
-- _Last shipped:_ **Create Terraform to deploy the app (GCP)** —
+- _Last shipped:_ **Make log not stored in DB** —
+  `feature/no-db-logging` (`monkify-backend` + `monkify-meta`; **no frontend**), **shipped
+  2026-07-17**. Backend-only infra/config cleanup: the app's Serilog output is **no longer persisted
+  to Postgres**. The **PostgreSQL sink** is removed from `AddLogs` so logging is **Console-only**
+  (stdout → Cloud Run/Cloud Logging in prod, terminal locally); the `Serilog.Sinks.PostgreSQL`
+  package reference, the now-unused `tableName` parameter, and the `ConnectionStrings:ChimpOut` read
+  inside `AddLogs` are all gone, and both call sites (`ChimpOut.Api`/`ChimpOut.Consumers`) now call
+  `builder.AddLogs()`. A raw-SQL EF migration `DropLogTables` drops the two sink-created tables
+  (`ChimpOutApiLogs`, `ChimpOutConsumerLogs`) with `DROP TABLE IF EXISTS` (no-op `Down`; **empty
+  model diff** — the tables were never in the EF model, so `ChimpOutDbContextModelSnapshot` is
+  unchanged), applied by `ChimpOut.Consumers` at startup. Log **levels/content unchanged**
+  (Information non-prod / Warning prod); the integration harness (swaps `Log.Logger` post-build) is
+  unaffected. QOL/infra change (no game-flow change) ⇒ **no new integration test, no dedicated
+  `features/` doc**; **366 unit + 35 integration tests green** (no unit tests changed). Verified on
+  the local Docker stack (`DropLogTables` in `__EFMigrationsHistory`, both log tables absent, logs to
+  stdout). Spec `specs/no-db-logging.md`; Trello #68 ([ZlNLBc5C](https://trello.com/c/ZlNLBc5C)).
+- _Previously shipped:_ **Create Terraform to deploy the app (GCP)** —
   `feature/terraform-gcp-deploy` (`monkify-meta` **primary** + `monkify-backend` + `monkify-front`; `monkify-lp`
   built by the tool, no repo change), **shipped 2026-07-17**. Production **GCP** deploy as
   **Infrastructure-as-Code + two local C# console apps**, all in `monkify-meta/deploy/`: a **Terraform** project
