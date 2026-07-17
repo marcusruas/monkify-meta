@@ -78,7 +78,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 1 | **Scope = SolanaToken header balance only, frontend-only.** Fix the on-chain token-balance refresh for crypto games. Standard games are unchanged (no balance shown). Adding an off-chain USD balance is **out of scope** (would need a new operator-wallet `GetBalance` endpoint + adapter + UI). |
 | 2 | **Mechanism = periodic polling** of the connected wallet's token balance every **~10 seconds** while on a SolanaToken game page with a wallet connected. |
 | 3 | **Poll is scoped and paused** to limit RPC traffic: runs only for a connected SolanaToken game; **pauses when the browser tab is hidden** and does an **immediate read when it becomes visible again**; **stops** when the player leaves the crypto game (games list / a Standard game) or disconnects the wallet. |
-| 4 | **Plus an immediate one-off refresh** the moment these events happen (snappy, with the poll as safety net): **own bet placed**, **win payout**, and **refund**. |
+| 4 | **Plus an immediate refresh** the moment these events happen (snappy, with the poll as safety net): **own bet placed**, **win payout**, and **refund**. Two refinements from user testing (2026-07-17): (a) **own bet updates instantly** — instead of a stale on-chain read at bet time, the header **optimistically subtracts the known stake** immediately and the poll reconciles once the debit propagates; (b) the **win payout read runs ~5 s after the winner is decided** (`Ended`), not the instant of settlement, so the reward transfer has time to settle + propagate. |
 | 5 | **Refund detection** = the round reaching a refunding terminal state. Concretely: widen the existing status watch (`RewardForWinnersCompleted`, `ErrorWhenProcessingRewards`) to also include **`NotEnoughPlayersToStart`** (under-subscription refund). Any state not explicitly caught is still covered by the ~10 s poll. |
 | 6 | **Keep the existing initial fetch** on wallet-connect / game entry as the baseline display. |
 | 7 | **Resilient reads:** on a transient RPC read failure keep the **last known balance** (no flash to `0`/blank) and retry on the next tick. |
@@ -153,17 +153,48 @@ required in `useConnection.ts` or `useGame.ts` for the core fix (see §7.5 for a
 
 ### 7.4 Immediate refresh on money-moving events (decisions #4, #5)
 
-- **Own bet:** unchanged — `useGame.submitBet` already calls `updateBalanceCallback.value()` after a
-  successful `applyBet`, which maps to `getBalance()`.
-- **Win / refund / reward-error:** widen the existing status watch so it fires `getBalance()` for the
-  refund state too:
+- **Own bet — optimistic, instant (refined 2026-07-17).** A chain read at bet time returns the
+  **pre-debit** balance (the transfer has not propagated), so it looked like "nothing happened" until
+  the next poll. Instead, `useGame.submitBet` passes the **stake** to the callback and the header
+  **subtracts it immediately** — accurate, because the debit is exactly the stake — then restarts the
+  poll so the on-chain reconcile lands *after* propagation (a stale read would otherwise revert the
+  optimistic value). `updateBalanceCallback` is typed `(spent?: number) => void`:
+
+  ```ts
+  // useGame.ts
+  const updateBalanceCallback = ref<(spent?: number) => void>(() => {});
+  // ...in submitBet, after applyBet succeeds:
+  updateBalanceCallback.value(body.amount); // body.amount is 0 for a free bet
+
+  // TokenBalance.vue (onMounted)
+  updateBalanceCallback.value = (spent?: number) => {
+    if (spent && spent > 0) {
+      balance.value = Math.max(0, balance.value - spent); // instant, exact
+      restartPoll();                                       // reconcile a full interval later
+    } else {
+      getBalance();                                        // free bet / generic refresh
+    }
+  };
+  ```
+
+- **Win payout — read ~5 s after the winner is decided (refined 2026-07-17).** On
+  `GameStatus.Ended` (winner known), schedule a single read `WINNER_SETTLE_DELAY_MS = 5_000` ms later,
+  by which time the reward transfer has settled + propagated. The timer is cleared on unmount and
+  re-armed if `Ended` fires again.
+
+- **Refund / reward-error:** widen the existing status watch so it also fires `getBalance()` for the
+  refund state. A stale read here is corrected by the next poll tick within ~10 s.
 
   ```ts
   watch(
     () => gameInstance.value?.status,
     (newStatus) => {
+      if (newStatus === GameStatus.Ended) {                 // winner decided → payout lands shortly
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => getBalance(), WINNER_SETTLE_DELAY_MS);
+      }
       if (
-        newStatus === GameStatus.RewardForWinnersCompleted || // paid win
+        newStatus === GameStatus.RewardForWinnersCompleted || // paid win (poll/settle read reconciles)
         newStatus === GameStatus.ErrorWhenProcessingRewards || // reward-path refund / manual
         newStatus === GameStatus.NotEnoughPlayersToStart        // under-subscription refund (NEW)
       ) {
@@ -172,8 +203,6 @@ required in `useConnection.ts` or `useGame.ts` for the core fix (see §7.5 for a
     }
   );
   ```
-
-  A stale read here is corrected by the next poll tick within ~10 s.
 
 ### 7.5 Token switch between crypto games (edge case)
 
@@ -247,7 +276,8 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/components/TokenBalance.vue` | Add `BALANCE_POLL_INTERVAL_MS = 10_000` constant. In `onMounted` start `setInterval(tick, …)` and register a `visibilitychange` listener; `tick` skips when `document.hidden` and reads only when `connected`. Add `onUnmounted` to `clearInterval`, remove the listener, and reset `updateBalanceCallback` to a no-op. On visible→immediate read. Widen the `gameInstance.status` watch to include `GameStatus.NotEnoughPlayersToStart`. Add a `watch(() => props.tokenAddress, getBalance)` for token switches. Add a `hasLoaded` flag so the spinner shows only until first load; set `isFetching=false` in the `catch` and keep the last-known balance; suppress error toasts on poll reads. |
+| 1 | `src/components/TokenBalance.vue` | Add `BALANCE_POLL_INTERVAL_MS = 10_000` + `WINNER_SETTLE_DELAY_MS = 5_000` constants. In `onMounted` start the poll (`startPoll`) and register a `visibilitychange` listener; `pollTick` skips when `document.hidden` and reads only when `connected`. Add `onUnmounted` to clear the poll + settle timers, remove the listener, and reset `updateBalanceCallback` to a no-op. On visible→immediate read. `updateBalanceCallback` becomes `(spent?) =>` **optimistic subtract of the stake** + `restartPoll()` (else `getBalance()`). Status watch: on `Ended` schedule a `getBalance()` **5 s later** (`settleTimer`); also `getBalance()` on `RewardForWinnersCompleted` / `ErrorWhenProcessingRewards` / `NotEnoughPlayersToStart`. Add `watch(() => props.tokenAddress, getBalance)` for token switches. Add a `hasLoaded` flag so the spinner shows only until first load; set `isFetching=false` in the `catch` and keep the last-known balance; suppress error toasts on poll reads. |
+| 2 | `src/hooks/useGame.ts` | Type `updateBalanceCallback` as `ref<(spent?: number) => void>`; in `submitBet` call `updateBalanceCallback.value(body.amount)` after a successful `applyBet` (passes the stake for the optimistic decrement; `0` for a free bet). |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -337,3 +367,4 @@ Then `yarn lint` and `yarn build` green in the front worktree (copy the hub `yar
 | Date | Change |
 | --- | --- |
 | 2026-07-17 | Initial spec from the refined card #67. Frontend-only: periodic ~10 s poll + immediate refresh on own bet / win / refund (incl. `NotEnoughPlayersToStart`), visibility pause, resilient reads, token-switch refetch. All contained in `TokenBalance.vue`. |
+| 2026-07-17 | Post-implementation refinements from user testing: (a) **own bet updates instantly** via an optimistic stake decrement (`updateBalanceCallback(spent)`) + poll restart instead of a stale on-chain read; (b) the **win payout read runs ~5 s after `Ended`** (`WINNER_SETTLE_DELAY_MS`) so the reward transfer has time to propagate. Adds a one-line `useGame.ts` change (typed callback + pass `body.amount`). |
