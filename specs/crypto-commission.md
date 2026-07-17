@@ -165,6 +165,18 @@ ulong rewardInTokens = (ulong)(winnerReward * (decimal)Math.Pow(10, _settings.De
 return new BetTransactionAmountResult(winnerReward, rewardInTokens);
 ```
 
+**Reward-division fix (found during implementation — pre-existing bug the commission surfaced).**
+`BetDomainService.Winners` was a **deferred** query (`game.Bets.Where(Status == NeedsRewarding)`), and
+`RewardGameConsumer` flips each winner's `Status` to `Rewarded` as it pays them. So `Winners.Count()`
+**shrank mid-payout**, and later winners divided the pot by a smaller count — a multi-winner round
+over-paid (a 3-token / 2-winner round paid the second winner the **whole pot**). Fix: **materialize
+`Winners` once** (`.ToList()`) and divide the pot among **paid winners only**
+(`PayableWinnerCount = Winners.Count(w => !IsFreeBet(w))`, frozen; guarded to ≥ 1). Paid-winner
+division also preserves the free+paid rule (a free winner takes no share, so the paid winner keeps the
+whole pot) that the old drift achieved only by accident. Both the reward divisor and the commission's
+`houseFundedShare` use `PayableWinnerCount`. Regression test:
+`CalculateRewardForBet_WinnersRewardedSequentially_CountDoesNotDrift`.
+
 Notes:
 - `net = winnerReward − commission` is what `RewardGameConsumer` passes to
   `paymentResolver.Resolve(...).Credit(winner, rewardResult.Value, …)`, so the on-chain transfer is
@@ -393,3 +405,4 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 | Date | Change |
 | --- | --- |
 | 2026-07-17 | Initial spec from refined card #66 (crypto-only commission, profit-above-stake, house-base-excluded, STATS-badge-only, global rate config). |
+| 2026-07-17 | Implementation: fixed a pre-existing multi-winner reward-division bug the commission surfaced — freeze the winner set + divide the pot among paid winners only (`PayableWinnerCount`). Product decision confirmed: keep the profit-above-stake model (a 3-token / 2-winner round pays 1.4975 each, not 1.4925). |
