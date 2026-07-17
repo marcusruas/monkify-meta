@@ -129,6 +129,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
 | `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `chimpout_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→chimpout`. | Shipped |
 | `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
+| `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. | Ready |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -150,6 +151,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In progress (spec created 2026-07-17):_ **Add commission (crypto games)** —
+  `feature/crypto-commission` (`monkify-backend` + `monkify-front` + `monkify-meta`). Re-adds a house
+  **commission on winnings, `SolanaToken` games only**: `0.5%` of each winner's **player-funded profit
+  above their own stake**, with the house-funded lottery base (`LotteryParameters.LotteryPot +
+  Game.CarriedExtra`) **excluded** — equivalently 0.5% of the losing-bet stakes; a winner never nets
+  below their stake. **Configurable global rate** `GeneralSettings.Token.CommissionPercentage`
+  (default `0.5`, `0` disables) — restores the old, removed `TokenSettings.CommisionPercentage`
+  location (correctly spelled). Applied per-winner in `BetDomainService.CalculateRewardForBet`
+  (SolanaToken branch; `SetPotAmount` unchanged) and realized by **crediting winners less on-chain** —
+  the retained remainder stays in the operator's token account, so **no new transfer, no ledger row,
+  no migration**. The rate is surfaced to the SPA on `GameParametersDto` → `ActiveGame`
+  (`commissionPercentage`); **UI = STATS side-panel badge only** (`GameStatsPanel.vue` made
+  method-aware: `0.5% HOUSE CUT` crypto / `0% HOUSE CUT` Standard) — no terminal line, no lobby card.
+  Standard/USD settlement, refunds, and provably-fair verification are untouched. Mandatory crypto
+  happy-path (+ lottery/multi-winner) integration test in `ChimpOut.Tests.Integration`. Spec
+  `specs/crypto-commission.md`; Trello #66 ([qq0F0ZNJ](https://trello.com/c/qq0F0ZNJ)).
 - _Last shipped:_ **Create Terraform to deploy the app (GCP)** —
   `feature/terraform-gcp-deploy` (`monkify-meta` **primary** + `monkify-backend` + `monkify-front`; `monkify-lp`
   built by the tool, no repo change), **shipped 2026-07-17**. Production **GCP** deploy as
