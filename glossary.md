@@ -227,3 +227,14 @@
 - **IMessageBus / MessageBusPublisher** — the thin publish abstraction over MassTransit's
   `IPublishEndpoint.Publish` (`ChimpOut.Infrastructure.Services.Messaging`). Renamed from the old
   transport-specific `IRabbitMQService` / `RabbitMQService` when the transport moved to Postgres.
+- **Persistent / workload layers** — the two Terraform states in `monkify-meta/deploy/terraform/`. The
+  **persistent** layer holds the Cloud DNS zone + domain + remote-state bucket (`prevent_destroy`); the
+  **workload** layer holds everything a `teardown` may destroy (Cloud Run, Cloud SQL, Memorystore, LB,
+  Cloud Armor, VPC, Artifact Registry, buckets). Teardown destroys only the workload, so the domain stays.
+- **chimpout-deploy / chimpout-db** — the two local .NET 8 console tools under `deploy/tools/`.
+  `chimpout-deploy` runs the manual GCP deploy (`deploy [api|consumers|front|lp]` + `teardown`; syncs
+  secrets → Secret Manager, builds/pushes, `terraform apply`). `chimpout-db` is a read-write DB REPL over
+  the Cloud SQL Auth Proxy that requires typing `YES` before any write.
+- **CorsOriginResolver / GeneralSettings:Cors** — config-driven browser CORS allow-list read by both hosts
+  (`GeneralSettings:Cors:AllowedOrigins`, default `https://app.chimpout.com`, prod-overridable via env).
+  Replaced the hardcoded origin.

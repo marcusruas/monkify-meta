@@ -1,7 +1,11 @@
 # ChimpOut — "Create Terraform to deploy the app (GCP)" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/terraform-gcp-deploy` on 2026-07-17. Distilled summary:
+> `../features/terraform-gcp-deploy.md`. Refined via Trello card
 > [Create terraform to deploy the app](https://trello.com/c/QrjmQttY) (2026-07-16).
+> **Post-ship note:** the API already exposed `/health` via `HomeController` (only Consumers gained one);
+> the committed CORS default + Main-operator seed URLs are `app.chimpout.com` (retired `monkify.net`). The
+> real `terraform apply` is an ops step (needs a registered domain + real Solana/Fx secrets).
 > Repos affected: `monkify-meta` (Terraform + both C# console apps + secrets template/docs — **primary**),
 > `monkify-backend` (Cloud Run readiness — health probes, forwarded headers, deploy ordering; **no game
 > behaviour change**), `monkify-front` (production static-build config for GCS/CDN). `monkify-lp` is

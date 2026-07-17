@@ -349,3 +349,29 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 > Connection strings and provider credentials are supplied via environment/config and **must not
 > be read or edited** by the agent — see `constraints.md`.
+
+## 13. Production deployment (GCP)
+
+The production deployment is Infrastructure-as-Code + two local console tools under
+`monkify-meta/deploy/` (spec `specs/terraform-gcp-deploy.md`, feature `features/terraform-gcp-deploy.md`).
+Deploys are **manual** (no CI); everything is driven by an unversioned local `secrets.<env>.json`.
+
+- **Compute:** `ChimpOut.Api` and `ChimpOut.Consumers` run as **Cloud Run** services (from images in
+  **Artifact Registry**). The API autoscales (`min ≥ 1`) and is public behind the load balancer; Consumers
+  is **internal-ingress only** (it hosts `/hangfire` and owns EF migrations/seeding), **CPU always-on**,
+  pinned to `var.consumer_count` (default 1), and is released **before** the API.
+- **Static sites:** `monkify-front` and `monkify-lp` are built and served from **GCS website buckets +
+  Cloud CDN**; the front reproduces its `Content-Security-Policy: frame-ancestors *` as a CDN response
+  header (no nginx in this path).
+- **Data tier (private only):** **Cloud SQL Postgres 16** (one instance, both `chimpout` and
+  `chimpout_messaging`) and **Memorystore Redis 7**, no public IPs; Cloud Run reaches them through a
+  **Serverless VPC Access connector**, egress via **Cloud NAT**.
+- **Edge:** one external **HTTPS load balancer** → **Cloud Armor** (per-IP rate limiting + OWASP rules) →
+  api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `chimpout.com`.
+- **Secrets:** the deploy tool syncs `secrets.<env>.json` into **Secret Manager**; Cloud Run reads them via
+  IAM at boot. Each host has a **least-privilege service account**. No secret value enters Terraform state.
+- **Health probes:** Cloud Run probes `GET /health` on both hosts (API via `HomeController`, Consumers via
+  `MapHealthChecks`). The API trusts forwarded headers (`UseForwardedHeaders`) so HTTPS-redirect works
+  behind the LB. Browser CORS origins are config-driven (`GeneralSettings:Cors:AllowedOrigins`).
+- **Teardown keeps the domain:** Terraform is split into a **persistent** layer (DNS zone + domain + state
+  bucket, `prevent_destroy`) and a **workload** layer; `teardown` destroys only the workload.
