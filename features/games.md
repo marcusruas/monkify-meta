@@ -264,16 +264,25 @@ sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes,
 
 ## 8. Reward & refund math (`BetDomainService`)
 
-Constructed per game with `TokenSettings`. `Winners` = bets with `Status == NeedsRewarding`.
+Constructed per game with `TokenSettings`. `Winners` = bets with `Status == NeedsRewarding`
+(**materialized once** in the ctor — the reward consumer flips each winner's status to `Rewarded` as
+it pays them, so a deferred set would shrink mid-payout and over-reward later winners).
 
 - **Pot (`SetPotAmount`):** `pot = Σ(all bet amounts)` — zero-amount (free) bets contribute nothing;
   for lottery types, add `LotteryParameters.LotteryPot` **and** the game's `CarriedExtra` (the
-  jackpot stacked from prior un-won lottery rounds — see `features/lottery-pot-stacking.md`). **No
-  commission is applied** — the full pot is paid to winners (the old `CommisionPercentage` was removed;
-  see `features/operator-wallet-api.md`).
+  jackpot stacked from prior un-won lottery rounds — see `features/lottery-pot-stacking.md`). The pot
+  is never reduced here; the crypto commission (below) is applied per winner at payout.
 - **Reward per winner (`CalculateRewardForBet`):**
-  - `winnerReward = pot / winnerCount`.
+  - `winnerReward = pot / payableWinnerCount`, where `payableWinnerCount` = the number of **paid**
+    winners (`Winners.Count(w => !IsFreeBet(w))`, frozen, guarded ≥ 1). Free-bet winners are marked
+    `Rewarded` but receive no payout, so they do **not** dilute the paid winners' share (a free + paid
+    winner ⇒ the paid winner takes the whole pot).
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
+  - **Crypto commission (`SolanaToken` only):** subtract `rate × max(0, winnerReward − ownStake −
+    houseFundedShare)`, where `rate = GeneralSettings.Token.CommissionPercentage / 100` (default 0.5%,
+    `0` disables) and `houseFundedShare = (LotteryPot + CarriedExtra) / payableWinnerCount`. The cut
+    comes only from **profit above the winner's own stake**, and the house-funded lottery base is
+    excluded. **Standard games apply no commission.** See `features/crypto-commission.md`.
   - Subtract this bet's already-paid **`Credit`** ledger rows: `winnerReward -= Σ(Credit-type TransactionLog amounts)`.
   If `≤ 0` → `BetHasAlreadyBeenRewarded` (idempotency guard for retries).
   - Round down to `TokenSettings.Decimals`; also compute the smallest-unit integer for the transfer.

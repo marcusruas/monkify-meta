@@ -1,7 +1,7 @@
 # ChimpOut — "Add commission (crypto games)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Add comission (#66)](https://trello.com/c/qq0F0ZNJ) (2026-07-17).
+> **Status: Shipped** — merged via `feature/crypto-commission` on 2026-07-17. Refined via Trello card
+> [Add comission (#66)](https://trello.com/c/qq0F0ZNJ). Distilled: `features/crypto-commission.md`.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Re-introduce a house **commission** on winnings, scoped to **crypto (SolanaToken)
