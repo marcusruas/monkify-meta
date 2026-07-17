@@ -185,22 +185,24 @@ selection `GameTypes.vue:42`, rollover `GameConsole.vue:109`), so this one call 
 ### 7.4 Reactive re-run for wallet reconnect (decision #6)
 
 For SolanaToken games `currentPlayerId` is null at mount and resolves only once the wallet
-reconnects. Register a **single** watch (module-guarded, because `useGame()` runs per-caller while its
-state is a module singleton) that re-runs the re-seed whenever the identity changes:
+reconnects. Register a `watch` inside `useGame()` that re-runs the re-seed whenever the identity
+changes:
 
 ```ts
-// module scope
-let reseedWatchStarted = false;
-
 // inside useGame():
-if (!reseedWatchStarted) {
-  reseedWatchStarted = true;
-  watch(currentPlayerId, () => reseedOwnBetsFromInstance());
-}
+watch(currentPlayerId, () => reseedOwnBetsFromInstance());
 ```
 
-The re-seed is idempotent (decision #8), so even if this fires alongside the load-path call it never
-duplicates rows.
+**One watch per consumer, not module-guarded.** `watch()` called in `useGame()` attaches to the
+calling component's effect scope and is auto-disposed on unmount. A one-time module guard
+(`if (!started) { started = true; watch(...) }`) would tie the single watcher to whichever component
+called `useGame()` **first**, and when that component unmounts the watcher dies while the guard stays
+`true` — silently killing the reconnect re-seed. Because `reseedOwnBetsFromInstance` is idempotent
+(decision #8), letting each consumer register its own component-scoped watch is both simpler and
+correct: duplicate fires across consumers (and alongside the load-path call) never duplicate rows, and
+the feature keeps working as long as any `useGame` consumer is mounted (always true on the game page).
+The watch is **lazy** (fires on change only); the initial load is covered by the `updateNewGame` call
+in §7.3, so `immediate` is not needed.
 
 ### 7.5 Match own bets on the live `{gameId}/Bets` stream
 
@@ -307,7 +309,7 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/hooks/useGame.ts` | Import `useDisplayCurrency` + `getPlayerIdFromToken`. Add the reactive `currentPlayerId` computed (crypto → wallet; else `externalPlayerId`/`sub`) and **export** it. Add `reseedOwnBetsFromInstance()` (match `gameInstance.bets` by `externalPlayerId === currentPlayerId`, replay via idempotent `recordOwnChoice`). Call it at the **end** of `updateNewGame` (after the reset block, `~:547`). Register a **once-guarded** `watch(currentPlayerId, reseedOwnBetsFromInstance)` for crypto wallet reconnect. In the `{gameId}/Bets` handler (`:273-291`) add an identity match → `recordOwnChoice(newBet.choice)`. |
+| 1 | `src/hooks/useGame.ts` | Import `useDisplayCurrency` + `getPlayerIdFromToken`. Add the reactive `currentPlayerId` computed (crypto → wallet; else `externalPlayerId`/`sub`) and **export** it. Add `reseedOwnBetsFromInstance()` (match `gameInstance.bets` by `externalPlayerId === currentPlayerId`, replay via idempotent `recordOwnChoice`). Call it at the **end** of `updateNewGame` (after the reset block, `~:547`). Register a per-consumer, component-scoped `watch(currentPlayerId, reseedOwnBetsFromInstance)` for crypto wallet reconnect (idempotent — not module-guarded; see §7.4). In the `{gameId}/Bets` handler (`:273-291`) add an identity match → `recordOwnChoice(newBet.choice)`. |
 | 2 | `src/components/game/GameTerminal.vue` | Replace the local `myId` (`:56`) with the shared `currentPlayerId` from `useGame`, so `betPlayerLabel` ("YOU") and the near-miss re-seed use one resolver. |
 | 3 | `src/hooks/useGameChat.ts` | *(Optional consolidation)* reuse `currentPlayerId` for the chat identity (`:28`) instead of its local `publicKey || externalPlayerId || getPlayerIdFromToken()` expression. Nice-to-have; skip if it widens blast radius. |
 
@@ -405,3 +407,4 @@ mind CRLF/prettier `endOfLine: lf`).
 | Date | Change |
 | --- | --- |
 | 2026-07-17 | Initial spec from refined card #70. Frontend-only: re-derive own-bet ownership on the load path by matching the fetched `gameInstance.bets` against a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice` (re-seeds `ownBetChoices` + `nearMiss.trackChoice`); reactive re-run for crypto wallet reconnect; live `{gameId}/Bets` identity match. Ended-view reload dropped (GET excludes ended games; DTO lacks `winners`) to keep it a frontend-only Minor change. |
+| 2026-07-17 | Implementation correction (§7.4): the reconnect watch is registered **per useGame consumer** (component-scoped, auto-disposed), **not** module-guarded once — a one-time guard would tie the sole watcher to the first caller's scope and silently die on its unmount. The re-seed is idempotent, so per-consumer watches are safe. Implemented in `feature/restore-own-bets-on-refresh` (`monkify-front`). |
