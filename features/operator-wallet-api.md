@@ -60,10 +60,11 @@ full pot).
   `TransactionLog` (type `Refund`). `BetDomainService` idempotency math reads the ledger **by type**:
   reward subtraction uses `Credit` rows, the already-refunded guard uses `Refund` rows; `Debit` rows are
   never subtracted.
-- **No commission.** `BetDomainService.SetPotAmount` no longer applies a commission: the pot is the full
-  sum of stakes (plus `LotteryParameters.LotteryPot` for lottery) and the whole pot is paid to winners.
-  This applies to **both** payment models. (A ChimpOut commission-per-bet feature is tracked separately for
-  later — see Trello card #26.)
+- **No commission (as of this feature; later re-added for crypto).** This feature removed the
+  commission so the whole pot was paid to winners under **both** payment models. **Superseded for
+  `SolanaToken` games** by `features/crypto-commission.md` (shipped 2026-07-17): crypto winnings now
+  retain a configurable house cut (default 0.5%, taken from profit above the winner's own stake) via
+  `TokenSettings.CommissionPercentage`. **Standard games still pay the full pot** (no commission).
 - **Free bets & crypto unchanged.** Amount-0 free bets make no wallet calls under any model; crypto
   operators are unchanged apart from the unified ledger and commission removal.
 
@@ -91,8 +92,9 @@ full pot).
   `ChimpOutDbContext.OnModelCreating`; migration
   `ChimpOut.Infrastructure/Migrations/20260630183419_AddOperatorWalletLedger.cs` (adds columns, backfills
   existing rows as `Credit`, migrates `RefundLog` → `TransactionLog`, drops `Refunds`).
-- Money math: `ChimpOut.Domain/Bets/Services/BetDomainService.cs` (no commission; type-aware credit/refund
-  sums). Config removed: `TokenSettings.CommisionPercentage`.
+- Money math: `ChimpOut.Domain/Bets/Services/BetDomainService.cs` (type-aware credit/refund sums).
+  Config removed here: `TokenSettings.CommisionPercentage` — **later re-added (correctly spelled) as
+  `TokenSettings.CommissionPercentage` for the crypto commission**; see `features/crypto-commission.md`.
 - Host split: debit in `ChimpOut.Api` (synchronous, at bet time); credit/refund in `ChimpOut.Consumers`.
 
 **Frontend (`monkify-front`)**

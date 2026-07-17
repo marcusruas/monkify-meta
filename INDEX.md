@@ -131,6 +131,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
 | `specs/no-db-logging.md` | **Backend infra cleanup:** stop persisting Serilog output to Postgres. Remove the Serilog **PostgreSQL sink** from `AddLogs` (Console-only), drop the `Serilog.Sinks.PostgreSQL` package + the `tableName` param + the connection-string read, update both call sites, and add a raw-SQL EF migration `DropLogTables` (`DROP TABLE IF EXISTS "ChimpOutApiLogs"/"ChimpOutConsumerLogs"`, no-op Down, empty model diff). Log levels/content unchanged; no frontend; no game-flow change ⇒ no integration test. | Shipped |
 | `specs/wallet-balance-refresh.md` | **Frontend-only bug fix:** the header **SolanaToken** balance (`TokenBalance.vue`) now keeps itself current — a **~10 s periodic poll** (scoped to a connected SolanaToken game, paused when the tab is hidden, stopped on unmount/disconnect) **plus immediate refreshes**: own bet updates **instantly** via an optimistic stake decrement, the **win payout reads ~5 s after `Ended`**, and refund (`NotEnoughPlayersToStart` + `ErrorWhenProcessingRewards`) refreshes on settlement; + token-switch refetch + resilient last-known reads. No backend/Standard-balance change (Standard shows no balance by design). | Shipped |
+| `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. Shipped alongside a pre-existing multi-winner reward-division fix (frozen winner set + paid-winner divisor). | Shipped |
+| `features/crypto-commission.md` | Distilled: crypto (`SolanaToken`) house **commission** on winnings — default 0.5% (`GeneralSettings.Token.CommissionPercentage`), taken from profit above each winner's own stake, house-funded lottery base excluded; realized by a smaller on-chain credit (no transfer/ledger/migration); STATS-badge-only UI; Standard unchanged. Includes the multi-winner **paid-winner divisor / frozen winner-set** reward fix. | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -152,7 +154,28 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Last shipped:_ **Live wallet balance refresh on the game page** —
+- _Last shipped:_ **Add commission (crypto games)** —
+  `feature/crypto-commission` (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped
+  2026-07-17**. Re-adds a house **commission on winnings, `SolanaToken` games only**: `0.5%` of each
+  winner's **player-funded profit above their own stake**, with the house-funded lottery base
+  (`LotteryParameters.LotteryPot + Game.CarriedExtra`) **excluded** — equivalently 0.5% of the
+  losing-bet stakes; a winner never nets below their stake. **Configurable global rate**
+  `GeneralSettings.Token.CommissionPercentage` (default `0.5`, `0` disables) — restores the old,
+  removed `TokenSettings.CommisionPercentage` location (correctly spelled). Applied per-winner in
+  `BetDomainService.CalculateRewardForBet` (SolanaToken branch; `SetPotAmount` unchanged) and realized
+  by **crediting winners less on-chain** — the retained remainder stays in the operator's token
+  account, so **no new transfer, no ledger row, no migration**. The rate is surfaced to the SPA on
+  `GameParametersDto` → `ActiveGame` (`commissionPercentage`); **UI = STATS side-panel badge only**
+  (`GameStatsPanel.vue` made method-aware: `0.5% HOUSE CUT` crypto / `0% HOUSE CUT` Standard) — no
+  terminal line, no lobby card. Standard/USD settlement, refunds, and provably-fair verification are
+  untouched. **Also fixed a pre-existing multi-winner reward bug** the commission surfaced —
+  `BetDomainService.Winners` was a deferred query, so the winner count drifted down as winners were
+  paid (a 3-token/2-winner round paid the 2nd winner the whole pot); the winner set is now frozen and
+  the pot divided among **paid** winners only (`PayableWinnerCount`). **376 unit + 36 integration
+  tests green** (+`PaidCryptoRace_AppliesCommission_CreditsPotMinusCut` +`…WinnersRewardedSequentially`
+  regression). See `features/crypto-commission.md`; spec `specs/crypto-commission.md`; Trello #66
+  ([qq0F0ZNJ](https://trello.com/c/qq0F0ZNJ)).
+- _Previously shipped:_ **Live wallet balance refresh on the game page** —
   `feature/wallet-balance-refresh` (`monkify-front` + `monkify-meta`; **no backend**), **shipped
   2026-07-17**. **Frontend-only bug fix** for the SolanaToken header balance (`TokenBalance.vue`) not
   updating after a bet or payout — it was read single-shot with no retry and fired before the RPC node
