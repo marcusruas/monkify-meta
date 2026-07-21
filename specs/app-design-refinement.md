@@ -1,6 +1,9 @@
 # Space Stroker — "APP (front) design refinement" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-07-21)** — merged via `feature/app-design-refinement`
+> (`monkify-front` `1a426af` → `main`; `monkify-meta` KB → `main`). Distilled into
+> `../features/app-design-refinement.md`. A matching `SPACE STROKER` wordmark tweak shipped separately
+> to `monkify-lp` `master` (`ba7c203`). Originally refined via Trello card
 > [APP (front) design refinement #79](https://trello.com/c/R2x70aWY) (2026-07-21).
 > Repos affected: **`monkify-front`** (the only app repo touched) and this doc in `monkify-meta`.
 > **`monkify-backend` is NOT touched** — frontend-only, app-only.
