@@ -140,6 +140,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/rebrand-space-stroker-backend.md` | **Backend + infra rename (Minor change), follow-up to #74:** finish the Space Stroker rebrand by renaming the **backend + infra** half `SpaceStroker → SpaceStroker` (machine) / `Space Stroker` (display) — C# solution/projects/namespaces (`SpaceStroker.* → SpaceStroker.*`, `src/` folders + `.sln` on disk), `SpaceStrokerDbContext`→`SpaceStrokerDbContext`, config (`spacestrokersettings.json`→`spacestrokersettings.json`, `ConnectionStrings:SpaceStroker`→`:SpaceStroker`, CORS `app.spacestroker.com`→`app.spacestroker.com`), DB rename via connection string (`spacestroker→spacestroker`, `spacestroker_messaging→spacestroker_messaging`; no new migration — zero SpaceStroker schema objects), docker-compose/scripts, the `monkify-meta/deploy` GCP/Terraform stack + deploy tools (`SpaceStroker.Deploy`/`SpaceStroker.DbConsole`→`SpaceStroker.*`) with the **domain `spacestroker.com → spacestroker.com`** (code-only; real apply is an ops step), a **full KB rename** (living + historical specs, guarding tooling + the two rebrand specs' from→to tokens), and the 6 `// Mirrors backend SpaceStroker.*` comments in `monkify-front` → `SpaceStroker.*`. Clean break, no behavior change; repo folders + `monkify-*` tooling stay. No new integration test / `features/` doc. | Ready |
 | `specs/refund-safeguards.md` | **Full-stack:** make `NeedsRefunding` a real, self-clearing bet lifecycle + recover stuck money. (1) A **12h Hangfire sweep** (`PendingRefundSweepJob`) publishes `RefundInvalidBetEvent` for every `NeedsRefunding` bet. (2) `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on any **successful** refund (all refunds, the 3 inline triggers included → they end `Refunded` not `Made`); failure leaves it `NeedsRefunding` to retry next sweep. (3) New operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by indexed `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded` (double-pay) + free bets, no game-state restriction, idempotent; money moves via the sweep (single executor, ~≤12h). **No schema/migration.** New admin panel in `AdminPage`/`GameTypeManager`. | Shipped |
 | `features/refund-safeguards.md` | Distilled: `NeedsRefunding`/`Refunded` become a real self-clearing bet lifecycle. A 12h Hangfire sweep (`PendingRefundSweepJob`, cron `0 */12 * * *`) publishes a `RefundInvalidBetEvent` for every `NeedsRefunding` bet; `RefundInvalidBetConsumer` sets `Refunded` on any successful refund (all paths incl. the 3 inline triggers) and leaves `NeedsRefunding` to retry on failure. Operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded`+free, any game state, idempotent; money moves via the sweep. No schema/migration. | Shipped |
+| `specs/app-design-refinement.md` | **Frontend-only (app):** port the `monkify-lp` arcade design system into the game app `monkify-front` to close the LP↔app quality gap — **chrome overhaul, in-play game screen NOT restructured** (inherits tokens/fonts/buttons only). Translate the LP's OKLCH `@theme` tokens into `colors.css`+`tailwind.config.js` (collapse the 3 drifting blues `#3668d4`/`#5b7fcc`/README + stray `#00b7ff` to one system), re-implement the LP material classes (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/`.pixel-notch`/glows) in a v3 `@layer components`, collapse to **2 fonts** (Press Start 2P + VT323; drop Pixelify Sans **+ Silkscreen** + Courier New), `.btn-arcade` buttons (kill `bg-blue-500`/undefined `.title`), frosted **always-visible** header + coin glow, re-tokenized reactive background + LP richness, LP-quality lobby (keep clip-path cards), re-skinned shared surfaces. **Preserves** the operator-themable `--color-secondary` hook. No backend/DB/test. | Ready |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -161,6 +162,27 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Spec created (in flight):_ **APP (front) design refinement** — `feature/app-design-refinement`
+  (`monkify-front` + `monkify-meta`; **no backend**), spec written 2026-07-21. **Frontend-only, app-only.**
+  Port the freshly-redesigned LP's arcade design system into the older-looking game app to close the
+  visual gap — a **full chrome overhaul** (tokens, fonts, buttons, header, background, lobby, shared
+  UI) with the **in-play game screen NOT restructured** (it inherits the shared token/font/button
+  restyle only). Faithful port into `monkify-front` (one source of truth inside the app; no shared
+  package / cross-repo build coupling): translate the LP's OKLCH `@theme` tokens into
+  `colors.css` + `tailwind.config.js` (**collapse the 3 drifting blues** `#3668d4` vs
+  `#5b7fcc`/`rgba(91,127,204)` vs the stale README, plus a stray `#00b7ff`), re-implement the LP
+  material classes (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/`.pixel-notch`/glows) in a
+  Tailwind v3 `@layer components`, collapse to **2 fonts** (Press Start 2P + VT323 — drop Pixelify
+  Sans **+ Silkscreen** + Courier New), replace both flat buttons with `.btn-arcade` (kill
+  `bg-blue-500` + the undefined `.title`), a frosted **always-visible** header + coin-glow logotype,
+  a re-tokenized reactive space background + optional LP richness (nebula/dot-grid/vignette), an
+  LP-quality lobby that **keeps the clip-path pixel cards**, and re-skinned shared surfaces (toasts,
+  loaders, TokenBalance, wallet button, customization modal). **Preserves** the operator-themable
+  `--color-secondary` runtime hook. Non-negotiable core = unified tokens + 2-font system +
+  `.btn-arcade` + LP-quality header; the richness/shared-surface extras are prune-able in QA.
+  Frontend-only ⇒ **no unit/integration test** (DoD = `yarn lint` + `yarn build` + browser QA vs the
+  live LP). Spec `specs/app-design-refinement.md`; Trello #79
+  ([R2x70aWY](https://trello.com/c/R2x70aWY)). Next: `/monkify-implement-feature`.
 - _Last shipped:_ **Backend + infra renamed to "Space Stroker"** (follow-up to #74) —
   `feature/rebrand-space-stroker-backend` (`monkify-backend` + `monkify-front` + `monkify-meta` →
   `main`), **shipped 2026-07-21**. **Minor change (rename refactor).** Completed the Space Stroker
