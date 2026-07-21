@@ -1,6 +1,7 @@
 # Space Stroker — "Telegram launch marketing campaign" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-21) — merged to `main` on `feature/telegram-marketing-campaign`; deliverable at
+> `monkify-meta/marketing/telegram-launch-campaign.md`. Refined via Trello card
 > [Create Telegram marketing campaign](https://trello.com/c/LTrjTgdy/77-create-telegram-marketing-campaign) (2026-07-21).
 > Repos affected: **`monkify-meta` only** (this is a non-code content deliverable; no `monkify-backend` / `monkify-front` change).
 >
