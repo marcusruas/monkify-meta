@@ -57,13 +57,11 @@ Every tweet is ≤280 characters. Media picks are in §5.
 **PRE-1** · T-2 · _media: `edson-ship-typing.gif`_ · _no link (pure teaser)_
 
 ```
-Past the last dead star, a monkey in a suit is still typing.
+gm. something's typing in the void 🐵⌨️
 
-He forgot the password centuries ago. He never stopped.
+in 48h you can throw real USDC on what this space chimp types next — call it right, sweep the whole pot.
 
-In 48h, you get to bet on what he types next.
-
-Meet Edson. 🐵⌨️
+provably fair, instant on Solana, no token no presale. pure degen fuel. wen edson? soon.
 ```
 
 **PRE-2** · T-2 · _media: `game/typing2.gif`_ · _no link_
