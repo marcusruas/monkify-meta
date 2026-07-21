@@ -143,6 +143,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/telegram-marketing-campaign.md` | **Content (Minor change), `monkify-meta`-only:** a **$0 organic Telegram launch campaign** for Space Stroker (T-0 = 2026-07-23) as a new `marketing/telegram-launch-campaign.md`. Sibling of the Twitter card #76, adapted to Telegram: **a single community group** (announcements + chat), `[PLAY_URL]` **in-body + inline PLAY NOW button + pin** (bot/admin-delivered, plain-link fallback), **6 required sections** (group description + pinned welcome / message copy / schedule / growth playbook / media direction / **group setup + moderation & anti-scam**), Telegram as the **retention hub with X (#76) funnelling in**. ≥3 teasers + ≥5-message launch sequence + ≥5 first-week; relative-day T-2…T+7; token-free/anti-scam guardrails; existing Edson/arcade assets only. No integration test / `features/` doc. | Shipped |
 | `features/app-design-refinement.md` | **Frontend-only (app):** distilled — ported the LP arcade design system into `monkify-front`: unified OKLCH tokens (3 drifting blues → one cyan accent; `--color-blue-vivid` kept = cyan hex; operator `--color-secondary` preserved), `arcade.css` material classes (**plain CSS, not `@layer components`** — Vue CLI css-loader gotcha), 2 fonts (PS2P + VT323), `.btn-arcade` buttons, frosted always-visible header + `SPACE STROKER` wordmark, **neutral brushed-metal lobby cards** (amber hover, clip-path kept), drifting randomized nebula (`NebulaField.vue`), game screen inherits only. No backend/DB/test. | Shipped |
 | `specs/app-design-refinement.md` | **Frontend-only (app):** port the `monkify-lp` arcade design system into the game app `monkify-front` to close the LP↔app quality gap — **chrome overhaul, in-play game screen NOT restructured** (inherits tokens/fonts/buttons only). Translate the LP's OKLCH `@theme` tokens into `colors.css`+`tailwind.config.js` (collapse the 3 drifting blues `#3668d4`/`#5b7fcc`/README + stray `#00b7ff` to one system), re-implement the LP material classes (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/`.pixel-notch`/glows) in a v3 `@layer components`, collapse to **2 fonts** (Press Start 2P + VT323; drop Pixelify Sans **+ Silkscreen** + Courier New), `.btn-arcade` buttons (kill `bg-blue-500`/undefined `.title`), frosted **always-visible** header + coin glow, re-tokenized reactive background + LP richness, LP-quality lobby (keep clip-path cards), re-skinned shared surfaces. **Preserves** the operator-themable `--color-secondary` hook. No backend/DB/test. **Shipped** — see `features/app-design-refinement.md`. | Shipped |
+| `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` — account **bio** (143 chars), ready-to-paste **tweet copy** (4 pre-launch teasers, a 6-tweet launch-day thread, 6 first-week posts incl. an Edson lore thread), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities + spoofing warning, reply-first tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam, **no-financial-promise / no-fake-metrics** guardrails. Sibling of Telegram #77. No code; **no integration test / `features/` doc** (content-only). | Shipped |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -164,6 +165,23 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _Last shipped:_ **Twitter/X launch marketing campaign** — `feature/twitter-marketing-campaign`
+  (**`monkify-meta` only**; no backend/front), **shipped 2026-07-21**. **Minor change (marketing content).** A
+  **$0-budget, fully organic** Twitter/X launch campaign for **@SpaceStroker** to announce the **2026-07-23**
+  crypto launch to Solana players. Deliverable = **`monkify-meta/marketing/twitter-launch-campaign.md`** with
+  account **bio** (143 chars), ready-to-paste **tweet copy** — **4** pre-launch teasers (a gm-native, degen-voiced
+  opener), a **6-tweet launch-day thread**, and **6** first-week posts incl. a 6-tweet Edson lore thread — a
+  **relative-day posting schedule** (T-2…T+7, survives a launch slip), a **$0 organic growth playbook**
+  (cold-start seeding, real Solana hubs with an impersonator/spoofing warning, a **reply-first** strategy since
+  replies outweigh likes in X's 2026 feed, 1–2 hashtags, best post times, free KOL outreach, and a precedent scan
+  of comparable Solana launches — Moonbet/transparency, referral loops, memecoin community launches), a
+  **media-direction index** reusing existing Edson/arcade assets, and **guardrails + a pre-post self-audit**.
+  English-only; **link-in-bio + first-reply** with a flagged **`[PLAY_URL]`** (app domain undecided); grounded in
+  the live LP — token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam — under **no-financial-promise
+  / no-fabricated-metrics** guardrails. Content-only ⇒ **no code, no integration test, no dedicated `features/`
+  doc** (Minor change), nothing to deploy; verified via a content self-audit (bio ≤160, every tweet ≤280,
+  banned-term scan clean, all referenced assets exist). Spec `specs/twitter-marketing-campaign.md`; Trello #76
+  ([gApr5z7v](https://trello.com/c/gApr5z7v)). Telegram is the sibling card #77.
 - _Last shipped:_ **Telegram launch marketing campaign** — `feature/telegram-marketing-campaign`
   (**`monkify-meta` only**; no backend/front), **shipped 2026-07-21**. **Minor change (marketing content).**
   A ready-to-run, **$0 organic Telegram launch campaign** for the **2026-07-23** crypto launch, delivered as a
