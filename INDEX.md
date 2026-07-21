@@ -136,7 +136,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. Shipped alongside a pre-existing multi-winner reward-division fix (frozen winner set + paid-winner divisor). | Shipped |
 | `features/crypto-commission.md` | Distilled: crypto (`SolanaToken`) house **commission** on winnings — default 0.5% (`GeneralSettings.Token.CommissionPercentage`), taken from profit above each winner's own stake, house-funded lottery base excluded; realized by a smaller on-chain credit (no transfer/ledger/migration); STATS-badge-only UI; Standard unchanged. Includes the multi-winner **paid-winner divisor / frozen winner-set** reward fix. | Shipped |
 | `specs/restore-own-bets-on-refresh.md` | **Frontend-only bug fix:** after a refresh/rejoin the player's **own-bet cues** (the `> N AWAY!` near-miss rows, the returning-bettor victory/lose sound, the embedded `bet-settled`) vanished because `ownBetChoices` (`useGame.ts`) is only written on the live PLACE BET click. Fix: on the load path re-derive ownership from the fetched `gameInstance.bets` (which already carry `externalPlayerId`) via a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice`; reactive re-run for SolanaToken wallet reconnect; live `{gameId}/Bets` identity match. **No backend change.** Ended-view reload out of scope (GET excludes ended games; DTO lacks `winners`). | Shipped |
-| `specs/refund-safeguards.md` | **Full-stack:** make `NeedsRefunding` a real, self-clearing bet lifecycle + recover stuck money. (1) A **12h Hangfire sweep** (`PendingRefundSweepJob`) publishes `RefundInvalidBetEvent` for every `NeedsRefunding` bet. (2) `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on any **successful** refund (all refunds, the 3 inline triggers included → they end `Refunded` not `Made`); failure leaves it `NeedsRefunding` to retry next sweep. (3) New operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by indexed `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded` (double-pay) + free bets, no game-state restriction, idempotent; money moves via the sweep (single executor, ~≤12h). **No schema/migration.** New admin panel in `AdminPage`/`GameTypeManager`. | Ready |
+| `specs/refund-safeguards.md` | **Full-stack:** make `NeedsRefunding` a real, self-clearing bet lifecycle + recover stuck money. (1) A **12h Hangfire sweep** (`PendingRefundSweepJob`) publishes `RefundInvalidBetEvent` for every `NeedsRefunding` bet. (2) `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on any **successful** refund (all refunds, the 3 inline triggers included → they end `Refunded` not `Made`); failure leaves it `NeedsRefunding` to retry next sweep. (3) New operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by indexed `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded` (double-pay) + free bets, no game-state restriction, idempotent; money moves via the sweep (single executor, ~≤12h). **No schema/migration.** New admin panel in `AdminPage`/`GameTypeManager`. | Shipped |
+| `features/refund-safeguards.md` | Distilled: `NeedsRefunding`/`Refunded` become a real self-clearing bet lifecycle. A 12h Hangfire sweep (`PendingRefundSweepJob`, cron `0 */12 * * *`) publishes a `RefundInvalidBetEvent` for every `NeedsRefunding` bet; `RefundInvalidBetConsumer` sets `Refunded` on any successful refund (all paths incl. the 3 inline triggers) and leaves `NeedsRefunding` to retry on failure. Operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded`+free, any game state, idempotent; money moves via the sweep. No schema/migration. | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -158,8 +159,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created 2026-07-20):_ **Refund safeguards** — `feature/refund-safeguards`
-  (`monkify-backend` + `monkify-front` + `monkify-meta`). **Full-stack Feature.** Makes
+- _Last shipped:_ **Refund safeguards** — `feature/refund-safeguards`
+  (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-20**. **Full-stack Feature.** Makes
   `BetStatus.NeedsRefunding`/`Refunded` (defined but never set today) a real, self-clearing lifecycle
   and lets operators recover stuck money. Three parts: **(1)** a new **12-hourly Hangfire recurring
   job** `PendingRefundSweepJob` (`ChimpOut.Infrastructure/Jobs`, cron `0 */12 * * *`, registered in
@@ -174,9 +175,11 @@ see "Skills — ensure installed" in `AGENTS.md`.
   **any** game state, is **idempotent**, and only **marks** `NeedsRefunding` — the money moves via the
   sweep (single executor, up to ~12h). Frontend: a new **"Refund a bet"** panel
   (`BetRefundManager.vue` + `adminService.refundBet` + a `GameTypeManager` tab). **No schema/migration**
-  (enum values + the `ExternalTransactionReference` index already exist). Mandatory happy-path
-  integration test + a complex-flow test (admin-mark → sweep → refund). Spec
-  `specs/refund-safeguards.md`; Trello #71 ([MpfBtpE4](https://trello.com/c/MpfBtpE4)).
+  (enum values + the `ExternalTransactionReference` index already exist). **386 unit + 39 integration
+  tests green** (+`PendingRefundSweepJobTests`, +`RefundBetHandlerTests`, +`RefundInvalidBetConsumer`
+  flip/failure cases, +`RefundSafeguardsTests`: sweep happy-path / admin-mark → sweep → refund /
+  guards). See `features/refund-safeguards.md`; spec `specs/refund-safeguards.md`; Trello #71
+  ([MpfBtpE4](https://trello.com/c/MpfBtpE4)).
 - _Last shipped:_ **Landing-page visual redesign (arcade-cabinet)** — `feature/lp-redesign`
   (`monkify-lp` → `master`; **no backend / game-app change**), **shipped 2026-07-19**. **Frontend-only**
   selective visual revamp of the ChimpOut LP: cherry-picked the winning pieces of a Claude design mock

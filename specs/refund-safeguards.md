@@ -1,7 +1,8 @@
 # ChimpOut — "Refund safeguards" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Refund safeguards](https://trello.com/c/MpfBtpE4/71-refund-safeguards) (2026-07-20).
+> **Status: Shipped** — merged via `feature/refund-safeguards` on 2026-07-20 (386 unit + 39
+> integration tests green). Distilled summary: `../features/refund-safeguards.md`. Originally refined
+> via Trello card [Refund safeguards](https://trello.com/c/MpfBtpE4/71-refund-safeguards) (2026-07-20).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Make `NeedsRefunding` a real, self-clearing bet lifecycle state and give operators a way

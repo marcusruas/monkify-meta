@@ -157,6 +157,18 @@
   (`IOperatorWalletService`) selected by a named provider in config (`IOperatorWalletResolver`), reached
   through `StandardPaymentMethodService`. `SolanaToken` games settle on-chain instead. See
   `features/operator-wallet-api.md` + `features/payment-methods.md`.
+- **NeedsRefunding / Refunded lifecycle** — `Bet.Status` values that are now a real, self-clearing
+  refund lifecycle. `RefundInvalidBetConsumer` sets a bet to **`Refunded`** on any **successful**
+  refund (all refund paths, incl. the inline lottery/deactivation/invalid-bet triggers — which used to
+  leave it `Made`); a **failed** refund leaves the status so it is retried. A bet in **`NeedsRefunding`**
+  is one flagged for refund but not yet paid back. See `features/refund-safeguards.md`.
+- **Pending-refund sweep** — `PendingRefundSweepJob`, a Hangfire recurring job in `ChimpOut.Consumers`
+  (cron `0 */12 * * *`, id `pending-refund-sweep`) that loads every `NeedsRefunding` bet (all
+  operators, any game state) and publishes a `RefundInvalidBetEvent` for each so the refund consumer
+  pays it back and clears it to `Refunded`; failures retry on the next run. Fed by the operator-admin
+  **`POST /admin/bets/refund { paymentSignature }`** action (the only producer of `NeedsRefunding`),
+  which marks a bet for refund by its `ExternalTransactionReference` (operator-scoped; blocks
+  Rewarded/Refunded/free; idempotent). See `features/refund-safeguards.md`.
 - **Pre-bet check / RG hook** — an **opt-in**, per-operator responsible-gaming check ChimpOut calls in
   `RegisterBetHandler` after local validation and **before** the wallet debit, so the operator can
   **allow or deny** a bet (self-exclusion, limits, cooling-off, KYC, blocked). Per-operator adapter
