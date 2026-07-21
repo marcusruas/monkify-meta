@@ -1,12 +1,12 @@
-# ChimpOut — "Operator page (Operator admin portal)" Feature — Implementation Spec
+# SpaceStroker — "Operator page (Operator admin portal)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/operator-admin-page` on 2026-07-06.
 > Refined via Trello card [Operator page](https://trello.com/c/JZcMz3ma) (2026-07-03).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
-> **Purpose:** Give operators (casinos) a self-service admin portal at `/chimpout/admin` where they
+> **Purpose:** Give operators (casinos) a self-service admin portal at `/space-stroker/admin` where they
 > authenticate with an **operator-signed admin token** and manage **their own** game types (game
-> configurations). Today game types are only seeded by `ChimpOut.Consumers`; operators have no way
+> configurations). Today game types are only seeded by `SpaceStroker.Consumers`; operators have no way
 > to create or retire them. A dev-only header shortcut mints an admin token locally.
 
 ---
@@ -21,7 +21,7 @@ interchangeable. The operator manages **`GameParameters`** rows scoped to their 
 | --- | --- | --- |
 | Token header | `X-Launch-Token` | **`X-Admin-Token`** |
 | Token claims | `iss`, `sub` (player), `exp`, `iat`, `jti` | `iss`, **`scope: "admin"`**, `exp`, `iat`, `jti`; **no `sub`** |
-| Entry URL | `…/chimpout/game/games#launch_token=<jwt>` | **`…/chimpout/admin#admin_token=<jwt>`** |
+| Entry URL | `…/space-stroker/game/games#launch_token=<jwt>` | **`…/space-stroker/admin#admin_token=<jwt>`** |
 | Guarded prefixes | `/games`, `/operators`, `/players`, `/fx` | **`/admin`** |
 | Contract gate | required (contract-active) | **not required** (operators prep/fix types anytime) |
 | Identity carried | `ILaunchContext { OperatorId, ExternalPlayerId }` | **`IAdminContext { OperatorId }`** |
@@ -61,11 +61,11 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/operator-admin-page` in `monkify-backend`, `monkify-front`,
   `monkify-meta`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; keep the game-flow integration suite
-  `ChimpOut.Tests.Integration` green (roll-over is back to a plain same-row reload). Report changed
+- **Unit tests:** update/add in `SpaceStroker.Tests`; keep the game-flow integration suite
+  `SpaceStroker.Tests.Integration` green (roll-over is back to a plain same-row reload). Report changed
   tests at the end of implementation.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied **only** by `ChimpOut.Consumers`
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `SpaceStroker.Infrastructure/Migrations/`; applied **only** by `SpaceStroker.Consumers`
   at startup (`Database.Migrate()`). The API does not migrate.
 - **Secrets/config:** **mock-only** values in committed files. Admin tokens sign/validate with the
   **existing** launch keypair (`GeneralSettings.LaunchTokens.DevSigningPrivateKeyPem` /
@@ -74,8 +74,8 @@ From `monkify-meta/constraints.md` (full list there):
 - **Operator messaging:** every admin-token failure returns a single generic **HTTP 401**; the real
   reason + a correlationId are logged **server-side only**. The SPA routes any 401 to `/error`. Never
   reveal contract status on the auth path.
-- **API stays stateless:** admin CRUD + token validation live in `ChimpOut.Api`; game creation /
-  roll-over runs in `ChimpOut.Consumers`. No migration work in the API host.
+- **API stays stateless:** admin CRUD + token validation live in `SpaceStroker.Api`; game creation /
+  roll-over runs in `SpaceStroker.Consumers`. No migration work in the API host.
 
 ---
 
@@ -83,17 +83,17 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Production operator self-service portal** at `/chimpout/admin` (not just a dev tool), plus a dev header shortcut. |
+| 1 | **Production operator self-service portal** at `/space-stroker/admin` (not just a dev tool), plus a dev header shortcut. |
 | 2 | **Auth = operator-signed RS256 admin JWT**, validated against the operator's existing `Operator.LaunchPublicKey`. No new credential store. "Generate a token" = the operator signing one on their own site. |
 | 3 | **Admin scope claim** `scope = "admin"` distinguishes admin tokens. **No `sub`** claim (admin acts as the operator, not a player). |
-| 4 | **Transport = URL fragment:** `…/chimpout/admin#admin_token=<jwt>`; SPA reads it, strips it from the URL, persists per-tab in `sessionStorage`, and sends **`X-Admin-Token`** on admin calls. |
+| 4 | **Transport = URL fragment:** `…/space-stroker/admin#admin_token=<jwt>`; SPA reads it, strips it from the URL, persists per-tab in `sessionStorage`, and sends **`X-Admin-Token`** on admin calls. |
 | 5 | **Strict token separation:** an admin token is **rejected** on player endpoints (`/games`, `/operators`, `/players`, `/fx` → 401 when `scope == "admin"`); a launch/player token is **rejected** on `/admin` endpoints (missing/`!= "admin"` scope → 401). |
 | 6 | **Operations = Create, List, soft-Deactivate only.** **No Edit** (deactivate-or-create replaces it — §1.1) and **no hard delete** (historical `Game`/`Bet` rows FK to the type). |
 | 7 | **`AllowFreeBet` is not operator-editable** (dev-only); stays `false` on operator-created types. **`OperatorId` fixed from token `iss`**, never client-settable. |
 | 8 | **All three modes** creatable: free-type race, preset-choice race (operator defines the preset list), lottery (operator sets pot + draw frequency → future games schedule Hangfire draws). |
 | 9 | **No versioning.** `GameParameters` is a flat, one-row-per-type entity created once and never mutated. The only mutable field is `Active`. |
 | 10 | **Deactivate = `Active = false`.** The current live game finishes on its config; roll-over then finds `Active == false` and creates no successor; the type leaves `active-types` and the admin list at once. |
-| 11 | **Dev entry:** dev-only admin icon in `GameHeader` → Crypto/Regulated options → mint via new **`POST /dev/admin-token?paymentModel=Crypto|Regulated`** (404 in prod, returns `{ token }`) → `/chimpout/admin`. Gated by the existing **`VUE_APP_DEV_LAUNCH`** flag. |
+| 11 | **Dev entry:** dev-only admin icon in `GameHeader` → Crypto/Regulated options → mint via new **`POST /dev/admin-token?paymentModel=Crypto|Regulated`** (404 in prod, returns `{ token }`) → `/space-stroker/admin`. Gated by the existing **`VUE_APP_DEV_LAUNCH`** flag. |
 | 12 | **Admin access is NOT contract-gated** (valid signature + operator exists is enough), so operators can prep types before contract start and retire them after expiry. The contract window still gates **player** games (unchanged: `GetAllActiveGameParameters` / `OpenNewGames` skip inactive operators). |
 | 13 | **Identity via new `IAdminContext { OperatorId }`** (scoped), set by admin middleware — kept separate from `ILaunchContext`. |
 | 14 | **Cache:** every admin write invalidates `ActiveParameters:{operatorId}` (`CacheHelper.GenerateActiveParametersCacheSettings`). |
@@ -105,7 +105,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 Entity / column changes
 
-**`GameParameters`** — `monkify-backend/src/ChimpOut.Domain/Games/Entities/GameParameters.cs`
+**`GameParameters`** — `monkify-backend/src/SpaceStroker.Domain/Games/Entities/GameParameters.cs`
 — **flat, no versioning.** There are **no** entity changes for this feature beyond removing the
 versioning members that an earlier iteration added:
 
@@ -118,7 +118,7 @@ never superseded).
 
 ### 4.2 EF configuration (inline)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`, inside the
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`, inside the
 existing `modelBuilder.Entity<GameParameters>` block — **remove** the versioning mapping added
 earlier (the `NextVersionId` property, the `NextVersion` self-FK, and the `HasIndex(x => x.NextVersionId)`).
 The block returns to: key, `Name`/`Description` constraints, `RequiredAmount` precision, the
@@ -134,15 +134,15 @@ The versioning column shipped only in the (unmerged, dev-only) `20260703195629_A
 migration, which is the **last** migration on the branch. Because nothing downstream depends on it,
 **revert it cleanly** rather than adding an add-then-drop pair:
 
-1. **Delete** `ChimpOut.Infrastructure/Migrations/20260703195629_AddGameParametersVersioning.cs`
+1. **Delete** `SpaceStroker.Infrastructure/Migrations/20260703195629_AddGameParametersVersioning.cs`
    and its `.Designer.cs`.
-2. **Revert** `ChimpOut.Infrastructure/Migrations/ChimpOutDbContextModelSnapshot.cs` to its
+2. **Revert** `SpaceStroker.Infrastructure/Migrations/SpaceStrokerDbContextModelSnapshot.cs` to its
    pre-versioning state (drop the `NextVersionId` property, self-FK, and index from the
    `GameParameters` entity). Regenerate the snapshot with the EF tooling rather than hand-editing
    where possible.
 3. **Reset the docker dev DB** so migrations re-apply from a clean slate (the column is already
    applied to the running volume): `docker compose down`, remove the postgres volume
-   (`monkify-backend_postgres-data`), then `docker compose up -d --build`. `ChimpOut.Consumers`
+   (`monkify-backend_postgres-data`), then `docker compose up -d --build`. `SpaceStroker.Consumers`
    re-runs migrations and re-seeds the DEV operators + default game parameters. Hand-made dev rows
    (e.g. "Gold run") are lost — expected and acceptable for a dev-only branch.
 
@@ -178,7 +178,7 @@ the dev admin icon. No new env var.
 
 ### 6.1 Admin token issue/validate — extend `ILaunchTokenService`
 
-File: `monkify-backend/src/ChimpOut.Api/Launch/LaunchTokenService.cs`
+File: `monkify-backend/src/SpaceStroker.Api/Launch/LaunchTokenService.cs`
 
 The service today issues/validates only player tokens (claims `sub` + `jti`; no `scope`). Add admin
 support **without breaking the player path**:
@@ -196,7 +196,7 @@ support **without breaking the player path**:
 
 ### 6.2 Admin identity context (new) — `IAdminContext`
 
-`monkify-backend/src/ChimpOut.Infrastructure/Services/Admin/IAdminContext.cs` (new), mirroring
+`monkify-backend/src/SpaceStroker.Infrastructure/Services/Admin/IAdminContext.cs` (new), mirroring
 `ILaunchContext` but carrying only the operator:
 
 ```csharp
@@ -208,12 +208,12 @@ public interface IAdminContext
 }
 ```
 
-Register **scoped** in `ChimpOut.Infrastructure/DependencyInjection.cs` (next to the existing
+Register **scoped** in `SpaceStroker.Infrastructure/DependencyInjection.cs` (next to the existing
 `ILaunchContext` / `IOperatorService` registrations).
 
 ### 6.3 Operator lookup without contract filter (admin is not contract-gated)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Services/Operators/{IOperatorService,OperatorService}.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Services/Operators/{IOperatorService,OperatorService}.cs`
 
 `GetActiveOperatorById` filters to contract-active operators — unsuitable for admin (decision 12).
 Add:
@@ -227,10 +227,10 @@ predicate, cached under a distinct key `CacheHelper.GenerateAdminOperatorCacheSe
 (new: `"Operator:Admin:{operatorId}"`, ~3h) so it doesn't collide with the contract-active cache
 entry. Operators aren't edited here, so no invalidation is needed for it.
 
-### 6.4 Admin token validation middleware (new, `ChimpOut.Api`)
+### 6.4 Admin token validation middleware (new, `SpaceStroker.Api`)
 
-`monkify-backend/src/ChimpOut.Api/Middleware/AdminTokenValidationMiddleware.cs` (new). Registered in
-`ChimpOut.Api/Program.cs` right after the launch middleware, before `MapControllers`.
+`monkify-backend/src/SpaceStroker.Api/Middleware/AdminTokenValidationMiddleware.cs` (new). Registered in
+`SpaceStroker.Api/Program.cs` right after the launch middleware, before `MapControllers`.
 
 - `HeaderName = "X-Admin-Token"`.
 - **Guards** paths under **`/admin`** only (opt-in prefix, mirroring `LaunchTokenValidationMiddleware`'s
@@ -250,13 +250,13 @@ entry. Operators aren't edited here, so no invalidation is needed for it.
 
 ### 6.5 Reject admin tokens on player endpoints
 
-File: `monkify-backend/src/ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs`
+File: `monkify-backend/src/SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs`
 
 After a successful `Validate`, add: **if `result.Scope == "admin"` → `Reject(... "admin token on player endpoint")`** (401). This closes the reverse direction (decision 5).
 
 ### 6.6 Admin controller + handlers (new)
 
-New controller `monkify-backend/src/ChimpOut.Api/Controllers/AdminController.cs` (`[Route("admin")]`),
+New controller `monkify-backend/src/SpaceStroker.Api/Controllers/AdminController.cs` (`[Route("admin")]`),
 guarded by the admin middleware, using the `BaseController.ProcessRequest<T>` pattern and injecting
 `IAdminContext` (mirroring how `GamesController` injects `ILaunchContext`):
 
@@ -269,7 +269,7 @@ guarded by the admin middleware, using the `BaseController.ProcessRequest<T>` pa
 > **No `PUT` route** — editing is not supported (§1.1). To change a type, the operator deactivates and
 > creates a new one.
 
-New handlers under `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Admin/` (each folder: request +
+New handlers under `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Admin/` (each folder: request +
 `RequestBody` where applicable + handler), following the existing handler style
 (`BaseRequestHandler<TRequest, TResult>`):
 
@@ -303,7 +303,7 @@ finishes normally; roll-over then creates no successor (§6.10).
 
 ### 6.7 Admin DTOs
 
-New `monkify-backend/src/ChimpOut.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs` — like
+New `monkify-backend/src/SpaceStroker.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs` — like
 `GameParametersDto` (`Contracts/Games/GameParametersDto.cs`) but for the admin list
 (includes the row `Id` as `GameTypeId`, all fields, preset list, lottery pot/frequency; **omits**
 `AllowFreeBet` — always false for operator-created rows).
@@ -318,7 +318,7 @@ New request body (in the create handler folder): `GameTypeRequestBody` with:
 
 Bet-time choice validation lives in `BetDomainService.ChoiceIsValidForGame`; there is **no**
 parameter-level validation today (seed data is trusted). Add a static `GameParametersValidation`
-helper in `ChimpOut.Domain/Games` enforcing:
+helper in `SpaceStroker.Domain/Games` enforcing:
 
 - `Name`: required, trimmed, 1–100 chars. `Description`: required, trimmed, 1–200 chars.
 - `AllowedCharacters`: a defined `GameCharacterType` enum value.
@@ -344,11 +344,11 @@ Create and Deactivate call
 (`ICacheService` + `CacheHelper`). Inject `ICacheService` into the handlers. No change to the
 `Operator:*` caches.
 
-### 6.10 Roll-over reloads the same row (`ChimpOut.Consumers` + `GameService`)
+### 6.10 Roll-over reloads the same row (`SpaceStroker.Consumers` + `GameService`)
 
 With no versioning, roll-over just reloads the **same** `GameParameters` row the ended game ran
 on and creates a successor **only if it is still `Active`**. Add a small helper to
-`IGameService` / `GameService` (`ChimpOut.Infrastructure/Services/Games/`):
+`IGameService` / `GameService` (`SpaceStroker.Infrastructure/Services/Games/`):
 
 ```csharp
 // Reloads the parameters row (with Lottery + PresetChoices + Operator) for roll-over.
@@ -376,7 +376,7 @@ if (parameters != null)
 A brand-new `GameParameters` has **no `Game`**, and games are only created at Consumers
 startup (`OpenNewGames`) or on roll-over (`RunGameConsumer`) — so entering a just-created type
 would `GET /games/{id}` and hit `ParameterHasNoActiveGames` (**400**). Game/typer work
-belongs to `ChimpOut.Consumers` (SignalR fan-out + Hangfire lottery scheduling), not the stateless API,
+belongs to `SpaceStroker.Consumers` (SignalR fan-out + Hangfire lottery scheduling), not the stateless API,
 so **`CreateGameType` publishes a `GameParametersCreatedEvent(parametersId)`** after the write,
 and a **`GameParametersCreatedConsumer`** (Consumers) opens the first game:
 
@@ -385,7 +385,7 @@ and a **`GameParametersCreatedConsumer`** (Consumers) opens the first game:
 - Calls `GameService.CreateGame(parameters)` — which already skips inactive operators, so a type
   created before contract start simply gets its first game once the operator is active.
 
-Register the consumer in `ChimpOut.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`, next to
+Register the consumer in `SpaceStroker.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`, next to
 the others). `CreateGameTypeHandler` takes `IRabbitMQService` (already registered in the API host,
 as `RegisterBetHandler` publishes events too).
 
@@ -407,7 +407,7 @@ publishes `GameTypeDeactivatedEvent(parametersId)` and a new **`GameTypeDeactiva
 - **`GameStarting`/`InProgress` games are left untouched** — they finish normally.
 - **Idempotent:** it only touches `WaitingBets` games, so a redelivered event finds none.
 
-Register the consumer in `ChimpOut.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`).
+Register the consumer in `SpaceStroker.Consumers/Program.cs` (`AddConsumer` + `ReceiveEndpoint`).
 `DeactivateGameTypeHandler` takes `IRabbitMQService`.
 
 **Resurrection guard (`BetPlacedConsumer`).** A `WaitingBets` **lottery** game has a Hangfire-scheduled
@@ -420,7 +420,7 @@ resurrection.
 
 ### 6.11 Startup roll-over — `OpenNewGames` (plain dedup)
 
-File: `monkify-backend/src/ChimpOut.Consumers/Program.cs` (`OpenNewGames`)
+File: `monkify-backend/src/SpaceStroker.Consumers/Program.cs` (`OpenNewGames`)
 
 `GetAllActiveGameParametersForAllOperators()` returns only `Active` rows. The "already has a live
 game?" guard is a **plain `ParametersId` equality** (no lineage resolution): build the set of
@@ -467,7 +467,7 @@ as "starting up".
 
 ### 6.13 Dev mint endpoint (new, non-production only)
 
-File: `monkify-backend/src/ChimpOut.Api/Controllers/DevController.cs` — add alongside
+File: `monkify-backend/src/SpaceStroker.Api/Controllers/DevController.cs` — add alongside
 `MintLaunchToken`:
 
 ```csharp
@@ -507,7 +507,7 @@ on `DevController` — **no new seeding** (both dev operators already carry the 
 
 New `monkify-front/src/utils/adminToken.ts` (mirror `utils/launchToken.ts`):
 
-- `STORAGE_KEY = 'chimpout.adminToken'`, in-memory + `sessionStorage`; `getAdminToken` / `setAdminToken`.
+- `STORAGE_KEY = 'space-stroker.adminToken'`, in-memory + `sessionStorage`; `getAdminToken` / `setAdminToken`.
 - `ADMIN_TOKEN_HEADER = 'X-Admin-Token'`, `ADMIN_TOKEN_FRAGMENT_KEY = 'admin_token'`.
 - `getOperatorIdFromAdminToken(token?)` — decode JWT `iss` (reuse the decode logic; `iss` is the
   operator id). No `sub`.
@@ -531,12 +531,12 @@ A dedicated instance so admin calls carry **`X-Admin-Token`** (not the launch to
   **No `updateGameType` / `PUT`** — editing is not supported.
 - Export via `src/services/index.ts` (add `export { default as adminService } from './adminService'`).
 
-### 7.3 Route — `/chimpout/admin`
+### 7.3 Route — `/space-stroker/admin`
 
 File: `monkify-front/src/routes.ts` — add a **non-dev-gated** record (operators use it in production):
 
 ```ts
-{ name: 'Admin', path: '/chimpout/admin', component: require('@/pages/AdminPage.vue').default }
+{ name: 'Admin', path: '/space-stroker/admin', component: require('@/pages/AdminPage.vue').default }
 ```
 
 (Use the existing eager `require(...).default` idiom. The route must exist in prod so the operator's
@@ -599,12 +599,12 @@ File: `monkify-front/src/types/index.ts` — admin types:
 ```mermaid
 sequenceDiagram
     participant Op as Operator site
-    participant FE as ChimpOut SPA (/chimpout/admin)
-    participant MW as Admin middleware (ChimpOut.Api)
+    participant FE as SpaceStroker SPA (/space-stroker/admin)
+    participant MW as Admin middleware (SpaceStroker.Api)
     participant H as Admin handlers
 
     Op->>Op: sign admin JWT (RS256, scope=admin, no sub)
-    Op->>FE: redirect /chimpout/admin#admin_token=<jwt>
+    Op->>FE: redirect /space-stroker/admin#admin_token=<jwt>
     FE->>FE: read fragment, store (sessionStorage), strip URL
     FE->>MW: GET /admin/game-types (X-Admin-Token)
     MW->>MW: TryReadIssuer → GetOperatorById(iss) (no contract filter)
@@ -663,34 +663,34 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/GameParameters.cs` | **Remove** `NextVersionId`, `NextVersion` (flat entity) |
-| 2 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | **Remove** `NextVersionId` self-FK + index from the GameParameters block |
-| 3 | `ChimpOut.Infrastructure/Migrations/*AddGameParametersVersioning*` | **Delete** the migration + Designer; revert `ChimpOutDbContextModelSnapshot` (§4.3). Reset dev DB volume |
-| 4 | `ChimpOut.Api/Launch/LaunchTokenService.cs` | Add `IssueAdmin` (scope=admin, no sub); add `Scope` to `LaunchTokenValidationResult` |
-| 5 | `ChimpOut.Infrastructure/Services/Admin/IAdminContext.cs` (+ impl) | **New** scoped admin identity (OperatorId) |
-| 6 | `ChimpOut.Infrastructure/Services/Operators/{I,}OperatorService.cs` | Add `GetOperatorById` (no contract filter) |
-| 7 | `ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateAdminOperatorCacheSettings` |
-| 8 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register `IAdminContext` (scoped) |
-| 9 | `ChimpOut.Api/Middleware/AdminTokenValidationMiddleware.cs` | **New** — guard `/admin`; validate; require scope=admin; set `IAdminContext` |
-| 10 | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` | Reject when `result.Scope == "admin"` |
-| 11 | `ChimpOut.Api/Program.cs` | Register admin middleware after launch MW, before `MapControllers` |
-| 12 | `ChimpOut.Api/Controllers/AdminController.cs` | **New** — GET/POST game-types + deactivate (**no PUT**) |
-| 13 | `ChimpOut.Infrastructure/Handlers/Admin/GetOperatorGameTypes/*` | **New** — list active types for operator |
-| 14 | `ChimpOut.Infrastructure/Handlers/Admin/CreateGameType/*` | **New** — validate + insert (AllowFreeBet forced false) + publish created event |
-| 15 | `ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/*` | **New** — set `Active=false`; publish `GameTypeDeactivatedEvent` (inject `IRabbitMQService`) |
-| 16 | `ChimpOut.Infrastructure/Contracts/Admin/{GameTypeAdminDto,GameTypeRequestBody}.cs` | **New** admin DTO + create body |
-| 17 | `ChimpOut.Domain/Games/Services/GameParametersValidation.cs` | **New** parameter-level validation (§6.8) |
-| 18 | `ChimpOut.Infrastructure/Services/Games/{I,}GameService.cs` | Add `GetActiveParametersForRollover`; **remove `ResolveCurrentVersion`** |
-| 19 | `ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Roll over via `GetActiveParametersForRollover` (skip if inactive) |
-| 20 | `ChimpOut.Consumers/Program.cs` | `OpenNewGames` plain `ParametersId` dedup (§6.11); register `GameParametersCreatedConsumer` |
-| 21 | `ChimpOut.Infrastructure/Handlers/Games/GetActiveGameForParameter/*` | Plain `ParametersId` match; **delete `GetVersionLineageIds`** |
-| 22 | `ChimpOut.Api/Controllers/DevController.cs` | **New** `POST /dev/admin-token` (404 in prod) |
-| 23 | `ChimpOut.Infrastructure/Consumers/GameParametersCreated/*` | **New** `GameParametersCreatedEvent` + consumer (open first game for a new type) |
-| 26 | `ChimpOut.Infrastructure/Consumers/GameTypeDeactivated/*` | **New** `GameTypeDeactivatedEvent` + consumer (cancel + refund WaitingBets games of a deactivated type) — §6.10d |
-| 27 | `ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Guard: skip when game is not `GameAcceptingBets` (blocks post-cancel lottery resurrection) — §6.10d |
-| 28 | `ChimpOut.Consumers/Program.cs` | Register `GameTypeDeactivatedConsumer` (AddConsumer + ReceiveEndpoint) |
-| 24 | `ChimpOut.Tests/**` | New: admin-token/middleware, admin CRUD handlers, validation, roll-over, OpenNewGames dedup; **remove** versioning/lineage tests |
-| 25 | `ChimpOut.Tests.Integration/**` | Roll-over reloads the same row; deactivate → no successor |
+| 1 | `SpaceStroker.Domain/Games/Entities/GameParameters.cs` | **Remove** `NextVersionId`, `NextVersion` (flat entity) |
+| 2 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | **Remove** `NextVersionId` self-FK + index from the GameParameters block |
+| 3 | `SpaceStroker.Infrastructure/Migrations/*AddGameParametersVersioning*` | **Delete** the migration + Designer; revert `SpaceStrokerDbContextModelSnapshot` (§4.3). Reset dev DB volume |
+| 4 | `SpaceStroker.Api/Launch/LaunchTokenService.cs` | Add `IssueAdmin` (scope=admin, no sub); add `Scope` to `LaunchTokenValidationResult` |
+| 5 | `SpaceStroker.Infrastructure/Services/Admin/IAdminContext.cs` (+ impl) | **New** scoped admin identity (OperatorId) |
+| 6 | `SpaceStroker.Infrastructure/Services/Operators/{I,}OperatorService.cs` | Add `GetOperatorById` (no contract filter) |
+| 7 | `SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateAdminOperatorCacheSettings` |
+| 8 | `SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `IAdminContext` (scoped) |
+| 9 | `SpaceStroker.Api/Middleware/AdminTokenValidationMiddleware.cs` | **New** — guard `/admin`; validate; require scope=admin; set `IAdminContext` |
+| 10 | `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` | Reject when `result.Scope == "admin"` |
+| 11 | `SpaceStroker.Api/Program.cs` | Register admin middleware after launch MW, before `MapControllers` |
+| 12 | `SpaceStroker.Api/Controllers/AdminController.cs` | **New** — GET/POST game-types + deactivate (**no PUT**) |
+| 13 | `SpaceStroker.Infrastructure/Handlers/Admin/GetOperatorGameTypes/*` | **New** — list active types for operator |
+| 14 | `SpaceStroker.Infrastructure/Handlers/Admin/CreateGameType/*` | **New** — validate + insert (AllowFreeBet forced false) + publish created event |
+| 15 | `SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/*` | **New** — set `Active=false`; publish `GameTypeDeactivatedEvent` (inject `IRabbitMQService`) |
+| 16 | `SpaceStroker.Infrastructure/Contracts/Admin/{GameTypeAdminDto,GameTypeRequestBody}.cs` | **New** admin DTO + create body |
+| 17 | `SpaceStroker.Domain/Games/Services/GameParametersValidation.cs` | **New** parameter-level validation (§6.8) |
+| 18 | `SpaceStroker.Infrastructure/Services/Games/{I,}GameService.cs` | Add `GetActiveParametersForRollover`; **remove `ResolveCurrentVersion`** |
+| 19 | `SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Roll over via `GetActiveParametersForRollover` (skip if inactive) |
+| 20 | `SpaceStroker.Consumers/Program.cs` | `OpenNewGames` plain `ParametersId` dedup (§6.11); register `GameParametersCreatedConsumer` |
+| 21 | `SpaceStroker.Infrastructure/Handlers/Games/GetActiveGameForParameter/*` | Plain `ParametersId` match; **delete `GetVersionLineageIds`** |
+| 22 | `SpaceStroker.Api/Controllers/DevController.cs` | **New** `POST /dev/admin-token` (404 in prod) |
+| 23 | `SpaceStroker.Infrastructure/Consumers/GameParametersCreated/*` | **New** `GameParametersCreatedEvent` + consumer (open first game for a new type) |
+| 26 | `SpaceStroker.Infrastructure/Consumers/GameTypeDeactivated/*` | **New** `GameTypeDeactivatedEvent` + consumer (cancel + refund WaitingBets games of a deactivated type) — §6.10d |
+| 27 | `SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Guard: skip when game is not `GameAcceptingBets` (blocks post-cancel lottery resurrection) — §6.10d |
+| 28 | `SpaceStroker.Consumers/Program.cs` | Register `GameTypeDeactivatedConsumer` (AddConsumer + ReceiveEndpoint) |
+| 24 | `SpaceStroker.Tests/**` | New: admin-token/middleware, admin CRUD handlers, validation, roll-over, OpenNewGames dedup; **remove** versioning/lineage tests |
+| 25 | `SpaceStroker.Tests.Integration/**` | Roll-over reloads the same row; deactivate → no successor |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -700,7 +700,7 @@ sequenceDiagram
 | 2 | `src/hooks/useAdmin.ts` | **New** — capture/strip/store fragment admin token |
 | 3 | `src/services/adminService.ts` | **New** axios instance sending `X-Admin-Token`; create/list/deactivate; **no update**; 401→`/error` |
 | 4 | `src/services/index.ts` | Export `adminService` |
-| 5 | `src/routes.ts` | Add `/chimpout/admin` route (not dev-gated) |
+| 5 | `src/routes.ts` | Add `/space-stroker/admin` route (not dev-gated) |
 | 6 | `src/pages/AdminPage.vue` | **New** shell — ensure admin token, else `/error` |
 | 7 | `src/components/admin/GameTypeManager.vue` | **New** — list + create only (no edit view) |
 | 8 | `src/components/admin/GameTypeList.vue` | **New** — list + deactivate (**no edit**) |
@@ -720,7 +720,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -769,18 +769,18 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 10. Given an operator deactivates a game type with a game currently accepting bets, when that live game ends, then no new game is created from that type (roll-over sees `Active=false`) and it no longer appears in active-types or the admin list.
 10a. Given an operator deactivates a game type whose game is still WaitingBets (never reached enough players to start) and has bets, when the deactivation is processed, then every paid bet on that game is refunded (free bets skipped) and the game is cancelled to NotEnoughPlayersToStart; a game that has already started (GameStarting/InProgress) finishes normally instead.
 11. Given any create/deactivate write, when it succeeds, then the ActiveParameters:{operatorId} cache entry is invalidated so subsequent reads reflect the change.
-12. Given VUE_APP_DEV_LAUNCH=false (production), when the app header renders, then the dev admin icon is absent and POST /dev/admin-token returns 404; given it is enabled (dev), then the icon offers Crypto/Regulated, mints an admin token, and lands on /chimpout/admin.
+12. Given VUE_APP_DEV_LAUNCH=false (production), when the app header renders, then the dev admin icon is absent and POST /dev/admin-token returns 404; given it is enabled (dev), then the icon offers Crypto/Regulated, mints an admin token, and lands on /space-stroker/admin.
 13. Given existing GameParameters rows, when the system runs, then they behave as flat one-row-per-type configurations (no versioning column, no chains).
 
 ---
 
 ## 13. Manual QA
 
-1. Reset the dev DB volume (§4.3), then start `ChimpOut.Consumers` (applies migrations **without** the
-   reverted versioning migration, seeds dev operators + default types) and `ChimpOut.Api`.
+1. Reset the dev DB volume (§4.3), then start `SpaceStroker.Consumers` (applies migrations **without** the
+   reverted versioning migration, seeds dev operators + default types) and `SpaceStroker.Api`.
 2. In dev, open the game with a launch token; confirm the **dev admin icon** appears in the header
    (gated by `VUE_APP_DEV_LAUNCH`). Click it → choose **Crypto** (or **Regulated**) → lands on
-   `/chimpout/admin` with a minted admin token.
+   `/space-stroker/admin` with a minted admin token.
 3. **Create** a free-type game type → appears in the admin list and in the player lobby
    (`/games/active-types`), and is enterable (first game opened). Repeat for a **preset** and a
    **lottery** type.
@@ -809,7 +809,7 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 
 | Date | Change |
 | --- | --- |
-| 2026-07-03 | Initial spec from the refined card + same-game refinement decisions (1–15). Grounded in code exploration (launch-token infra, `GameService`/`RunGameConsumer` roll-over, `OpenNewGames`, `ChimpOutDbContext`). |
+| 2026-07-03 | Initial spec from the refined card + same-game refinement decisions (1–15). Grounded in code exploration (launch-token infra, `GameService`/`RunGameConsumer` roll-over, `OpenNewGames`, `SpaceStrokerDbContext`). |
 | 2026-07-03 | Implementation fix: creating a type now publishes `GameParametersCreatedEvent` so a `GameParametersCreatedConsumer` opens the first game (was 400 `ParameterHasNoActiveGames` on entering a just-created type). See §6.10b. |
 | 2026-07-06 | **Deactivation refunds waiting games.** Deactivating a type now publishes `GameTypeDeactivatedEvent`; a new `GameTypeDeactivatedConsumer` cancels every `WaitingBets` game of that type (refunds paid bets, skips free) and sets it to `NotEnoughPlayersToStart`. `GameStarting`/`InProgress` games finish normally. Added a `BetPlacedConsumer` guard (`GameAcceptingBets`) to block post-cancel lottery resurrection. See §6.6c, §6.10d. |
 | 2026-07-06 | **Dropped editing + versioning entirely** (too much overhead — self-FK column, three graph-walking paths, extra hot-path DB calls). Replaced with **deactivate-or-create**: `GameParameters` is flat/immutable; the only mutable field is `Active`; roll-over reloads the same row and stops when `Active=false`; entry/startup use plain `ParametersId`. Reverted the `AddGameParametersVersioning` migration (dev DB reset). Removed the `PUT` endpoint and the FE edit UI. Rewrote §1.1, §3, §4, §6.6/6.10/6.11/6.12, §7, §8.2, §9–§13. |

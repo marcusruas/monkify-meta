@@ -1,4 +1,4 @@
-# ChimpOut — "Refactor payment models" Feature — Implementation Spec
+# SpaceStroker — "Refactor payment models" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/payment-methods-refactor` → `main` in `monkify-backend`,
 > `monkify-front`, `monkify-meta` on **2026-07-08**. Distilled current-state summary:
@@ -60,19 +60,19 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Worktree-per-repo:** `feature/payment-methods-refactor` in `monkify-backend`, `monkify-front`,
   `monkify-meta` (already created + pushed; hubs stay on `main`).
-- **Unit tests:** update/add in `ChimpOut.Tests`; **report changed tests** at end of implementation.
-- **Integration tests (new feature — mandatory):** `ChimpOut.Tests.Integration` (Testcontainers) must
+- **Unit tests:** update/add in `SpaceStroker.Tests`; **report changed tests** at end of implementation.
+- **Integration tests (new feature — mandatory):** `SpaceStroker.Tests.Integration` (Testcontainers) must
   get a **Standard** and a **SolanaToken** happy-path bet→reward test, plus a **refund-path** test
   (complex flow). See §11.2.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied **only** by `ChimpOut.Consumers`
-  at startup. Never hand-edit `ChimpOutDbContextModelSnapshot.cs`; regenerate via `dotnet ef`.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `SpaceStroker.Infrastructure/Migrations/`; applied **only** by `SpaceStroker.Consumers`
+  at startup. Never hand-edit `SpaceStrokerDbContextModelSnapshot.cs`; regenerate via `dotnet ef`.
 - **Secrets/config:** `OperatorToken.TokenOwnerPrivateKey` is a **real signing secret** — encrypted at
   rest (§6.6), never returned by the API, never logged. Committed config/seed use **mock keys only**.
 - **Operator messaging:** operator/contract-status errors stay **vague**. Player wallet errors
   (insufficient funds, etc.) stay **specific** (unchanged from the wallet-API feature).
 - **Host split:** the API stays stateless and does not migrate. On-chain money movement (Credit/Refund)
-  stays in `ChimpOut.Consumers`; the synchronous Standard debit at bet time is an outbound call only.
+  stays in `SpaceStroker.Consumers`; the synchronous Standard debit at bet time is an outbound call only.
 - **Coordination:** the in-flight `feature/play-page-ux-fixes` branch gates UI on
   `isCryptoOperator`/`paymentModel` (GameHeader wallet cluster, `GameTerminal` currency) — the exact
   operator-level gating this refactor removes. Reconcile at implement time (§7.6).
@@ -105,16 +105,16 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 New value objects / enums
 
-**`ChimpOut.Domain/Games/ValueObjects/PaymentMethod.cs`** — NEW.
+**`SpaceStroker.Domain/Games/ValueObjects/PaymentMethod.cs`** — NEW.
 
 ```csharp
 public enum PaymentMethod { Standard = 0, SolanaToken = 1 }
 ```
 
-**`ChimpOut.Domain/Games/ValueObjects/OperatorPaymentModel.cs`** — **DELETE** (and every reference; see
+**`SpaceStroker.Domain/Games/ValueObjects/OperatorPaymentModel.cs`** — **DELETE** (and every reference; see
 §4.7 removal checklist).
 
-**`ChimpOut.Domain/Games/ValueObjects/SolanaTokenDescriptor.cs`** — NEW. Immutable descriptor passed
+**`SpaceStroker.Domain/Games/ValueObjects/SolanaTokenDescriptor.cs`** — NEW. Immutable descriptor passed
 to `ISolanaService` at call time (replaces the global `GeneralSettings.Token` reads). The private key
 is already **decrypted** by the caller (Consumers only).
 
@@ -126,7 +126,7 @@ public record SolanaTokenDescriptor(
 
 ### 4.2 `OperatorToken` (new entity)
 
-**`ChimpOut.Domain/Games/Entities/OperatorToken.cs`** — NEW. One registered SPL token per row, scoped
+**`SpaceStroker.Domain/Games/Entities/OperatorToken.cs`** — NEW. One registered SPL token per row, scoped
 to an operator. `TokenOwnerPrivateKey` holds the **Data-Protection ciphertext**, never plaintext.
 
 ```csharp
@@ -147,7 +147,7 @@ public class OperatorToken : TableEntity
 
 ### 4.3 `GameParameters` changes
 
-**`ChimpOut.Domain/Games/Entities/GameParameters.cs`** — add two fields + nav.
+**`SpaceStroker.Domain/Games/Entities/GameParameters.cs`** — add two fields + nav.
 
 ```csharp
 public PaymentMethod PaymentMethod { get; set; }      // NEW
@@ -157,7 +157,7 @@ public OperatorToken? OperatorToken { get; set; }     // NEW nav
 
 ### 4.4 Ledger changes
 
-**`ChimpOut.Domain/Bets/Entities/Bet.cs`** — **drop** `PaymentSignature` (L49 + the ctor params/sets at
+**`SpaceStroker.Domain/Bets/Entities/Bet.cs`** — **drop** `PaymentSignature` (L49 + the ctor params/sets at
 L25/L29/L36/L38); **add**:
 
 ```csharp
@@ -165,17 +165,17 @@ public PaymentMethod PaymentMethod { get; set; }            // NEW — copied fr
 public string? ExternalTransactionReference { get; set; }   // NEW — SolanaToken: on-chain signature; Standard: debit ref
 ```
 
-**`ChimpOut.Domain/Bets/Entities/TransactionLog.cs`** — **drop** `Signature` (L30 + ctor params at
+**`SpaceStroker.Domain/Bets/Entities/TransactionLog.cs`** — **drop** `Signature` (L30 + ctor params at
 L12/L15/L20); keep `Type`/`Amount`/`ExternalTransactionReference`/`Reason`; **add**:
 
 ```csharp
 public PaymentMethod PaymentMethod { get; set; }            // NEW
 ```
 
-`TransactionLogType` (`ChimpOut.Domain/Bets/ValueObjects/TransactionLogType.cs`, `Credit=0, Debit=1,
+`TransactionLogType` (`SpaceStroker.Domain/Bets/ValueObjects/TransactionLogType.cs`, `Credit=0, Debit=1,
 Refund=2`) is unchanged.
 
-**`ChimpOut.Domain/Bets/Entities/CryptoTransactionLog.cs`** — NEW. On-chain detail for a SolanaToken
+**`SpaceStroker.Domain/Bets/Entities/CryptoTransactionLog.cs`** — NEW. On-chain detail for a SolanaToken
 movement. Always tied to a `Bet`; `TransactionLogId` is null for the **bet-placement** record (what the
 user passed) and set for **Credit/Refund** movements.
 
@@ -199,10 +199,10 @@ public class CryptoTransactionLog : TableEntity
 
 ### 4.5 `Operator` change
 
-**`ChimpOut.Domain/Games/Entities/Operator.cs`** — **remove** `OperatorPaymentModel PaymentModel` (L16).
+**`SpaceStroker.Domain/Games/Entities/Operator.cs`** — **remove** `OperatorPaymentModel PaymentModel` (L16).
 Add `ICollection<OperatorToken> Tokens` (nav).
 
-### 4.6 EF configuration (inline, `ChimpOutDbContext.cs`)
+### 4.6 EF configuration (inline, `SpaceStrokerDbContext.cs`)
 
 - **DbSets (L15-25):** add `public DbSet<OperatorToken> OperatorTokens { get; set; }` and
   `public DbSet<CryptoTransactionLog> CryptoTransactionLogs { get; set; }`.
@@ -237,24 +237,24 @@ Add `ICollection<OperatorToken> Tokens` (nav).
 Removing `Operator.PaymentModel` / `OperatorPaymentModel` / `Bet.PaymentSignature` /
 `TransactionLog.Signature` touches (from code exploration):
 
-- `Operator.PaymentModel`: `ChimpOutDbContext.cs:66`, `Consumers/Program.cs` (L223-224/239/251/258),
+- `Operator.PaymentModel`: `SpaceStrokerDbContext.cs:66`, `Consumers/Program.cs` (L223-224/239/251/258),
   `DevController.cs` (L35/40/50/68/73), `UpdatePlayerPreferencesHandler.cs:111`, `Operator.cs:16`,
   tests (`OperatorTests`, `GamesControllerOperatorTests`, `DevControllerTests`, integration harness).
-- `Bet.PaymentSignature`: `Bet.cs` (ctors + L49), `ChimpOutDbContext.cs` (L149/L158),
+- `Bet.PaymentSignature`: `Bet.cs` (ctors + L49), `SpaceStrokerDbContext.cs` (L149/L158),
   `BetExtensions.cs` (L7/L10), `SolanaService.cs` (L182/L186), `BetDto.cs:10`, RegisterBet handler/body.
-- `TransactionLog.Signature`: `TransactionLog.cs` (L12-13/L20/L30), `ChimpOutDbContext.cs` (L174/L178),
+- `TransactionLog.Signature`: `TransactionLog.cs` (L12-13/L20/L30), `SpaceStrokerDbContext.cs` (L174/L178),
   `SolanaService.cs` (L105/L140).
 
 ### 4.8 Migration
 
-`ChimpOut.Infrastructure/Migrations/<timestamp>_RefactorPaymentMethods.cs` — generate with:
+`SpaceStroker.Infrastructure/Migrations/<timestamp>_RefactorPaymentMethods.cs` — generate with:
 
 ```
-dotnet ef migrations add RefactorPaymentMethods --project ChimpOut.Infrastructure --startup-project ChimpOut.Consumers
+dotnet ef migrations add RefactorPaymentMethods --project SpaceStroker.Infrastructure --startup-project SpaceStroker.Consumers
 ```
 
 > Confirm the startup project locally: the repo pins none (no `IDesignTimeDbContextFactory`); migrations
-> live in `ChimpOut.Infrastructure`, and both `ChimpOut.Consumers` and `ChimpOut.Api` build the DbContext.
+> live in `SpaceStroker.Infrastructure`, and both `SpaceStroker.Consumers` and `SpaceStroker.Api` build the DbContext.
 > Follow the `20260630183419_AddOperatorWalletLedger.cs` style (explicit `AddColumn`/`DropColumn`).
 
 Because this is **dev/greenfield** (decision 13), the migration is a straight schema change with simple
@@ -293,11 +293,11 @@ erDiagram
   the dev operator's `OperatorToken` (§9) and the global **`ClusterUrl`** for all Solana RPC. It is no
   longer read for per-bet settlement.
 - **`GeneralSettings.OperatorWallets.Operators[<operatorId>]`** stays and now keys **Standard**
-  availability. In `chimpoutsettings.json`, re-key the existing `mock` entry to the **fixed dev operator
+  availability. In `spacestrokersettings.json`, re-key the existing `mock` entry to the **fixed dev operator
   GUID** (§9) so the dev operator has Standard available. **Mock values only.**
-- **Data Protection (NEW, §6.6):** both hosts call `AddDataProtection().SetApplicationName("ChimpOut")`
+- **Data Protection (NEW, §6.6):** both hosts call `AddDataProtection().SetApplicationName("SpaceStroker")`
   and persist the key ring to the **existing Redis** connection (already used for cache/SignalR) so a
-  value encrypted in `ChimpOut.Api` decrypts in `ChimpOut.Consumers`. No new secret in committed config;
+  value encrypted in `SpaceStroker.Api` decrypts in `SpaceStroker.Consumers`. No new secret in committed config;
   in prod the key ring should itself be protected (certificate/KMS) — an ops concern, mock/omitted in dev.
 - No new frontend env vars (§7); the repo stays on **`VUE_APP_*`**.
 
@@ -305,7 +305,7 @@ erDiagram
 
 ## 6. Backend behaviour
 
-### 6.1 The payment-method strategy (`ChimpOut.Infrastructure/Services/Payments/`)
+### 6.1 The payment-method strategy (`SpaceStroker.Infrastructure/Services/Payments/`)
 
 Mirror the `IOperatorWalletService` + resolver shape.
 
@@ -339,7 +339,7 @@ public interface IPaymentMethodService
 
 ### 6.2 Debit / bet placement — `RegisterBetHandler` (API host)
 
-`ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` +
+`SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` +
 `RegisterBetRequest`/`RegisterBetRequestBody`.
 
 - **Replace the `_isCrypto = operator.PaymentModel == Crypto` branch (L81)** with
@@ -372,7 +372,7 @@ public interface IPaymentMethodService
 
 ### 6.3 Credit — `RewardGameConsumer`
 
-`ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`.
+`SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`.
 
 - Replace the `isRegulated` branch (L84-85) with `parameters.PaymentMethod`.
 - Keep the free-bet skip and `CalculateRewardForBet` math.
@@ -387,7 +387,7 @@ public interface IPaymentMethodService
 
 ### 6.4 Refund — `RefundInvalidBetConsumer`
 
-`ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (+ event).
+`SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (+ event).
 
 - The event already carries `BetId` (added by the wallet-API feature). Load the real bet with
   `OperatorPlayer`, `Game.Parameters.Operator`, `Game.Parameters.OperatorToken`, `TransactionLogs`.
@@ -400,7 +400,7 @@ public interface IPaymentMethodService
 
 ### 6.5 `ISolanaService` — per-token parameterization
 
-`ChimpOut.Infrastructure/Services/Solana/{ISolanaService,SolanaService}.cs`.
+`SpaceStroker.Infrastructure/Services/Solana/{ISolanaService,SolanaService}.cs`.
 
 - The ctor currently builds a single `_ownerAccount` from `GeneralSettings.Token` (L33). **Remove** that
   field; the owner account is built **per call** from the passed `SolanaTokenDescriptor`.
@@ -422,11 +422,11 @@ public interface IPaymentMethodService
 
 No encryption exists in the backend today; introduce it minimally.
 
-- **`ChimpOut.Infrastructure/Services/Encryption/ISecretProtector.cs`** + `DataProtectionSecretProtector.cs`
-  wrapping `IDataProtector` (`CreateProtector("ChimpOut.OperatorToken.PrivateKey")`): `Protect(string)` /
+- **`SpaceStroker.Infrastructure/Services/Encryption/ISecretProtector.cs`** + `DataProtectionSecretProtector.cs`
+  wrapping `IDataProtector` (`CreateProtector("SpaceStroker.OperatorToken.PrivateKey")`): `Protect(string)` /
   `Unprotect(string)`.
-- **Registration:** `services.AddDataProtection().SetApplicationName("ChimpOut")
-  .PersistKeysToStackExchangeRedis(<existing Redis connection multiplexer>, "chimpout:dataprotection-keys")`
+- **Registration:** `services.AddDataProtection().SetApplicationName("SpaceStroker")
+  .PersistKeysToStackExchangeRedis(<existing Redis connection multiplexer>, "spacestroker:dataprotection-keys")`
   in `DependencyInjection.cs`, for **both** hosts (shared key ring → cross-host decrypt).
 - **Write path:** the Admin **register-token** handler (API host) calls `Protect(privateKey)` before
   persisting `OperatorToken.TokenOwnerPrivateKey`.
@@ -436,11 +436,11 @@ No encryption exists in the backend today; introduce it minimally.
 
 ### 6.7 Admin: token registration + method availability
 
-`ChimpOut.Api/Controllers/AdminController.cs` (route prefix `/admin`, already guarded by
+`SpaceStroker.Api/Controllers/AdminController.cs` (route prefix `/admin`, already guarded by
 `AdminTokenValidationMiddleware`; **no middleware change needed** — the new routes sit under `/admin`).
 All handlers scope by `_adminContext.OperatorId`.
 
-New endpoints + handlers (`ChimpOut.Infrastructure/Handlers/Admin/OperatorTokens/`,
+New endpoints + handlers (`SpaceStroker.Infrastructure/Handlers/Admin/OperatorTokens/`,
 `.../PaymentMethods/`):
 
 | Route | Handler | Behaviour |
@@ -481,10 +481,10 @@ New endpoints + handlers (`ChimpOut.Infrastructure/Handlers/Admin/OperatorTokens
 
 | Operation | Host | Notes |
 | --- | --- | --- |
-| Standard debit | `ChimpOut.Api` (`RegisterBetHandler`) | outbound wallet call; API stays stateless |
-| SolanaToken bet-time validation | `ChimpOut.Api` | public token data only; **no** private-key decrypt |
-| Credit / Refund (both methods) | `ChimpOut.Consumers` | money movement; SolanaToken decrypts the key here |
-| Token registration (Protect) | `ChimpOut.Api` (Admin) | encrypts before persist |
+| Standard debit | `SpaceStroker.Api` (`RegisterBetHandler`) | outbound wallet call; API stays stateless |
+| SolanaToken bet-time validation | `SpaceStroker.Api` | public token data only; **no** private-key decrypt |
+| Credit / Refund (both methods) | `SpaceStroker.Consumers` | money movement; SolanaToken decrypts the key here |
+| Token registration (Protect) | `SpaceStroker.Api` (Admin) | encrypts before persist |
 
 ---
 
@@ -566,7 +566,7 @@ Env stays **`VUE_APP_*`**. The through-line: **replace every operator-level
 ```mermaid
 sequenceDiagram
     actor Player
-    participant API as ChimpOut.Api (RegisterBetHandler)
+    participant API as SpaceStroker.Api (RegisterBetHandler)
     participant PM as IPaymentMethodResolver
     participant W as Operator Wallet (Standard)
     participant SOL as Solana (SolanaToken)
@@ -590,7 +590,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as ChimpOut.Consumers
+    participant C as SpaceStroker.Consumers
     participant PM as IPaymentMethodResolver
     participant W as Operator Wallet (Standard)
     participant SOL as Solana (SolanaToken)
@@ -613,7 +613,7 @@ sequenceDiagram
 
 ## 9. Dev seeding & endpoints
 
-- **`ChimpOut.Consumers/Program.cs`:** replace `CreateDefaultOperatorAsync`'s two operators with **one**
+- **`SpaceStroker.Consumers/Program.cs`:** replace `CreateDefaultOperatorAsync`'s two operators with **one**
   dev operator at a **fixed GUID** (constant), no `PaymentModel`. After creating it:
   - Ensure `GeneralSettings.OperatorWallets.Operators[<fixed dev GUID>]` maps to `mock` (config re-keyed
     in §5) → Standard available.
@@ -635,43 +635,43 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/ValueObjects/PaymentMethod.cs` | **NEW** enum `Standard \| SolanaToken`. |
-| 2 | `ChimpOut.Domain/Games/ValueObjects/OperatorPaymentModel.cs` | **DELETE**. |
-| 3 | `ChimpOut.Domain/Games/ValueObjects/SolanaTokenDescriptor.cs` | **NEW** per-call token descriptor. |
-| 4 | `ChimpOut.Domain/Games/Entities/Operator.cs` | Remove `PaymentModel`; add `Tokens` nav. |
-| 5 | `ChimpOut.Domain/Games/Entities/OperatorToken.cs` | **NEW** entity (encrypted private key). |
-| 6 | `ChimpOut.Domain/Games/Entities/GameParameters.cs` | Add `PaymentMethod`, `OperatorTokenId`, `OperatorToken` nav. |
-| 7 | `ChimpOut.Domain/Bets/Entities/Bet.cs` | Drop `PaymentSignature`; add `PaymentMethod` + `ExternalTransactionReference`; fix ctors. |
-| 8 | `ChimpOut.Domain/Bets/Entities/TransactionLog.cs` | Drop `Signature`; add `PaymentMethod`; fix ctors. |
-| 9 | `ChimpOut.Domain/Bets/Entities/CryptoTransactionLog.cs` | **NEW** on-chain detail entity. |
-| 10 | `ChimpOut.Domain/Bets/Services/BetExtensions.cs` | Free-bet check → `amount == 0` (drop signature). |
-| 11 | `ChimpOut.Domain/Games/Services/GameParametersValidation.cs` | Method defined; token required+active+owned when SolanaToken, null when Standard. |
-| 12 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | DbSets + inline mappings per §4.6 (drops + new columns + `OperatorToken`/`CryptoTransactionLog`). |
-| 13 | `ChimpOut.Infrastructure/Migrations/<ts>_RefactorPaymentMethods.cs` | **NEW** migration (§4.8) + regenerate snapshot. |
-| 14 | `ChimpOut.Infrastructure/Services/Payments/IPaymentMethodService.cs` + `PaymentResult.cs`/`PaymentError.cs` | **NEW** strategy abstraction. |
-| 15 | `ChimpOut.Infrastructure/Services/Payments/StandardPaymentMethodService.cs` | **NEW** → `IOperatorWalletResolver`. |
-| 16 | `ChimpOut.Infrastructure/Services/Payments/SolanaTokenPaymentMethodService.cs` | **NEW** → `ISolanaService` + token descriptor. |
-| 17 | `ChimpOut.Infrastructure/Services/Payments/IPaymentMethodResolver.cs` + `PaymentMethodResolver.cs` | **NEW** resolve-by-method + `GetAvailableMethods`. |
-| 18 | `ChimpOut.Infrastructure/Services/Encryption/ISecretProtector.cs` + `DataProtectionSecretProtector.cs` | **NEW** Data-Protection wrapper. |
-| 19 | `ChimpOut.Infrastructure/Services/Solana/{ISolanaService,SolanaService}.cs` | Per-call `SolanaTokenDescriptor`; owner account per call; drop global `_ownerAccount`. |
-| 20 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register payment services/resolver, secret protector, `AddDataProtection().PersistKeysToStackExchangeRedis`. |
-| 21 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequestBody`) | Branch by game method; identity per method; conditional wallet/signature; settle via resolver; set `PaymentMethod`/`ExternalTransactionReference`; placement `CryptoTransactionLog`. |
-| 22 | `ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credit via resolver; blockhash pre-check only for SolanaToken winners; write logs. |
-| 23 | `ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Refund via resolver by game method; write logs. |
-| 24 | `ChimpOut.Infrastructure/Handlers/Admin/OperatorTokens/*` | **NEW** Register/List/Deactivate handlers + requests. |
-| 25 | `ChimpOut.Infrastructure/Handlers/Admin/PaymentMethods/GetAvailablePaymentMethods*` | **NEW** availability handler. |
-| 26 | `ChimpOut.Api/Controllers/AdminController.cs` | Add operator-token + payment-methods routes; OPTIONS `Allow`. |
-| 27 | `ChimpOut.Infrastructure/Contracts/Admin/OperatorTokenDto.cs` + `OperatorTokenRequestBody.cs` + `PaymentMethodAvailabilityDto.cs` | **NEW** DTOs (never expose private key). |
-| 28 | `ChimpOut.Infrastructure/Contracts/Admin/GameTypeRequestBody.cs` + `GameTypeAdminDto.cs` | Add `PaymentMethod` + `OperatorTokenId`; map in `ToNewGameParameters`. |
-| 29 | `ChimpOut.Infrastructure/Handlers/Admin/CreateGameType/CreateGameTypeHandler.cs` | Validate method availability + token ownership/active. |
-| 30 | `ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs` (+ `GetActiveParametersHandler`) | Add `PaymentMethod` + token display/transfer fields (public). |
-| 31 | `ChimpOut.Infrastructure/Contracts/Games/BetDto.cs` | Drop `PaymentSignature`; optional `PaymentMethod`. |
-| 32 | `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Remove PaymentModel currency branch; allow fiat for all. |
-| 33 | `ChimpOut.Domain/Bets/ValueObjects/BetTransactionAmountResult.cs` (callers) | Scale `ValueInTokens` by the token's decimals. |
-| 34 | `ChimpOut.Common/chimpoutsettings.json` | Re-key `OperatorWallets.Operators` to the fixed dev GUID; keep `Token` (seed source). **Mock only.** |
-| 35 | `ChimpOut.Consumers/Program.cs` | Single dev operator (fixed GUID); seed mock wallet map + one encrypted `OperatorToken`; both-method default types; drop PaymentModel writes. |
-| 36 | `ChimpOut.Consumers/DefaultGameParameters.cs` | Set `PaymentMethod` (+ token id) on default types. |
-| 37 | `ChimpOut.Api/Controllers/DevController.cs` | Drop `?paymentModel`; single operator; token carries `sub`. |
+| 1 | `SpaceStroker.Domain/Games/ValueObjects/PaymentMethod.cs` | **NEW** enum `Standard \| SolanaToken`. |
+| 2 | `SpaceStroker.Domain/Games/ValueObjects/OperatorPaymentModel.cs` | **DELETE**. |
+| 3 | `SpaceStroker.Domain/Games/ValueObjects/SolanaTokenDescriptor.cs` | **NEW** per-call token descriptor. |
+| 4 | `SpaceStroker.Domain/Games/Entities/Operator.cs` | Remove `PaymentModel`; add `Tokens` nav. |
+| 5 | `SpaceStroker.Domain/Games/Entities/OperatorToken.cs` | **NEW** entity (encrypted private key). |
+| 6 | `SpaceStroker.Domain/Games/Entities/GameParameters.cs` | Add `PaymentMethod`, `OperatorTokenId`, `OperatorToken` nav. |
+| 7 | `SpaceStroker.Domain/Bets/Entities/Bet.cs` | Drop `PaymentSignature`; add `PaymentMethod` + `ExternalTransactionReference`; fix ctors. |
+| 8 | `SpaceStroker.Domain/Bets/Entities/TransactionLog.cs` | Drop `Signature`; add `PaymentMethod`; fix ctors. |
+| 9 | `SpaceStroker.Domain/Bets/Entities/CryptoTransactionLog.cs` | **NEW** on-chain detail entity. |
+| 10 | `SpaceStroker.Domain/Bets/Services/BetExtensions.cs` | Free-bet check → `amount == 0` (drop signature). |
+| 11 | `SpaceStroker.Domain/Games/Services/GameParametersValidation.cs` | Method defined; token required+active+owned when SolanaToken, null when Standard. |
+| 12 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | DbSets + inline mappings per §4.6 (drops + new columns + `OperatorToken`/`CryptoTransactionLog`). |
+| 13 | `SpaceStroker.Infrastructure/Migrations/<ts>_RefactorPaymentMethods.cs` | **NEW** migration (§4.8) + regenerate snapshot. |
+| 14 | `SpaceStroker.Infrastructure/Services/Payments/IPaymentMethodService.cs` + `PaymentResult.cs`/`PaymentError.cs` | **NEW** strategy abstraction. |
+| 15 | `SpaceStroker.Infrastructure/Services/Payments/StandardPaymentMethodService.cs` | **NEW** → `IOperatorWalletResolver`. |
+| 16 | `SpaceStroker.Infrastructure/Services/Payments/SolanaTokenPaymentMethodService.cs` | **NEW** → `ISolanaService` + token descriptor. |
+| 17 | `SpaceStroker.Infrastructure/Services/Payments/IPaymentMethodResolver.cs` + `PaymentMethodResolver.cs` | **NEW** resolve-by-method + `GetAvailableMethods`. |
+| 18 | `SpaceStroker.Infrastructure/Services/Encryption/ISecretProtector.cs` + `DataProtectionSecretProtector.cs` | **NEW** Data-Protection wrapper. |
+| 19 | `SpaceStroker.Infrastructure/Services/Solana/{ISolanaService,SolanaService}.cs` | Per-call `SolanaTokenDescriptor`; owner account per call; drop global `_ownerAccount`. |
+| 20 | `SpaceStroker.Infrastructure/DependencyInjection.cs` | Register payment services/resolver, secret protector, `AddDataProtection().PersistKeysToStackExchangeRedis`. |
+| 21 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequestBody`) | Branch by game method; identity per method; conditional wallet/signature; settle via resolver; set `PaymentMethod`/`ExternalTransactionReference`; placement `CryptoTransactionLog`. |
+| 22 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credit via resolver; blockhash pre-check only for SolanaToken winners; write logs. |
+| 23 | `SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Refund via resolver by game method; write logs. |
+| 24 | `SpaceStroker.Infrastructure/Handlers/Admin/OperatorTokens/*` | **NEW** Register/List/Deactivate handlers + requests. |
+| 25 | `SpaceStroker.Infrastructure/Handlers/Admin/PaymentMethods/GetAvailablePaymentMethods*` | **NEW** availability handler. |
+| 26 | `SpaceStroker.Api/Controllers/AdminController.cs` | Add operator-token + payment-methods routes; OPTIONS `Allow`. |
+| 27 | `SpaceStroker.Infrastructure/Contracts/Admin/OperatorTokenDto.cs` + `OperatorTokenRequestBody.cs` + `PaymentMethodAvailabilityDto.cs` | **NEW** DTOs (never expose private key). |
+| 28 | `SpaceStroker.Infrastructure/Contracts/Admin/GameTypeRequestBody.cs` + `GameTypeAdminDto.cs` | Add `PaymentMethod` + `OperatorTokenId`; map in `ToNewGameParameters`. |
+| 29 | `SpaceStroker.Infrastructure/Handlers/Admin/CreateGameType/CreateGameTypeHandler.cs` | Validate method availability + token ownership/active. |
+| 30 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` (+ `GetActiveParametersHandler`) | Add `PaymentMethod` + token display/transfer fields (public). |
+| 31 | `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs` | Drop `PaymentSignature`; optional `PaymentMethod`. |
+| 32 | `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Remove PaymentModel currency branch; allow fiat for all. |
+| 33 | `SpaceStroker.Domain/Bets/ValueObjects/BetTransactionAmountResult.cs` (callers) | Scale `ValueInTokens` by the token's decimals. |
+| 34 | `SpaceStroker.Common/spacestrokersettings.json` | Re-key `OperatorWallets.Operators` to the fixed dev GUID; keep `Token` (seed source). **Mock only.** |
+| 35 | `SpaceStroker.Consumers/Program.cs` | Single dev operator (fixed GUID); seed mock wallet map + one encrypted `OperatorToken`; both-method default types; drop PaymentModel writes. |
+| 36 | `SpaceStroker.Consumers/DefaultGameParameters.cs` | Set `PaymentMethod` (+ token id) on default types. |
+| 37 | `SpaceStroker.Api/Controllers/DevController.cs` | Drop `?paymentModel`; single operator; token carries `sub`. |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -704,7 +704,7 @@ sequenceDiagram
 
 ## 11. Tests
 
-### 11.1 Unit tests (`monkify-backend/src/ChimpOut.Tests`)
+### 11.1 Unit tests (`monkify-backend/src/SpaceStroker.Tests`)
 
 | Test file | Cases | Expected |
 | --- | --- | --- |
@@ -723,7 +723,7 @@ sequenceDiagram
 > Stack: xUnit + Shouldly + Moq + Bogus, in-memory EF. Mock `IPaymentMethodService`/resolver,
 > `ISolanaService`, `ISecretProtector`. **Report every changed/added test file at the end.**
 
-### 11.2 Integration tests (`monkify-backend/src/ChimpOut.Tests.Integration`, Testcontainers — MANDATORY)
+### 11.2 Integration tests (`monkify-backend/src/SpaceStroker.Tests.Integration`, Testcontainers — MANDATORY)
 
 | Test | Flow |
 | --- | --- |
@@ -752,9 +752,9 @@ From the Trello **Acceptance Criteria** checklist (1:1):
 10. Given a free (amount-0) bet, when placed under either method, then no debit/credit/refund occurs, and a free SolanaToken game does not require wallet-connect; `AllowFreeBet` remains hidden in the admin form and false in production.
 11. Given a player in the game, when the games list contains both Standard and SolanaToken types, then wallet-connect is prompted only when entering/betting a non-free SolanaToken game and never for a Standard game, driven by the game's `PaymentMethod` (not an operator-level flag).
 12. Given the `> BET:` / `> POT:` display, when rendering a SolanaToken game, then amounts show the registered token's symbol and decimals; when rendering a Standard game, amounts show USD (or the player's preferred display currency), and the preferred display currency has no effect on SolanaToken games.
-13. Given local dev, when the environment is seeded, then exactly one dev operator exists, pre-provisioned with a mock wallet (Standard available) and one `OperatorToken` from the chimpoutsettings Token section (SolanaToken available), with default game types of both methods; the `/dev/launch-token` and `/dev/admin-token` endpoints take no `paymentModel` param and the dev launch token carries a `sub`.
+13. Given local dev, when the environment is seeded, then exactly one dev operator exists, pre-provisioned with a mock wallet (Standard available) and one `OperatorToken` from the spacestrokersettings Token section (SolanaToken available), with default game types of both methods; the `/dev/launch-token` and `/dev/admin-token` endpoints take no `paymentModel` param and the dev launch token carries a `sub`.
 14. Given a Standard bet whose operator-wallet debit fails, when the player submits, then the existing specific wallet message is returned (insufficient funds / blocked / duplicate / timeout) and no bet is persisted; unrelated operator-status messaging stays vague.
-15. Given the test suites, when the feature is complete, then `ChimpOut.Tests` unit tests are updated/added for the new strategy/resolver, token registration, validation, and ledger, and `ChimpOut.Tests.Integration` has happy-path tests for both a Standard and a SolanaToken bet→reward plus a refund-path test; the changed/added tests are reported.
+15. Given the test suites, when the feature is complete, then `SpaceStroker.Tests` unit tests are updated/added for the new strategy/resolver, token registration, validation, and ledger, and `SpaceStroker.Tests.Integration` has happy-path tests for both a Standard and a SolanaToken bet→reward plus a refund-path test; the changed/added tests are reported.
 
 ---
 

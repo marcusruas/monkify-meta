@@ -1,4 +1,4 @@
-# ChimpOut.Api — public (LB-fronted), autoscaling Cloud Run service, min >= 1.
+# SpaceStroker.Api — public (LB-fronted), autoscaling Cloud Run service, min >= 1.
 # Reads secrets via Secret Manager references (IAM at boot); plain config via env.
 
 resource "google_cloud_run_v2_service" "api" {

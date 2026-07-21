@@ -4,5 +4,5 @@ variable "project_id" {
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix for service-account ids (e.g. chimpout)."
+  description = "Prefix for service-account ids (e.g. spacestroker)."
 }

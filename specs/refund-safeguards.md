@@ -1,4 +1,4 @@
-# ChimpOut — "Refund safeguards" Feature — Implementation Spec
+# SpaceStroker — "Refund safeguards" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/refund-safeguards` on 2026-07-20 (386 unit + 39
 > integration tests green). Distilled summary: `../features/refund-safeguards.md`. Originally refined
@@ -16,9 +16,9 @@
 ## 1. Summary
 
 Today `BetStatus.NeedsRefunding` and `BetStatus.Refunded` exist
-(`ChimpOut.Domain/Bets/ValueObjects/BetStatus.cs`) but are **never set in production**. Refunds are
+(`SpaceStroker.Domain/Bets/ValueObjects/BetStatus.cs`) but are **never set in production**. Refunds are
 done inline/immediately: three triggers publish `RefundInvalidBetEvent`
-(`ChimpOut.Infrastructure.Consumers.RefundBet`) → `RefundInvalidBetConsumer` calls the payment
+(`SpaceStroker.Infrastructure.Consumers.RefundBet`) → `RefundInvalidBetConsumer` calls the payment
 strategy's `Refund()`. If that refund **fails, the consumer only logs an error**
 (`RefundInvalidBetConsumer.cs:52-53`) — the money is never returned and there is no retry. And there is
 no operator-facing way to force a refund of a specific bet.
@@ -27,9 +27,9 @@ This card adds:
 
 | Part | What | Host |
 | --- | --- | --- |
-| **1. Sweep** | A Hangfire recurring job every 12h that loads all `NeedsRefunding` bets and publishes one `RefundInvalidBetEvent` per bet. | `ChimpOut.Consumers` |
-| **2. Self-clearing** | `RefundInvalidBetConsumer` sets `Bet.Status = Refunded` on any **successful** refund (all refunds, inline triggers included); on failure it leaves the status untouched so a swept bet retries next cycle. | `ChimpOut.Consumers` |
-| **3. Admin refund by signature** | `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) as `NeedsRefunding`. Money moves later via the sweep. | `ChimpOut.Api` + `monkify-front` |
+| **1. Sweep** | A Hangfire recurring job every 12h that loads all `NeedsRefunding` bets and publishes one `RefundInvalidBetEvent` per bet. | `SpaceStroker.Consumers` |
+| **2. Self-clearing** | `RefundInvalidBetConsumer` sets `Bet.Status = Refunded` on any **successful** refund (all refunds, inline triggers included); on failure it leaves the status untouched so a swept bet retries next cycle. | `SpaceStroker.Consumers` |
+| **3. Admin refund by signature** | `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) as `NeedsRefunding`. Money moves later via the sweep. | `SpaceStroker.Api` + `monkify-front` |
 
 **Scope shape (deliberate):** the sweep is the **single executor** of refunds it drives; the admin
 action is the **sole new producer** of `NeedsRefunding`. The three existing inline triggers are
@@ -57,17 +57,17 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** `feature/refund-safeguards` in `monkify-backend`, `monkify-front`,
   `monkify-meta`; hub stays on `main`. (Worktrees already created — see the card **Implementation**
   block.)
-- **Unit tests:** update/add in `ChimpOut.Tests` (run via `scripts/run_tests.bat` — **not** the full
+- **Unit tests:** update/add in `SpaceStroker.Tests` (run via `scripts/run_tests.bat` — **not** the full
   `dotnet test`, which includes the slow `ProductionSessions` Monte-Carlo suite); report changed tests
   at the end of implementation.
 - **Integration tests (Feature — mandatory):** at least one happy-path test in
-  `ChimpOut.Tests.Integration` (Testcontainers), **plus** a dedicated test for the complex flow
+  `SpaceStroker.Tests.Integration` (Testcontainers), **plus** a dedicated test for the complex flow
   (admin-mark → sweep → refund). Run via `scripts/run_integration_tests.bat`.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
   **No schema change is needed here** (see §4).
-- **Migrations:** applied only by `ChimpOut.Consumers`. **None expected** for this feature.
+- **Migrations:** applied only by `SpaceStroker.Consumers`. **None expected** for this feature.
 - **Host split:** the API stays stateless (marks status only, no money movement); all money/refund and
-  the sweep run in `ChimpOut.Consumers`.
+  the sweep run in `SpaceStroker.Consumers`.
 - **Admin messaging:** authenticated `/admin` endpoints may return **specific** field-level messages
   (the vague-operator-messaging rule applies only to the launch/contract path, not the admin path). The
   cross-operator/not-found case is still answered vaguely ("no bet found for that signature") so one
@@ -98,10 +98,10 @@ From `monkify-meta/constraints.md` (full list there):
 **No schema change, no migration.** Everything needed already exists:
 
 - `BetStatus` enum already has `NeedsRefunding` (value 3) and `Refunded` (value 4) —
-  `ChimpOut.Domain/Bets/ValueObjects/BetStatus.cs:9-17`. This feature simply starts **using** them.
-- `Bet.ExternalTransactionReference` (`ChimpOut.Domain/Bets/Entities/Bet.cs:65`) is the payment
+  `SpaceStroker.Domain/Bets/ValueObjects/BetStatus.cs:9-17`. This feature simply starts **using** them.
+- `Bet.ExternalTransactionReference` (`SpaceStroker.Domain/Bets/Entities/Bet.cs:65`) is the payment
   signature; it is already **indexed** and length-capped (100) in
-  `ChimpOutDbContext.OnModelCreating` (`ChimpOutDbContext.cs:185`, `:176`) — so the admin lookup by
+  `SpaceStrokerDbContext.OnModelCreating` (`SpaceStrokerDbContext.cs:185`, `:176`) — so the admin lookup by
   signature is index-backed.
 - `Bet.Status` (`Bet.cs:69`) is already a mapped column; flipping it needs no mapping change.
 
@@ -124,25 +124,25 @@ here.)
 
 ### 6.1 New Hangfire job — `PendingRefundSweepJob`
 
-New file `ChimpOut.Infrastructure/Jobs/PendingRefundSweepJob.cs`, mirroring
-`ChimpOut.Infrastructure/Jobs/ChatMessagePurgeJob.cs` (a plain class with a single async method,
+New file `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs`, mirroring
+`SpaceStroker.Infrastructure/Jobs/ChatMessagePurgeJob.cs` (a plain class with a single async method,
 resolved by Hangfire's DI activator).
 
 ```csharp
-namespace ChimpOut.Infrastructure.Jobs
+namespace SpaceStroker.Infrastructure.Jobs
 {
     /// <summary>
     /// Publishes a refund event for every bet stuck in NeedsRefunding. Scheduled as a 12-hourly
-    /// Hangfire recurring job in ChimpOut.Consumers. The RefundInvalidBetConsumer does the actual
+    /// Hangfire recurring job in SpaceStroker.Consumers. The RefundInvalidBetConsumer does the actual
     /// money movement and clears the status to Refunded on success; a bet that fails to refund stays
     /// NeedsRefunding and is retried on the next run.
     /// </summary>
     public class PendingRefundSweepJob
     {
-        private readonly ChimpOutDbContext _context;
+        private readonly SpaceStrokerDbContext _context;
         private readonly IMessageBus _messageBus;
 
-        public PendingRefundSweepJob(ChimpOutDbContext context, IMessageBus messageBus) { ... }
+        public PendingRefundSweepJob(SpaceStrokerDbContext context, IMessageBus messageBus) { ... }
 
         public async Task Run()
         {
@@ -169,7 +169,7 @@ namespace ChimpOut.Infrastructure.Jobs
 ```
 
 Notes:
-- `IMessageBus` is the publish abstraction (`ChimpOut.Infrastructure.Services.Messaging`), already used
+- `IMessageBus` is the publish abstraction (`SpaceStroker.Infrastructure.Services.Messaging`), already used
   by `DeactivateGameTypeHandler`.
 - Free bets (`Amount == 0`) should never be in `NeedsRefunding` (the admin action rejects them, §6.3);
   even if one slips in, `RefundInvalidBetConsumer` skips `Value == 0` — see §6.2 for the caveat and
@@ -178,7 +178,7 @@ Notes:
 
 ### 6.2 Changed consumer — `RefundInvalidBetConsumer` sets `Refunded` on success
 
-File `ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`.
+File `SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`.
 
 Today it loads the bet `AsNoTracking()` (`:66`) and never persists a status change. Change:
 
@@ -223,7 +223,7 @@ No consumer change for free bets.
 
 ### 6.3 New admin endpoint — refund by payment signature
 
-**Controller** `ChimpOut.Api/Controllers/AdminController.cs` — add a route (guarded by the existing
+**Controller** `SpaceStroker.Api/Controllers/AdminController.cs` — add a route (guarded by the existing
 `AdminTokenValidationMiddleware`, which covers any `/admin/*` path, operator = token `iss`):
 
 ```csharp
@@ -237,7 +237,7 @@ public async Task<IActionResult> RefundBet([FromBody] RefundBetBySignatureBody b
 Also add `bets/refund` to the `[HttpOptions(...)]` CORS-preflight list at the top of the controller
 (the admin API is called cross-origin from the SPA).
 
-**Contract** `ChimpOut.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs`:
+**Contract** `SpaceStroker.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs`:
 
 ```csharp
 public class RefundBetBySignatureBody
@@ -246,7 +246,7 @@ public class RefundBetBySignatureBody
 }
 ```
 
-**Request + handler** under `ChimpOut.Infrastructure/Handlers/Admin/RefundBet/`
+**Request + handler** under `SpaceStroker.Infrastructure/Handlers/Admin/RefundBet/`
 (`RefundBetRequest : IRequest<Guid?>`, `RefundBetHandler : BaseRequestHandler<RefundBetRequest, Guid?>`),
 mirroring `DeactivateGameTypeHandler` (tracked query, `Messaging.AddValidationFailureMessage(...)` +
 `throw new ValidationFailureException()` for rejects, return the id on success):
@@ -277,10 +277,10 @@ Logic:
 4. Otherwise set `bet.Status = BetStatus.NeedsRefunding`, `SaveChanges`, return `bet.Id`. **No event
    published** (money moves via the sweep).
 
-**Which host:** the endpoint lives in `ChimpOut.Api` and only reads + flips a status column — no money
+**Which host:** the endpoint lives in `SpaceStroker.Api` and only reads + flips a status column — no money
 movement, no Solana/wallet call, no decrypt — so the stateless-API rule holds.
 
-### 6.4 Job registration (`ChimpOut.Consumers/Program.cs`)
+### 6.4 Job registration (`SpaceStroker.Consumers/Program.cs`)
 
 1. Register the job scoped, next to the existing chat-purge registration (`Program.cs:53`):
    ```csharp
@@ -340,7 +340,7 @@ User-facing copy (admin only, specific is fine):
 ```mermaid
 sequenceDiagram
     participant Admin as Operator admin (SPA)
-    participant Api as ChimpOut.Api
+    participant Api as SpaceStroker.Api
     participant DB as Postgres
     participant Job as PendingRefundSweepJob (12h)
     participant Bus as MassTransit
@@ -390,14 +390,14 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Infrastructure/Jobs/PendingRefundSweepJob.cs` | **New.** Reads `NeedsRefunding` bets, publishes `RefundInvalidBetEvent` each. |
-| 2 | `src/ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Load bet tracked; on `IsSuccess` set `Status = Refunded` + `SaveChanges`; failure branch unchanged. |
-| 3 | `src/ChimpOut.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs` | **New.** `{ string PaymentSignature }`. |
-| 4 | `src/ChimpOut.Infrastructure/Handlers/Admin/RefundBet/RefundBetRequest.cs` | **New.** `IRequest<Guid?>` carrying `OperatorId` + `PaymentSignature`. |
-| 5 | `src/ChimpOut.Infrastructure/Handlers/Admin/RefundBet/RefundBetHandler.cs` | **New.** Find by `ExternalTransactionReference` (operator-scoped), guards, set `NeedsRefunding`. |
-| 6 | `src/ChimpOut.Api/Controllers/AdminController.cs` | Add `POST bets/refund` + add `bets/refund` to the `[HttpOptions]` preflight list. |
-| 7 | `src/ChimpOut.Consumers/Program.cs` | `AddScoped<PendingRefundSweepJob>()` + `AddOrUpdate<PendingRefundSweepJob>("pending-refund-sweep", j => j.Run(), "0 */12 * * *")`. |
-| 8 | `src/ChimpOut.Common/Resources/ErrorMessages.resx` (+ `.Designer.cs`) | **Optional** — add the three admin messages here if the codebase prefers `ErrorMessages` constants over inline strings; otherwise inline in the handler (match surrounding style — `DeactivateGameTypeHandler` uses inline strings). |
+| 1 | `src/SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` | **New.** Reads `NeedsRefunding` bets, publishes `RefundInvalidBetEvent` each. |
+| 2 | `src/SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Load bet tracked; on `IsSuccess` set `Status = Refunded` + `SaveChanges`; failure branch unchanged. |
+| 3 | `src/SpaceStroker.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs` | **New.** `{ string PaymentSignature }`. |
+| 4 | `src/SpaceStroker.Infrastructure/Handlers/Admin/RefundBet/RefundBetRequest.cs` | **New.** `IRequest<Guid?>` carrying `OperatorId` + `PaymentSignature`. |
+| 5 | `src/SpaceStroker.Infrastructure/Handlers/Admin/RefundBet/RefundBetHandler.cs` | **New.** Find by `ExternalTransactionReference` (operator-scoped), guards, set `NeedsRefunding`. |
+| 6 | `src/SpaceStroker.Api/Controllers/AdminController.cs` | Add `POST bets/refund` + add `bets/refund` to the `[HttpOptions]` preflight list. |
+| 7 | `src/SpaceStroker.Consumers/Program.cs` | `AddScoped<PendingRefundSweepJob>()` + `AddOrUpdate<PendingRefundSweepJob>("pending-refund-sweep", j => j.Run(), "0 */12 * * *")`. |
+| 8 | `src/SpaceStroker.Common/Resources/ErrorMessages.resx` (+ `.Designer.cs`) | **Optional** — add the three admin messages here if the codebase prefers `ErrorMessages` constants over inline strings; otherwise inline in the handler (match surrounding style — `DeactivateGameTypeHandler` uses inline strings). |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -419,7 +419,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests` (run via `scripts/run_tests.bat`).
+Project: `monkify-backend/src/SpaceStroker.Tests` (run via `scripts/run_tests.bat`).
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -472,7 +472,7 @@ Mapped from the Trello **Acceptance Criteria** checklist:
     marks by signature → `NeedsRefunding` → sweep → refunded), then the bet ends `Refunded` with a
     `Refund` ledger row.
 
-### Integration tests (`ChimpOut.Tests.Integration`)
+### Integration tests (`SpaceStroker.Tests.Integration`)
 
 Model on `OperatorWalletRefundTests` (Standard/regulated path — `FakeOperatorWalletResolver` makes the
 refund succeed; simplest). The harness boots **both** hosts and exposes `CreateConsumersScope()`,
@@ -501,7 +501,7 @@ refund succeed; simplest). The harness boots **both** hosts and exposes `CreateC
 
 ## 13. Manual QA (local Docker stack)
 
-1. Bring up the local stack; open `/chimpout/admin` with a dev admin token (header dev button →
+1. Bring up the local stack; open `/space-stroker/admin` with a dev admin token (header dev button →
    `POST /dev/admin-token`).
 2. Place a paid bet on a Standard game type; grab its payment signature (bet
    `ExternalTransactionReference`, e.g. via the DB console or `/games/{id}/Bets`).

@@ -1,4 +1,4 @@
-# ChimpOut — "Audio Overhaul with AI" — Audio Manifest & Suno Generation Spec
+# SpaceStroker — "Audio Overhaul with AI" — Audio Manifest & Suno Generation Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). Distilled in
 > `../features/audio-overhaul.md`. **Post-ship reality:** the 3/2/1 proximity "coin" bleeps were
@@ -9,7 +9,7 @@
 > Repos affected: **`monkify-front`** (assets & wiring — cards 2 & 3) + this doc in **`monkify-meta`**.
 > **No `monkify-backend` change** — frontend-only overhaul.
 >
-> **Purpose:** Give ChimpOut a single, cohesive AI-generated sound identity in the spirit of a **warm
+> **Purpose:** Give SpaceStroker a single, cohesive AI-generated sound identity in the spirit of a **warm
 > 16-bit SNES soundtrack** — recreate the existing game sounds and add the missing feedback (win/lose,
 > proximity bleeps, button click, idle loop) so a round *feels* alive and every player gets real-time
 > audio feedback on their own bets, while staying **relaxing and easy on the ears** (this is a betting
@@ -35,7 +35,7 @@
 
 ## 1. Summary
 
-ChimpOut's audio today is six ad-hoc `.wav` files (~5 MB each for the loops) with no shared style, one
+SpaceStroker's audio today is six ad-hoc `.wav` files (~5 MB each for the loops) with no shared style, one
 dead file, no win/lose feedback, no proximity cues, and no volume control. This overhaul gives it one
 cohesive **warm 16-bit SNES** sound identity that is **chill and relaxing** (see §5.0 art direction):
 
@@ -161,7 +161,7 @@ this**, not a second matcher.
 
 ### 5.0 Style bible & art direction (apply to EVERY Suno prompt)
 
-> **ChimpOut house style:** a warm, cozy **16-bit SNES soundtrack** — the era of *Donkey Kong Country*,
+> **SpaceStroker house style:** a warm, cozy **16-bit SNES soundtrack** — the era of *Donkey Kong Country*,
 > *Super Mario World*, and *Super Bomberman*. Rounded chiptune/FM timbres, soft bells, mellow lo-fi
 > groove, a light jungle/monkey wink and a gentle slot-machine sparkle. **Instrumental, no vocals.**
 
@@ -460,7 +460,7 @@ which already runs every streamed `Terminal` character through a per-own-choice 
 
 - A **mute toggle + volume slider** in the game header (e.g. `GameHeader.vue`), bound to §7.1's
   `setMuted` / `setMasterVolume`.
-- **Persist** to `localStorage` (suggested key `chimpout.audio` → `{ muted, volume }`); **default
+- **Persist** to `localStorage` (suggested key `space-stroker.audio` → `{ muted, volume }`); **default
   unmuted, full volume**; hydrate on mount. **Client display-only** — no server, no bet/settlement
   effect.
 - Applies globally and live to any currently-playing loop (via §7.1's re-apply).
@@ -549,7 +549,7 @@ Game Starting; swap `phone_beep`); `GameConsole.vue` keeps the `error1.wav` impo
 ## 11. Tests
 
 - **Backend integration test:** **N/A** — frontend-only feature; the mandatory happy-path integration
-  test in `ChimpOut.Tests.Integration` does **not** apply (per `constraints.md` → "Scope of new feature").
+  test in `SpaceStroker.Tests.Integration` does **not** apply (per `constraints.md` → "Scope of new feature").
 - **This card (1/3):** design/manifest only — **no code, no tests.**
 - **Card 3 (FE unit tests)** — the logic added there should be unit-tested (Vitest/Jest per the front
   repo's setup), specifically:

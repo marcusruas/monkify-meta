@@ -53,22 +53,22 @@ independently reproducible.
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
-- `ChimpOut.Domain/Games/Services/ProvablyFair.cs` — keystream primitives (`GenerateServerSeed`,
+- `SpaceStroker.Domain/Games/Services/ProvablyFair.cs` — keystream primitives (`GenerateServerSeed`,
   `HashServerSeed`, `BuildPrefix`, `Keystream`, `NextIndex`, `FallbackIndex`).
-- `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs` — reads `Game.ServerSeed`, drives characters +
+- `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` — reads `Game.ServerSeed`, drives characters +
   fallback from the keystream; `MaxCharacters` public.
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` — `EnsureServerSeedCommitted` (+ removed
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `EnsureServerSeedCommitted` (+ removed
   the old `Seed` write in `UpdateGameStatus`); `IGameService`.
-- `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/*` — commit on first bet, persist `Nonce`,
+- `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/*` — commit on first bet, persist `Nonce`,
   64-char seed.
-- `ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` — defensive commit + reload.
-- `ChimpOut.Infrastructure/Handlers/Games/GetGameVerification/*` +
+- `SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` — defensive commit + reload.
+- `SpaceStroker.Infrastructure/Handlers/Games/GetGameVerification/*` +
   `Contracts/Games/GameVerificationDto.cs` + `Api/Controllers/GamesController.cs`
   (`GET {id}/verification`); `Contracts/Games/ActiveGameDto.cs` (`ServerSeedHash`).
-- `ChimpOut.Domain/Games/Entities/Game.cs`, `ChimpOut.Domain/Bets/Entities/Bet.cs`,
-  `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`, `Migrations/*_ProvablyFair.cs`.
+- `SpaceStroker.Domain/Games/Entities/Game.cs`, `SpaceStroker.Domain/Bets/Entities/Bet.cs`,
+  `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`, `Migrations/*_ProvablyFair.cs`.
 - Tests: `UnitTests/Domain/Games/ProvablyFairTests.cs`, `UnitTests/Handlers/GetGameVerificationHandlerTests.cs`,
-  and `ChimpOut.Tests.Integration/ProvablyFairFlowTests.cs` (happy path + fallback).
+  and `SpaceStroker.Tests.Integration/ProvablyFairFlowTests.cs` (happy path + fallback).
 
 **Frontend (`monkify-front`)**
 - `src/utils/provablyFair.ts` — portable verifier core (WebCrypto), mirrors `ProvablyFair.cs`.

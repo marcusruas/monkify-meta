@@ -1,4 +1,4 @@
-# ChimpOut — "Operators" Feature — Implementation Spec
+# SpaceStroker — "Operators" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via branch `feature/operators` on 2026-06-26.
 > This document is the authoritative design archive; runtime behavior is summarized in `features/operators.md`.
@@ -22,7 +22,7 @@
 Introduce **Operators** (casino / betting platforms such as BetMGM, BetFury, etc.). A new `Operator` table is added
 to the backend. Every `GameParameters` row **must** belong to exactly one operator (`OperatorId` is **required**).
 
-Players reach ChimpOut from an operator's website at **`/chimpout/game/<operatorId>`**. The frontend reads the operator
+Players reach SpaceStroker from an operator's website at **`/space-stroker/game/<operatorId>`**. The frontend reads the operator
 id from the **URL path**, validates it, loads branding via **`GET /operators/{id}`**, and sends **`x-operator-id`**
 as a **required** request header on every operator-scoped API call. The backend partitions all read/write traffic by
 operator — there is **no house / operator-less mode**.
@@ -51,12 +51,12 @@ frontend for theming (operator color becomes the **secondary** color when provid
 
 - "When changing existing code, fix the unit tests so they still pass and test the intended behavior; at the end, report which unit tests were changed."
 - "For this feature, a NEW git branch must be created and pushed in EACH affected repository (`monkify-backend` and `monkify-front`). Suggested branch name: `feature/operators`."
-- "Never read or edit secrets/config files (appsettings.json, secrets.json, web.config, chimpoutsettings.json); assume valid config."
+- "Never read or edit secrets/config files (appsettings.json, secrets.json, web.config, spacestrokersettings.json); assume valid config."
 
 Additional working constraints:
 
-- EF configuration in this codebase is **inline** in `OnModelCreating` — there are **no** `IEntityTypeConfiguration` classes. All new mapping goes inline in `ChimpOutDbContext` (`monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`).
-- Migrations are applied **only** at startup of `ChimpOut.Consumers` via `ApplyMigrations(app)` (`monkify-backend/src/ChimpOut.Consumers/Program.cs`). The API does not migrate.
+- EF configuration in this codebase is **inline** in `OnModelCreating` — there are **no** `IEntityTypeConfiguration` classes. All new mapping goes inline in `SpaceStrokerDbContext` (`monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`).
+- Migrations are applied **only** at startup of `SpaceStroker.Consumers` via `ApplyMigrations(app)` (`monkify-backend/src/SpaceStroker.Consumers/Program.cs`). The API does not migrate.
 - Environment detection uses standard ASP.NET Core `IHostEnvironment` / `builder.Environment` (`!IsProduction()`).
 - Operator errors stay **vague** — never reveal contract status (expired, not-yet-started, etc.). See `monkify-meta/constraints.md` §6.
 
@@ -87,10 +87,10 @@ So the required set is **Name, MainPageUrl, IconUrl, ContractStartDate**. Everyt
 
 ### 4.1 New `Operator` entity
 
-New file: `monkify-backend/src/ChimpOut.Domain/Games/Entities/Operator.cs`
+New file: `monkify-backend/src/SpaceStroker.Domain/Games/Entities/Operator.cs`
 
 ```csharp
-namespace ChimpOut.Domain.Games.Entities
+namespace SpaceStroker.Domain.Games.Entities
 {
     public class Operator : TableEntity
     {
@@ -127,7 +127,7 @@ namespace ChimpOut.Domain.Games.Entities
 
 ### 4.2 `GameParameters` change
 
-File: `monkify-backend/src/ChimpOut.Domain/Games/Entities/GameParameters.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Games/Entities/GameParameters.cs`
 
 ```csharp
 public Guid OperatorId { get; set; }   // REQUIRED — every game type belongs to an operator
@@ -199,7 +199,7 @@ erDiagram
 - Alter `GameParameters.OperatorId` to **non-nullable**.
 - Regenerate snapshot via `dotnet ef migrations add MakeOperatorIdRequired` — do not hand-edit the snapshot.
 
-Migrations apply automatically via `ApplyMigrations(app)` in `ChimpOut.Consumers` at startup.
+Migrations apply automatically via `ApplyMigrations(app)` in `SpaceStroker.Consumers` at startup.
 
 ---
 
@@ -209,11 +209,11 @@ Migrations apply automatically via `ApplyMigrations(app)` in `ChimpOut.Consumers
 
 ```mermaid
 flowchart TD
-    A["Operator website"] -->|"/chimpout/game/<operatorId>"| B["ChimpOut frontend"]
+    A["Operator website"] -->|"/space-stroker/game/<operatorId>"| B["SpaceStroker frontend"]
     B -->|"validate GUID + load GET /operators/id"| C["useOperator composable"]
-    C -->|"axios interceptor: x-operator-id header"| D["ChimpOut.Api"]
+    C -->|"axios interceptor: x-operator-id header"| D["SpaceStroker.Api"]
     D -->|"[FromHeader x-operator-id] -> MediatR"| E["Handlers"]
-    E -->|"filter OperatorId == X + ContractIsActive"| F["ChimpOutDbContext / GameService"]
+    E -->|"filter OperatorId == X + ContractIsActive"| F["SpaceStrokerDbContext / GameService"]
     B -->|"invalid/inactive operator"| G["/error redirect"]
 ```
 
@@ -235,7 +235,7 @@ CORS already allows any header (`AllowAnyHeader`); no CORS change needed for `x-
 
 ### 5.3 Controller binding
 
-File: `monkify-backend/src/ChimpOut.Api/Controllers/GamesController.cs`
+File: `monkify-backend/src/SpaceStroker.Api/Controllers/GamesController.cs`
 
 Bind `[FromHeader(Name = "x-operator-id")] Guid? operatorId` on **all operator-scoped actions** (GETs **and**
 `POST /games/{id}/bets`). Validate before `ProcessRequest`:
@@ -302,7 +302,7 @@ Active-parameters Redis cache must be **operator-scoped** so data never leaks ac
 
 ### 6.1 Cache key
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs`
 
 ```csharp
 public static CacheSettings GenerateActiveParametersCacheSettings(Guid operatorId)
@@ -338,12 +338,12 @@ Use `Operator.ContractIsActive(now)` in code if preferred — filters must exclu
 
 **Consumers / background path** — `OpenNewGames` and similar startup jobs are **not** HTTP-scoped. Add an
 internal method (e.g. `GetAllActiveGameParametersForAllOperators()`) that returns parameters for **every**
-operator whose contract is active, without an `x-operator-id` header. Use this only inside `ChimpOut.Consumers`.
+operator whose contract is active, without an `x-operator-id` header. Use this only inside `SpaceStroker.Consumers`.
 
 ### 6.3 Callers to update
 
 - All game GET handlers pass `request.OperatorId` into the service methods above.
-- `ChimpOut.Consumers/Program.cs` — seeding and `OpenNewGames` use the all-operators internal path (§8).
+- `SpaceStroker.Consumers/Program.cs` — seeding and `OpenNewGames` use the all-operators internal path (§8).
 - Cache invalidation in seeding uses the specific operator id key(s) affected.
 
 ---
@@ -409,7 +409,7 @@ if (betGame is null || operatorUnavailable || !Game.GameAcceptingBets.Contains(b
 
 ## 8. Default operator seeding (non-production only)
 
-Startup order in `ChimpOut.Consumers/Program.cs`:
+Startup order in `SpaceStroker.Consumers/Program.cs`:
 
 ```csharp
 ApplyMigrations(app);
@@ -426,7 +426,7 @@ OpenNewGames(app);
 - Sets **`OperatorId`** on every seeded parameter to DEV Cassino's id (**required** FK).
 - Warms cache under `GenerateActiveParametersCacheSettings(devOperatorId)`.
 
-**Local dev URL:** `/chimpout/game/<dev-operator-guid>`.
+**Local dev URL:** `/space-stroker/game/<dev-operator-guid>`.
 
 **Production:** no automatic default game types. Operators and their `GameParameters` must be configured explicitly.
 
@@ -504,9 +504,9 @@ Update `BaseController.ProcessRequest` if it still maps empty enumerables to 404
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/.../Operator.cs` | Entity (§4.1) |
-| 2 | `ChimpOut.Domain/.../GameParameters.cs` | Required `OperatorId` (§4.2) |
-| 3 | `ChimpOutDbContext.cs` | Operator config, required FK (§4.3) |
+| 1 | `SpaceStroker.Domain/.../Operator.cs` | Entity (§4.1) |
+| 2 | `SpaceStroker.Domain/.../GameParameters.cs` | Required `OperatorId` (§4.2) |
+| 3 | `SpaceStrokerDbContext.cs` | Operator config, required FK (§4.3) |
 | 4 | `Migrations/*` | `AddOperators` + `MakeOperatorIdRequired` (§4.5) |
 | 5 | `CacheHelper.cs` | Per-operator cache key only (§6.1) |
 | 6 | `IGameService` / `GameService.cs` | Required `operatorId`; all-operators internal method (§6.2) |
@@ -516,20 +516,20 @@ Update `BaseController.ProcessRequest` if it still maps empty enumerables to 404
 | 10 | `OperatorDto.cs` | Include `Id` (§9.1) |
 | 11 | `GetOperatorById/` handler | **NEW** — replaces list handler (§9.2) |
 | 12 | `OperatorsController.cs` | `GET /operators/{id}` only (§9.3) |
-| 13 | `ChimpOut.Consumers/Program.cs` | DEV seed + required OperatorId on params (§8) |
+| 13 | `SpaceStroker.Consumers/Program.cs` | DEV seed + required OperatorId on params (§8) |
 | 14 | Remove `GetOperators/` list handler | If present from earlier branch work |
 
 ---
 
 ## 11. Frontend
 
-### 11.1 Routing — `/chimpout/game/:operatorId`
+### 11.1 Routing — `/space-stroker/game/:operatorId`
 
 File: `monkify-front/src/routes.ts`
 
-- Game entry route: **`/chimpout/game/:operatorId`**
+- Game entry route: **`/space-stroker/game/:operatorId`**
 - Validate `operatorId` is a GUID before any API call.
-- **`/chimpout/game`**, **`/chimpout/game/`**, or **`/chimpout/game/not-a-guid`** → redirect to **`/error`**
+- **`/space-stroker/game`**, **`/space-stroker/game/`**, or **`/space-stroker/game/not-a-guid`** → redirect to **`/error`**
   (error page design is a separate card; use a minimal placeholder for now).
 
 There is **no** `?operator-id=` query capture. No legacy redirect from query params.
@@ -587,7 +587,7 @@ Minimal route + view at `/error` — copy and design refined later. Invalid oper
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/routes.ts` | `/chimpout/game/:operatorId`, `/error` placeholder |
+| 1 | `src/routes.ts` | `/space-stroker/game/:operatorId`, `/error` placeholder |
 | 2 | `src/hooks/useOperator.ts` | Route param source; `getOperator`; theme; redirect logic |
 | 3 | `src/App.vue` | Wire operator load on game routes |
 | 4 | `src/services/mainService.ts` | `x-operator-id` interceptor; `getOperator(id)` |
@@ -599,7 +599,7 @@ Minimal route + view at `/error` — copy and design refined later. Invalid oper
 
 ## 12. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`. Fix existing tests; **report which tests changed** at end of work.
+Project: `monkify-backend/src/SpaceStroker.Tests`. Fix existing tests; **report which tests changed** at end of work.
 
 ### 12.1 Tests to update
 
@@ -639,7 +639,7 @@ When/if wired: route param parsing, redirect to `/error` on invalid id, intercep
 | 13.2 | Future `ContractStartDate` → operator **not active** (same as expired for UX/API). |
 | 13.3 | Branding via **`GET /operators/{id}`** only; **no list endpoint**. |
 | 13.4 | **`POST /games/{id}/bets` requires `x-operator-id`** and it **must match** the game's `OperatorId`. |
-| 13.5 | Operator id source of truth is the **URL path** `/chimpout/game/:operatorId` — not query param, not sessionStorage. |
+| 13.5 | Operator id source of truth is the **URL path** `/space-stroker/game/:operatorId` — not query param, not sessionStorage. |
 | 13.6 | Theming: **secondary color only** via `--color-secondary`. |
 | 13.7 | DEV seed: default `GameParameters` belong to **DEV Cassino** (non-prod); `OperatorId` **required**. |
 | 13.8 | Empty game list GETs → **200 `[]`**. |
@@ -674,8 +674,8 @@ When/if wired: route param parsing, redirect to `/error` on invalid id, intercep
 5. `GET /operators/{id}`; remove list endpoint if present.
 6. Seeding (DEV Cassino, required FK on params).
 7. Fix + add backend unit tests; run full suite; report changed tests.
-8. Frontend: routes `/chimpout/game/:operatorId`, `/error` placeholder, `useOperator`, interceptor, `getOperator`.
-9. Manual E2E: open `/chimpout/game/<dev-guid>`, confirm header sent, scoped data, theme applied; invalid id → `/error`; inactive operator → `/error`; bet with wrong header → rejected.
+8. Frontend: routes `/space-stroker/game/:operatorId`, `/error` placeholder, `useOperator`, interceptor, `getOperator`.
+9. Manual E2E: open `/space-stroker/game/<dev-guid>`, confirm header sent, scoped data, theme applied; invalid id → `/error`; inactive operator → `/error`; bet with wrong header → rejected.
 
 ---
 
@@ -683,9 +683,9 @@ When/if wired: route param parsing, redirect to `/error` on invalid id, intercep
 
 These mirror the Trello card checklist — implement until all pass:
 
-1. Given a valid active operator id in the URL path, when the player opens `/chimpout/game/<operatorId>`, then the frontend sets `x-operator-id` on all API calls and loads only that operator's games.
-2. Given a missing or malformed operator id in the URL, when navigating to `/chimpout/game` or `/chimpout/game/not-a-guid`, then redirect to `/error`.
-3. Given an expired or future-start operator, when opening `/chimpout/game/<operatorId>`, then redirect to `/error` with no contract-status detail.
+1. Given a valid active operator id in the URL path, when the player opens `/space-stroker/game/<operatorId>`, then the frontend sets `x-operator-id` on all API calls and loads only that operator's games.
+2. Given a missing or malformed operator id in the URL, when navigating to `/space-stroker/game` or `/space-stroker/game/not-a-guid`, then redirect to `/error`.
+3. Given an expired or future-start operator, when opening `/space-stroker/game/<operatorId>`, then redirect to `/error` with no contract-status detail.
 4. Given an operator-scoped API request without valid `x-operator-id`, when the backend receives it, then HTTP 400 with a generic message.
 5. Given `x-operator-id` that does not match the game's `OperatorId`, when POST `/games/{id}/bets` is called, then reject, refund, vague error.
 6. Given `GameParameters` with null `OperatorId`, when migration runs, then rows migrated/removed and column is non-nullable.

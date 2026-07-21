@@ -5,7 +5,7 @@ locals {
   # secret's value from secrets.<env>.json as a new version; Terraform only creates
   # the containers, so no secret material lands in state or the repo.
   secret_ids = toset([
-    "ConnectionStrings-ChimpOut",
+    "ConnectionStrings-SpaceStroker",
     "ConnectionStrings-Messaging",
     "ConnectionStrings-Redis",
     "GeneralSettings-Token-TokenOwnerPrivateKey",
@@ -16,7 +16,7 @@ locals {
 
   # ASP.NET env var name (double-underscore) -> Secret Manager secret id.
   secret_env = {
-    "ConnectionStrings__ChimpOut"                             = "ConnectionStrings-ChimpOut"
+    "ConnectionStrings__SpaceStroker"                             = "ConnectionStrings-SpaceStroker"
     "ConnectionStrings__Messaging"                            = "ConnectionStrings-Messaging"
     "ConnectionStrings__Redis"                                = "ConnectionStrings-Redis"
     "GeneralSettings__Token__TokenOwnerPrivateKey"            = "GeneralSettings-Token-TokenOwnerPrivateKey"

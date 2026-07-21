@@ -1,8 +1,8 @@
-# ChimpOut — "Audio Overhaul with AI" — (3/3) Wiring Spec
+# SpaceStroker — "Audio Overhaul with AI" — (3/3) Wiring Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:**
 > proximity bleeps were **omitted** (their assets were dropped); shipped **extras beyond this spec** —
-> a menu loop on the games page (`LobbyAudio.vue`), a `/`→`/chimpout/game` redirect, and a
+> a menu loop on the games page (`LobbyAudio.vue`), a `/`→`/space-stroker/game` redirect, and a
 > game-connection teardown fix (`disconnectAllPreviousConnections`). See
 > `../features/audio-overhaul.md`. Originally refined via Trello card
 > [Overhaul audio/songs with AI — (3/3) Wire new audio into the game](https://trello.com/c/RvVdpO25/35-overhaul-audio-songs-with-ai-3-3-wire-new-audio-into-the-game)
@@ -158,7 +158,7 @@ All paths in `monkify-front`. Verified against the live code (`feature/audio-ove
 ## 5. Configuration
 
 **None.** No new env var, no `GeneralSettings`, no `VUE_APP_*`. The mute/volume state lives only in
-`localStorage` (suggested key `chimpout.audio` → `{ muted: boolean, volume: number }`).
+`localStorage` (suggested key `space-stroker.audio` → `{ muted: boolean, volume: number }`).
 
 ---
 

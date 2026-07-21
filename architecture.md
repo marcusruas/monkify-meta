@@ -1,4 +1,4 @@
-# ChimpOut — Architecture
+# SpaceStroker — Architecture
 
 > Scope: `monkify-backend` (.NET 8) and `monkify-front` (Vue 3). This describes the **current
 > live state** of the code, not a future plan. Deep design lives in `specs/`.
@@ -13,20 +13,20 @@
                           HTTPS (axios)               WebSocket (SignalR)
                                  │                           │
                  ┌───────────────▼───────────────┐          │
-                 │        ChimpOut.Api             │◄─────────┘  (Hubs: /Hubs/Games, /Hubs/RecentBets)
+                 │        SpaceStroker.Api             │◄─────────┘  (Hubs: /Hubs/Games, /Hubs/RecentBets)
                  │  Controllers → MediatR handlers│
                  └───────┬────────────────────────┬────────┘
                          │                        │ publish events
                          │                        │ (MassTransit SQL transport)
                  ┌───────▼────────────────────────▼────────┐
                  │ PostgreSQL (EF / Npgsql), one instance   │
-                 │  • chimpout            (game DB)          │
-                 │  • chimpout_messaging  (MassTransit SQL   │
+                 │  • spacestroker            (game DB)          │
+                 │  • spacestroker_messaging  (MassTransit SQL   │
                  │     transport: queues/topics/messages)    │
                  └───────┬────────────────────────┬─────────┘
                          │                        │ consume (SKIP-LOCKED + LISTEN/NOTIFY)
                  ┌───────▼──────┐          ┌───────▼──────────────────┐
-                 │    Redis     │◄─────────┤   ChimpOut.Consumers      │
+                 │    Redis     │◄─────────┤   SpaceStroker.Consumers      │
                  │ cache+SignalR│          │  MassTransit consumers   │
                  │  backplane   │          │  + Hangfire scheduler    │
                  └──────────────┘          │  + EF + transport         │
@@ -44,21 +44,21 @@
 
 Two deployable .NET hosts share the same domain/infrastructure libraries:
 
-- **`ChimpOut.Api`** — public HTTP API + SignalR hubs. Stateless. Does **not** apply migrations.
-- **`ChimpOut.Consumers`** — background worker host. Runs MassTransit consumers, the Hangfire
+- **`SpaceStroker.Api`** — public HTTP API + SignalR hubs. Stateless. Does **not** apply migrations.
+- **`SpaceStroker.Consumers`** — background worker host. Runs MassTransit consumers, the Hangfire
   server, applies EF migrations at startup, seeds defaults, and opens initial games.
 
 ## 2. Backend solution layout (`monkify-backend/src`)
 
 | Project | Responsibility |
 | --- | --- |
-| `ChimpOut.Api` | ASP.NET Core Web API. Controllers, SignalR hub mapping, Swagger, IP rate limiting, CORS. Thin: delegates to MediatR handlers. |
-| `ChimpOut.Consumers` | Worker host (also a `WebApplication` for the Hangfire dashboard + health). MassTransit consumers, Hangfire server, startup migrations & seeding. |
-| `ChimpOut.Domain` | Pure domain: entities, value objects/enums, and domain services (`ChimpOutTyper`, `BetDomainService`). No EF/infra dependencies. |
-| `ChimpOut.Infrastructure` | EF `DbContext`, MediatR request handlers, MassTransit consumers, SignalR hubs, services (Games, Cache, Messaging, Solana, Payments), DI wiring. |
-| `ChimpOut.Common` | Cross-cutting: `IMessaging`, extensions, `Result`/`ApiResult` types, error-message resources, `TableEntity` base. |
-| `ChimpOut.Tests` | xUnit + Shouldly + Moq + Bogus. In-memory EF for handler/service/domain tests. |
-| `ChimpOut.LoadTester` | Load-testing utilities. |
+| `SpaceStroker.Api` | ASP.NET Core Web API. Controllers, SignalR hub mapping, Swagger, IP rate limiting, CORS. Thin: delegates to MediatR handlers. |
+| `SpaceStroker.Consumers` | Worker host (also a `WebApplication` for the Hangfire dashboard + health). MassTransit consumers, Hangfire server, startup migrations & seeding. |
+| `SpaceStroker.Domain` | Pure domain: entities, value objects/enums, and domain services (`SpaceStrokerTyper`, `BetDomainService`). No EF/infra dependencies. |
+| `SpaceStroker.Infrastructure` | EF `DbContext`, MediatR request handlers, MassTransit consumers, SignalR hubs, services (Games, Cache, Messaging, Solana, Payments), DI wiring. |
+| `SpaceStroker.Common` | Cross-cutting: `IMessaging`, extensions, `Result`/`ApiResult` types, error-message resources, `TableEntity` base. |
+| `SpaceStroker.Tests` | xUnit + Shouldly + Moq + Bogus. In-memory EF for handler/service/domain tests. |
+| `SpaceStroker.LoadTester` | Load-testing utilities. |
 
 ### Layering & request pattern
 
@@ -68,11 +68,11 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   (`GamesController`, `OperatorsController`, `PlayersController`, `AdminController`, dev-only
   `DevController`) → constructs a **MediatR request** → **handler** that extends
   `BaseRequestHandler` → **services** (`GameService`, `IOperatorService`, payment processors) →
-  **`ChimpOutDbContext`**.
+  **`SpaceStrokerDbContext`**.
 - Controllers extend `BaseController`; responses are wrapped by `ProcessRequest(...)` into a
   standard `ApiResult<T>` shape (`{ data, messages }`). Validation failures bubble up via
   `IMessaging.ReturnValidationFailureMessage(...)`.
-- Handlers live under `ChimpOut.Infrastructure/Handlers/<Area>/<UseCase>/` as a
+- Handlers live under `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/` as a
   `Request` + `Handler` pair (e.g. `RegisterBet`, `GetActiveParameters`, `GetGameHistory`,
   `GetActiveGameForParameter`, `GetGameTypeStats`, `Operators/GetOperatorById`). Read handlers
   may also be backed by dedicated services — e.g. `GET /games/{parametersId}/stats` aggregates
@@ -82,28 +82,28 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
 - **Provider:** PostgreSQL via `UseNpgsql`.
-- **Two databases, one instance:** the game/EF store is **`chimpout`** (`ConnectionStrings:ChimpOut`);
-  the MassTransit message transport lives in a **separate database `chimpout_messaging`**
+- **Two databases, one instance:** the game/EF store is **`spacestroker`** (`ConnectionStrings:SpaceStroker`);
+  the MassTransit message transport lives in a **separate database `spacestroker_messaging`**
   (`ConnectionStrings:Messaging`) on the **same** Postgres instance, reusing the same user (see §4).
-  Hangfire storage stays in the **game** DB. (The game DB was renamed from `monkify` → `chimpout`.)
-- **Single DbContext:** `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` (game DB only — the
+  Hangfire storage stays in the **game** DB. (The game DB was renamed from `monkify` → `spacestroker`.)
+- **Single DbContext:** `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` (game DB only — the
   transport schema is MassTransit-owned, not in the DbContext).
 - **EF configuration is INLINE** in `OnModelCreating` — there are **no** `IEntityTypeConfiguration`
   classes. All entity mapping is in the `modelBuilder.Entity<T>(builder => { … })` blocks.
 - Default query behavior is `NoTracking` (set in `OnConfiguring`). `SaveChangesAsync` stamps
   `UpdatedDate` on modified `TableEntity` rows and then clears the change tracker.
-- **Migrations live in `ChimpOut.Infrastructure/Migrations/`** and are applied **only** by
-  `ChimpOut.Consumers` at startup via `dbContext.Database.Migrate()` (`ApplyMigrations`). The API
-  never migrates. `ChimpOutDbContextModelSnapshot.cs` is auto-generated — do not hand-edit.
+- **Migrations live in `SpaceStroker.Infrastructure/Migrations/`** and are applied **only** by
+  `SpaceStroker.Consumers` at startup via `dbContext.Database.Migrate()` (`ApplyMigrations`). The API
+  never migrates. `SpaceStrokerDbContextModelSnapshot.cs` is auto-generated — do not hand-edit.
 
 ### Core entities (selected)
 
-- **Games area** (`ChimpOut.Domain/Games/Entities`): `Game` (carries the provably-fair
+- **Games area** (`SpaceStroker.Domain/Games/Entities`): `Game` (carries the provably-fair
   **`ServerSeed`** + **`ServerSeedHash`** committed on the first bet; the old `int? Seed` is removed),
   `GameParameters` (a "game type"; carries `PaymentMethod` + optional `OperatorTokenId`),
   `LotteryParameters`, `PresetChoice`, `GameStatusLog`, `Operator`, **`OperatorToken`** (a
   per-operator registered SPL token; owner private key encrypted at rest).
-- **Bets area** (`ChimpOut.Domain/Bets/Entities`): `Bet` (its `Seed` is now a 64-char
+- **Bets area** (`SpaceStroker.Domain/Bets/Entities`): `Bet` (its `Seed` is now a 64-char
   `HMAC(clientSeed, Nonce)` hex, with a per-bet **`Nonce`**), `TransactionLog` (unified money-movement
   ledger — `Credit`/`Debit`/`Refund`, now carrying `PaymentMethod` + `ExternalTransactionReference`),
   **`CryptoTransactionLog`** (on-chain specifics for `SolanaToken` movements), `BetStatusLog`.
@@ -120,18 +120,18 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - **No broker.** Events flow over the **MassTransit Postgres SQL transport**
   (`MassTransit.SqlTransport.PostgreSQL`, `UsingPostgres`) — there is **no** RabbitMQ/AMQP broker to
   run. Queues, topics, subscriptions, and messages are tables under schema **`transport`** in the
-  **`chimpout_messaging`** database (a separate DB on the same Postgres instance as the game DB; see
+  **`spacestroker_messaging`** database (a separate DB on the same Postgres instance as the game DB; see
   §3). Delivery is at-least-once with competing consumers via `SKIP LOCKED` + `LISTEN/NOTIFY`.
 - The **API** registers MassTransit only as a **publisher** (`UsingPostgres()`, no consumers, no
   provisioning — it stays stateless). The **Consumers** host registers and binds the consumers (one
   named receive endpoint per consumer) and **provisions the transport**: `AddPostgresMigrationHostedService()`
-  creates the `chimpout_messaging` database + `transport` schema at startup (mirroring how it owns EF
+  creates the `spacestroker_messaging` database + `transport` schema at startup (mirroring how it owns EF
   migrations), before the bus connects.
 - Both hosts bind `SqlTransportOptions` from `ConnectionStrings:Messaging` (helper
-  `MessagingRegistration.AddChimpOutSqlTransportOptions`, parsed via `NpgsqlConnectionStringBuilder`),
+  `MessagingRegistration.AddSpaceStrokerSqlTransportOptions`, parsed via `NpgsqlConnectionStringBuilder`),
   **reusing the game-DB user** — so that user needs `CREATE DATABASE` on the instance.
 - The publish abstraction is `IMessageBus` / `MessageBusPublisher`
-  (`ChimpOut.Infrastructure.Services.Messaging`), a thin wrapper over `IPublishEndpoint.Publish`.
+  (`SpaceStroker.Infrastructure.Services.Messaging`), a thin wrapper over `IPublishEndpoint.Publish`.
 - **Event contracts and consumer handler logic are unchanged** by the transport swap — only the wire
   changed. Reward/refund idempotency (ledger-based in `TransactionLog`) holds under at-least-once
   redelivery. See `features/masstransit-postgres-transport.md`.
@@ -166,8 +166,8 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 ## 6. Real-time: SignalR
 
-- Hubs in `ChimpOut.Infrastructure/Hubs`: `ActiveGamesHub` (mapped at `/Hubs/Games`) and
-  `RecentBetsHub` (mapped at `/Hubs/RecentBets`), both registered in `ChimpOut.Api/Program.cs`.
+- Hubs in `SpaceStroker.Infrastructure/Hubs`: `ActiveGamesHub` (mapped at `/Hubs/Games`) and
+  `RecentBetsHub` (mapped at `/Hubs/RecentBets`), both registered in `SpaceStroker.Api/Program.cs`.
 - Clients join a per-game group (`JoinGame`). During a run, the typer streams:
   - `…/Terminal` — batched characters,
   - `…/DisplaySpeed` — current typing speed,
@@ -178,8 +178,8 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 ## 7. Scheduling: Hangfire
 
-- Configured in `ChimpOut.Consumers` with **PostgreSQL storage** (`UsePostgreSqlStorage`) in the
-  **game** DB (`chimpout`, `ConnectionStrings:ChimpOut` — not the messaging DB), with a dashboard at
+- Configured in `SpaceStroker.Consumers` with **PostgreSQL storage** (`UsePostgreSqlStorage`) in the
+  **game** DB (`spacestroker`, `ConnectionStrings:SpaceStroker` — not the messaging DB), with a dashboard at
   `/hangfire`.
 - Used to **schedule lottery games**: `GameService.ScheduleLottery` enqueues a delayed
   `BetPlacedEvent` publish for the game's start time.
@@ -210,8 +210,8 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   ledger rows — the payment strategy does.
 - **Standard payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
-  **debit** runs synchronously in `ChimpOut.Api` at bet time; **credit** and **refund** run in
-  `ChimpOut.Consumers`. SolanaToken bet-time validation runs in the API (public token data only, no
+  **debit** runs synchronously in `SpaceStroker.Api` at bet time; **credit** and **refund** run in
+  `SpaceStroker.Consumers`. SolanaToken bet-time validation runs in the API (public token data only, no
   decrypt); its Credit/Refund transfers run in Consumers (decrypting the token key via `ISecretProtector`).
 - **Secret protection:** `OperatorToken.TokenOwnerPrivateKey` is stored **AES-256-GCM** encrypted, the
   key derived (SHA-256) from the `GeneralSettings.SecretProtection.Key` passphrase shared by both hosts
@@ -226,12 +226,12 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   carrying a `PaymentMethod` and an `ExternalTransactionReference` (the operator wallet ref for Standard,
   the on-chain signature for SolanaToken; the `Signature` column was dropped). A `SolanaToken` movement
   also writes a `CryptoTransactionLog` (wallet/signature/mint/raw amount/decimals). `BetDomainService`
-  reads the ledger by type for reward/refund idempotency. There is **no ChimpOut commission** — winners
+  reads the ledger by type for reward/refund idempotency. There is **no SpaceStroker commission** — winners
   receive the full pot.
 
 ## 9. The game mechanic (the "Typer")
 
-- `ChimpOutTyper` (`ChimpOut.Domain/Games/Services`) is the heart of a running game.
+- `SpaceStrokerTyper` (`SpaceStroker.Domain/Games/Services`) is the heart of a running game.
 - It reads the game's **committed `ServerSeed`** (generated + hash-committed on the first bet) and
   drives characters from a **portable HMAC-SHA256 counter keystream** over `ServerSeed ‖ gameId ‖
   ordered bet seeds ‖ counter` (rejection-sampled into the character pool — no `System.Random`), builds
@@ -239,14 +239,14 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   window equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`). The scheme is
   **provably fair**: the commitment is published before betting closes and the raw seed revealed after
   the round via `GET /games/{id}/verification`. See `features/provably-fair.md`.
-- Wall-clock pacing is time-budget driven (`GameSettings` targets in `chimpoutsettings.json`):
-  `ChimpOutTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
+- Wall-clock pacing is time-budget driven (`GameSettings` targets in `spacestrokersettings.json`):
+  `SpaceStrokerTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
   Stopwatch delays keep duration hardware- and load-stable. Large configs may hit
   `MaxTyperCharacters` and resolve via a deterministic HMAC-keystream fallback winner. `DisplaySpeed`
   (1–3) ramps on elapsed-time fractions. The `GameService.RunGame` loop streams output over
   SignalR. See `features/typer-pacing-scalability.md`.
 - **Fallback terminal reveal:** on a fallback-decided winner (the word was never naturally typed),
-  `RunGame` emits `ChimpOutTyper.FirstChoiceTyped` as a final `…/Terminal` batch so the terminal
+  `RunGame` emits `SpaceStrokerTyper.FirstChoiceTyped` as a final `…/Terminal` batch so the terminal
   ends with the winning sequence "typed" — matching a natural win. Display-only; the winner and seed
   are unchanged. This backs the client-side near-miss reveal (see `features/characters-away.md`).
 
@@ -256,10 +256,10 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   FK — there is no house / operator-less mode. Operators carry a `LaunchPublicKey` (payment is now a
   **per-game** concern — the old operator-level `PaymentModel` is removed; see §8 and
   `features/payment-methods.md`). An operator may register one or more `OperatorToken`s.
-- Players enter at **`/chimpout/game/games#launch_token=<jwt>`** (the URL no longer carries the
+- Players enter at **`/space-stroker/game/games#launch_token=<jwt>`** (the URL no longer carries the
   operator id — it is read from the token's `iss` claim). Operator + player identity arrive in a
   casino-signed **launch token** (`X-Launch-Token`, RS256), validated by
-  `LaunchTokenValidationMiddleware` in `ChimpOut.Api` on every operator-scoped REST call
+  `LaunchTokenValidationMiddleware` in `SpaceStroker.Api` on every operator-scoped REST call
   (`/games/*`, `/operators/*`, `/players/*`, `/fx/*`). The old `x-operator-id` header is **removed**; any
   token failure → generic **HTTP 401** (real reason logged server-side only). See
   `features/launch-token-validation.md`.
@@ -273,7 +273,7 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - Mid-game contract expiry: the running game finishes; new bets and new games for that
   operator are blocked.
 - SignalR hubs use game id only — no token validation on websockets.
-- **Default production operator (Main):** `ChimpOut.Consumers` seeds an operator named **`Main`**
+- **Default production operator (Main):** `SpaceStroker.Consumers` seeds an operator named **`Main`**
   (fixed RFC-4122 GUID `22222222-2222-4222-8222-222222222222`, contract active, no end date) in **all**
   environments — in **production it is the only** seeded operator. Main is pre-provisioned with one
   encrypted `OperatorToken` from `GeneralSettings.Token` and **three SolanaToken** default game types
@@ -288,7 +288,7 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   (Standard) + one encrypted `OperatorToken` seeded from `GeneralSettings.Token` (SolanaToken) — with
   all default game types Standard plus 3 SolanaToken defaults; dev-only `POST /dev/launch-token` and
   `POST /dev/admin-token` mint player and admin tokens (no `?paymentModel`; disabled in production).
-- **Operator admin portal** (`/chimpout/admin`): operators manage their own game types **and register
+- **Operator admin portal** (`/space-stroker/admin`): operators manage their own game types **and register
   Solana tokens** via **`X-Admin-Token`** (admin-scoped RS256 JWT, same keypair as launch tokens,
   **not** contract-gated). Game types + tokens: create/list/deactivate only — no in-place edit;
   `GET /admin/payment-methods` reports availability. See `features/operator-admin-page.md` and
@@ -310,8 +310,8 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   - `utils/` — `operatorRoute.ts` (GUID validation, path-based operator id for the interceptor).
   - `pages/` — `GameSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing (param-free; operator from the token `iss`):** `/chimpout/game/games` → game select;
-  `/chimpout/game/play` → live game; `/chimpout/game` → dev launch landing (gated by `VUE_APP_DEV_LAUNCH`;
+- **Routing (param-free; operator from the token `iss`):** `/space-stroker/game/games` → game select;
+  `/space-stroker/game/play` → live game; `/space-stroker/game` → dev launch landing (gated by `VUE_APP_DEV_LAUNCH`;
   production redirects to `/error`); missing/undecodable token or `/` → `/error`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
@@ -345,9 +345,9 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 `monkify-backend/docker-compose.yml` brings up the full stack for development:
 
 - `api` (port 6001 → 8080), `consumers` (port 6002 → 8080, hosts `/hangfire`),
-- `database` (Postgres 16 — hosts both `chimpout` and the MassTransit `chimpout_messaging` DB), `redis` (7).
+- `database` (Postgres 16 — hosts both `spacestroker` and the MassTransit `spacestroker_messaging` DB), `redis` (7).
 - **No `rabbitmq` service** — the MassTransit Postgres SQL transport uses the `database` container.
-- All services share the `chimpout-network` docker network.
+- All services share the `spacestroker-network` docker network.
 - The API depends on the Consumers being healthy (so migrations/seeding — incl. the transport schema —
   run first).
 
@@ -360,18 +360,18 @@ The production deployment is Infrastructure-as-Code + two local console tools un
 `monkify-meta/deploy/` (spec `specs/terraform-gcp-deploy.md`, feature `features/terraform-gcp-deploy.md`).
 Deploys are **manual** (no CI); everything is driven by an unversioned local `secrets.<env>.json`.
 
-- **Compute:** `ChimpOut.Api` and `ChimpOut.Consumers` run as **Cloud Run** services (from images in
+- **Compute:** `SpaceStroker.Api` and `SpaceStroker.Consumers` run as **Cloud Run** services (from images in
   **Artifact Registry**). The API autoscales (`min ≥ 1`) and is public behind the load balancer; Consumers
   is **internal-ingress only** (it hosts `/hangfire` and owns EF migrations/seeding), **CPU always-on**,
   pinned to `var.consumer_count` (default 1), and is released **before** the API.
 - **Static sites:** `monkify-front` and `monkify-lp` are built and served from **GCS website buckets +
   Cloud CDN**; the front reproduces its `Content-Security-Policy: frame-ancestors *` as a CDN response
   header (no nginx in this path).
-- **Data tier (private only):** **Cloud SQL Postgres 16** (one instance, both `chimpout` and
-  `chimpout_messaging`) and **Memorystore Redis 7**, no public IPs; Cloud Run reaches them through a
+- **Data tier (private only):** **Cloud SQL Postgres 16** (one instance, both `spacestroker` and
+  `spacestroker_messaging`) and **Memorystore Redis 7**, no public IPs; Cloud Run reaches them through a
   **Serverless VPC Access connector**, egress via **Cloud NAT**.
 - **Edge:** one external **HTTPS load balancer** → **Cloud Armor** (per-IP rate limiting + OWASP rules) →
-  api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `chimpout.com`.
+  api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `spacestroker.com`.
 - **Secrets:** the deploy tool syncs `secrets.<env>.json` into **Secret Manager**; Cloud Run reads them via
   IAM at boot. Each host has a **least-privilege service account**. No secret value enters Terraform state.
 - **Health probes:** Cloud Run probes `GET /health` on both hosts (API via `HomeController`, Consumers via

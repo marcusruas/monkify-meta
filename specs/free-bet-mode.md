@@ -1,4 +1,4 @@
-# ChimpOut — "Free Bet Mode" Feature — Implementation Spec
+# SpaceStroker — "Free Bet Mode" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via branch `feature/free-bet-mode` on 2026-06-26.
 > Refined via Trello card [Add Free bet mode](https://trello.com/c/lFsFhIgR/16-add-free-bet-mode).
@@ -46,10 +46,10 @@ From `monkify-meta/constraints.md` (full list there):
 - **Branch-per-repo:** create `feature/free-bet-mode` in **both** `monkify-backend` and
   `monkify-front`.
 - **Unit tests:** update affected tests; add tests for all new behaviour; **report which tests
-  changed/added** at end of work. Run full `ChimpOut.Tests` suite before declaring done.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating` — no `IEntityTypeConfiguration`.
-- **Migrations:** add under `ChimpOut.Infrastructure/Migrations/`; applied only by
-  `ChimpOut.Consumers` at startup. Do not hand-edit the snapshot.
+  changed/added** at end of work. Run full `SpaceStroker.Tests` suite before declaring done.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating` — no `IEntityTypeConfiguration`.
+- **Migrations:** add under `SpaceStroker.Infrastructure/Migrations/`; applied only by
+  `SpaceStroker.Consumers` at startup. Do not hand-edit the snapshot.
 - **Secrets/config:** only mock/placeholder values in committed config (e.g. `AllowFreeBets: true`
   in Development overlay is fine; use obvious mock values in shared JSON if needed).
 - **Operator messaging:** unchanged — vague errors for inactive operators; never reveal contract
@@ -78,7 +78,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 `GameParameters` — new column
 
-File: `monkify-backend/src/ChimpOut.Domain/Games/Entities/GameParameters.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Games/Entities/GameParameters.cs`
 
 ```csharp
 public bool AllowFreeBet { get; set; }  // default false
@@ -86,7 +86,7 @@ public bool AllowFreeBet { get; set; }  // default false
 
 ### 4.2 EF configuration (inline)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`
 
 Inside the existing `GameParameters` entity block, add:
 
@@ -108,10 +108,10 @@ string.IsNullOrWhiteSpace(bet.PaymentSignature)`.
 ### 4.3 Migration
 
 ```bash
-# from monkify-backend/src/ChimpOut.Infrastructure
+# from monkify-backend/src/SpaceStroker.Infrastructure
 dotnet ef migrations add AddAllowFreeBetToGameParameters \
-  --startup-project ../ChimpOut.Consumers/ChimpOut.Consumers.csproj \
-  --context ChimpOutDbContext
+  --startup-project ../SpaceStroker.Consumers/SpaceStroker.Consumers.csproj \
+  --context SpaceStrokerDbContext
 ```
 
 Migration adds non-nullable `AllowFreeBet` with default `false` on `GameParameters`.
@@ -139,13 +139,13 @@ erDiagram
 
 ### 5.1 Backend — `GameSettings`
 
-File: `monkify-backend/src/ChimpOut.Domain/Configs/Entities/GameSettings.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Configs/Entities/GameSettings.cs`
 
 ```csharp
 public bool AllowFreeBets { get; set; }  // default false
 ```
 
-Bind from `GeneralSettings.Games` in `chimpoutsettings.json`:
+Bind from `GeneralSettings.Games` in `spacestrokersettings.json`:
 
 ```json
 "Games": {
@@ -177,7 +177,7 @@ Set `VUE_APP_ALLOW_FREE_BETS=true` in `.env.development.local` only.
 ### 6.1 Free-bet detection helper
 
 Add a small static helper (location: `RegisterBetHandler` private method or
-`ChimpOut.Domain/Bets/Services/BetExtensions.cs` — keep minimal):
+`SpaceStroker.Domain/Bets/Services/BetExtensions.cs` — keep minimal):
 
 ```csharp
 static bool IsFreeBetRequest(decimal amount, string? paymentSignature)
@@ -189,7 +189,7 @@ static bool IsFreeBet(Bet bet)
 
 ### 6.2 `RegisterBetHandler` — revised flow
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
 
 **Current order:** construct bet → `ValidateBetSignature` → `ValidateBetParameters` →
 `RegisterBet`.
@@ -226,7 +226,7 @@ File: `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Games/RegisterBet/Re
 
 ### 6.3 `BetDomainService.ChoiceIsValidForGame`
 
-File: `monkify-backend/src/ChimpOut.Domain/Bets/Services/BetDomainService.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Bets/Services/BetDomainService.cs`
 
 Change signature to accept optional free-bet flag:
 
@@ -256,7 +256,7 @@ pot is funded by paid bets.
 
 ### 6.4 `BetPlacedConsumer` — player count fix
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`
 
 **Problem:** current logic:
 
@@ -286,7 +286,7 @@ Paid bets: publish event unchanged.
 
 ### 6.5 `RewardGameConsumer`
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
 
 Inside the per-winner loop (L87–108), **before** `CalculateRewardForBet`:
 
@@ -305,7 +305,7 @@ call `GetLatestBlockhashForTokenTransfer` when at least one paid winner exists.
 
 ### 6.6 `RefundInvalidBetConsumer`
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`
 
 At start of `ProcessMessage`:
 
@@ -322,7 +322,7 @@ Solana when `Value == 0`.
 
 ### 6.7 API — request body validation
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs`
 
 Today `[Required]` on `PaymentSignature` and `Wallet` blocks free bets at model binding.
 
@@ -337,7 +337,7 @@ Consider a `[Range]` attribute or handler check: paid bets must have `Amount > 0
 
 ### 6.8 DTO — expose `allowFreeBet`
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs`
 
 ```csharp
 public bool AllowFreeBet { get; set; } = parameters.AllowFreeBet;
@@ -508,18 +508,18 @@ flowchart TD
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/GameParameters.cs` | `AllowFreeBet` property |
-| 2 | `ChimpOut.Domain/Configs/Entities/GameSettings.cs` | `AllowFreeBets` property |
-| 3 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | EF mapping + default |
-| 4 | `ChimpOut.Infrastructure/Migrations/*_AddAllowFreeBetToGameParameters.*` | New migration |
-| 5 | `ChimpOut.Common/chimpoutsettings.json` | `AllowFreeBets: false` |
-| 6 | `ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs` | `AllowFreeBet` |
-| 7 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs` | Relax Required on wallet/signature |
-| 8 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Full free-bet flow |
-| 9 | `ChimpOut.Domain/Bets/Services/BetDomainService.cs` | `isFreeBet` amount rules |
-| 10 | `ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Player count + lottery refund skip |
-| 11 | `ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Skip Solana for free winners |
-| 12 | `ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Skip when Value == 0 |
+| 1 | `SpaceStroker.Domain/Games/Entities/GameParameters.cs` | `AllowFreeBet` property |
+| 2 | `SpaceStroker.Domain/Configs/Entities/GameSettings.cs` | `AllowFreeBets` property |
+| 3 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | EF mapping + default |
+| 4 | `SpaceStroker.Infrastructure/Migrations/*_AddAllowFreeBetToGameParameters.*` | New migration |
+| 5 | `SpaceStroker.Common/spacestrokersettings.json` | `AllowFreeBets: false` |
+| 6 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` | `AllowFreeBet` |
+| 7 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs` | Relax Required on wallet/signature |
+| 8 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Full free-bet flow |
+| 9 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `isFreeBet` amount rules |
+| 10 | `SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Player count + lottery refund skip |
+| 11 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Skip Solana for free winners |
+| 12 | `SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` | Skip when Value == 0 |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -536,7 +536,7 @@ flowchart TD
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`. **Report all changed/added tests at end.**
+Project: `monkify-backend/src/SpaceStroker.Tests`. **Report all changed/added tests at end.**
 
 ### 11.1 `RegisterBetHandlerTests`
 
@@ -613,7 +613,7 @@ Mapped from Trello checklist — implement until all pass:
 1. Set `AllowFreeBets: true` in backend Development config.
 2. Set `VUE_APP_ALLOW_FREE_BETS=true` in `.env.development.local`.
 3. `UPDATE "GameParameters" SET "AllowFreeBet" = true WHERE "Name" = '<your test game>';`
-4. Open `/chimpout/game/<dev-operator-id>/play?type=<gameTypeId>`.
+4. Open `/space-stroker/game/<dev-operator-id>/play?type=<gameTypeId>`.
 5. Enable **Free bet mode** — place bet without wallet → success.
 6. Disable toggle — connect wallet → paid bet still works.
 7. Win a round with free bet → bet rewarded, no Solana tx.

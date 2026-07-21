@@ -63,18 +63,18 @@ operator-wallet API amounts stay USD.
 
 **Backend (`monkify-backend`)**
 
-- `ChimpOut.Api/Controllers/FxController.cs` — `GET /fx/rates`
-- `ChimpOut.Api/Controllers/PlayersController.cs` — `GET /players/preferences`, `PATCH /players/preferences`
-- `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` — `/fx` protected prefix
-- `ChimpOut.Domain/Fx/SupportedCurrencies.cs` — definitive currency registry
-- `ChimpOut.Infrastructure/Services/Fx/IExchangeRateProvider.cs`, `FreeCurrencyApiExchangeRateProvider.cs`,
+- `SpaceStroker.Api/Controllers/FxController.cs` — `GET /fx/rates`
+- `SpaceStroker.Api/Controllers/PlayersController.cs` — `GET /players/preferences`, `PATCH /players/preferences`
+- `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` — `/fx` protected prefix
+- `SpaceStroker.Domain/Fx/SupportedCurrencies.cs` — definitive currency registry
+- `SpaceStroker.Infrastructure/Services/Fx/IExchangeRateProvider.cs`, `FreeCurrencyApiExchangeRateProvider.cs`,
   `MockExchangeRateProvider.cs`
-- `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` — Redis cache
-- `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs`
-- `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`
-- `ChimpOut.Infrastructure/Contracts/Games/BetDto.cs`, `Events/BetNotification/BetNotificationEvent.cs`
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` — `DisplayName` capture on insert
-- `ChimpOut.Common/chimpoutsettings.json` — `GeneralSettings.Fx` (Provider, BaseUrl, ApiKey mock, CacheTtlHours)
+- `SpaceStroker.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` — Redis cache
+- `SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs`
+- `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`
+- `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs`, `Events/BetNotification/BetNotificationEvent.cs`
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `DisplayName` capture on insert
+- `SpaceStroker.Common/spacestrokersettings.json` — `GeneralSettings.Fx` (Provider, BaseUrl, ApiKey mock, CacheTtlHours)
 - Tests: `GetFxRatesHandlerTests`, `GetPlayerPreferencesHandlerTests`, `UpdatePlayerPreferencesHandlerTests`,
   `BetDtoTests`, `FreeCurrencyApiExchangeRateProviderTests`, `MockExchangeRateProviderTests`
 

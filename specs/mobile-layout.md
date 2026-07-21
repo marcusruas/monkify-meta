@@ -1,4 +1,4 @@
-# ChimpOut — "Mobile layout for the game screen" Feature — Implementation Spec
+# SpaceStroker — "Mobile layout for the game screen" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/mobile-layout` on 2026-07-15. Refined via Trello card
 > [(DESIGN) Mobile layout for the game screen](https://trello.com/c/TOTAUpmq).
@@ -8,8 +8,8 @@
 > Adapter (§7.6 layer 2) was **deferred**. A follow-up fix stacks the mobile GAME/CHAT·STATS views
 > absolutely so a hidden view can't intercept taps.
 >
-> **Purpose:** Make ChimpOut's two main player screens — the **games lobby**
-> (`/chimpout/game/games`) and the **main game** (`/chimpout/game/play`) — usable on phones, in
+> **Purpose:** Make SpaceStroker's two main player screens — the **games lobby**
+> (`/space-stroker/game/games`) and the **main game** (`/space-stroker/game/play`) — usable on phones, in
 > portrait and landscape, standalone **and** inside a regulated casino's mobile `<iframe>`. Today the
 > app is effectively desktop-fixed (the game page is a single non-wrapping flex row with
 > JS/`vh`-driven widths). Reflow both pages for narrow viewports while preserving the pixel / arcade /
@@ -48,7 +48,7 @@ From `monkify-meta/constraints.md` (full list there):
   `.worktrees/mobile-layout/monkify-meta` on `feature/mobile-layout` (created off `origin/main`); the
   shared hubs stay on `main`. Push the branch for the PR.
 - **Frontend-only:** no backend behaviour, DB, EF, migration, SignalR, or game-flow change ⇒ **no
-  new backend integration test required** and no `ChimpOut.Tests` changes. Keep the frontend build/lint
+  new backend integration test required** and no `SpaceStroker.Tests` changes. Keep the frontend build/lint
   green.
 - **Front worktree build gotcha:** `monkify-front` builds from a worktree can boot a **stale image**
   because `yarn.lock` is gitignored — copy the hub's `yarn.lock` into the worktree before building and
@@ -286,7 +286,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   participant U as Player (mobile browser)
-  participant App as ChimpOut SPA
+  participant App as SpaceStroker SPA
   participant W as Wallet app (Phantom/Solflare)
   U->>App: Pull lever (SolanaToken, amount>0)
   alt injected provider present (in wallet in-app browser)
@@ -305,8 +305,8 @@ sequenceDiagram
 ## 9. Out of scope
 
 - Tablet-specific layouts (graceful degradation only; tablets get the mobile layout below `lg`).
-- Landing page (`monkify-lp`) and the operator admin page (`/chimpout/admin`, `AdminPage.vue`).
-- Any backend / gameplay / game-flow change; any change to `ChimpOut.Tests`.
+- Landing page (`monkify-lp`) and the operator admin page (`/space-stroker/admin`, `AdminPage.vue`).
+- Any backend / gameplay / game-flow change; any change to `SpaceStroker.Tests`.
 - Redesigning the desktop (`≥ lg`) layout — desktop rendering stays as-is.
 - (Conditional) MWA + embedded-mobile deep-link layers, **if** the user later chooses to keep this card
   to layer-1 wallet only (see §7.6 flag).
@@ -354,7 +354,7 @@ sequenceDiagram
 
 ## 11. Tests
 
-- **Backend:** none (frontend-only; no `ChimpOut.Tests` / `ChimpOut.Tests.Integration` changes; no
+- **Backend:** none (frontend-only; no `SpaceStroker.Tests` / `SpaceStroker.Tests.Integration` changes; no
   game-flow change).
 - **Frontend:** the repo has no established unit-test runner for these components; **do not** invent
   one for this card. Verification is **manual QA (§13) against real device widths** plus keeping the

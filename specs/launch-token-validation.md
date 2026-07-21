@@ -1,4 +1,4 @@
-# ChimpOut — "Launch token validation (signed casino launch flow)" Feature — Implementation Spec
+# SpaceStroker — "Launch token validation (signed casino launch flow)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/launch-token-validation` on 2026-06-30.
 > Runtime behaviour is summarized in `features/launch-token-validation.md`; this doc is the
@@ -8,7 +8,7 @@
 >
 > **Purpose:** Replace the trust-on-URL-params model — where any caller can claim any operator via
 > the `x-operator-id` header — with a **cryptographically signed launch token (JWT, RS256)** that
-> the casino signs and ChimpOut validates before the game loads. The token proves *which operator*
+> the casino signs and SpaceStroker validates before the game loads. The token proves *which operator*
 > launched the game and *which player* it acts for, for both regulated and crypto operators.
 
 ---
@@ -30,11 +30,11 @@ the **launch token** the single source of truth for `operatorId` and `externalPl
 | `OperatorPlayer.IsCrypto` | per-player bool | **removed** — derived from `Operator.PaymentModel` |
 | Display name / currency | `displayName` on register-bet; currency defaults USD | **token-gated prefs endpoint** (display-only) |
 
-**Key shape.** Stateless middleware in `ChimpOut.Api` validates `X-Launch-Token` on every
+**Key shape.** Stateless middleware in `SpaceStroker.Api` validates `X-Launch-Token` on every
 operator-scoped REST call (`/games/*`, `/operators/*`, `/players/*`), stashes
 `{ operatorId, externalPlayerId }` in the request context, and returns a **generic 401** on any
 failure (real reason logged server-side only). SignalR hubs are unchanged (game-id only, no
-token). Each operator signs its own token on its own site and **redirects** to ChimpOut with the
+token). Each operator signs its own token on its own site and **redirects** to SpaceStroker with the
 token in the **URL fragment**; the SPA reads it, strips it from the URL, and attaches it to every
 REST call. **DEV Cassino** uses a **dev-only mint endpoint** (disabled in production) so local dev
 can obtain a valid token.
@@ -52,17 +52,17 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/launch-token-validation` in `monkify-backend`, `monkify-front`,
   `monkify-meta`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at end of implementation.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied **only** by `ChimpOut.Consumers`
+- **Unit tests:** update/add in `SpaceStroker.Tests`; report changed tests at end of implementation.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `SpaceStroker.Infrastructure/Migrations/`; applied **only** by `SpaceStroker.Consumers`
   at startup (`Database.Migrate()`). The API does not migrate.
 - **Secrets/config:** **mock-only** values in committed files. The launch dev **private** key is a
   placeholder PEM; **never** write a real key, and **never** touch the existing real
-  `GeneralSettings.Token.TokenOwnerPrivateKey` in `chimpoutsettings.json`.
+  `GeneralSettings.Token.TokenOwnerPrivateKey` in `spacestrokersettings.json`.
 - **Operator/token messaging:** vague errors only — a single generic **401** for *all* token
   failures; never reveal whether the cause was bad signature, expiry, unknown operator, or
   `iss`/path mismatch.
-- **API stays stateless:** validation middleware lives in `ChimpOut.Api`; no migration work there.
+- **API stays stateless:** validation middleware lives in `SpaceStroker.Api`; no migration work there.
 
 ---
 
@@ -70,21 +70,21 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Asymmetric JWT, RS256.** Casino signs with its **private** key; ChimpOut validates with the operator's stored **public** key. No shared/house key. |
+| 1 | **Asymmetric JWT, RS256.** Casino signs with its **private** key; SpaceStroker validates with the operator's stored **public** key. No shared/house key. |
 | 2 | **Minimal claims:** `iss = operatorId` (Guid), `sub = externalPlayerId` (empty/absent for crypto), `exp`, `iat`, `jti`. `displayName` and `currency` are **not** claims. |
 | 3 | **Public key on the operator row:** `Operator.LaunchPublicKey` (PEM) + optional `Operator.LaunchKeyId`. |
 | 4 | **Token required for *every* operator.** `x-operator-id` header is **removed**; `operatorId` comes from `iss`. |
-| 5 | **Stateless middleware in `ChimpOut.Api`** validates `X-Launch-Token` on every operator-scoped REST call (signature, `exp`/`iat`, clock skew ±2 min). Replay protection = **expiry only**; `jti` is audit/log only. |
+| 5 | **Stateless middleware in `SpaceStroker.Api`** validates `X-Launch-Token` on every operator-scoped REST call (signature, `exp`/`iat`, clock skew ±2 min). Replay protection = **expiry only**; `jti` is audit/log only. |
 | 6 | Middleware stashes `{ operatorId, externalPlayerId }` in request context. `register-bet` reads identity **from context** and **ignores body identity** for regulated operators. |
 | 7 | **`operatorId` consistency:** if the URL path carries an operatorId, middleware requires it to equal `iss`; mismatch → generic 401. |
-| 8 | **Per-operator issuer model:** every operator signs its own token on its own site and **redirects** to ChimpOut. Crypto partners must have a redirectable site too. |
+| 8 | **Per-operator issuer model:** every operator signs its own token on its own site and **redirects** to SpaceStroker. Crypto partners must have a redirectable site too. |
 | 9 | **DEV Cassino** has a **dev-only `POST` mint endpoint** (disabled in production) that signs and returns a JWT. Dev keypair seeded; private key is a mock placeholder in settings. |
 | 10 | **`Operator.PaymentModel` enum (`Regulated` \| `Crypto`)** — exclusively one. Drives wallet-skip: FE shows wallet-connect only for `Crypto`; BE requires `paymentSignature` only for `Crypto`. |
 | 11 | **`OperatorPlayer.IsCrypto` removed** (migration drops the column). Crypto-ness derived from the player's `Operator.PaymentModel`. |
 | 12 | **New token-gated prefs endpoint** updates `OperatorPlayer.DisplayName` + preferred `Currency` (default `USD`). **Display-only.** Identity: regulated via `sub`; crypto via wallet in body. |
 | 13 | **Currency is a display preference only.** Game-native currency stays (regulated = USD, crypto = the token). Conversion/FX rendering is **out of scope** → card #25. |
-| 14 | **Transport: URL fragment.** `…/chimpout/game/<operatorId>#launch_token=<jwt>`. FE reads on load, holds in memory, **strips from URL**, sends `X-Launch-Token` on every REST call. |
-| 15 | **Trust the casino `exp`** (`now < exp`, no ChimpOut cap). Clock skew ±2 min on `exp`/`iat`. |
+| 14 | **Transport: URL fragment.** `…/space-stroker/game/<operatorId>#launch_token=<jwt>`. FE reads on load, holds in memory, **strips from URL**, sends `X-Launch-Token` on every REST call. |
+| 15 | **Trust the casino `exp`** (`now < exp`, no SpaceStroker cap). Clock skew ±2 min on `exp`/`iat`. |
 | 16 | **All token failures → generic 401** + vague message; real reason + correlationId → server logs only. FE routes to `/error`. Token expiring mid-play → same path (re-launch). |
 | 17 | **SignalR unchanged** — no token on websockets (game-id scoping only). |
 | 18 | **Migration backfills `PaymentModel = Crypto`** for all existing operators; DEV Cassino = Crypto. New operators must be provisioned explicitly with `PaymentModel` + `LaunchPublicKey`. |
@@ -96,7 +96,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 Entity / column changes
 
-**`Operator`** — `monkify-backend/src/ChimpOut.Domain/Games/Entities/Operator.cs` — add:
+**`Operator`** — `monkify-backend/src/SpaceStroker.Domain/Games/Entities/Operator.cs` — add:
 
 ```csharp
 public OperatorPaymentModel PaymentModel { get; set; }  // Regulated | Crypto
@@ -104,11 +104,11 @@ public string? LaunchPublicKey { get; set; }            // PEM (SubjectPublicKey
 public string? LaunchKeyId { get; set; }                // optional key id (kid) for rotation
 ```
 
-**New enum** — `monkify-backend/src/ChimpOut.Domain/Games/ValueObjects/OperatorPaymentModel.cs`
+**New enum** — `monkify-backend/src/SpaceStroker.Domain/Games/ValueObjects/OperatorPaymentModel.cs`
 (new):
 
 ```csharp
-namespace ChimpOut.Domain.Games.ValueObjects
+namespace SpaceStroker.Domain.Games.ValueObjects
 {
     public enum OperatorPaymentModel
     {
@@ -121,12 +121,12 @@ namespace ChimpOut.Domain.Games.ValueObjects
 > Stored as `int`. The migration backfills existing rows to `Crypto` (value `1`) — do **not** rely
 > on the CLR default (`0 = Regulated`) for existing data.
 
-**`OperatorPlayer`** — `monkify-backend/src/ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` —
+**`OperatorPlayer`** — `monkify-backend/src/SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` —
 **remove** `public bool IsCrypto { get; set; }`. Keep `DisplayName`, `Currency`, `LastSeenAt`.
 
 ### 4.2 EF configuration (inline)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`
 
 **`Operator` block (≈ lines 59–79)** — add inside the existing `modelBuilder.Entity<Operator>`:
 
@@ -155,15 +155,15 @@ Name: **`AddOperatorLaunchAndPaymentModel`**
 4. Drop `OperatorPlayers.IsCrypto`.
 
 ```bash
-# from monkify-backend/src/ChimpOut.Infrastructure
+# from monkify-backend/src/SpaceStroker.Infrastructure
 dotnet ef migrations add AddOperatorLaunchAndPaymentModel \
-  --startup-project ../ChimpOut.Consumers/ChimpOut.Consumers.csproj \
-  --context ChimpOutDbContext
+  --startup-project ../SpaceStroker.Consumers/SpaceStroker.Consumers.csproj \
+  --context SpaceStrokerDbContext
 ```
 
 Review the generated migration: ensure the `PaymentModel` backfill runs and `IsCrypto` is dropped.
 Do not hand-edit the snapshot. Applies automatically via `ApplyMigrations(app)` in
-`ChimpOut.Consumers/Program.cs`.
+`SpaceStroker.Consumers/Program.cs`.
 
 ### 4.4 ER diagram
 
@@ -197,10 +197,10 @@ erDiagram
 
 New settings section for launch-token signing/validation. **Mock values only.**
 
-**`GeneralSettings`** — `monkify-backend/src/ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` —
+**`GeneralSettings`** — `monkify-backend/src/SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs` —
 add `public LaunchTokenSettings LaunchTokens { get; set; }`.
 
-**New** `monkify-backend/src/ChimpOut.Domain/Configs/Entities/LaunchTokenSettings.cs`:
+**New** `monkify-backend/src/SpaceStroker.Domain/Configs/Entities/LaunchTokenSettings.cs`:
 
 ```csharp
 [ExcludeFromCodeCoverage]
@@ -212,7 +212,7 @@ public class LaunchTokenSettings
 }
 ```
 
-**`monkify-backend/src/ChimpOut.Common/chimpoutsettings.json`** — add a new section under
+**`monkify-backend/src/SpaceStroker.Common/spacestrokersettings.json`** — add a new section under
 `GeneralSettings` (sibling of `Token`, **not** inside it). Use obvious mock PEMs:
 
 ```jsonc
@@ -235,7 +235,7 @@ public class LaunchTokenSettings
 
 Add a scoped accessor so handlers read the validated identity instead of a header.
 
-`monkify-backend/src/ChimpOut.Infrastructure/Services/Launch/ILaunchContext.cs` (new):
+`monkify-backend/src/SpaceStroker.Infrastructure/Services/Launch/ILaunchContext.cs` (new):
 
 ```csharp
 public interface ILaunchContext
@@ -247,14 +247,14 @@ public interface ILaunchContext
 }
 ```
 
-Register the implementation **scoped** in `ChimpOut.Infrastructure/DependencyInjection`. The
+Register the implementation **scoped** in `SpaceStroker.Infrastructure/DependencyInjection`. The
 middleware calls `Set(...)`; handlers read it. (Alternatively store on `HttpContext.Items`, but a
 typed scoped service keeps handlers host-agnostic and testable.)
 
-### 6.2 Token validation middleware (new, `ChimpOut.Api`)
+### 6.2 Token validation middleware (new, `SpaceStroker.Api`)
 
-`monkify-backend/src/ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` (new). Registered in
-`ChimpOut.Api/Program.cs` **after** `UseCors` and **before** `MapControllers`.
+`monkify-backend/src/SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` (new). Registered in
+`SpaceStroker.Api/Program.cs` **after** `UseCors` and **before** `MapControllers`.
 
 Guards **operator-scoped** paths: `/games`, `/operators`, `/players`. **Skips:** `OPTIONS`
 preflight, the dev mint endpoint (`/dev/launch-token`), Swagger, and SignalR hubs
@@ -285,7 +285,7 @@ to the client.
 
 ### 6.2a Shared operator lookup — `IOperatorService` (cached)
 
-`monkify-backend/src/ChimpOut.Infrastructure/Services/Operators/{IOperatorService,OperatorService}.cs`
+`monkify-backend/src/SpaceStroker.Infrastructure/Services/Operators/{IOperatorService,OperatorService}.cs`
 (new). Extracts the operator-by-id lookup so it runs once per operator and is **cached** (the
 middleware runs on every operator-scoped request, so a per-request DB hit would be wasteful):
 
@@ -306,7 +306,7 @@ public async Task<Operator?> GetActiveOperatorById(Guid operatorId)
 ```
 
 - **`GetOperatorByIdHandler`** now delegates to this service and projects `OperatorDto` from the
-  returned entity (it no longer touches `ICacheService` / `ChimpOutDbContext` directly).
+  returned entity (it no longer touches `ICacheService` / `SpaceStrokerDbContext` directly).
 - The **middleware** uses it for the per-request operator load — the entity carries `LaunchPublicKey`
   for signature validation.
 - Registered **scoped** in `DependencyInjection`. Uses the same `GenerateOperatorCacheSettings` key as
@@ -317,7 +317,7 @@ public async Task<Operator?> GetActiveOperatorById(Guid operatorId)
 
 ### 6.3 Controllers — drop `x-operator-id`
 
-File: `monkify-backend/src/ChimpOut.Api/Controllers/GamesController.cs`
+File: `monkify-backend/src/SpaceStroker.Api/Controllers/GamesController.cs`
 
 - **Remove** `RequireOperatorId` and every `[FromHeader(Name = "x-operator-id")] Guid? operatorId`
   parameter. Operator id now comes from `ILaunchContext.OperatorId`.
@@ -327,13 +327,13 @@ File: `monkify-backend/src/ChimpOut.Api/Controllers/GamesController.cs`
 - `RegisterBet`: pass `launchContext.ExternalPlayerId` into the request so the handler can use it for
   the regulated path (see §6.4).
 
-File: `monkify-backend/src/ChimpOut.Api/Controllers/OperatorsController.cs` — `GET /operators/{id}`
+File: `monkify-backend/src/SpaceStroker.Api/Controllers/OperatorsController.cs` — `GET /operators/{id}`
 is now token-guarded by the middleware (the path operatorId must equal `iss`). No code change beyond
 the DTO addition in §6.6.
 
 ### 6.4 `RegisterBetHandler` — identity from token, crypto from PaymentModel
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
 
 Current handler infers `isCrypto` from whether the body `Wallet` is present (lines 74–83). Replace
 with **operator-driven** logic:
@@ -366,7 +366,7 @@ with **operator-driven** logic:
 
 ### 6.5b `BetPlacedConsumer` — free-bet player count & start timing
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`
 
 Two changes (surfaced when testing the regulated dev operator, whose token `sub` makes every bet
 resolve to the **same** `OperatorPlayer`):
@@ -390,14 +390,14 @@ test is replaced.
 
 ### 6.6 `OperatorDto` — expose payment model
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs`
 — add `public OperatorPaymentModel PaymentModel { get; set; }` (set from `op.PaymentModel`). The FE
 needs it to decide whether to render wallet-connect. (Do **not** expose `LaunchPublicKey` /
 `LaunchKeyId` / contacts.)
 
 ### 6.7 Player preferences endpoint (new)
 
-New controller `monkify-backend/src/ChimpOut.Api/Controllers/PlayersController.cs`
+New controller `monkify-backend/src/SpaceStroker.Api/Controllers/PlayersController.cs`
 (`[Route("players")]`), token-guarded by the middleware:
 
 ```csharp
@@ -421,7 +421,7 @@ New handler `Handlers/Players/UpdatePlayerPreferences/` (request + `RequestBody`
 
 ### 6.8 Dev mint endpoint (new, non-production only)
 
-New controller `monkify-backend/src/ChimpOut.Api/Controllers/DevController.cs`
+New controller `monkify-backend/src/SpaceStroker.Api/Controllers/DevController.cs`
 (`[Route("dev")]`) — **the middleware skips `/dev/*`**, and the action itself returns `404` when
 `IHostEnvironment.IsProduction()`:
 
@@ -447,11 +447,11 @@ the regulated register-bet/prefs paths are exercised; crypto tokens have an empt
 identifies the player). Both dev operators are seeded with
 `LaunchPublicKey = LaunchTokens.DevOperatorPublicKeyPem`, so the middleware validates dev-minted
 tokens against the seeded public key. Inject `IHostEnvironment`, `GeneralSettings`, and
-`ChimpOutDbContext`.
+`SpaceStrokerDbContext`.
 
-### 6.9 Seeding — `ChimpOut.Consumers/Program.cs`
+### 6.9 Seeding — `SpaceStroker.Consumers/Program.cs`
 
-File: `monkify-backend/src/ChimpOut.Consumers/Program.cs` → `CreateDefaultOperatorAsync` (≈ line 170):
+File: `monkify-backend/src/SpaceStroker.Consumers/Program.cs` → `CreateDefaultOperatorAsync` (≈ line 170):
 
 - Set `PaymentModel = OperatorPaymentModel.Crypto` and
   `LaunchPublicKey = settings.LaunchTokens.DevOperatorPublicKeyPem` on the seeded **DEV Cassino**.
@@ -467,10 +467,10 @@ File: `monkify-backend/src/ChimpOut.Consumers/Program.cs` → `CreateDefaultOper
 | --- | --- |
 | `BetTestFactory.cs` sets `IsCrypto = true` (2 places) | Remove those assignments — column is gone |
 | `RegisterBetHandler.UpsertOperatorPlayerAsync` takes `isCrypto` and sets `IsCrypto` | Drop the param + assignment |
-| `ChimpOutDbContext` `OperatorPlayer` block maps `IsCrypto` | Remove the mapping line |
+| `SpaceStrokerDbContext` `OperatorPlayer` block maps `IsCrypto` | Remove the mapping line |
 | Existing `RegisterBetHandlerTests` rely on `x-operator-id` / body identity | Re-point to `ILaunchContext` + token sub; crypto via body wallet |
 | `GET /operators/{id}` previously had no token; FE now needs it before game render | Token is in the URL fragment at load; interceptor attaches it (§7) |
-| Real `Token.TokenOwnerPrivateKey` exists in `chimpoutsettings.json` | Do **not** touch it; launch keys are a separate mock section |
+| Real `Token.TokenOwnerPrivateKey` exists in `spacestrokersettings.json` | Do **not** touch it; launch keys are a separate mock section |
 | Middleware must not block SignalR hubs / dev mint | Path allow-list excludes `/Hubs/*`, `/dev/*`, `OPTIONS`, Swagger |
 
 ---
@@ -555,12 +555,12 @@ File: `monkify-front/src/services/mainService.ts` — add
 ```mermaid
 sequenceDiagram
     participant Casino as Operator site
-    participant FE as ChimpOut SPA
-    participant MW as Launch middleware (ChimpOut.Api)
+    participant FE as SpaceStroker SPA
+    participant MW as Launch middleware (SpaceStroker.Api)
     participant H as Handlers
 
     Casino->>Casino: sign JWT (RS256, private key)
-    Casino->>FE: redirect /chimpout/game/<opId>#launch_token=<jwt>
+    Casino->>FE: redirect /space-stroker/game/<opId>#launch_token=<jwt>
     FE->>FE: read fragment, store in memory, strip URL
     FE->>MW: GET /operators/<opId> (X-Launch-Token)
     MW->>MW: load Operator(iss).LaunchPublicKey; verify RS256, exp/iat; iss == path?
@@ -604,32 +604,32 @@ flowchart TD
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/ValueObjects/OperatorPaymentModel.cs` | **New** enum (Regulated, Crypto) |
-| 2 | `ChimpOut.Domain/Games/Entities/Operator.cs` | Add `PaymentModel`, `LaunchPublicKey`, `LaunchKeyId` |
-| 3 | `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` | Remove `IsCrypto` |
-| 4 | `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` | Add `LaunchTokens` |
-| 5 | `ChimpOut.Domain/Configs/Entities/LaunchTokenSettings.cs` | **New** settings class |
-| 6 | `ChimpOut.Common/chimpoutsettings.json` | Add `GeneralSettings.LaunchTokens` (mock PEMs) |
-| 7 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | Operator mapping (PaymentModel/keys); remove `IsCrypto` map |
-| 8 | `ChimpOut.Infrastructure/Migrations/*AddOperatorLaunchAndPaymentModel*` | Add columns + backfill Crypto; drop `IsCrypto` |
-| 9 | `ChimpOut.Infrastructure/Services/Launch/ILaunchContext.cs` (+ impl) | **New** scoped accessor |
-| 9b | `ChimpOut.Infrastructure/Services/Operators/{I,}OperatorService.cs` | **New** cached `GetActiveOperatorById` (shared by middleware + branding) |
-| 10 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register `ILaunchContext`, `IOperatorService` (scoped) |
-| 11 | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **New** RS256 validation via `IOperatorService`; 401 generic |
-| 12 | `ChimpOut.Api/Program.cs` | Register middleware before `MapControllers` |
-| 13 | `ChimpOut.Api/Controllers/GamesController.cs` | Drop `x-operator-id`/`RequireOperatorId`; read `ILaunchContext` |
-| 14 | `ChimpOut.Api/Controllers/OperatorsController.cs` | (token-guarded by MW; no body change) |
-| 15 | `ChimpOut.Api/Controllers/PlayersController.cs` | **New** `PATCH /players/preferences` |
-| 16 | `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/*` | **New** request/body/handler |
-| 17 | `ChimpOut.Api/Controllers/DevController.cs` | **New** dev-only `POST /dev/launch-token` |
-| 18 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel` via `IOperatorService` (cached); drop `isCrypto` |
-| 19 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequest.cs` | Add `ExternalPlayerId` (from token sub) |
-| 20 | `ChimpOut.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs` | Expose `PaymentModel` |
-| 20b | `ChimpOut.Infrastructure/Handlers/Operators/GetOperatorById/GetOperatorByIdHandler.cs` | Delegate to `IOperatorService` (cached) |
-| 21 | `ChimpOut.Consumers/Program.cs` | Seed DEV Cassino (Crypto) + DEV Regulated Cassino + LaunchPublicKey; idempotent self-heal |
-| 22 | `ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Free bets count individually; wait out remaining window before start (§6.5b) |
-| 23 | `ChimpOut.Api/Launch/LaunchTokenService.cs` | RS256 sign/validate; key from `RSAParameters`, caching off (no disposed-RSA) |
-| 24 | `ChimpOut.Tests/**` | Update `BetTestFactory`, register-bet, bet-placed; add middleware/prefs/dev/launch-token tests |
+| 1 | `SpaceStroker.Domain/Games/ValueObjects/OperatorPaymentModel.cs` | **New** enum (Regulated, Crypto) |
+| 2 | `SpaceStroker.Domain/Games/Entities/Operator.cs` | Add `PaymentModel`, `LaunchPublicKey`, `LaunchKeyId` |
+| 3 | `SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` | Remove `IsCrypto` |
+| 4 | `SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs` | Add `LaunchTokens` |
+| 5 | `SpaceStroker.Domain/Configs/Entities/LaunchTokenSettings.cs` | **New** settings class |
+| 6 | `SpaceStroker.Common/spacestrokersettings.json` | Add `GeneralSettings.LaunchTokens` (mock PEMs) |
+| 7 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | Operator mapping (PaymentModel/keys); remove `IsCrypto` map |
+| 8 | `SpaceStroker.Infrastructure/Migrations/*AddOperatorLaunchAndPaymentModel*` | Add columns + backfill Crypto; drop `IsCrypto` |
+| 9 | `SpaceStroker.Infrastructure/Services/Launch/ILaunchContext.cs` (+ impl) | **New** scoped accessor |
+| 9b | `SpaceStroker.Infrastructure/Services/Operators/{I,}OperatorService.cs` | **New** cached `GetActiveOperatorById` (shared by middleware + branding) |
+| 10 | `SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `ILaunchContext`, `IOperatorService` (scoped) |
+| 11 | `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **New** RS256 validation via `IOperatorService`; 401 generic |
+| 12 | `SpaceStroker.Api/Program.cs` | Register middleware before `MapControllers` |
+| 13 | `SpaceStroker.Api/Controllers/GamesController.cs` | Drop `x-operator-id`/`RequireOperatorId`; read `ILaunchContext` |
+| 14 | `SpaceStroker.Api/Controllers/OperatorsController.cs` | (token-guarded by MW; no body change) |
+| 15 | `SpaceStroker.Api/Controllers/PlayersController.cs` | **New** `PATCH /players/preferences` |
+| 16 | `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/*` | **New** request/body/handler |
+| 17 | `SpaceStroker.Api/Controllers/DevController.cs` | **New** dev-only `POST /dev/launch-token` |
+| 18 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Identity from token; crypto from `PaymentModel` via `IOperatorService` (cached); drop `isCrypto` |
+| 19 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequest.cs` | Add `ExternalPlayerId` (from token sub) |
+| 20 | `SpaceStroker.Infrastructure/Handlers/Operators/GetOperatorById/OperatorDto.cs` | Expose `PaymentModel` |
+| 20b | `SpaceStroker.Infrastructure/Handlers/Operators/GetOperatorById/GetOperatorByIdHandler.cs` | Delegate to `IOperatorService` (cached) |
+| 21 | `SpaceStroker.Consumers/Program.cs` | Seed DEV Cassino (Crypto) + DEV Regulated Cassino + LaunchPublicKey; idempotent self-heal |
+| 22 | `SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Free bets count individually; wait out remaining window before start (§6.5b) |
+| 23 | `SpaceStroker.Api/Launch/LaunchTokenService.cs` | RS256 sign/validate; key from `RSAParameters`, caching off (no disposed-RSA) |
+| 24 | `SpaceStroker.Tests/**` | Update `BetTestFactory`, register-bet, bet-placed; add middleware/prefs/dev/launch-token tests |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -654,7 +654,7 @@ flowchart TD
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -676,7 +676,7 @@ Project: `monkify-backend/src/ChimpOut.Tests`.
 | `OperatorSeedTests` (extend) | Migration/seed | existing operators `PaymentModel == Crypto`; `IsCrypto` column gone |
 
 > If middleware is hard to unit-test in isolation, factor the validation into a
-> `ChimpOut.Infrastructure` service (`ILaunchTokenValidator`) and test that directly; the middleware
+> `SpaceStroker.Infrastructure` service (`ILaunchTokenValidator`) and test that directly; the middleware
 > becomes a thin adapter.
 
 ---
@@ -697,7 +697,7 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 10. Given a regulated player with a valid token, when they call the prefs endpoint with display name + currency, then their `OperatorPlayer.DisplayName`/`Currency` update (identity from `sub`).
 11. Given a crypto player with a valid token, when they call the prefs endpoint with their wallet in the body, then the matching `OperatorPlayer` is upserted and `DisplayName`/`Currency` update.
 12. Given a new `OperatorPlayer` with no preference set, when amounts are rendered, then `Currency` defaults to `USD` and only display rendering is affected (no conversion here).
-13. Given a casino redirect to `…/chimpout/game/<operatorId>#launch_token=<jwt>`, when the SPA loads, then it reads the token from the fragment, holds it in memory, strips it from the URL, and attaches `X-Launch-Token` on every REST call.
+13. Given a casino redirect to `…/space-stroker/game/<operatorId>#launch_token=<jwt>`, when the SPA loads, then it reads the token from the fragment, holds it in memory, strips it from the URL, and attaches `X-Launch-Token` on every REST call.
 14. Given a token that expires mid-play, when the next REST call is made, then 401 and the SPA routes to `/error` (re-launch required).
 15. Given the dev mint endpoint, when called in non-production then it returns a valid signed JWT for the dev operator; when called in production then it is disabled/unavailable.
 16. Given a SignalR hub connection, when the player streams typer/bets/status, then no launch token is required (game-id scoping unchanged).
@@ -706,18 +706,18 @@ Mirrors the Trello **Acceptance Criteria** checklist — implement until all pas
 
 ## 13. Manual QA
 
-1. Start `ChimpOut.Consumers` (applies migration, seeds DEV Cassino + DEV Regulated Cassino) and
-   `ChimpOut.Api`.
-2. Open `/chimpout/game/<dev-crypto-guid>` — dev fallback mints a token; confirm `X-Launch-Token`
+1. Start `SpaceStroker.Consumers` (applies migration, seeds DEV Cassino + DEV Regulated Cassino) and
+   `SpaceStroker.Api`.
+2. Open `/space-stroker/game/<dev-crypto-guid>` — dev fallback mints a token; confirm `X-Launch-Token`
    is sent, branding loads, wallet-connect shown, paid bet works.
-3. Open `/chimpout/game/<dev-regulated-guid>` — confirm **no** wallet-connect; place a bet; confirm
+3. Open `/space-stroker/game/<dev-regulated-guid>` — confirm **no** wallet-connect; place a bet; confirm
    `OperatorPlayer` keyed on the token `sub`.
 4. Tamper the token (edit a char) → next call 401 → redirected to `/error`; server log shows real
    reason + correlationId.
 5. `PATCH /players/preferences` with a display name + currency → row updated; default `USD` when
    unset.
 6. Confirm a SignalR game still streams with no token.
-7. Run full `ChimpOut.Tests` (`scripts/run_tests.bat`); report changed tests.
+7. Run full `SpaceStroker.Tests` (`scripts/run_tests.bat`); report changed tests.
 
 ---
 

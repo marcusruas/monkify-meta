@@ -9,7 +9,7 @@ variable "region" {
 
 variable "name_prefix" {
   type    = string
-  default = "chimpout"
+  default = "spacestroker"
 }
 
 variable "labels" {
@@ -20,12 +20,12 @@ variable "labels" {
 # --- Compute ---------------------------------------------------------------------
 variable "api_image" {
   type        = string
-  description = "Artifact Registry image for ChimpOut.Api (…/api:<tag>)."
+  description = "Artifact Registry image for SpaceStroker.Api (…/api:<tag>)."
 }
 
 variable "consumers_image" {
   type        = string
-  description = "Artifact Registry image for ChimpOut.Consumers (…/consumers:<tag>)."
+  description = "Artifact Registry image for SpaceStroker.Consumers (…/consumers:<tag>)."
 }
 
 variable "api_min_instances" {
@@ -63,7 +63,7 @@ variable "max_connections" {
 
 variable "db_app_user" {
   type    = string
-  default = "chimpout_app"
+  default = "spacestroker_app"
 }
 
 variable "db_app_password" {
@@ -106,22 +106,22 @@ variable "dns_zone_name" {
 
 variable "domain_api" {
   type    = string
-  default = "api.chimpout.com"
+  default = "api.spacestroker.com"
 }
 
 variable "domain_app" {
   type    = string
-  default = "app.chimpout.com"
+  default = "app.spacestroker.com"
 }
 
 variable "domain_lp" {
   type    = string
-  default = "chimpout.com"
+  default = "spacestroker.com"
 }
 
 variable "domain_lp_www" {
   type    = string
-  default = "www.chimpout.com"
+  default = "www.spacestroker.com"
 }
 
 # --- App config (non-secret env injected into both Cloud Run services) ------------

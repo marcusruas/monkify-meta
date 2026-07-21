@@ -53,13 +53,13 @@ selector in a crypto game.
 
 **Backend (`monkify-backend`)**
 
-- `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` —
+- `SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` —
   identity resolution prefers `request.Wallet` when present, else the token `sub`.
-- `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` —
+- `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` —
   same wallet-first precedence for `request.Body.Wallet`.
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` (`InsertBet`) — captures
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` (`InsertBet`) — captures
   `bet.GetWalletAddress()` before nulling `OperatorPlayer`; passes it into `BetNotificationEvent`.
-- `ChimpOut.Api/Controllers/PlayersController.cs` — unchanged (`GET [FromQuery] wallet`, `PATCH body.Wallet`).
+- `SpaceStroker.Api/Controllers/PlayersController.cs` — unchanged (`GET [FromQuery] wallet`, `PATCH body.Wallet`).
 - Tests: unit — `GetPlayerPreferencesHandlerTests.WalletProvided_TakesPrecedenceOverSub`,
   `UpdatePlayerPreferencesHandlerTests.WalletInBody_TakesPrecedenceOverSub_WritesToWalletIdentity`;
   integration — `PlayerPreferencesTests.CryptoPreferences_TokenAlsoHasSub_WalletTakesPrecedenceOverSub`.

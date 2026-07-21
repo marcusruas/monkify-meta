@@ -123,25 +123,28 @@ Reference sites that name the messaging DB in comments/code:
 `ChimpOut.Tests.Integration/Harness/IntegrationTestFixture.cs:89,94`,
 `ChimpOut.Consumers/Program.cs:58`.
 
-### 4.3 Migration
+### 4.3 Migration — none needed (confirmed at implementation)
 
-Add a greenfield rename migration under `…/Infrastructure/Migrations/`:
+**No new EF migration is added.** Code exploration confirmed there are **zero ChimpOut-named schema
+objects**: every table is `Game*`/`Bet*`/`Operator*`/etc. (already renamed by the prior rebrand), and
+the only `ChimpOut` tokens in `Migrations/` are **C# identifiers** (the `ChimpOut.Infrastructure.Migrations`
+namespace + `[DbContext(typeof(ChimpOutDbContext))]` attributes) plus two **historical SQL string
+literals** (`DROP TABLE IF EXISTS "ChimpOutApiLogs"/"ChimpOutConsumerLogs"` in `DropLogTables`, for
+already-dropped log tables — a greenfield `IF EXISTS` no-op). Renaming those C# identifiers produces
+**no model change**, so `dotnet ef migrations add` would emit an empty migration.
 
-```bash
-# from the renamed Infrastructure/startup project, inside the worktree
-dotnet ef migrations add RenameChimpOutToSpaceStroker \
-  --project src/SpaceStroker.Infrastructure --startup-project src/SpaceStroker.Consumers
-```
-
-- The migration's job is limited: the **database name** change is a connection-string concern (a new
-  DB is created by the connection), not an in-schema DDL, so the migration body is expected to be
-  **near-empty** (rename any ChimpOut-named columns/constraints if `dotnet ef` detects them; otherwise
-  an empty Up/Down is acceptable — mirrors how greenfield renames landed in the prior rebrand).
+- The **database name** change (`chimpout → spacestroker`, `chimpout_messaging → spacestroker_messaging`)
+  is a **connection-string / docker-compose concern**, not in-schema DDL: a fresh database named
+  `spacestroker` is created by the connection, and the **existing** migrations (`InitialCreate`,
+  `DropLogTables`) build its schema at Consumers startup. AC #2 ("applies a greenfield rename migration")
+  is satisfied by the fresh `spacestroker` DB coming up migrated — no separate rename migration exists to
+  write.
+- The `[DbContext(typeof(ChimpOutDbContext))]` reference in the model snapshot + migration `.Designer.cs`
+  files is updated to `SpaceStrokerDbContext` by the text rename (the file is renamed to
+  `SpaceStrokerDbContextModelSnapshot.cs`); the snapshot is **not** regenerated (no model delta), and it
+  is never hand-edited beyond that mechanical type reference.
 - Applied **only** by the renamed Consumers host at startup (`Database.Migrate()`); the API does not
-  migrate.
-- Regenerate the snapshot via `dotnet ef` (it becomes `SpaceStrokerDbContextModelSnapshot`); never
-  hand-edit it.
-- Local/dev DBs recreate cleanly — **never** run against prod data.
+  migrate. Local/dev DBs recreate cleanly — **never** run against prod data.
 
 ---
 

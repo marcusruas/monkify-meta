@@ -13,7 +13,7 @@
 ## What it does
 
 Replaces the trusted **`x-operator-id`** header with a **cryptographically signed launch token**
-(JWT, RS256) that the operator's casino signs and ChimpOut validates before the game loads. The token
+(JWT, RS256) that the operator's casino signs and SpaceStroker validates before the game loads. The token
 proves which operator launched the game and which player it acts for. Every operator-scoped REST call
 must now carry a valid `X-Launch-Token`; operator and player identity come from the token, not from
 headers or request-body fields. Supersedes the `x-operator-id` model in `features/operators.md`.
@@ -23,11 +23,11 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 - **Token required for every operator.** All operator-scoped REST endpoints (`/games/*`,
   `/operators/*`, `/players/*`) require an `X-Launch-Token` header. The `x-operator-id` header is gone;
   `operatorId` is the token's `iss`, the player id is its `sub`.
-- **Asymmetric RS256.** The casino signs with its private key; ChimpOut validates against the operator's
+- **Asymmetric RS256.** The casino signs with its private key; SpaceStroker validates against the operator's
   stored **`Operator.LaunchPublicKey`** (PEM). Optional `Operator.LaunchKeyId` supports rotation.
 - **Claims:** `iss = operatorId`, `sub = externalPlayerId` (empty for crypto operators), `exp`, `iat`,
   `jti` (audit/log only). `displayName`/`currency` are **not** claims.
-- **Validation** (stateless middleware in `ChimpOut.Api`): signature, `exp`/`iat` with **±2 min** clock
+- **Validation** (stateless middleware in `SpaceStroker.Api`): signature, `exp`/`iat` with **±2 min** clock
   skew, and — when the path carries an operatorId — `iss` must equal it. Replay protection is
   **expiry-only**. The operator must exist and be contract-active and have a `LaunchPublicKey`.
 - **Vague failures.** Every failure (missing/expired/bad-signature/unknown-operator/iss-mismatch)
@@ -58,7 +58,7 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   long-lived (effectively non-expiring) for local convenience. Two dev operators are seeded:
   **DEV Cassino** (Crypto) and **DEV Regulated Cassino**
   (Regulated), both with a mock launch keypair; the private signing key is a mock placeholder in
-  `chimpoutsettings.json`. Seeding is idempotent and self-heals operators that predate the feature.
+  `spacestrokersettings.json`. Seeding is idempotent and self-heals operators that predate the feature.
 - **Cached operator lookup.** `IOperatorService.GetActiveOperatorById` caches the active operator under
   the per-operator cache key, shared by the middleware (every request), the branding endpoint, and
   register-bet. Seeding invalidates that cache entry after create/patch.
@@ -68,17 +68,17 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
 ## Frontend behaviour
 
 - **Launch (operator from the token, not the URL):** the casino redirects to
-  `…/chimpout/game/games#launch_token=<jwt>` — there is **no `/<operatorId>` path segment**.
+  `…/space-stroker/game/games#launch_token=<jwt>` — there is **no `/<operatorId>` path segment**.
   `useLaunch.ensureLaunchToken()` reads the token from the URL fragment, **strips it from the URL**,
   and persists it in **`sessionStorage`** (per-tab; survives reloads/hard navigation); a fresh
   fragment token overrides a stored one. The operator id is decoded from the token's `iss` claim via
   `getOperatorIdFromToken` (`utils/launchToken.ts`) and used by `useOperator.loadOperator` to fetch
-  branding — operator-scoped routes are param-free (`/chimpout/game/games`, `/chimpout/game/play`).
+  branding — operator-scoped routes are param-free (`/space-stroker/game/games`, `/space-stroker/game/play`).
   Missing/undecodable token → `/error`.
-- **Dev entry (no silent auto-mint):** `/chimpout/game` is a dev-only landing (`DevLandingPage.vue`)
+- **Dev entry (no silent auto-mint):** `/space-stroker/game` is a dev-only landing (`DevLandingPage.vue`)
   with **Crypto** and **Regulated** buttons that mint a token from `/dev/launch-token` and drop into
   the game-select page. It is gated by **`VUE_APP_DEV_LAUNCH`** (`featureFlags.ts` — default on;
-  `.env.production` sets it `false`, so `/chimpout/game` redirects to `/error` and the buttons never
+  `.env.production` sets it `false`, so `/space-stroker/game` redirects to `/error` and the buttons never
   ship). `scripts/setup_local_environment.bat` forces it on for the local docker build. See
   `features/dev-qol-stuff.md`.
 - The axios interceptor (`mainService.ts`) reads the token lazily from the store and sends
@@ -95,16 +95,16 @@ headers or request-body fields. Supersedes the `x-operator-id` model in `feature
   (`Games/ValueObjects/OperatorPaymentModel.cs`); `OperatorPlayer.IsCrypto` removed.
 - Migration: `Migrations/20260630133341_AddOperatorLaunchAndPaymentModel` (adds columns, drops
   `IsCrypto`, backfills `PaymentModel = Crypto`).
-- Middleware + token: `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs`,
-  `ChimpOut.Api/Launch/LaunchTokenService.cs` (RS256 sign/validate; key from `RSAParameters`, provider
+- Middleware + token: `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs`,
+  `SpaceStroker.Api/Launch/LaunchTokenService.cs` (RS256 sign/validate; key from `RSAParameters`, provider
   caching off); request identity in `Infrastructure/Services/Launch/ILaunchContext.cs`.
 - Cached operator lookup: `Infrastructure/Services/Operators/{I,}OperatorService.cs` (used by
   middleware, `GetOperatorByIdHandler`, `RegisterBetHandler`).
-- Endpoints: `ChimpOut.Api/Controllers/{Players,Dev}Controller.cs`;
+- Endpoints: `SpaceStroker.Api/Controllers/{Players,Dev}Controller.cs`;
   `Handlers/Players/UpdatePlayerPreferences/*`; `GamesController` (no `x-operator-id`).
 - Bet path: `Handlers/Games/RegisterBet/RegisterBetHandler.cs` (+ `RegisterBetRequest.ExternalPlayerId`).
 - Config/seed: `GeneralSettings.LaunchTokens` (`Configs/Entities/LaunchTokenSettings.cs`,
-  `ChimpOut.Common/chimpoutsettings.json` — mock keys); `ChimpOut.Consumers/Program.cs` (seed + self-heal).
+  `SpaceStroker.Common/spacestrokersettings.json` — mock keys); `SpaceStroker.Consumers/Program.cs` (seed + self-heal).
 
 **Frontend (`monkify-front`)**
 

@@ -1,4 +1,4 @@
-# ChimpOut — "Provably Fair" Feature — Implementation Spec
+# SpaceStroker — "Provably Fair" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via branch `feature/provably-fair` on 2026-07-10 (Trello
 > [#42 XWAeIgIQ](https://trello.com/c/XWAeIgIQ)). Distilled summary: `../features/provably-fair.md`.
@@ -17,7 +17,7 @@
 > - The **legal PDF** (`Paperwork/Legal documents/04 Fairness & game rules.pdf`) was regenerated to the
 >   new scheme (out-of-repo; not part of the merge).
 >
-> **Purpose:** Make ChimpOut's advertised "provably fair" claim literally true. Today the outcome is
+> **Purpose:** Make SpaceStroker's advertised "provably fair" claim literally true. Today the outcome is
 > only *replayable* from a truncated `Int32` seed generated **after** bets lock, using
 > `System.Random` — which is grindable, non-portable, and unverifiable by a player. This feature adds
 > a **commit-reveal server seed**, a **portable HMAC-SHA256 RNG** any language can reproduce,
@@ -32,7 +32,7 @@ We replace the seed/RNG core of the game and expose everything a player needs to
 
 | Aspect | Today | After this feature |
 | --- | --- | --- |
-| **Server entropy** | 32 bytes generated at typer construction (**after** bets lock), in `ChimpOutTyper.GenerateGameSeed` | Raw 32-byte `ServerSeed` generated and its `ServerSeedHash = SHA256` **committed on the first bet**, immutably |
+| **Server entropy** | 32 bytes generated at typer construction (**after** bets lock), in `SpaceStrokerTyper.GenerateGameSeed` | Raw 32-byte `ServerSeed` generated and its `ServerSeedHash = SHA256` **committed on the first bet**, immutably |
 | **Commitment** | None | `ServerSeedHash` published during betting; raw `ServerSeed` revealed only after `Ended` |
 | **Persisted seed** | Derived `Int32` in `Game.Seed` (`int?`) | `Game.ServerSeed` (raw hex) + `Game.ServerSeedHash` (SHA-256 hex); `Game.Seed` **removed** |
 | **RNG** | `new System.Random(Int32)` — not portable | **HMAC-SHA256 counter keystream** over `serverSeed ‖ gameId ‖ orderedBetSeeds ‖ counter`, indices via **rejection sampling** |
@@ -52,7 +52,7 @@ streaming, pot/reward math, payment flows, and operator scoping are untouched.
    `Game.WinningChoice`, and `SHA256(ServerSeed)` must equal the pre-published `ServerSeedHash`.
 2. **Entropy (the bettor):** privately confirm `Bet.Seed == HMAC-SHA256(myClientSeed, nonce)` — proof
    the player's own entropy was mixed in unmodified. The raw `clientSeed` is **never** sent to or
-   returned by ChimpOut (privacy: it does not link a player's bets).
+   returned by SpaceStroker (privacy: it does not link a player's bets).
 
 ---
 
@@ -63,20 +63,20 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** work lives in `.worktrees/provably-fair/<repo>`; the shared checkouts stay on
   `main`. Branch `feature/provably-fair` in `monkify-backend`, `monkify-front`, `monkify-meta` (already
   created + pushed).
-- **Unit tests:** update/add in `ChimpOut.Tests`; run via `scripts/run_tests.bat` (never the full
+- **Unit tests:** update/add in `SpaceStroker.Tests`; run via `scripts/run_tests.bat` (never the full
   `dotnet test` — `ProductionGames` is a slow Monte-Carlo suite). **Report changed/added tests** at
   the end of implementation.
 - **Integration tests (mandatory — this is a new feature that changes game flow + outcome
-  generation):** add at least one happy-path test to `ChimpOut.Tests.Integration` (Testcontainers),
+  generation):** add at least one happy-path test to `SpaceStroker.Tests.Integration` (Testcontainers),
   run via `scripts/run_integration_tests.bat`, plus a dedicated test for the **fallback-winner** flow
   (a particularly complex flow) — AGENTS.md rule 8.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** add under `ChimpOut.Infrastructure/Migrations/`; applied **only** by
-  `ChimpOut.Consumers` at startup. Never hand-edit `ChimpOutDbContextModelSnapshot.cs`.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** add under `SpaceStroker.Infrastructure/Migrations/`; applied **only** by
+  `SpaceStroker.Consumers` at startup. Never hand-edit `SpaceStrokerDbContextModelSnapshot.cs`.
 - **Secrets/config:** mock/placeholder values only; `ServerSeed` is per-game runtime data (not a
   configured secret) — never a config key.
 - **API stays stateless / does not migrate.** The commit-on-first-bet and the verification read
-  endpoint both run in `ChimpOut.Api`; the typer/outcome still runs in `ChimpOut.Consumers`.
+  endpoint both run in `SpaceStroker.Api`; the typer/outcome still runs in `SpaceStroker.Consumers`.
 - **Operator messaging:** unchanged — vague errors for inactive operators; never reveal contract
   status. The verification endpoint is operator-scoped like every other `/games/*` call.
 
@@ -91,7 +91,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 3 | **Reveal timing.** `ServerSeedHash` is exposed as soon as it exists; the raw `ServerSeed` is returned **only** once `Game.Status ∈ GameEndedStatus`. |
 | 4 | **Portable RNG = HMAC-SHA256 counter keystream** (see §6.3 for the exact, language-agnostic algorithm). Indices into the character pool via **rejection sampling** (no modulo bias). Canonical bet ordering: **`CreatedDate` asc, tie-break `Id` ordinal**. Everything operates on UTF-8 bytes of canonical **strings** (hex seeds, decimal counter) to remove byte-layout ambiguity across languages. |
 | 5 | **Fallback winner** is drawn from the same primitive via a dedicated `"fallback"`-labelled HMAC (reproducible regardless of how many characters were streamed). |
-| 6 | **Client seed = Stake-style.** Persistent client seed in `localStorage` (`chimpout.clientSeed`), global-until-rotated, viewable/settable/rotatable in the header gear modal. Per-bet **nonce** (`chimpout.clientSeed.nonce`) increments each bet. `Bet.Seed = HMAC-SHA256(key=clientSeed, msg=nonce)` (lowercase hex, 64 chars), computed client-side; the raw `clientSeed` never leaves the browser. |
+| 6 | **Client seed = Stake-style.** Persistent client seed in `localStorage` (`space-stroker.clientSeed`), global-until-rotated, viewable/settable/rotatable in the header gear modal. Per-bet **nonce** (`space-stroker.clientSeed.nonce`) increments each bet. `Bet.Seed = HMAC-SHA256(key=clientSeed, msg=nonce)` (lowercase hex, 64 chars), computed client-side; the raw `clientSeed` never leaves the browser. |
 | 7 | **Verification exposure = new endpoint** `GET /games/{id}/verification` (reveal-gated). `ServerSeedHash` is additionally added to the live game DTO (`ActiveGameDto`) so the terminal can show the commitment during betting. |
 | 8 | **Verifier = both**: an in-app "Verify this round" panel (recomputes outcome fully client-side) **and** a self-contained static `public/verify.html` (offline, paste inputs, reproduce). |
 | 9 | **Migration = greenfield reshape** (no prod data): drop `Game.Seed` (`int?`); add `Game.ServerSeed` + `Game.ServerSeedHash`; add `Bet.Nonce`; widen `Bet.Seed` `HasMaxLength(40 → 64)`. Historical rows aren't back-fillable — acceptable. |
@@ -103,7 +103,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 Entity / column changes
 
-**`ChimpOut.Domain/Games/Entities/Game.cs`**
+**`SpaceStroker.Domain/Games/Entities/Game.cs`**
 
 - **Remove:** `public int? Seed { get; set; }`
 - **Add:**
@@ -116,7 +116,7 @@ From `monkify-meta/constraints.md` (full list there):
   public string? ServerSeedHash { get; set; }
   ```
 
-**`ChimpOut.Domain/Bets/Entities/Bet.cs`**
+**`SpaceStroker.Domain/Bets/Entities/Bet.cs`**
 
 - **Add:**
   ```csharp
@@ -128,9 +128,9 @@ From `monkify-meta/constraints.md` (full list there):
   `Bet.cs:26` to accept `nonce` (and set it), or set `Nonce` in `RegisterBetHandler` right after
   construction — pick one and keep the free-bet path setting it too.
 
-### 4.2 EF configuration (inline — `ChimpOutDbContext.OnModelCreating`)
+### 4.2 EF configuration (inline — `SpaceStrokerDbContext.OnModelCreating`)
 
-**`Game` block (`ChimpOutDbContext.cs:134`):** the removed `Seed` was mapped by convention (no
+**`Game` block (`SpaceStrokerDbContext.cs:134`):** the removed `Seed` was mapped by convention (no
 explicit line) — deleting the property drops the column. Add:
 
 ```csharp
@@ -138,7 +138,7 @@ builder.Property(x => x.ServerSeed).HasMaxLength(64);
 builder.Property(x => x.ServerSeedHash).HasMaxLength(64);
 ```
 
-**`Bet` block (`ChimpOutDbContext.cs:167`):**
+**`Bet` block (`SpaceStrokerDbContext.cs:167`):**
 
 ```csharp
 builder.Property(x => x.Seed).IsRequired().HasMaxLength(64);   // was HasMaxLength(40)
@@ -164,11 +164,11 @@ public long Nonce { get; set; }
 ```bash
 # from the backend worktree, in src/
 dotnet ef migrations add ProvablyFair \
-  --project ChimpOut.Infrastructure --startup-project ChimpOut.Consumers
+  --project SpaceStroker.Infrastructure --startup-project SpaceStroker.Consumers
 ```
 
 Expected operations: drop `Games.Seed`; add `Games.ServerSeed`, `Games.ServerSeedHash`; add
-`Bets.Nonce`; alter `Bets.Seed` length 40 → 64. Applied by `ChimpOut.Consumers` at startup. Do not
+`Bets.Nonce`; alter `Bets.Seed` length 40 → 64. Applied by `SpaceStroker.Consumers` at startup. Do not
 hand-edit the snapshot.
 
 ### 4.5 ER note
@@ -187,7 +187,7 @@ vars, no `GeneralSettings` additions, no seed-data changes.
 
 ## 6. Backend behaviour
 
-### 6.1 Commit the server seed on the first bet (`ChimpOut.Api`)
+### 6.1 Commit the server seed on the first bet (`SpaceStroker.Api`)
 
 Add a race-safe method to `IGameService` / `GameService`, modelled on `TryStartGame`
 (`GameService.cs:295`):
@@ -240,7 +240,7 @@ subsequent bet are safe: exactly one writer sets it, and it is never regenerated
 
 ### 6.2 Stop deriving/persisting the old seed
 
-- **`ChimpOutTyper` constructor / `GenerateGameSeed` (`ChimpOutTyper.cs:170`):** remove the
+- **`SpaceStrokerTyper` constructor / `GenerateGameSeed` (`SpaceStrokerTyper.cs:170`):** remove the
   `RandomNumberGenerator.Fill` + `BitConverter.ToInt32` + `new System.Random(...)` logic. Read
   `game.ServerSeed` (throw `ArgumentException` if null — a game cannot run without a committed
   seed, which is guaranteed because it must have ≥1 bet). Build the canonical ordered bet-seed list and
@@ -300,11 +300,11 @@ winningChoice = orderedChoices[index]
 index; `DecideFallbackWinner` replaces `new Random(GameSeed)` with the `"fallback"` derivation.
 
 > **Implementation note:** keep a small keystream reader (buffer of `block(counter)` bytes + cursor)
-> inside `ChimpOutTyper`. `_expectedCharsToWin`, `CalculatePacing`, `ApplyPacingDelay`, and
+> inside `SpaceStrokerTyper`. `_expectedCharsToWin`, `CalculatePacing`, `ApplyPacingDelay`, and
 > `UpdateTypingSpeed` are untouched — pacing still only *delays* after a character is chosen, so timing
 > cannot influence the (now keystream-derived) stream.
 
-### 6.4 Verification endpoint (`ChimpOut.Api`)
+### 6.4 Verification endpoint (`SpaceStroker.Api`)
 
 New handler `GetGameVerification` (pattern: `Handlers/Games/GetGameVerification/` with a
 `Request` + `Handler`), exposed as `GET /games/{id}/verification` on `GamesController`
@@ -326,7 +326,7 @@ New handler `GetGameVerification` (pattern: `Handlers/Games/GetGameVerification/
 | `orderedChoices` | yes | `Bets.Keys` ordered Ordinal (for fallback repro) |
 | `bets` | yes | `[{ choice, nonce, date }]` for display + the per-bettor entropy check |
 
-Handler builds a read-only `ChimpOutTyper(game, settings)` (pure; needs bets loaded via
+Handler builds a read-only `SpaceStrokerTyper(game, settings)` (pure; needs bets loaded via
 `GetBetsByGameId`) to read `CharactersOnTyper`, `QueueLength`, `MaxCharacters`, and the ordered
 choice set — guaranteeing the payload matches exactly what a run would use. Gate `serverSeed` on
 `Game.GameEndedStatus.Contains(status)`.
@@ -349,7 +349,7 @@ from `game.ServerSeedHash`. `GetActiveGameForParameterHandler` already loads the
 New `src/hooks/useClientSeed.ts` (singleton shape modelled on `useDisplayCurrency.ts`):
 
 - Module-scope refs `clientSeed` + `nonce`, hydrated on first use from `localStorage`
-  (`chimpout.clientSeed`, `chimpout.clientSeed.nonce`); mirror the `chimpout.audio` persistence pattern in
+  (`space-stroker.clientSeed`, `space-stroker.clientSeed.nonce`); mirror the `space-stroker.audio` persistence pattern in
   `GameHeader.vue`. Auto-generate a random 64-hex `clientSeed` if none stored.
 - `setClientSeed(value)` — validate non-empty, sane length (e.g. ≤ 128 chars); persist; **reset nonce
   to 0** on change/rotate.
@@ -389,7 +389,7 @@ New `src/hooks/useClientSeed.ts` (singleton shape modelled on `useDisplayCurrenc
 - **`public/verify.html`** — a self-contained HTML+JS page (inline, no bundler) served verbatim at
   `/verify.html` under Vue CLI. Paste an Ended round's verification JSON (or fields) → recompute →
   show whether `WinningChoice` and `SHA256(ServerSeed) == ServerSeedHash` both check out, offline, with
-  no call back to ChimpOut. (Keep its JS in sync with `provablyFair.ts` — it must be standalone, so the
+  no call back to SpaceStroker. (Keep its JS in sync with `provablyFair.ts` — it must be standalone, so the
   logic is duplicated verbatim; call this out in the file header.)
 
 ### 7.5 Client-seed UI (header gear modal)
@@ -407,9 +407,9 @@ New `src/hooks/useClientSeed.ts` (singleton shape modelled on `useDisplayCurrenc
 sequenceDiagram
     actor P as Player
     participant FE as Frontend (useClientSeed / useGame)
-    participant API as ChimpOut.Api (RegisterBet / Verification)
+    participant API as SpaceStroker.Api (RegisterBet / Verification)
     participant DB as PostgreSQL
-    participant C as ChimpOut.Consumers (RunGame / ChimpOutTyper)
+    participant C as SpaceStroker.Consumers (RunGame / SpaceStrokerTyper)
 
     P->>FE: place bet
     FE->>FE: seed = HMAC(clientSeed, nonce); nonce++
@@ -418,7 +418,7 @@ sequenceDiagram
     API->>DB: EnsureServerSeedCommitted (UPDATE … WHERE ServerSeed IS NULL)  %% first-writer-wins
     Note over API,DB: ServerSeedHash now published; ServerSeed hidden
     FE->>API: GET /games/{id} → ActiveGameDto.serverSeedHash (shown during betting)
-    C->>C: RunGame → ChimpOutTyper reads ServerSeed, streams via HMAC keystream
+    C->>C: RunGame → SpaceStrokerTyper reads ServerSeed, streams via HMAC keystream
     C->>DB: status Ended, WinningChoice persisted
     P->>FE: "Verify this round"
     FE->>API: GET /games/{id}/verification (status Ended → serverSeed revealed)
@@ -448,20 +448,20 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/Game.cs` | Remove `int? Seed`; add `string? ServerSeed`, `string? ServerSeedHash` |
-| 2 | `ChimpOut.Domain/Bets/Entities/Bet.cs` | Add `long Nonce`; set it in the bet constructor/handler |
-| 3 | `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs` | Read `ServerSeed`; HMAC keystream + rejection sampling; labelled fallback; drop `System.Random`/`Int32`; promote `MaxCharacters` public; remove `GameSeed` |
-| 4 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | Game: map `ServerSeed`/`ServerSeedHash` (64). Bet: `Seed` 40→64, map `Nonce` |
-| 5 | `ChimpOut.Infrastructure/Services/Games/GameService.cs` | Add `EnsureServerSeedCommitted`; remove `Seed` write in `UpdateGameStatus` |
-| 6 | `ChimpOut.Infrastructure/Services/Games/IGameService.cs` | Declare `EnsureServerSeedCommitted` |
-| 7 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Call `EnsureServerSeedCommitted` after `InsertBet`; set `Nonce` on the bet |
-| 7b | `ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Defensive `EnsureServerSeedCommitted` + reload before `RunGame` (safety net, §6.1) |
-| 8 | `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs` | `Seed` `[MaxLength(64)]`; add `long Nonce` |
-| 9 | `ChimpOut.Infrastructure/Handlers/Games/GetGameVerification/*` | New `Request` + `Handler` (reveal-gated payload) |
-| 10 | `ChimpOut.Infrastructure/Contracts/Games/GameVerificationDto.cs` | New DTO (§6.4) |
-| 11 | `ChimpOut.Infrastructure/Contracts/Games/ActiveGameDto.cs` | Add `ServerSeedHash` |
-| 12 | `ChimpOut.Api/Controllers/GamesController.cs` | Add `GET {id}/verification` action |
-| 13 | `ChimpOut.Infrastructure/Migrations/*` | `ProvablyFair` migration (generated) |
+| 1 | `SpaceStroker.Domain/Games/Entities/Game.cs` | Remove `int? Seed`; add `string? ServerSeed`, `string? ServerSeedHash` |
+| 2 | `SpaceStroker.Domain/Bets/Entities/Bet.cs` | Add `long Nonce`; set it in the bet constructor/handler |
+| 3 | `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` | Read `ServerSeed`; HMAC keystream + rejection sampling; labelled fallback; drop `System.Random`/`Int32`; promote `MaxCharacters` public; remove `GameSeed` |
+| 4 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | Game: map `ServerSeed`/`ServerSeedHash` (64). Bet: `Seed` 40→64, map `Nonce` |
+| 5 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | Add `EnsureServerSeedCommitted`; remove `Seed` write in `UpdateGameStatus` |
+| 6 | `SpaceStroker.Infrastructure/Services/Games/IGameService.cs` | Declare `EnsureServerSeedCommitted` |
+| 7 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Call `EnsureServerSeedCommitted` after `InsertBet`; set `Nonce` on the bet |
+| 7b | `SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Defensive `EnsureServerSeedCommitted` + reload before `RunGame` (safety net, §6.1) |
+| 8 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetRequestBody.cs` | `Seed` `[MaxLength(64)]`; add `long Nonce` |
+| 9 | `SpaceStroker.Infrastructure/Handlers/Games/GetGameVerification/*` | New `Request` + `Handler` (reveal-gated payload) |
+| 10 | `SpaceStroker.Infrastructure/Contracts/Games/GameVerificationDto.cs` | New DTO (§6.4) |
+| 11 | `SpaceStroker.Infrastructure/Contracts/Games/ActiveGameDto.cs` | Add `ServerSeedHash` |
+| 12 | `SpaceStroker.Api/Controllers/GamesController.cs` | Add `GET {id}/verification` action |
+| 13 | `SpaceStroker.Infrastructure/Migrations/*` | `ProvablyFair` migration (generated) |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -495,11 +495,11 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests` — run via **`scripts/run_tests.bat`** (filters to
+Project: `monkify-backend/src/SpaceStroker.Tests` — run via **`scripts/run_tests.bat`** (filters to
 `UnitTests` and **excludes** `ProductionGames`; never `dotnet test` the whole solution).
 
 > ⚠️ **Existing tests that WILL break and must be rewritten onto the keystream.** In
-> `ChimpOut.Tests/UnitTests/Domain/Games/ChimpOutTyperTests.cs`, these assert against an oracle
+> `SpaceStroker.Tests/UnitTests/Domain/Games/SpaceStrokerTyperTests.cs`, these assert against an oracle
 > `new Random(typer.GameSeed)` and reference the removed `int GameSeed`:
 > - `GenerateNextCharacter_CharacterStreamIsDeterministicFunctionOfSeed_PacingDoesNotAlterIt`
 > - `GenerateNextCharacter_TwoTypersWithSameSeed_ProduceIdenticalStream`
@@ -515,19 +515,19 @@ Project: `monkify-backend/src/ChimpOut.Tests` — run via **`scripts/run_tests.b
 
 | # | Test file | Cases | Expected |
 | --- | --- | --- | --- |
-| 1 | `ChimpOutTyperTests.cs` (rewrite the 3 above) | Same `ServerSeed` + ordered bet seeds ⇒ identical stream across two typers; matches an independent keystream oracle | Byte-for-byte; no `System.Random`/wall-clock (AC7) |
-| 2 | `ChimpOutTyperTests.cs` (new) | A hard-coded reference vector `(serverSeed, gameId, betSeeds, pool)` ⇒ expected stream prefix + winner (shared verbatim with the JS verifier) | Cross-language parity (AC6) |
-| 3 | `ChimpOutTyperTests.cs` (new) | Rejection sampling over a pool size not dividing 256 ⇒ uniform index distribution; out-of-range bytes discarded | No modulo bias (AC8) |
-| 4 | `ChimpOutTyperTests.cs` (adapt fallback test) | `InstantPacing(maxCharacters: 200)` + high-entropy config ⇒ `WinnerDecidedByFallback`, winner = `"fallback"` draw, reproducible; and a tractable config ⇒ not fallback | Deterministic fallback (AC9) |
+| 1 | `SpaceStrokerTyperTests.cs` (rewrite the 3 above) | Same `ServerSeed` + ordered bet seeds ⇒ identical stream across two typers; matches an independent keystream oracle | Byte-for-byte; no `System.Random`/wall-clock (AC7) |
+| 2 | `SpaceStrokerTyperTests.cs` (new) | A hard-coded reference vector `(serverSeed, gameId, betSeeds, pool)` ⇒ expected stream prefix + winner (shared verbatim with the JS verifier) | Cross-language parity (AC6) |
+| 3 | `SpaceStrokerTyperTests.cs` (new) | Rejection sampling over a pool size not dividing 256 ⇒ uniform index distribution; out-of-range bytes discarded | No modulo bias (AC8) |
+| 4 | `SpaceStrokerTyperTests.cs` (adapt fallback test) | `InstantPacing(maxCharacters: 200)` + high-entropy config ⇒ `WinnerDecidedByFallback`, winner = `"fallback"` draw, reproducible; and a tractable config ⇒ not fallback | Deterministic fallback (AC9) |
 | 5 | new `GameServiceTests` case (or extend existing) | `EnsureServerSeedCommitted`: 1st call sets `ServerSeed`+hash; 2nd call no-ops (value unchanged) | First-writer-wins, immutable (AC1, AC2) |
 | 6 | `UnitTests/Handlers/RegisterBetHandlerTests.cs` | Body factories (`SolanaBody`/`StandardBody`/`FreeBody`) now carry a 64-char seed + `Nonce`; assert `_gameServiceMock.Verify(x => x.EnsureServerSeedCommitted(game.Id))` after a successful insert; `Nonce` persisted | Commit invoked once; nonce saved (AC1, AC11) |
 | 7 | new `GetGameVerificationHandlerTests` | Status < Ended ⇒ payload has `serverSeedHash`, `serverSeed == null`; Ended ⇒ `serverSeed` present; `clientSeed` never in payload | Reveal gating (AC3, AC4, AC12) |
 
-Test bases: `ChimpOutTyperTests` is a plain xUnit class with its own `Faker`; handler tests extend
+Test bases: `SpaceStrokerTyperTests` is a plain xUnit class with its own `Faker`; handler tests extend
 `UnitTestsClass` (in-memory EF, `Messaging`, `ShouldReturnValidationFailure` helpers) and construct the
 handler via `CreateHandler(context)` with Moq'd `IGameService`/`IPaymentMethodResolver`/etc.
 
-### Integration tests (`ChimpOut.Tests.Integration`, Testcontainers — `scripts/run_integration_tests.bat`, Docker required)
+### Integration tests (`SpaceStroker.Tests.Integration`, Testcontainers — `scripts/run_integration_tests.bat`, Docker required)
 
 Harness: `Harness/IntegrationTestFixture.cs` (`IAsyncLifetime`, boots Postgres 16 / RabbitMQ / Redis
 containers + both API & Consumers hosts via `TestWebAppFactory`, swaps in `FakeSolanaService` /

@@ -19,7 +19,7 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
   (`BetDomainService.SetPotAmount`). `CarriedExtra` is `0` for every non-lottery game and for a
   fresh lottery or the round right after a paid win.
 - **A lottery pays no one in two ways.** (a) A **preset** lottery draws a winning choice **nobody bet
-  on** (`ChimpOutTyper` registers every preset with count 0, so the natural/fallback draw can land on an
+  on** (`SpaceStrokerTyper` registers every preset with count 0, so the natural/fallback draw can land on an
   un-backed preset → `NumberOfWinners == 0`). (b) **Under-subscription** — fewer than
   `MinimumNumberOfPlayers` by draw time, so the draw never runs and paid stakes are refunded. A
   **free-type** lottery always has a winner when it draws.
@@ -65,26 +65,26 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
 
 **Backend (`monkify-backend`)**
 
-- Entity/EF/migration: `ChimpOut.Domain/Games/Entities/Game.cs` (`CarriedExtra`),
-  `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` (inline mapping `HasPrecision(18,9)`),
-  `ChimpOut.Infrastructure/Migrations/*_AddGameCarriedExtra.*`.
-- Carry rule: `ChimpOut.Domain/Games/Services/LotteryPotCarry.cs`.
-- Pot math: `ChimpOut.Domain/Bets/Services/BetDomainService.cs` (`SetPotAmount`).
-- Rollover wiring: `ChimpOut.Infrastructure/Services/Games/GameService.cs`
+- Entity/EF/migration: `SpaceStroker.Domain/Games/Entities/Game.cs` (`CarriedExtra`),
+  `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` (inline mapping `HasPrecision(18,9)`),
+  `SpaceStroker.Infrastructure/Migrations/*_AddGameCarriedExtra.*`.
+- Carry rule: `SpaceStroker.Domain/Games/Services/LotteryPotCarry.cs`.
+- Pot math: `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` (`SetPotAmount`).
+- Rollover wiring: `SpaceStroker.Infrastructure/Services/Games/GameService.cs`
   (`CreateGame(parameters, carriedExtra)`, `GetMostRecentGame`),
-  `ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs`,
-  `ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`, `ChimpOut.Consumers/Program.cs`
+  `SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs`,
+  `SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs`, `SpaceStroker.Consumers/Program.cs`
   (startup backfill).
-- Admin transfer: `ChimpOut.Api/Controllers/AdminController.cs`,
-  `ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/{DeactivateGameTypeRequest,DeactivateGameTypeHandler}.cs`,
-  `ChimpOut.Infrastructure/Contracts/Admin/DeactivateGameTypeBody.cs`,
-  `ChimpOut.Infrastructure/Handlers/Admin/GetOperatorGameTypes/GetOperatorGameTypesHandler.cs`,
-  `ChimpOut.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs`.
-- Player DTO: `ChimpOut.Infrastructure/Contracts/Games/ActiveGameDto.cs`.
-- Seed: `ChimpOut.Consumers/DefaultGameParameters.cs` (`PresetLottery` factory + `6L Minute Menagerie`).
-- Tests: `ChimpOut.Tests/UnitTests/Domain/Games/LotteryPotCarryTests.cs`, extended
+- Admin transfer: `SpaceStroker.Api/Controllers/AdminController.cs`,
+  `SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/{DeactivateGameTypeRequest,DeactivateGameTypeHandler}.cs`,
+  `SpaceStroker.Infrastructure/Contracts/Admin/DeactivateGameTypeBody.cs`,
+  `SpaceStroker.Infrastructure/Handlers/Admin/GetOperatorGameTypes/GetOperatorGameTypesHandler.cs`,
+  `SpaceStroker.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs`.
+- Player DTO: `SpaceStroker.Infrastructure/Contracts/Games/ActiveGameDto.cs`.
+- Seed: `SpaceStroker.Consumers/DefaultGameParameters.cs` (`PresetLottery` factory + `6L Minute Menagerie`).
+- Tests: `SpaceStroker.Tests/UnitTests/Domain/Games/LotteryPotCarryTests.cs`, extended
   `BetDomainServiceTests`/`CreateGameTests`/`AdminGameTypeHandlerTests`;
-  `ChimpOut.Tests.Integration/LotteryPotStackingFlowTests.cs` (preset no-winner stack + deactivation transfer).
+  `SpaceStroker.Tests.Integration/LotteryPotStackingFlowTests.cs` (preset no-winner stack + deactivation transfer).
 
 **Frontend (`monkify-front`)**
 

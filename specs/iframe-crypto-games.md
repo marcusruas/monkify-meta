@@ -1,4 +1,4 @@
-# ChimpOut — "Embedded (iframe) crypto (SolanaToken) games" Feature — Implementation Spec
+# SpaceStroker — "Embedded (iframe) crypto (SolanaToken) games" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/iframe-crypto-games` on 2026-07-14 (stacked on
 > card #3 `iframe-embedding`; one merge of this branch landed both). Distilled in
@@ -25,7 +25,7 @@ This feature is a **direct extension of card #3 "Make the game Iframe-able"**
 
 - **#3 is implemented and committed.** #3's front implementation is committed on `feature/iframe-embedding`
   (`monkify-front` @ `4e53e02`) and pushed: `src/hooks/useEmbed.ts`, `src/utils/embed.ts` (`postToParent`,
-  the `{ source:'chimpout', type, payload }` envelope), `src/components/EmbedRelaunching.vue`,
+  the `{ source:'space-stroker', type, payload }` envelope), `src/components/EmbedRelaunching.vue`,
   `public/embed-example.html`, `EMBEDDING.md`, plus edits to `App.vue`, `useOperator.ts`, `useGame.ts`,
   `mainService.ts`, `main.css`, `nginx.conf`. #3's meta spec is committed too (`feature/iframe-embedding`
   in `monkify-meta`). Neither is on `main` yet.
@@ -39,7 +39,7 @@ This feature is a **direct extension of card #3 "Make the game Iframe-able"**
   base.
 - Everywhere below, **`isEmbedded`** and **`postToParent`** are #3's (`useEmbed`, `utils/embed.ts`).
   This card adds **no new parent-facing contract** — it reuses #3's envelope and only adds an
-  **internal, same-origin** popup↔iframe channel (`source: 'chimpout-wallet'`, §7.3).
+  **internal, same-origin** popup↔iframe channel (`source: 'space-stroker-wallet'`, §7.3).
 
 ---
 
@@ -89,7 +89,7 @@ From `monkify-meta/constraints.md` (full list there):
 - **Backend integration-test mandate — N/A (§8).** The "every new feature ships a backend integration
   test" rule is **backend/game-flow scoped**. This card has **no backend surface** (no handler,
   consumer, entity, endpoint, DTO, SignalR-contract, or game-flow change), so it introduces no
-  backend happy path to exercise. No `ChimpOut.Tests.Integration` test is added — consistent with #3
+  backend happy path to exercise. No `SpaceStroker.Tests.Integration` test is added — consistent with #3
   and other frontend-only features (`audio-overhaul`, `game-pot-display`, `iframe-embedding`).
 - **Frontend has no unit-test harness.** `monkify-front/package.json` exposes only `serve`, `build`,
   `lint`, `lint:fix` — no `test`/jest/vitest and no `.spec`/`.test` files under `src/`. Verification is
@@ -114,7 +114,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 3 | **Wallet scope = same adapters as today** (Phantom / Solflare via `solana-wallets-vue`). **No** WalletConnect / mobile wallets (out of scope). |
 | 4 | **Popup opened synchronously in the bet-click handler** (user gesture) to avoid popup-blockers; if still blocked, show a clear "click to connect wallet" affordance — **never** a silent failure. |
 | 5 | **Free `SolanaToken` games already embed** (amount 0 skips wallet-connect) — in scope only to **verify no regression**, no new work expected. |
-| 6 | **No new parent-facing contract.** Reuse #3's `{ source:'chimpout', type, payload }` envelope and its lifecycle events. The wallet handoff is an **internal, same-origin** iframe↔popup channel (`source:'chimpout-wallet'`). All payloads stay secret-free (mint / receiver are public data). |
+| 6 | **No new parent-facing contract.** Reuse #3's `{ source:'space-stroker', type, payload }` envelope and its lifecycle events. The wallet handoff is an **internal, same-origin** iframe↔popup channel (`source:'space-stroker-wallet'`). All payloads stay secret-free (mint / receiver are public data). |
 | 7 | **Backend impact: none expected** — SolanaToken bet-time settlement is validation-only and already runs API-side (payment-methods); the frame changes nothing server-side. Confirm during implementation. |
 | 8 | **In-frame vs popup decision is synchronous** (`connected \|\| wallet.readyState === 'Installed'`) so the popup opens inside the click gesture. The card's "connect-attempt timeout/rejection" fallback is realized as: use in-frame **iff** the extension is actually present in-frame, else popup. |
 | 9 | **Amounts token-native.** Embedded SolanaToken amounts render and are emitted in the token's own units (`tokenSymbol`/`tokenDecimals`), **never** converted to USD. The lifecycle postMessage payloads (#3 emits USD for Standard) become **method-aware** (§7.6). |
@@ -140,19 +140,19 @@ own origin *is* the game host per #3) — not a configured URL. Existing Solana 
 
 ### 5.2 New route: the wallet-bridge popup
 
-A route `WalletBridge` at **`/chimpout/wallet-bridge`** (registered in production too — it is part of the
+A route `WalletBridge` at **`/space-stroker/wallet-bridge`** (registered in production too — it is part of the
 same-origin handoff and must work in prod embedding). It renders the popup page (§7.2). It carries
 **no** launch token and **no** operator context in its URL. `App.vue`'s boot already runs
 `loadOperator()` **only** for `route.name === 'Game' | 'Game'` (`App.vue:31`), so the bridge route
 **skips** the operator/launch boot and cannot dead-end on `/error` — this is why a dedicated route
-(not a raw reload of `/chimpout/game/...`) is required.
+(not a raw reload of `/space-stroker/game/...`) is required.
 
 ---
 
 ## 6. Backend behaviour
 
 **None.** SolanaToken bet-time settlement (on-chain signature validation) already runs in
-`ChimpOut.Api` (`RegisterBetHandler` + `SolanaTokenPaymentMethodService`, validation-only). The iframe
+`SpaceStroker.Api` (`RegisterBetHandler` + `SolanaTokenPaymentMethodService`, validation-only). The iframe
 changes nothing server-side: the bet POST still carries the same `X-Launch-Token` header + `wallet` +
 `paymentSignature` body it does standalone; the origin pair the API sees is unchanged. `monkify-backend`
 is not opened. **Confirm during implementation** (decision #7) and record the confirmation.
@@ -176,7 +176,7 @@ Exposed surface:
   `connected.value || wallet.value?.readyState === 'Installed'` (from `solana-wallets-vue`
   `useWallet()`). In a real cross-origin iframe this is `false` (no adapter injects).
 - `openWalletPopup(): Window | null` — **called synchronously inside the bet-click gesture.**
-  `window.open(`${window.location.origin}/chimpout/wallet-bridge`, 'chimpout-wallet',
+  `window.open(`${window.location.origin}/space-stroker/wallet-bridge`, 'space-stroker-wallet',
   'width=460,height=680,...')`. Returns the handle, or `null` when the browser blocks it.
 - `requestSignatureFromPopup(popup, req): Promise<{ signature: string; wallet: string }>` — drives the
   handshake against an already-opened `popup` for `req = { receiver, mint, amount, network }`:
@@ -197,10 +197,10 @@ No secrets are stored or posted. The composable never reads the launch token.
 
 ### 7.2 New: `src/pages/WalletBridgePage.vue` — the popup page (top-level, same origin)
 
-Runs the SPA at `/chimpout/wallet-bridge` in the **popup** (top-level window → `window.self ===
+Runs the SPA at `/space-stroker/wallet-bridge` in the **popup** (top-level window → `window.self ===
 window.top` → #3's `isEmbedded` is **false**, so no `postToParent` / relaunch overlay fires here). It:
 
-1. **On mount:** post `{ source:'chimpout-wallet', type:'bridge-ready' }` to `window.opener`
+1. **On mount:** post `{ source:'space-stroker-wallet', type:'bridge-ready' }` to `window.opener`
    (`window.opener.postMessage(…, window.location.origin)`); if there is no opener, render a neutral
    "open this from the game" note and stop.
 2. **Wallet connect UI:** reuse the existing connect affordance (`WalletMultiButton` /
@@ -210,7 +210,7 @@ window.top` → #3's `isEmbedded` is **false**, so no `postToParent` / relaunch 
    ensure connected (if not, surface the connect UI and wait), then
    `await startConnection()` (`useConnection`, builds the RPC `connection`) and
    `await sendToken(new PublicKey(receiver), new PublicKey(mint), amount)` (unchanged transfer).
-   - success → post `{ source:'chimpout-wallet', type:'sign-result', payload:{ signature, wallet:
+   - success → post `{ source:'space-stroker-wallet', type:'sign-result', payload:{ signature, wallet:
      publicKey.value!.toString() } }` then `window.close()`.
    - user rejection / transfer failure → post `{ …type:'sign-error', payload:{ reason:'failed' } }`
      (generic; no contract status), keep the window open so the user can retry or close.
@@ -226,7 +226,7 @@ polish, not required for correctness.
 Distinct from #3's parent-facing `utils/embed.ts`. Not exposed to the casino.
 
 ```ts
-export const WALLET_BRIDGE_SOURCE = 'chimpout-wallet' as const;
+export const WALLET_BRIDGE_SOURCE = 'space-stroker-wallet' as const;
 
 export type WalletBridgeMessage =
   | { source: typeof WALLET_BRIDGE_SOURCE; type: 'bridge-ready' }
@@ -336,7 +336,7 @@ Apply the same `currency` derivation to `game-started` (`requiredAmount`) and `b
 
 ### 7.7 New route registration + boot: `src/routes.ts`, `src/App.vue`
 
-- `routes.ts` — add the `WalletBridge` route at `/chimpout/wallet-bridge` →
+- `routes.ts` — add the `WalletBridge` route at `/space-stroker/wallet-bridge` →
   `require('@/pages/WalletBridgePage.vue').default`. Registered unconditionally (prod-embedding needs
   it), like `Admin`.
 - `App.vue` — **no boot change needed**: `loadOperator()` already runs only for `Game`/`Game`
@@ -375,12 +375,12 @@ retro-styled; the requirement (AC #4) is **visible, actionable, never a silent f
 ```mermaid
 sequenceDiagram
   participant Casino as Casino page (parent)
-  participant Frame as iframe (ChimpOut SPA, game origin)
+  participant Frame as iframe (SpaceStroker SPA, game origin)
   participant Popup as Popup (game origin, top-level) + wallet extension
   participant API as monkify-backend
 
   Note over Frame: player pulls lever (SolanaToken, isEmbedded, no in-frame wallet)
-  Frame->>Popup: window.open(origin/chimpout/wallet-bridge)  [SYNCHRONOUS, in click]
+  Frame->>Popup: window.open(origin/space-stroker/wallet-bridge)  [SYNCHRONOUS, in click]
   Popup-->>Frame: postMessage bridge-ready            (same-origin)
   Frame->>Popup: postMessage sign-request { receiver, mint, amount, network }
   Note over Popup: user connects Phantom/Solflare, approves SPL transfer
@@ -430,15 +430,15 @@ flowchart TD
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/hooks/useEmbeddedWallet.ts` | **New.** `inFrameWalletAvailable()` (sync), `openWalletPopup()` (sync, same-origin `/chimpout/wallet-bridge`), `requestSignatureFromPopup(popup, req)` (handshake + origin/source validation + `popup.closed` cancel watch), `walletPopupBlocked` + `setPopupBlocked`/`clearPopupBlocked`. |
+| 1 | `src/hooks/useEmbeddedWallet.ts` | **New.** `inFrameWalletAvailable()` (sync), `openWalletPopup()` (sync, same-origin `/space-stroker/wallet-bridge`), `requestSignatureFromPopup(popup, req)` (handshake + origin/source validation + `popup.closed` cancel watch), `walletPopupBlocked` + `setPopupBlocked`/`clearPopupBlocked`. |
 | 2 | `src/pages/WalletBridgePage.vue` | **New.** Popup page: post `bridge-ready` to opener; wallet connect UI (`WalletMultiButton`/`WalletButtons`); on `sign-request` → `startConnection()` + `sendToken` → post `sign-result { signature, wallet }` + `window.close()`; generic `sign-error` on reject/fail; validates origin === own + source === opener. |
-| 3 | `src/utils/walletBridge.ts` | **New.** `WALLET_BRIDGE_SOURCE = 'chimpout-wallet'`, `WalletBridgeMessage` union, same-origin targeting/validation helpers. Internal only (not parent-facing). |
+| 3 | `src/utils/walletBridge.ts` | **New.** `WALLET_BRIDGE_SOURCE = 'space-stroker-wallet'`, `WalletBridgeMessage` union, same-origin targeting/validation helpers. Internal only (not parent-facing). |
 | 4 | `src/hooks/useGame.ts` | `bet()` SolanaToken branch: acquire signature in-frame (`sendToken`) **or** via popup (`openWalletPopup` synchronously → `requestSignatureFromPopup`); popup-blocked → `setPopupBlocked` + message + abort; cancel/close/error → abort cleanly. Free & Standard paths unchanged. Plus §7.6: make #3's lifecycle emit `currency`/amount method-aware (token-native for SolanaToken). |
 | 5 | `src/components/game/GameConsole.vue` | Relax the in-frame `connected` gate in `placeBet()` when `isEmbedded` (popup provides the wallet). Standalone gate unchanged. Add the popup-blocked "Connect wallet" affordance (§7.8). |
-| 6 | `src/routes.ts` | Add `WalletBridge` route `/chimpout/wallet-bridge` → `WalletBridgePage.vue` (registered in prod too). |
+| 6 | `src/routes.ts` | Add `WalletBridge` route `/space-stroker/wallet-bridge` → `WalletBridgePage.vue` (registered in prod too). |
 | 7 | `src/App.vue` | No boot change required (bridge route already skips `loadOperator`). Optional: hide `GameHeader` on the bridge route. Confirm the global `watch(connected, startConnection)` covers the popup. |
 | 8 | `public/embed-example.html` | **Extend #3's example page.** Add a **SolanaToken** game to the demo and document/observe the in-frame-then-popup wallet flow (the page already logs #3's lifecycle events; note the popup opens as a separate window). |
-| 9 | `EMBEDDING.md` | **Extend #3's README.** Document the SolanaToken embedding flow: in-frame-then-popup wallet handoff, the same-origin popup (`/chimpout/wallet-bridge`), synchronous open on click, token-native amounts, popup-blocked affordance, and that the internal handshake is same-origin/secret-free. |
+| 9 | `EMBEDDING.md` | **Extend #3's README.** Document the SolanaToken embedding flow: in-frame-then-popup wallet handoff, the same-origin popup (`/space-stroker/wallet-bridge`), synchronous open on click, token-native amounts, popup-blocked affordance, and that the internal handshake is same-origin/secret-free. |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -452,8 +452,8 @@ flowchart TD
 ## 11. Unit tests
 
 **None — the frontend has no unit-test harness** (see §2). Adding a framework is out of scope.
-Verification is `yarn lint` + `yarn build` clean + the manual QA in §13. Backend `ChimpOut.Tests` /
-`ChimpOut.Tests.Integration` are untouched — there is no backend change.
+Verification is `yarn lint` + `yarn build` clean + the manual QA in §13. Backend `SpaceStroker.Tests` /
+`SpaceStroker.Tests.Integration` are untouched — there is no backend change.
 
 ---
 
@@ -518,8 +518,8 @@ and the owner's **devnet-USDC** wallet:
 5. **Cancel:** open the popup, close it before signing → the bet aborts cleanly, the lever resets, and a
    second pull re-opens the popup.
 6. **Free SolanaToken:** a free (amount 0) SolanaToken game embedded → bet posts with no wallet/popup.
-7. **Secret-free:** in devtools confirm the popup URL is `…/chimpout/wallet-bridge` (no token) and every
-   `chimpout-wallet` and `chimpout` postMessage payload contains no token/secret; the internal handshake
+7. **Secret-free:** in devtools confirm the popup URL is `…/space-stroker/wallet-bridge` (no token) and every
+   `space-stroker-wallet` and `spacestroker` postMessage payload contains no token/secret; the internal handshake
    is same-origin.
 8. **Token expiry:** force a 401 on the bet POST while embedded → #3's `token-expired` + relaunch state
    (no `/error`), never revealing contract status.

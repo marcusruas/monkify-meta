@@ -5,13 +5,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>ChimpOut.DbConsole</RootNamespace>
-    <AssemblyName>chimpout-db</AssemblyName>
+    <RootNamespace>SpaceStroker.Deploy</RootNamespace>
+    <AssemblyName>spacestroker-deploy</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Npgsql" Version="8.0.3" />
-  </ItemGroup>
 
 </Project>

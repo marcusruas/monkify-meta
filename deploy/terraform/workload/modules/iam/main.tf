@@ -5,13 +5,13 @@
 resource "google_service_account" "api" {
   project      = var.project_id
   account_id   = "${var.name_prefix}-api"
-  display_name = "ChimpOut API (Cloud Run)"
+  display_name = "SpaceStroker API (Cloud Run)"
 }
 
 resource "google_service_account" "consumers" {
   project      = var.project_id
   account_id   = "${var.name_prefix}-consumers"
-  display_name = "ChimpOut Consumers (Cloud Run)"
+  display_name = "SpaceStroker Consumers (Cloud Run)"
 }
 
 # Cloud SQL client — both hosts open a Postgres connection.

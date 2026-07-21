@@ -74,18 +74,18 @@ read-only feature (the stats correctly report whatever the ledger holds). Tracke
 ## Key code touchpoints
 
 **Backend (`monkify-backend`):**
-- `ChimpOut.Api/Controllers/GamesController.cs` — `GET {parametersId}/stats` action.
-- `ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/` — request + handler (scoping + vague
+- `SpaceStroker.Api/Controllers/GamesController.cs` — `GET {parametersId}/stats` action.
+- `SpaceStroker.Infrastructure/Handlers/Games/GetGameTypeStats/` — request + handler (scoping + vague
   `ParameterNotFound`).
-- `ChimpOut.Infrastructure/Services/Games/GameStatsService.cs` (+ `IGameStatsService`) —
+- `SpaceStroker.Infrastructure/Services/Games/GameStatsService.cs` (+ `IGameStatsService`) —
   on-demand aggregation + Redis cache; `GameTypeStats` result model.
-- `ChimpOut.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` — DTO + `HottestChoiceDto`.
-- `ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs` — `GenerateGameStatsCacheSettings`.
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` — `GetGameParametersById` now
+- `SpaceStroker.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` — DTO + `HottestChoiceDto`.
+- `SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` — `GenerateGameStatsCacheSettings`.
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `GetGameParametersById` now
   `.Include`s `OperatorToken` (for the currency descriptor).
-- Tests: `ChimpOut.Tests/UnitTests/Services/GameStatsServiceTests.cs`,
-  `ChimpOut.Tests/UnitTests/Handlers/GetGameTypeStatsHandlerTests.cs`,
-  `ChimpOut.Tests.Integration/GameStatsFlowTests.cs`.
+- Tests: `SpaceStroker.Tests/UnitTests/Services/GameStatsServiceTests.cs`,
+  `SpaceStroker.Tests/UnitTests/Handlers/GetGameTypeStatsHandlerTests.cs`,
+  `SpaceStroker.Tests.Integration/GameStatsFlowTests.cs`.
 
 **Frontend (`monkify-front`):**
 - `src/components/game/GameSidePanel.vue` — the right-docked CHAT/STATS tabbed panel.

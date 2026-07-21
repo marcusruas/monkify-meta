@@ -4,7 +4,7 @@ variable "project_id" {
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix for the backend-bucket name (e.g. chimpout-front)."
+  description = "Prefix for the backend-bucket name (e.g. spacestroker-front)."
 }
 
 variable "bucket_name" {

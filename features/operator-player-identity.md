@@ -47,7 +47,7 @@ distinguished by the owning **`Operator.PaymentModel`**. Identified bets link vi
 
 **Backend (`monkify-backend`)**
 
-- Entity: `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs`.
+- Entity: `SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs`.
 - Bet: nullable `OperatorPlayerId` FK; helper `BetExtensions.GetWalletAddress(Bet)`.
 - DbContext + migration: `20260629141822_AddOperatorPlayerIdentity`.
 - Handler: `RegisterBetHandler` — `UpsertOperatorPlayerAsync`, identity resolution, duplicate keys.

@@ -4,14 +4,14 @@
 
 ## Patterns observed (fill in / verify)
 
-- **EF mapping is INLINE** in `ChimpOutDbContext.OnModelCreating` — no `IEntityTypeConfiguration`
+- **EF mapping is INLINE** in `SpaceStrokerDbContext.OnModelCreating` — no `IEntityTypeConfiguration`
   classes. Add new entity config as a `modelBuilder.Entity<T>(builder => { … })` block in the
   existing style.
-- **Migrations** live in `ChimpOut.Infrastructure/Migrations/` and are applied **only** at
-  `ChimpOut.Consumers` startup via `Database.Migrate()`. Generate with `dotnet ef migrations add`;
+- **Migrations** live in `SpaceStroker.Infrastructure/Migrations/` and are applied **only** at
+  `SpaceStroker.Consumers` startup via `Database.Migrate()`. Generate with `dotnet ef migrations add`;
   never hand-edit the snapshot.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
-  `ChimpOut.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
+  `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **Single-responsibility classes read top-down — isolate behaviours into named methods.** When a
   class exists to do one thing (a MediatR handler, a MassTransit consumer, a domain service entry
   point), the **main method should orchestrate, not implement**. Pull each distinct behaviour /
@@ -34,7 +34,7 @@
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
   `IMessaging.ReturnValidationFailureMessage(...)`.
 - **Operator/player identity comes from the launch token, not headers.**
-  `LaunchTokenValidationMiddleware` (`ChimpOut.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
+  `LaunchTokenValidationMiddleware` (`SpaceStroker.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
   on operator-scoped paths and populates the scoped `ILaunchContext` (`{ operatorId, externalPlayerId }`);
   controllers read it instead of binding a header. Any token failure → generic **HTTP 401** (vague;
   real reason logged with a correlation id). The old `x-operator-id` `[FromHeader]` binding is gone.
@@ -42,12 +42,12 @@
   per-operator key) rather than querying `Operators` directly — it's shared by the middleware,
   `GetOperatorByIdHandler`, and `RegisterBetHandler`. When signing/validating JWTs, build the
   `RsaSecurityKey` from exported `RSAParameters` with provider caching off (avoids a disposed-RSA error).
-- **Async messaging via MassTransit/RabbitMQ:** consumers in `ChimpOut.Infrastructure/Consumers/…`
-  (one receive endpoint each), registered in `ChimpOut.Consumers/Program.cs`. Publish via
+- **Async messaging via MassTransit/RabbitMQ:** consumers in `SpaceStroker.Infrastructure/Consumers/…`
+  (one receive endpoint each), registered in `SpaceStroker.Consumers/Program.cs`. Publish via
   `IRabbitMQService`.
 - **Caching via `ICacheService`** (Redis or in-memory). Keys built by `CacheHelper`; active-params
   cache is operator-aware.
-- **Domain stays pure:** entities/value-objects/domain-services in `ChimpOut.Domain` have no
+- **Domain stays pure:** entities/value-objects/domain-services in `SpaceStroker.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
 - **Money movement routes by the game's `PaymentMethod`, via `IPaymentMethodResolver`.** Handlers and
   consumers call `paymentResolver.Resolve(game.Parameters).Debit/Credit/Refund(...)` — **never** branch
@@ -64,20 +64,20 @@
   from the `GeneralSettings.SecretProtection.Key` passphrase): `Protect` in the API before persisting,
   `Unprotect` in Consumers only when the plaintext is needed for an outbound call. Never return an
   encrypted secret in a DTO or log it.
-- **Tests:** `ChimpOut.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
+- **Tests:** `SpaceStroker.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
 - **Game-flow changes MUST update the integration tests.** End-to-end coverage of the game
-  lifecycle lives in the separate **`ChimpOut.Tests.Integration`** project (Testcontainers:
-  PostgreSQL + RabbitMQ + Redis; boots the `ChimpOut.Api` + `ChimpOut.Consumers` hosts and runs real
+  lifecycle lives in the separate **`SpaceStroker.Tests.Integration`** project (Testcontainers:
+  PostgreSQL + RabbitMQ + Redis; boots the `SpaceStroker.Api` + `SpaceStroker.Consumers` hosts and runs real
   games bet→run→reward with Solana/operator-wallet mocked). It is **excluded** from the default
-  fast suite (`scripts/run_tests.bat`, which scopes to `ChimpOut.Tests` / `~UnitTests`) and runs on
+  fast suite (`scripts/run_tests.bat`, which scopes to `SpaceStroker.Tests` / `~UnitTests`) and runs on
   demand via **`scripts/run_integration_tests.bat`**. **Any change to the game lifecycle/flow**
   (consumers `BetPlaced`/`RunGame`/`RewardGame`/`RefundInvalidBet`, `GameService`,
-  `ChimpOutTyper`, game/bet state machine, reward/refund/ledger paths, or the register-bet handler)
-  **must also update `ChimpOut.Tests.Integration`** so the end-to-end assertions still reflect reality.
+  `SpaceStrokerTyper`, game/bet state machine, reward/refund/ledger paths, or the register-bet handler)
+  **must also update `SpaceStroker.Tests.Integration`** so the end-to-end assertions still reflect reality.
 - **Every new feature MUST add a happy-path integration test here.** Beyond game-flow changes,
   `constraints.md` → "Integration tests are mandatory for every new feature" requires each **new
-  feature** to ship with at least one `ChimpOut.Tests.Integration` test that drives its happy path end
+  feature** to ship with at least one `SpaceStroker.Tests.Integration` test that drives its happy path end
   to end (and one per particularly complex flow). Follow the `GameFlowTests` pattern: seed via the
   fixture, drive the real API, let the Consumers host process, assert terminal DB state + ledger +
   no error logs. Bug fixes / QOL / minor changes are exempt unless they touch game flow.
@@ -98,18 +98,18 @@
   duration, the per-game metrics (duration, characters typed, average char/s, winner) and the
   aggregate mean / p95 / fallback-winner lines. PDFs are rendered with headless Edge (Chrome
   fallback; HTML is opened if neither is available) and written to `TestReports/` (git-ignored).
-  Set `CHIMPOUT_TEST_RUNCOUNT` to shrink the Monte Carlo sample size for faster local runs.
-- **Application settings** live in **`ChimpOut.Common/chimpoutsettings.json`** — the single source
-  for backend configuration. Both `ChimpOut.Api` and `ChimpOut.Consumers` load it via
-  `AddChimpOutSettings()` (environment variables can override keys at runtime). Do **not** add
+  Set `SPACESTROKER_TEST_RUNCOUNT` to shrink the Monte Carlo sample size for faster local runs.
+- **Application settings** live in **`SpaceStroker.Common/spacestrokersettings.json`** — the single source
+  for backend configuration. Both `SpaceStroker.Api` and `SpaceStroker.Consumers` load it via
+  `AddSpaceStrokerSettings()` (environment variables can override keys at runtime). Do **not** add
   `appsettings.json` / `appsettings.Development.json` overlays for app settings; put new keys in
-  `chimpoutsettings.json` under the appropriate `GeneralSettings` section.
+  `spacestrokersettings.json` under the appropriate `GeneralSettings` section.
 
 - **Logging is Serilog, console-only.** Both hosts configure Serilog once via
-  `builder.AddLogs()` (`ChimpOut.Infrastructure/DependencyInjection.cs`) — a single **Console** sink
+  `builder.AddLogs()` (`SpaceStroker.Infrastructure/DependencyInjection.cs`) — a single **Console** sink
   (stdout), minimum level **Information** in non-production and **Warning** in production. **Logs are
-  not persisted to the database** (the old `Serilog.Sinks.PostgreSQL` sink and its `ChimpOutApiLogs`/
-  `ChimpOutConsumerLogs` tables were removed — see `specs/no-db-logging.md`); stdout is captured by
+  not persisted to the database** (the old `Serilog.Sinks.PostgreSQL` sink and its `SpaceStrokerApiLogs`/
+  `SpaceStrokerConsumerLogs` tables were removed — see `specs/no-db-logging.md`); stdout is captured by
   Cloud Run → Cloud Logging in production and shown in the terminal locally. Code logs via the static
   `Serilog.Log`.
 

@@ -20,8 +20,8 @@ the money was never returned), and there was no operator-facing way to force a r
   SolanaToken bet), which previously left the bet `Made`. On a **failed** refund the status is left
   untouched, so a swept `NeedsRefunding` bet is retried on the next sweep; an inline-trigger bet that
   fails stays `Made` (logged only, as before). The flip is done via a minimal tracked re-query
-  (`MarkRefunded`), because `ChimpOutDbContext` is NoTracking by default.
-- **12-hour sweep.** `PendingRefundSweepJob` is a Hangfire recurring job in `ChimpOut.Consumers`
+  (`MarkRefunded`), because `SpaceStrokerDbContext` is NoTracking by default.
+- **12-hour sweep.** `PendingRefundSweepJob` is a Hangfire recurring job in `SpaceStroker.Consumers`
   (cron `0 */12 * * *`, id `pending-refund-sweep`). It loads **all** bets with
   `Status == NeedsRefunding` (all operators, **any** game state) and publishes one existing
   `RefundInvalidBetEvent` per bet (`Wallet = bet.GetWalletAddress()`, `Value = bet.Amount`, reason
@@ -48,9 +48,9 @@ the money was never returned), and there was no operator-facing way to force a r
   no money moves twice.
 - **Refund amount.** A `NeedsRewarding` winner whose payout failed and is then marked for refund gets
   its **stake** back (the remaining stake minus prior refunds), not winnings.
-- **Host split.** The sweep + all money movement run in `ChimpOut.Consumers`; the admin endpoint only
+- **Host split.** The sweep + all money movement run in `SpaceStroker.Consumers`; the admin endpoint only
   reads and flips a status column (no money, no Solana/wallet call, no key decrypt), so it stays in the
-  stateless `ChimpOut.Api`.
+  stateless `SpaceStroker.Api`.
 - **No schema change.** `BetStatus.NeedsRefunding`/`Refunded` already existed and
   `Bet.ExternalTransactionReference` was already indexed — no entity/mapping change, no migration.
 
@@ -58,18 +58,18 @@ the money was never returned), and there was no operator-facing way to force a r
 
 **Backend (`monkify-backend`)**
 
-- `ChimpOut.Infrastructure/Jobs/PendingRefundSweepJob.cs` — the 12h sweep (reads `NeedsRefunding`,
+- `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` — the 12h sweep (reads `NeedsRefunding`,
   publishes `RefundInvalidBetEvent`).
-- `ChimpOut.Consumers/Program.cs` — `AddScoped<PendingRefundSweepJob>()` +
+- `SpaceStroker.Consumers/Program.cs` — `AddScoped<PendingRefundSweepJob>()` +
   `recurringJobs.AddOrUpdate<PendingRefundSweepJob>("pending-refund-sweep", j => j.Run(), "0 */12 * * *")`.
-- `ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` — sets
+- `SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` — sets
   `Refunded` on success via `MarkRefunded` (minimal tracked re-query); leaves status on failure.
-- `ChimpOut.Infrastructure/Handlers/Admin/RefundBet/` — `RefundBetRequest` + `RefundBetHandler`
+- `SpaceStroker.Infrastructure/Handlers/Admin/RefundBet/` — `RefundBetRequest` + `RefundBetHandler`
   (lookup by `ExternalTransactionReference`, operator-scoped, guards, set `NeedsRefunding`).
-- `ChimpOut.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs` — `{ PaymentSignature }`.
-- `ChimpOut.Api/Controllers/AdminController.cs` — `POST /admin/bets/refund` (+ `bets/refund` OPTIONS
+- `SpaceStroker.Infrastructure/Contracts/Admin/RefundBetBySignatureBody.cs` — `{ PaymentSignature }`.
+- `SpaceStroker.Api/Controllers/AdminController.cs` — `POST /admin/bets/refund` (+ `bets/refund` OPTIONS
   preflight).
-- `ChimpOut.Domain/Bets/Services/BetDomainService.cs` — `CalculateRefundForInvalidBet` /
+- `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` — `CalculateRefundForInvalidBet` /
   `CalculateRemainingBetPayout` (unchanged; the refund amount math).
 
 **Frontend (`monkify-front`)**
@@ -82,8 +82,8 @@ the money was never returned), and there was no operator-facing way to force a r
 
 **Tests**
 
-- Unit (`ChimpOut.Tests`): `PendingRefundSweepJobTests`, `RefundBetHandlerTests`, and
+- Unit (`SpaceStroker.Tests`): `PendingRefundSweepJobTests`, `RefundBetHandlerTests`, and
   `RefundInvalidBetConsumerTests` (the `Refunded`-on-success flip + failure-keeps-`NeedsRefunding`).
-- Integration (`ChimpOut.Tests.Integration`): `RefundSafeguardsTests` (sweep happy-path,
+- Integration (`SpaceStroker.Tests.Integration`): `RefundSafeguardsTests` (sweep happy-path,
   admin-mark → sweep → refund, guards) + harness helpers `SetBetStatusAsync` /
   `RunPendingRefundSweepAsync`.

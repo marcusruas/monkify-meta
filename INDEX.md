@@ -1,9 +1,9 @@
-# ChimpOut — Project Knowledge Base (INDEX)
+# SpaceStroker — Project Knowledge Base (INDEX)
 
-> **Read this file first on every task.** It is the map of the ChimpOut knowledge base.
+> **Read this file first on every task.** It is the map of the SpaceStroker knowledge base.
 > It tells you where things live, what each document is for, and the rules you must never break.
 
-ChimpOut is a real-time, multiplayer betting game where a simulated "monkey" types random
+SpaceStroker is a real-time, multiplayer betting game where a simulated "monkey" types random
 characters until a player's chosen word/sequence appears. Players bet on a sequence; when the
 typer produces a matching sequence, the matching bets win and are paid out.
 
@@ -46,14 +46,14 @@ so it reflects the application's current business logic and behavior. That inclu
 how the system works — not only `specs/`. Stale docs here mislead agents and humans alike; treat
 knowledge-base updates as part of shipping the feature, not optional follow-up work.
 
-## Repositories (in this workspace, `e:\ChimpOut`)
+## Repositories (in this workspace, `e:\SpaceStroker`)
 
 
 | Folder             | What it is                                                               | Covered here       |
 | ------------------ | ------------------------------------------------------------------------ | ------------------ |
 | `monkify-backend`  | .NET 8 backend: API, background consumers, domain, infrastructure, tests | Yes (primary)      |
 | `monkify-front`    | Vue 3 + TypeScript frontend (the game UI)                                | Yes (primary)      |
-| `monkify-lp`       | Landing page (Astro 5 + Vue 3 + Tailwind v4)                             | LP relaunch: `features/lp-chimpout-relaunch.md` |
+| `monkify-lp`       | Landing page (Astro 5 + Vue 3 + Tailwind v4)                             | LP relaunch: `features/lp-space-stroker-relaunch.md` |
 | `monkify-meta`     | **This knowledge base**                                                  | —                  |
 
 
@@ -78,27 +78,27 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
 | `features/launch-token-validation.md` | Signed casino launch flow (`X-Launch-Token`); `Operator.PaymentModel`; replaces `x-operator-id` | Shipped              |
 | `features/operator-wallet-api.md` | Regulated (Model A) operator wallet debit/credit/refund; unified `TransactionLog`; commission removed | Shipped              |
-| `features/dev-qol-stuff.md` | Dev QOL: operator from token (not URL), dev launch buttons (`VUE_APP_DEV_LAUNCH`), `ChimpOut.Tests.Integration` suite | Shipped              |
+| `features/dev-qol-stuff.md` | Dev QOL: operator from token (not URL), dev launch buttons (`VUE_APP_DEV_LAUNCH`), `SpaceStroker.Tests.Integration` suite | Shipped              |
 | `features/rg-pre-bet-hook.md` | Opt-in per-operator responsible-gaming pre-bet check (`IPreBetCheckService`); allow/deny/fail-closed before the wallet debit | Shipped              |
 | `features/player-customization-modal.md` | Header-gear modal: display name (all operators) + preferred display currency (regulated only); `GET /fx/rates`, `GET /players/preferences`, client-side USD→fiat rendering; display-only | Shipped              |
 | `features/game-chat.md`  | Per-game chat on `/game` via `ActiveGamesHub`; display-name identity, DB audit persistence + daily purge, client 200-char/1s limits, no history replay | Shipped (v2)         |
-| `features/operator-admin-page.md` | Operator self-service admin portal at `/chimpout/admin`: admin-scoped RS256 token (`X-Admin-Token`), create/list/deactivate game types (all 3 modes), deactivate-or-create (no edit), dev header icon → `POST /dev/admin-token` | Shipped              |
+| `features/operator-admin-page.md` | Operator self-service admin portal at `/space-stroker/admin`: admin-scoped RS256 token (`X-Admin-Token`), create/list/deactivate game types (all 3 modes), deactivate-or-create (no edit), dev header icon → `POST /dev/admin-token` | Shipped              |
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
 | `features/game-pot-display.md` | Frontend-only: the `> POT:` line is shown for **all** game types (races + lottery), seeded from `Σ bets` (+ lottery base), live via `/Bets`, visible during/after the run; distilled from `specs/game-pot-display.md` | Shipped              |
 | `features/characters-away.md` | Near-miss reveal: bottom-docked `> N AWAY!` row per own choice (KMP tail-prefix `away = L − k`) that climbs, loops every 2s, and types out the winner on a win; in-game `> POT:`; backend emits the fallback-decided winner as a final terminal batch | Shipped              |
-| `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per game status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the games page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/chimpout/game` redirect + game-connection teardown fix | Shipped              |
+| `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per game status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the games page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/space-stroker/game` redirect + game-connection teardown fix | Shipped              |
 | `features/payment-methods.md` | **Per-game** payment: `GameParameters.PaymentMethod` (`Standard`=off-chain USD wallet / `SolanaToken`=on-chain per-operator registered token, key AES-GCM encrypted at rest); unified `IPaymentMethodService` strategy+resolver + availability gating; ledger split (`Bet`/`TransactionLog` `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`); admin token CRUD. **Removes `Operator.PaymentModel`** | Shipped              |
-| `features/iframe-embedding.md` | Frontend-only: a **regulated (Model A)** casino embeds the game in an `<iframe>` — `useEmbed` detection, secret-free `{source:'chimpout'}` postMessage lifecycle API, embedded 401→`token-expired`+"relaunching" (never `/error`), fills the frame, permissive `frame-ancestors *`, example page + `EMBEDDING.md`; distilled from `specs/iframe-embedding.md` | Shipped              |
-| `features/iframe-crypto-games.md` | Frontend-only, **stacked on #3**: paid **`SolanaToken`** bets inside the iframe via a **same-origin wallet-bridge popup** (`/chimpout/wallet-bridge`) that returns the on-chain signature+wallet (`source:'chimpout-wallet'`); popup opened synchronously on click, token-native amounts, no new parent contract; distilled from `specs/iframe-crypto-games.md` | Shipped              |
+| `features/iframe-embedding.md` | Frontend-only: a **regulated (Model A)** casino embeds the game in an `<iframe>` — `useEmbed` detection, secret-free `{source:'space-stroker'}` postMessage lifecycle API, embedded 401→`token-expired`+"relaunching" (never `/error`), fills the frame, permissive `frame-ancestors *`, example page + `EMBEDDING.md`; distilled from `specs/iframe-embedding.md` | Shipped              |
+| `features/iframe-crypto-games.md` | Frontend-only, **stacked on #3**: paid **`SolanaToken`** bets inside the iframe via a **same-origin wallet-bridge popup** (`/space-stroker/wallet-bridge`) that returns the on-chain signature+wallet (`source:'space-stroker-wallet'`); popup opened synchronously on click, token-native amounts, no new parent contract; distilled from `specs/iframe-crypto-games.md` | Shipped              |
 | `features/game-type-stats.md` | Per-game all-time stats per game type via `GET /games/{parametersId}/stats` (biggest pot, biggest single payout, rounds played, total paid out, hottest choice for preset types) — **on-demand aggregate + Redis cache, no new entity/migration**; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type, operator-scoped/vague; rendered in a lazy **STATS** tab of the `/game` right-side panel (bundled with **CHAT** via `GameSidePanel`) | Shipped              |
 | `features/provably-fair.md` | Commit-reveal `ServerSeed` (committed on the first bet, revealed after `Ended`), portable HMAC-SHA256 keystream RNG + labelled fallback, Stake-style client seed + `Bet.Nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /games/{id}/verification` + offline `public/verify.html`; terminal shows commitment/reveal only | Shipped              |
 | `features/wallet-display-name.md` | SolanaToken player display-name/preferences key off the **connected wallet** everywhere: backend prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`); `InsertBet` carries `externalPlayerId` on live notifications; frontend reactive per-wallet load + "Connect wallet to customize" gate + currency hidden for SolanaToken | Shipped              |
 | `features/lottery-pot-stacking.md` | Un-won lottery pots **stack** into the next round via `Game.CarriedExtra` (preset no-winner draw carries losing stakes; under-subscription carries the base unchanged; paid win resets). `pot = Σ bets + LotteryPot + CarriedExtra`; carry decided once at rollover by `LotteryPotCarry`. Admin **deactivation transfers** the un-won pot to an eligible active lottery (same operator/method/token) or blocks. Player `> POT:` reflects the jackpot; seeded dev 1-min preset lottery `6L Minute Menagerie` | Shipped              |
-| `features/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, registered Solana token from `GeneralSettings.Token`, 3 SolanaToken default types: `6X Main Sprint` race / `6X Main Derby` preset "horse race" / `6X Main Millions` 24h lottery, free bets off) seeded in **all** envs (**prod = Main only**; non-prod also keeps DEV Cassino). Production-enabled `POST /launch-token/default` mints an **anonymous Main-only** launch token; SPA auto-mints on no-token (never embedded), silent re-mint on 401, real tokens win; prod `/chimpout/game` → games. No schema/migration | Shipped              |
+| `features/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, registered Solana token from `GeneralSettings.Token`, 3 SolanaToken default types: `6X Main Sprint` race / `6X Main Derby` preset "horse race" / `6X Main Millions` 24h lottery, free bets off) seeded in **all** envs (**prod = Main only**; non-prod also keeps DEV Cassino). Production-enabled `POST /launch-token/default` mints an **anonymous Main-only** launch token; SPA auto-mints on no-token (never embedded), silent re-mint on 401, real tokens win; prod `/space-stroker/game` → games. No schema/migration | Shipped              |
 | `features/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** (`< lg`/1024px) for the games lobby + game screen, portrait + landscape phones, standalone & embedded. Lobby: 1-col condensed cards. Game: a `GAME \| CHAT·STATS` segmented view (absolutely-stacked so a hidden view can't intercept taps) — full-width fluid terminal + compact bet panel (**no amount field**, lever = PLACE BET); full-width chat/stats with an unread dot; monkey hidden. Header inline; customization modal scrolls + seed row wraps. Mobile SolanaToken bets via an **"OPEN IN WALLET APP"** deep-link (Phantom/Solflare in-app browser) reusing `sendToken`. `useIsMobile`/`useChatUnread`/`GameMobileTabs`/`walletDeepLink`. No backend. | Shipped              |
-| `features/terraform-gcp-deploy.md` | **Infra/DevOps:** production **GCP** deploy (Terraform + two local C# console tools in `monkify-meta/deploy/`, driven by an unversioned `secrets.<env>.json`). Cloud Run (API public autoscale / Consumers internal, CPU-always-on, before-API) + GCS/CDN front·lp + Cloud SQL 16 (`chimpout`+`chimpout_messaging`, private) + Memorystore + Artifact Registry + HTTPS LB·Cloud Armor + Secret Manager + Cloud DNS/managed-TLS; TF **persistent** (DNS/domain `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend Cloud-Run readiness (no game change): `/health` on Consumers (API already had one via `HomeController`), `UseForwardedHeaders`, config-driven CORS (`GeneralSettings:Cors`, default `app.chimpout.com`). Real `apply` is an ops step. | Shipped |
-| `features/lp-chimpout-relaunch.md` | **Frontend-only (LP):** the `monkify-lp` landing page relaunched as **ChimpOut**, **token-free/USDC** — CHIMP·OUT wordmark, USDC stake, **Tokenomics removed** → honest **"No token. Yet."** note (token maybe later, no ticker/CA), roadmap de-tokenized + future-token tease, "Buy" gone / "Play now" + community "Join the troop", trust points (provably-fair + instant on-chain payouts + auto-refund). App URL + socials are flagged `TODO(ship)` placeholders. Art/story/skin unchanged. | Shipped              |
-| `features/lp-redesign.md` | **Frontend-only (LP):** selective **visual redesign** of the ChimpOut LP (arcade-cabinet) — cherry-picks a Claude mock into the real Astro/Vue: **two-column hero** (coin + mascot chimp + comet) with a cosmetic local **LIVE typing pill** (no network/money claim); **3-card how-it-works + full-width FAIR PLAY bar**; a new image-forward **"SELECT YOUR GAME"** `#modes` section; restyled **EDSON.LOG** story (painted slides kept); **two-column "No token. Yet."** card; header **coin + Modes/Story/Roadmap/Troop + PLAY NOW**; footer **"BET ON THE MONKEY"** tagline; simplified no-emoji roadmap (perk box removed); **richer per-section space art** (no wins/pot ticker). Brand / token-free USDC / trust points / `TODO(ship)` placeholders preserved; no palette drift. | Shipped              |
+| `features/terraform-gcp-deploy.md` | **Infra/DevOps:** production **GCP** deploy (Terraform + two local C# console tools in `monkify-meta/deploy/`, driven by an unversioned `secrets.<env>.json`). Cloud Run (API public autoscale / Consumers internal, CPU-always-on, before-API) + GCS/CDN front·lp + Cloud SQL 16 (`spacestroker`+`spacestroker_messaging`, private) + Memorystore + Artifact Registry + HTTPS LB·Cloud Armor + Secret Manager + Cloud DNS/managed-TLS; TF **persistent** (DNS/domain `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend Cloud-Run readiness (no game change): `/health` on Consumers (API already had one via `HomeController`), `UseForwardedHeaders`, config-driven CORS (`GeneralSettings:Cors`, default `app.spacestroker.com`). Real `apply` is an ops step. | Shipped |
+| `features/lp-space-stroker-relaunch.md` | **Frontend-only (LP):** the `monkify-lp` landing page relaunched as **SpaceStroker**, **token-free/USDC** — CHIMP·OUT wordmark, USDC stake, **Tokenomics removed** → honest **"No token. Yet."** note (token maybe later, no ticker/CA), roadmap de-tokenized + future-token tease, "Buy" gone / "Play now" + community "Join the troop", trust points (provably-fair + instant on-chain payouts + auto-refund). App URL + socials are flagged `TODO(ship)` placeholders. Art/story/skin unchanged. | Shipped              |
+| `features/lp-redesign.md` | **Frontend-only (LP):** selective **visual redesign** of the SpaceStroker LP (arcade-cabinet) — cherry-picks a Claude mock into the real Astro/Vue: **two-column hero** (coin + mascot chimp + comet) with a cosmetic local **LIVE typing pill** (no network/money claim); **3-card how-it-works + full-width FAIR PLAY bar**; a new image-forward **"SELECT YOUR GAME"** `#modes` section; restyled **EDSON.LOG** story (painted slides kept); **two-column "No token. Yet."** card; header **coin + Modes/Story/Roadmap/Troop + PLAY NOW**; footer **"BET ON THE MONKEY"** tagline; simplified no-emoji roadmap (perk box removed); **richer per-section space art** (no wins/pot ticker). Brand / token-free USDC / trust points / `TODO(ship)` placeholders preserved; no palette drift. | Shipped              |
 | `specs/operator-feature.md` | Full implementation spec for Operators                                                   | Shipped              |
 | `specs/free-bet-mode.md`    | Full implementation spec for dev-only Free Bet Mode                                      | Shipped              |
 | `specs/operator-player-identity.md` | Operator-scoped unified player model (`OperatorPlayer`, remove `Bet.Wallet`)     | Shipped              |
@@ -110,37 +110,37 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/sales-technical-documents.md` | Non-code: B2B SaaS sales docs in `sales/` — per-model (Model A/B) pitch + under-NDA integration overview (grounded in shipped code) under `model-a/`+`model-b/`, plus a single anti-clone playbook; EN + PT-BR; placeholders only, paid steps deferred | Shipped              |
 | `specs/player-customization-modal.md` | Header-gear customization modal: edit display name (all operators) + preferred display currency (regulated only); FreeCurrencyAPI USD-base rates cached in Redis 6h, `GET /fx/rates`, new `GET /players/preferences`, PATCH allow-list, `DisplayName` on bet DTO/SignalR; display-only (settlement stays USD), no migration | Shipped              |
 | `specs/game-chat.md`     | Per-game chat over `ActiveGamesHub` (`SendChatMessage` → `{gameId}/ChatMessage`); **v2:** nickname = player display name (client-resolved, crypto must connect to send), DB persistence (`GameChatMessage`) via event→consumer + daily purge (`Chat.RetentionDays`, default 7), client-only 200-char/1s limits, no history load (late joiners see nothing), read-only on end, reset on rollover; right-sidebar `GameChatPanel` | Shipped (v2)         |
-| `specs/operator-admin-page.md` | Operator self-service admin portal (`/chimpout/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate game types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
+| `specs/operator-admin-page.md` | Operator self-service admin portal (`/space-stroker/admin`): admin-scoped RS256 token (`X-Admin-Token`, reuses `LaunchPublicKey`; not contract-gated), create/list/deactivate game types (all 3 modes; deactivate-or-create, no edit), dev header icon → `POST /dev/admin-token`; `AllowFreeBet` hidden | Shipped              |
 | `specs/game-pot-display.md` | Frontend-only: show the `> POT:` line for **all** game types (races + lottery), not just lottery; generalize `currentLotteryPot` → `currentPot` in `useGame.ts` (seed `Σ bets` + lottery base only for lottery, accumulate live via `/Bets`), move the POT `<p>` out of the lottery-only block in `GameTerminal.vue` + a second POT line in the running/ended view (AC #8); reuse `formatAmount`; no backend/DB/SignalR change | Shipped              |
 | `specs/characters-away.md`  | Characters Away near-miss reveal. Spec body is the original 3/2/1 pinned-milestone design; **shipped** behaviour (see spec Post-ship notes + `features/characters-away.md`) is a bottom-docked closest-approach row per own choice (KMP `away = L − k`) that climbs + loops every 2s + types out the winner, plus in-game `> POT:` and a backend fallback terminal reveal | Shipped              |
 | `specs/audio-overhaul.md`   | Audio overhaul with AI — **(1/3) manifest & Suno-generation spec**. Sound manifest + per-item Suno prompts + the frontend integration contract for cards 2 (#34) & 3 (#35). **Shipped reality differs:** the 3/2/1 proximity "coin" bleeps were dropped (Suno couldn't produce them) → **9 generated mp3s, not 12**, and no proximity audio. See `features/audio-overhaul.md`. Frontend-only; branch `feature/audio-overhaul` | Shipped              |
 | `specs/audio-overhaul-generation.md` | Audio overhaul — **(2/3) asset generation spec**. Suno-MCP + ffmpeg generation pipeline with approve-each review. **Shipped reality:** generated **manually in the Suno UI** (MCP ran out of credits) and post-processed with ffmpeg; **9 assets** committed to `monkify-front/src/assets/audios` (kept `error1.wav`, dropped `success1.wav` + old `.wav`s); the 3 coin bleeps were cut. See `features/audio-overhaul.md` | Shipped              |
-| `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the games page, a `/`→`/chimpout/game` redirect, and a game-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
+| `specs/audio-overhaul-wiring.md` | Audio overhaul — **(3/3) wiring spec**. `helpers.ts` master gain/mute, idle + one-shot Game Starting + random running (`GameAudio.vue`), own-bet/error/button, bettors-only victory/lose, header mute/volume, timing fixes; asset swap. **Shipped extras beyond spec:** proximity bleeps **omitted** (assets dropped); added a menu loop on the games page, a `/`→`/space-stroker/game` redirect, and a game-connection teardown fix. See `features/audio-overhaul.md` | Shipped              |
 | `specs/payment-methods-refactor.md` | Removes operator `PaymentModel`; per-game **`PaymentMethod`** (`Standard`/`SolanaToken`); per-operator **registered Solana tokens** (encrypted key) via admin portal; unified `IPaymentMethod` strategy+resolver; ledger split — `Bet`/`TransactionLog` carry `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`. **Shipped** (encryption deviates: AES-GCM/config passphrase, not Data Protection) | Shipped |
-| `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'chimpout',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`game-started`/`bet-placed`/`bet-settled`(bettors-only)/`game-ended`/`resize`(hint) from `useGame.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Shipped              |
-| `specs/iframe-crypto-games.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/chimpout/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'chimpout-wallet'`, `utils/walletBridge.ts`); `useGame.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-games` | Shipped              |
+| `specs/iframe-embedding.md` | Frontend-only: let a **regulated (Model A)** casino embed the game in an `<iframe>`. New `useEmbed` (`window.self!==window.top` \| `?embed=1`) + `utils/embed.ts` postMessage emitter (`{source:'space-stroker',type,payload}`, `targetOrigin:'*'`, secret-free, USD); embedded 401/expired/inactive-operator emits `token-expired` + light "relaunching" state instead of `/error` (branch in `mainService.ts` + `useOperator.ts`); lifecycle emits `ready`/`game-started`/`bet-placed`/`bet-settled`(bettors-only)/`game-ended`/`resize`(hint) from `useGame.ts`+`App.vue`; fills the frame (`main.css`); permissive `frame-ancestors *` in `nginx.conf`; static `public/embed-example.html` + `EMBEDDING.md`. **No backend.** Branch `feature/iframe-embedding` | Shipped              |
+| `specs/iframe-crypto-games.md` | Frontend-only, **stacked on #3**: make paid **`SolanaToken` (on-chain)** bets work inside the #3 `<iframe>`. Extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move into a **same-origin popup** on the game host (route `/space-stroker/wallet-bridge`, `WalletBridgePage.vue`) that `postMessage`s the signature + wallet back (`source:'space-stroker-wallet'`, `utils/walletBridge.ts`); `useGame.bet()` acquires the signature in-frame **or** via popup (`useEmbeddedWallet.ts`), popup opened **synchronously** on click (blocked → visible affordance); relax the `GameConsole` `connected` gate when embedded; #3 lifecycle payloads made **token-native** (never USD). **No backend.** Branch `feature/iframe-crypto-games` | Shipped              |
 | `specs/game-type-stats.md` | Per-game general stats per game type (all-time): `GET /games/{parametersId}/stats` → biggest pot, biggest single payout, rounds played, total paid out, hottest choice (most-picked, preset types only); **on-demand aggregate + Redis cache, no new entity/migration** (documented reversal of the maintained-counter idea); lazy-loaded `/game` stats panel; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type; token-gated + operator-scoped | Shipped |
 | `specs/provably-fair.md` | Commit-reveal server seed (committed on the **first bet**, revealed after `Ended`), portable **HMAC-SHA256 keystream** RNG (rejection sampling, canonical bet order) replacing `System.Random`/`Int32`, Stake-style client seed + per-bet `nonce` (`Bet.Seed = HMAC(clientSeed, nonce)`), reveal-gated `GET /games/{id}/verification`, standalone `public/verify.html` verifier (in-terminal recompute dropped — terminal shows commitment/reveal only). Greenfield migration (drop `Game.Seed`; add `ServerSeed`/`ServerSeedHash`, `Bet.Nonce`). | Shipped |
 | `specs/wallet-display-name.md` | **Full-stack:** make SolanaToken player display-name/preferences key off the **connected wallet** everywhere. Frontend: reactive per-wallet load (`App.vue`, wallet sent only in a SolanaToken context), customization-modal **gate** ("Connect wallet to customize" when no wallet AND (SolanaToken game OR no usable `sub`)), currency dropdown hidden in a SolanaToken context. **Backend (scope corrected):** prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`), and `GameService.InsertBet` captures the wallet address before nulling `OperatorPlayer`. Child of umbrella #46, escrow-independent | Shipped |
 | `specs/lottery-pot-stacking.md` | **Full-stack:** un-won lottery pots **stack** into the next round via a running `Game.CarriedExtra` (preset no-winner draw carries `prev + Σ losing stakes`; under-subscription refunds stakes and carries the base unchanged; a paid win resets to the config base). `pot = Σ bets + LotteryPot + CarriedExtra`. Admin **deactivation transfers** the un-won pot to an eligible same-operator/same-method/same-token active lottery (blocks when none). Both Standard + SolanaToken; player `> POT:` reflects the jackpot; seeded 1-min preset lottery for testing. | Shipped |
 | `specs/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, own registered Solana token + 3 SolanaToken default types: 6X race/preset "horse race"/24h lottery, free bets off) seeded in **all** envs (**prod = Main only**, non-prod also keeps DEV Cassino). New **production-enabled** `POST /launch-token/default` mints an **anonymous Main token** (empty `sub`, Main-only); frontend auto-mints on no-token, silent re-mint on 401, real tokens win. Seeding/config + thin mint endpoint + FE fallback — **no schema/migration; integration test waived**. | Shipped |
-| `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/chimpout/game/games`) and the game screen (`/chimpout/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
-| `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope. | Shipped               |
-| `specs/lp-chimpout-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **ChimpOut** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/chimpout/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Shipped |
+| `specs/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** for the two main player pages — the games lobby (`/space-stroker/game/games`) and the game screen (`/space-stroker/game/play`) — for **portrait + landscape phones**, standalone and embedded. Mobile engages **below `lg` (1024px)** (reuses the `GameMonkey hidden lg:block` boundary, so landscape phones are covered). Lobby: 1-col condensed cards. Game: a `GAME | CHAT·STATS` segmented toggle (monkey hidden; terminal + compact bet panel — no amount field, lever = PLACE BET; chat/stats full-width). Customization modal made mobile-friendly (`verify.html` already responsive). Net-new **mobile crypto wallet-connect** ("open in wallet app" deep-link to the Phantom/Solflare in-app browser; Android MWA deferred). No backend change. | Shipped |
+| `specs/rebrand-chimpout.md` | **Rebrand refactor (all repos):** deep rename **`Monkify → ChimpOut`** (brand proper noun only; monkey theme stays) and **`Session → Game`** (pure mechanical, whole `Game*` family) across code, DB (greenfield rename migration), SignalR (`ActiveGamesHub` `/Hubs/Games`), routes (`/games`, FE `/chimpout/…`), config (`chimpoutsettings.json`, `GeneralSettings:Games`), and docs. Clean break (no aliases). Tooling (`monkify-*` skills, MonkAIfy board, clone URLs, repo-folder names) and the Solana token symbol (#62/#63) are out of scope. **(Historical: ChimpOut was later renamed to Space Stroker — frontend #74, backend/infra #75.)** | Shipped               |
+| `specs/lp-space-stroker-relaunch.md` | **Frontend-only (LP):** finish the LP launch pass #49 deferred, on the **arcade-overhaul** redesign — full **SpaceStroker** rebrand (wordmark CHIMP·OUT, kill every `$MONKIFY`), **token-free/USDC** messaging, **remove the Tokenomics section** → a short honest **"no token (yet)"** note (token maybe later, no ticker/CA), roadmap perks reframed future/earned (no holder-gating, no "$MONKIFY live"), hero secondary CTA → community "Join the troop", "Play now" → **flagged placeholder** app URL (real route `/space-stroker/game`), trust points kept (provably-fair + instant on-chain payouts + auto-refund); Edson/art/story/skin unchanged. Reuses branch `feature/rebranding-chimpout` (reconciled overhaul); no backend/DB/test. | Shipped |
 | `specs/lp-redesign.md` | **Frontend-only (LP):** selective visual redesign — adopt the winning pieces of a Claude design mock onto the live LP (`monkify-lp` off `master`), re-implemented in Astro/Vue inside the arcade skin: two-column hero + local LIVE pill, 3-card how-it-works + FAIR PLAY bar, new image-forward `#modes`, restyled EDSON.LOG story, two-column `#token`, header (coin + Modes/Story/Roadmap/Troop + PLAY NOW), footer tagline, simplified/perk-free roadmap, richer per-section art. Skips the fabricated wins/pot ticker + tabbed modes. Preserves brand / token-free / trust / placeholders; no backend/DB/test. | Shipped |
-| `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`chimpout_messaging`** on the same Postgres instance, provisioned by `ChimpOut.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → chimpout` + `monkify-network → chimpout-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
-| `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `chimpout_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→chimpout`. | Shipped |
-| `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `chimpout` + `chimpout_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **chimpout.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
-| `specs/no-db-logging.md` | **Backend infra cleanup:** stop persisting Serilog output to Postgres. Remove the Serilog **PostgreSQL sink** from `AddLogs` (Console-only), drop the `Serilog.Sinks.PostgreSQL` package + the `tableName` param + the connection-string read, update both call sites, and add a raw-SQL EF migration `DropLogTables` (`DROP TABLE IF EXISTS "ChimpOutApiLogs"/"ChimpOutConsumerLogs"`, no-op Down, empty model diff). Log levels/content unchanged; no frontend; no game-flow change ⇒ no integration test. | Shipped |
+| `specs/masstransit-postgres-transport.md` | **Backend infra:** replace the MassTransit **RabbitMQ** transport with the **Postgres SQL transport** (8.5.4) — no event-contract/handler-logic change. Messaging store = a separate DB **`spacestroker_messaging`** on the same Postgres instance, provisioned by `SpaceStroker.Consumers`' MT migration hosted service at startup; API stays publisher-only. Reuse the game-DB user (needs CREATE DATABASE) via a new `ConnectionStrings:Messaging`; keep the 8 named endpoints; rename publisher `IRabbitMQService`→`IMessageBus`. Bonus: game DB `monkify → spacestroker` + `monkify-network → spacestroker-network`. Drops the local `rabbitmq` container. **Blocks #61.** | Shipped |
+| `features/masstransit-postgres-transport.md` | Distilled: game events ride the **MassTransit Postgres SQL transport** (no broker); transport tables in `spacestroker_messaging` (schema `transport`) on the same instance; Consumers provisions at startup, API publisher-only; `IMessageBus`; game DB `monkify→spacestroker`. | Shipped |
+| `specs/terraform-gcp-deploy.md` | **Infra/DevOps (all repos, meta-primary):** production **GCP** deploy as Terraform + two local **C# console apps** (deploy `[api\|consumers\|front\|lp]` + `teardown`; read-write DB REPL over both DBs via Cloud SQL Auth Proxy) — all in `monkify-meta/deploy/`. API + Consumers → **Cloud Run** (API autoscale min≥1; Consumers CPU-always-on, `var.consumer_count`=1, internal ingress — hosts `/hangfire` + owns migrations); front + lp → **GCS + Cloud CDN**; **Cloud SQL 16** (1 instance, DBs `spacestroker` + `spacestroker_messaging`) + **Memorystore Redis 7**, **private-IP only** (VPC + NAT + connector); **Artifact Registry**; external **HTTPS LB + Cloud Armor**; **Secret Manager** synced from a local unversioned `secrets.<env>.json`; Cloud DNS + managed TLS on new **spacestroker.com**; TF split **persistent** (DNS/domain, `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend: add `/health` to both hosts + forwarded-headers + config-driven CORS (no game change). Builds on **#64** (Postgres transport, shipped). | Shipped |
+| `specs/no-db-logging.md` | **Backend infra cleanup:** stop persisting Serilog output to Postgres. Remove the Serilog **PostgreSQL sink** from `AddLogs` (Console-only), drop the `Serilog.Sinks.PostgreSQL` package + the `tableName` param + the connection-string read, update both call sites, and add a raw-SQL EF migration `DropLogTables` (`DROP TABLE IF EXISTS "SpaceStrokerApiLogs"/"SpaceStrokerConsumerLogs"`, no-op Down, empty model diff). Log levels/content unchanged; no frontend; no game-flow change ⇒ no integration test. | Shipped |
 | `specs/wallet-balance-refresh.md` | **Frontend-only bug fix:** the header **SolanaToken** balance (`TokenBalance.vue`) now keeps itself current — a **~10 s periodic poll** (scoped to a connected SolanaToken game, paused when the tab is hidden, stopped on unmount/disconnect) **plus immediate refreshes**: own bet updates **instantly** via an optimistic stake decrement, the **win payout reads ~5 s after `Ended`**, and refund (`NotEnoughPlayersToStart` + `ErrorWhenProcessingRewards`) refreshes on settlement; + token-switch refetch + resilient last-known reads. No backend/Standard-balance change (Standard shows no balance by design). | Shipped |
 | `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. Shipped alongside a pre-existing multi-winner reward-division fix (frozen winner set + paid-winner divisor). | Shipped |
 | `features/crypto-commission.md` | Distilled: crypto (`SolanaToken`) house **commission** on winnings — default 0.5% (`GeneralSettings.Token.CommissionPercentage`), taken from profit above each winner's own stake, house-funded lottery base excluded; realized by a smaller on-chain credit (no transfer/ledger/migration); STATS-badge-only UI; Standard unchanged. Includes the multi-winner **paid-winner divisor / frozen winner-set** reward fix. | Shipped |
 | `specs/restore-own-bets-on-refresh.md` | **Frontend-only bug fix:** after a refresh/rejoin the player's **own-bet cues** (the `> N AWAY!` near-miss rows, the returning-bettor victory/lose sound, the embedded `bet-settled`) vanished because `ownBetChoices` (`useGame.ts`) is only written on the live PLACE BET click. Fix: on the load path re-derive ownership from the fetched `gameInstance.bets` (which already carry `externalPlayerId`) via a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice`; reactive re-run for SolanaToken wallet reconnect; live `{gameId}/Bets` identity match. **No backend change.** Ended-view reload out of scope (GET excludes ended games; DTO lacks `winners`). | Shipped |
-| `specs/rebrand-space-stroker.md` | **Frontend-only rebrand (Minor change):** rename the **consumer-facing brand** `ChimpOut → Space Stroker` across `monkify-front` + `monkify-lp` only — a **clean break** (no aliases/redirects; safe because nothing is live): display copy/wordmark (split-colour `SPACE`·`STROKER`), `<title>`/meta, route prefix `/chimpout/*`→`/space-stroker/*` (+ runtime wallet-bridge URL), postMessage contract `source:'chimpout'`→`'space-stroker'`, `chimpout.*` storage keys, `.chimpout-toast*` CSS, package names, `EMBEDDING.md`/`embed-example.html`. Monkey/space lore (Edson, art, "BET ON THE MONKEY", story) **retained**; the `// Mirrors backend ChimpOut.*` namespace comments **kept accurate**. **Backend/DB/infra stay ChimpOut** (follow-up #75). No backend/DB/test. Shipped alongside a Mission Roadmap rebuild on the LP. | Shipped |
-| `specs/rebrand-space-stroker-backend.md` | **Backend + infra rename (Minor change), follow-up to #74:** finish the Space Stroker rebrand by renaming the **backend + infra** half `ChimpOut → SpaceStroker` (machine) / `Space Stroker` (display) — C# solution/projects/namespaces (`ChimpOut.* → SpaceStroker.*`, `src/` folders + `.sln` on disk), `SpaceStrokerDbContext`, config (`spacestrokersettings.json`, `ConnectionStrings:SpaceStroker`, CORS `app.spacestroker.com`), a **greenfield rename migration** (DB `chimpout→spacestroker`, `chimpout_messaging→spacestroker_messaging`), docker-compose/scripts, the `monkify-meta/deploy` GCP/Terraform stack + deploy tools (`SpaceStroker.Deploy`/`SpaceStroker.DbConsole`) with the **domain `chimpout.com → spacestroker.com`** (code-only; real apply is an ops step), a **full KB rename** (living + historical specs, guarding tooling + the two rebrand specs' from→to tokens), and the 6 `// Mirrors backend ChimpOut.*` comments in `monkify-front` → `SpaceStroker.*`. Clean break, no behavior change; repo folders + `monkify-*` tooling stay. No new integration test / `features/` doc. | Ready |
+| `specs/rebrand-space-stroker.md` | **Frontend-only rebrand (Minor change):** rename the **consumer-facing brand** `ChimpOut → Space Stroker` across `monkify-front` + `monkify-lp` only — a **clean break** (no aliases/redirects; safe because nothing is live): display copy/wordmark (split-colour `SPACE`·`STROKER`), `<title>`/meta, route prefix `/chimpout/*`→`/space-stroker/*` (+ runtime wallet-bridge URL), postMessage contract `source:'chimpout'`→`'space-stroker'`, `chimpout.*` storage keys, `.chimpout-toast*` CSS, package names, `EMBEDDING.md`/`embed-example.html`. Monkey/space lore (Edson, art, "BET ON THE MONKEY", story) **retained**; at #74 the `// Mirrors backend ChimpOut.*` namespace comments were **kept accurate**. **Backend/DB/infra stayed ChimpOut** (follow-up #75 renamed them to SpaceStroker). No backend/DB/test. Shipped alongside a Mission Roadmap rebuild on the LP. | Shipped |
+| `specs/rebrand-space-stroker-backend.md` | **Backend + infra rename (Minor change), follow-up to #74:** finish the Space Stroker rebrand by renaming the **backend + infra** half `ChimpOut → SpaceStroker` (machine) / `Space Stroker` (display) — C# solution/projects/namespaces (`ChimpOut.* → SpaceStroker.*`, `src/` folders + `.sln` on disk), `ChimpOutDbContext`→`SpaceStrokerDbContext`, config (`chimpoutsettings.json`→`spacestrokersettings.json`, `ConnectionStrings:ChimpOut`→`:SpaceStroker`, CORS `app.chimpout.com`→`app.spacestroker.com`), DB rename via connection string (`chimpout→spacestroker`, `chimpout_messaging→spacestroker_messaging`; no new migration — zero ChimpOut schema objects), docker-compose/scripts, the `monkify-meta/deploy` GCP/Terraform stack + deploy tools (`ChimpOut.Deploy`/`ChimpOut.DbConsole`→`SpaceStroker.*`) with the **domain `chimpout.com → spacestroker.com`** (code-only; real apply is an ops step), a **full KB rename** (living + historical specs, guarding tooling + the two rebrand specs' from→to tokens), and the 6 `// Mirrors backend ChimpOut.*` comments in `monkify-front` → `SpaceStroker.*`. Clean break, no behavior change; repo folders + `monkify-*` tooling stay. No new integration test / `features/` doc. | Ready |
 | `specs/refund-safeguards.md` | **Full-stack:** make `NeedsRefunding` a real, self-clearing bet lifecycle + recover stuck money. (1) A **12h Hangfire sweep** (`PendingRefundSweepJob`) publishes `RefundInvalidBetEvent` for every `NeedsRefunding` bet. (2) `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on any **successful** refund (all refunds, the 3 inline triggers included → they end `Refunded` not `Made`); failure leaves it `NeedsRefunding` to retry next sweep. (3) New operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by indexed `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded` (double-pay) + free bets, no game-state restriction, idempotent; money moves via the sweep (single executor, ~≤12h). **No schema/migration.** New admin panel in `AdminPage`/`GameTypeManager`. | Shipped |
 | `features/refund-safeguards.md` | Distilled: `NeedsRefunding`/`Refunded` become a real self-clearing bet lifecycle. A 12h Hangfire sweep (`PendingRefundSweepJob`, cron `0 */12 * * *`) publishes a `RefundInvalidBetEvent` for every `NeedsRefunding` bet; `RefundInvalidBetConsumer` sets `Refunded` on any successful refund (all paths incl. the 3 inline triggers) and leaves `NeedsRefunding` to retry on failure. Operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded`+free, any game state, idempotent; money moves via the sweep. No schema/migration. | Shipped |
-| `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
+| `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
 ## Skills (the task pipeline)
@@ -153,7 +153,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 | Skill                         | Invoke                  | Purpose                                                                                                                                                                                                                                      |
 | ----------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skills/monkify-refine-tasks` | `/monkify-refine-tasks` | Pick a card from the Trello **monkaify** board and refine it (ChimpOut-wide, both apps) into a clear, unambiguous, spec-ready task; write it back and move it to **Refined**. Needs the `trello` MCP + Superpowers.                           |
+| `skills/monkify-refine-tasks` | `/monkify-refine-tasks` | Pick a card from the Trello **monkaify** board and refine it (SpaceStroker-wide, both apps) into a clear, unambiguous, spec-ready task; write it back and move it to **Refined**. Needs the `trello` MCP + Superpowers.                           |
 | `skills/monkify-create-spec`  | `/monkify-create-spec`  | From a **Refined** card: ingest card + chat context, explore code, create `feature/<slug>` branches, write `specs/<slug>.md`, update INDEX, move card to **Specs created**. Needs Trello MCP.                                              |
 | `skills/monkify-implement-feature` | `/monkify-implement-feature` | From a **Specs created** card: gather game + card + spec context, write an implementation plan (Superpowers **writing-plans**), implement it in the feature worktree(s) with unit + a mandatory happy-path integration test, **commit + push, deploy to the local Docker stack** (`setup_local_environment.bat`; detects a running stack and offers Replace/Combine/Skip, never auto-clobbers), have the user verify the running containers, then move card to **Implemented**. Needs Trello MCP + Superpowers + Docker. |
 | `skills/monkify-ship-feature` | `/monkify-ship-feature` | Ship an **Implemented** feature: sync the knowledge base **on the feature branch** (from card + spec + branch code), then merge `feature/<slug>` → `main` in each affected repo (KB included), move card to **Shipped**, and delete the merged branches + worktrees. **Branch + spec read from card Implementation section.** Needs Trello MCP. |
@@ -161,20 +161,21 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (Specs created):_ **Backend + infra rename — ChimpOut → "Space Stroker"** (follow-up to
+- _In flight (Implemented):_ **Backend + infra rename — ChimpOut → "Space Stroker"** (follow-up to
   #74) — `feature/rebrand-space-stroker-backend` in `monkify-backend` + `monkify-front` + `monkify-meta`
   (worktrees at `.worktrees/rebrand-space-stroker-backend/<repo>`). **Minor change (rename refactor).**
   Deep rename `ChimpOut → SpaceStroker` (PascalCase machine token; two-word "Space Stroker" display)
-  across the backend (solution/projects/namespaces + `src/` folders + `.sln`, `SpaceStrokerDbContext`,
-  config `spacestrokersettings.json` / `ConnectionStrings:SpaceStroker` / CORS `app.spacestroker.com`,
-  a **greenfield rename migration** DB `chimpout→spacestroker` + `chimpout_messaging→spacestroker_messaging`,
+  across the backend (solution/projects/namespaces + `src/` folders + `.sln`, `ChimpOutDbContext`→`SpaceStrokerDbContext`,
+  config `chimpoutsettings.json`→`spacestrokersettings.json` / `ConnectionStrings:ChimpOut`→`:SpaceStroker` / CORS `app.chimpout.com`→`app.spacestroker.com`,
+  DB rename via connection string `chimpout→spacestroker` + `chimpout_messaging→spacestroker_messaging`
+  (**no new migration** — zero ChimpOut schema objects; the fresh `spacestroker` DB is built by the existing migrations),
   docker-compose/scripts), the `monkify-meta/deploy` GCP/Terraform infra + deploy tools with the
   **domain `chimpout.com → spacestroker.com`** (code-only; real `terraform apply`/DNS cutover is a
   downstream ops step — confirm the domain is secured first), a **full KB rename** (living + historical
   specs, guarding the `monkify-*` tooling/board/clone-URLs + the two rebrand specs' from→to tokens),
   and the 6 `// Mirrors backend ChimpOut.*` namespace comments in `monkify-front` → `SpaceStroker.*`
   (comments only). Clean break, zero game-flow change; repo folders + tooling stay `monkify-*`. **No new
-  integration test, no new `features/` doc** (Minor change). Spec
+  integration test, no new `features/` doc** (Minor change); 386 unit tests green after the rename. Spec
   `specs/rebrand-space-stroker-backend.md`; Trello #75 ([VgNMpTzu](https://trello.com/c/VgNMpTzu)).
 - _Last shipped:_ **Frontend rebrand — ChimpOut → "Space Stroker"** —
   `feature/rebrand-space-stroker` (`monkify-front` → `main` + `monkify-lp` → `master` + `monkify-meta`
@@ -189,8 +190,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`space-stroker`/`space-stroker-lp`), and operator docs (`EMBEDDING.md`, `embed-example.html`) + a
   full editorial pass (fixed the LP `PRODUCT.md` `$MONKIFY` leftovers and stale front `CLAUDE.md`).
   **Monkey/space lore retained 100%** (Edson, all art/GIFs, `EDSON.LOG` story, `BET ON THE MONKEY`,
-  "infinite monkey"). The `// Mirrors backend ChimpOut.*` namespace comments are **deliberately kept**
-  — **backend / DB / infra / `chimpout.com` stay ChimpOut**, an intentional first-step drift tracked
+  "infinite monkey"). At #74 the `// Mirrors backend ChimpOut.*` namespace comments were **deliberately kept**
+  — **backend / DB / infra / `chimpout.com` stayed ChimpOut**, an intentional first-step drift since resolved
   by follow-up card **#75** ([VgNMpTzu](https://trello.com/c/VgNMpTzu)). **Bundled in the same ship
   (beyond the rename):** a **Mission Roadmap rebuild** on the LP (`SpaceRoadmap.vue`) — **5
   space-themed nodes** (Earth → Moon → Gas Giant → Comet → Galaxy; the previously-dropped 4th comet
@@ -206,8 +207,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
   (`monkify-backend` + `monkify-front` + `monkify-meta`), **shipped 2026-07-20**. **Full-stack Feature.** Makes
   `BetStatus.NeedsRefunding`/`Refunded` (defined but never set today) a real, self-clearing lifecycle
   and lets operators recover stuck money. Three parts: **(1)** a new **12-hourly Hangfire recurring
-  job** `PendingRefundSweepJob` (`ChimpOut.Infrastructure/Jobs`, cron `0 */12 * * *`, registered in
-  `ChimpOut.Consumers/Program.cs`) that reads every `NeedsRefunding` bet and publishes one
+  job** `PendingRefundSweepJob` (`SpaceStroker.Infrastructure/Jobs`, cron `0 */12 * * *`, registered in
+  `SpaceStroker.Consumers/Program.cs`) that reads every `NeedsRefunding` bet and publishes one
   `RefundInvalidBetEvent` each; **(2)** `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on
   any **successful** `Refund()` (applies to **all** refunds — the three existing inline triggers
   included, which previously left the bet `Made`), and on failure leaves the status untouched so a
@@ -225,7 +226,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   ([MpfBtpE4](https://trello.com/c/MpfBtpE4)).
 - _Last shipped:_ **Landing-page visual redesign (arcade-cabinet)** — `feature/lp-redesign`
   (`monkify-lp` → `master`; **no backend / game-app change**), **shipped 2026-07-19**. **Frontend-only**
-  selective visual revamp of the ChimpOut LP: cherry-picked the winning pieces of a Claude design mock
+  selective visual revamp of the SpaceStroker LP: cherry-picked the winning pieces of a Claude design mock
   onto the live page, re-implemented in Astro/Vue inside the existing arcade `@theme` skin (no palette
   drift). Section order hero → `#about` → **`#modes`** (new "SELECT YOUR GAME", image-forward) →
   `#story` → `#token` → `#roadmap` → `#community`. **Two-column hero** (copy + CTAs + a cosmetic local
@@ -297,7 +298,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   the reward transfer has time to settle), and **refund / reward-error** refresh on settlement
   (`NotEnoughPlayersToStart` — previously missed — + `ErrorWhenProcessingRewards`). Plus a token-switch
   refetch (`watch(props.tokenAddress)`) and resilient last-known reads (no flash to `0`/blank, spinner
-  only until first load). **Standard games are unchanged** (they show no balance — ChimpOut holds no
+  only until first load). **Standard games are unchanged** (they show no balance — SpaceStroker holds no
   player float; a Standard/USD balance is out of scope). All in `TokenBalance.vue` + a one-line
   `useGame.ts` touchpoint; no backend/DTO/SignalR/data change. Frontend-only bug fix ⇒ **no integration
   test / no dedicated `features/` doc** (AGENTS.md rule 8 + ship feature-doc exemption); `monkify-front`
@@ -309,12 +310,12 @@ see "Skills — ensure installed" in `AGENTS.md`.
   2026-07-17**. Backend-only infra/config cleanup: the app's Serilog output is **no longer persisted
   to Postgres**. The **PostgreSQL sink** is removed from `AddLogs` so logging is **Console-only**
   (stdout → Cloud Run/Cloud Logging in prod, terminal locally); the `Serilog.Sinks.PostgreSQL`
-  package reference, the now-unused `tableName` parameter, and the `ConnectionStrings:ChimpOut` read
-  inside `AddLogs` are all gone, and both call sites (`ChimpOut.Api`/`ChimpOut.Consumers`) now call
+  package reference, the now-unused `tableName` parameter, and the `ConnectionStrings:SpaceStroker` read
+  inside `AddLogs` are all gone, and both call sites (`SpaceStroker.Api`/`SpaceStroker.Consumers`) now call
   `builder.AddLogs()`. A raw-SQL EF migration `DropLogTables` drops the two sink-created tables
-  (`ChimpOutApiLogs`, `ChimpOutConsumerLogs`) with `DROP TABLE IF EXISTS` (no-op `Down`; **empty
-  model diff** — the tables were never in the EF model, so `ChimpOutDbContextModelSnapshot` is
-  unchanged), applied by `ChimpOut.Consumers` at startup. Log **levels/content unchanged**
+  (`SpaceStrokerApiLogs`, `SpaceStrokerConsumerLogs`) with `DROP TABLE IF EXISTS` (no-op `Down`; **empty
+  model diff** — the tables were never in the EF model, so `SpaceStrokerDbContextModelSnapshot` is
+  unchanged), applied by `SpaceStroker.Consumers` at startup. Log **levels/content unchanged**
   (Information non-prod / Warning prod); the integration harness (swaps `Log.Logger` post-build) is
   unaffected. QOL/infra change (no game-flow change) ⇒ **no new integration test, no dedicated
   `features/` doc**; **366 unit + 35 integration tests green** (no unit tests changed). Verified on
@@ -330,60 +331,60 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `terraform apply`s; and a read-write **DB REPL** over both DBs via the Cloud SQL Auth Proxy. Topology: **API**
   (Cloud Run autoscale, min≥1) + **Consumers** (Cloud Run CPU-always-on, `var.consumer_count`=1, **internal
   ingress** — hosts `/hangfire` + owns EF migrations/seeding, deployed **before** the API) + **front/lp** (GCS +
-  Cloud CDN) behind an external **HTTPS LB + Cloud Armor** WAF; **Cloud SQL 16** (one instance, DBs `chimpout` +
-  `chimpout_messaging`) + **Memorystore Redis 7** on a **private-only** VPC (no public IPs, Cloud NAT egress,
+  Cloud CDN) behind an external **HTTPS LB + Cloud Armor** WAF; **Cloud SQL 16** (one instance, DBs `spacestroker` +
+  `spacestroker_messaging`) + **Memorystore Redis 7** on a **private-only** VPC (no public IPs, Cloud NAT egress,
   Serverless VPC connector); **Artifact Registry** images; Cloud DNS + Google-managed TLS on the new
-  **chimpout.com** (hosts as TF variables). **Teardown keeps the domain** (workload-only destroy, typed
+  **spacestroker.com** (hosts as TF variables). **Teardown keeps the domain** (workload-only destroy, typed
   confirmation, overrides Cloud SQL deletion-protection). Backend changes are Cloud-Run-readiness only (no game
   behaviour): **forwarded-headers** before HTTPS-redirect, config-driven **CORS** origin (was hardcoded
-  `app.monkify.net`), and **`/health` on `ChimpOut.Consumers`** — the **API already had `/health` via
+  `app.monkify.net`), and **`/health` on `SpaceStroker.Consumers`** — the **API already had `/health` via
   `HomeController`** (correction; only Consumers lacked one). Front: production build baked with
-  chimpout hosts + **Solana `mainnet-beta`** + dev flags off; CSP `frame-ancestors *` moves from `nginx.conf` to an
-  **LB response-header policy**. **Builds on #64** (Postgres SQL transport, DB rename `monkify→chimpout`
-  + `chimpout_messaging`, `ConnectionStrings:Messaging`, `CREATE DATABASE` grant) — **shipped to `main`**; the
+  spacestroker hosts + **Solana `mainnet-beta`** + dev flags off; CSP `frame-ancestors *` moves from `nginx.conf` to an
+  **LB response-header policy**. **Builds on #64** (Postgres SQL transport, DB rename `monkify→spacestroker`
+  + `spacestroker_messaging`, `ConnectionStrings:Messaging`, `CREATE DATABASE` grant) — **shipped to `main`**; the
   feature branches were synced with `main` before implementation.
   Built in two passes: **pass 1** = backend Cloud-Run-readiness + front `.env.example` (deployed +
   `curl /health`-verified locally, 366 unit tests green +3 `CorsOriginResolverTests`); **pass 2** = the full
-  `deploy/` tree (Terraform persistent + workload/9 modules + `ChimpOut.Deploy`/`ChimpOut.DbConsole` + README +
+  `deploy/` tree (Terraform persistent + workload/9 modules + `SpaceStroker.Deploy`/`SpaceStroker.DbConsole` + README +
   `secrets.example.json`) — **static-validated** (`terraform fmt`+`validate` both layers, `dotnet build` both
   apps). The real `terraform apply` is an **ops step** (needs a registered domain + real Solana/Fx secrets).
   **No new integration test** (infra tooling, not a game feature; 366 unit + 35 integration green on the branch).
   See `features/terraform-gcp-deploy.md`; spec `specs/terraform-gcp-deploy.md`; Trello #61
   ([QrjmQttY](https://trello.com/c/QrjmQttY)).
-- _Last shipped:_ **LP launch relaunch — ChimpOut rebrand + token-free (USDC)** —
-  `feature/rebranding-chimpout` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
+- _Last shipped:_ **LP launch relaunch — SpaceStroker rebrand + token-free (USDC)** —
+  `feature/rebranding-spacestroker` (`monkify-lp` → `master` + `monkify-meta` → `main`; **no
   backend/front-app change**), **shipped 2026-07-16**. **Frontend-only** copy/structure/brand pass on
   the **arcade-overhaul LP redesign**, finishing the LP work the rebrand (#49) deliberately **deferred**
   (`specs/rebrand-chimpout.md` §9.3) — landed as **"one coherent landing"**: the overhaul + roadmap
   overhaul + this launch pass in a single merge (LP `master` fast-forwarded `c6e1c36` → `f4f9da3`). Full
-  user-visible **ChimpOut** rebrand (hero/footer wordmark **CHIMP·OUT**, coin `alt` de-tokenized),
+  user-visible **SpaceStroker** rebrand (hero/footer wordmark **CHIMP·OUT**, coin `alt` de-tokenized),
   **token-free/USDC** launch messaging (stake = USDC, no `$MONKIFY`), **Tokenomics section removed** → a
   short honest **"No token. Yet."** note (a token may come later; **no ticker/CA**; anti-scam line),
   **roadmap** perks reframed future/earned (no holder-gating, phase 1 no "$MONKIFY live") + a light
   "token later / early players first" tease, hero secondary CTA → community **"Join the troop"**
   (`#community`), header "Buy" removed + "Tokenomics" nav → **"Token"** (desktop + mobile). **"Play now"
-  → a flagged placeholder app URL** (`https://PLACEHOLDER-app-url/chimpout/game`; real route confirmed,
+  → a flagged placeholder app URL** (`https://PLACEHOLDER-app-url/space-stroker/game`; real route confirmed,
   **domain still TBD**); social links stay `#` — both carry `// TODO(ship)` and **must be filled before
   the public launch**. Trust points kept + completed (provably-fair + instant on-chain Solana payouts +
   auto-refund); Edson, all art, the 6-slide story, and the retro/arcade skin **unchanged**. **No backend
   ⇒ no integration/unit test** (DoD = `npm run build` + browser QA; 11 acceptance criteria). A **full
   visual redesign** (keep sprites + story, reimagine layout/motion) is a planned follow-up card off
-  `master`. See `features/lp-chimpout-relaunch.md`; spec `specs/lp-chimpout-relaunch.md`; Trello #51
+  `master`. See `features/lp-space-stroker-relaunch.md`; spec `specs/lp-space-stroker-relaunch.md`; Trello #51
   ([Y0PpEDii](https://trello.com/c/Y0PpEDii)).
 - _Last shipped:_ **Replace RabbitMQ with MassTransit Postgres SQL transport** —
   `feature/masstransit-postgres-transport` (`monkify-backend` + `monkify-meta`; **no frontend**),
   **shipped 2026-07-16**. Swaps the MassTransit transport from **RabbitMQ** (`UsingRabbitMq`) to the
   **Postgres SQL transport** (`UsingPostgres`, `MassTransit.SqlTransport.PostgreSQL` 8.5.4) with **no
   change to event contracts or consumer handler logic** — so the app can deploy to GCP with no broker
-  VM. Messaging tables live in a **separate DB `chimpout_messaging`** (schema `transport`) on the
-  **same** Postgres instance as the game DB, created at `ChimpOut.Consumers` startup by MassTransit's
+  VM. Messaging tables live in a **separate DB `spacestroker_messaging`** (schema `transport`) on the
+  **same** Postgres instance as the game DB, created at `SpaceStroker.Consumers` startup by MassTransit's
   **Postgres migration hosted service** (`AddPostgresMigrationHostedService`; API stays publisher-only,
   no provisioning). Reuses the **game-DB app user** (needs CREATE DATABASE ⇒ #61 grant) via an explicit
   new secret **`ConnectionStrings:Messaging`** (bound to `SqlTransportOptions` via
   `NpgsqlConnectionStringBuilder`); keeps the **8 explicitly-named receive endpoints**; renames the
   publish abstraction `IRabbitMQService`/`RabbitMQService` → **`IMessageBus`/`MessageBusPublisher`**
-  (`Services/Messaging`). Also folds in a config-only game-DB rename **`monkify → chimpout`** (+
-  `monkify-network → chimpout-network`) and drops the local `rabbitmq` container. **363 unit + 35
+  (`Services/Messaging`). Also folds in a config-only game-DB rename **`monkify → spacestroker`** (+
+  `monkify-network → spacestroker-network`) and drops the local `rabbitmq` container. **363 unit + 35
   integration tests green** (+`TransportIdempotencyFlowTests` redelivery idempotency; harness now runs
   the game flow over the Postgres transport). **Unblocks #61** (terraform GCP deploy). See
   `features/masstransit-postgres-transport.md`; spec `specs/masstransit-postgres-transport.md`; Trello
@@ -414,7 +415,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   Main's own launch key. Frontend `useLaunch.ensureLaunchToken()` auto-mints Main when there is no
   fragment/stored token **and not embedded** (real tokens win; marker flags auto-minted tokens); a
   **401 of an auto-minted token** triggers a silent **re-mint + retry** instead of `/error`
-  (real-operator 401 unchanged), and the prod token-less entry `/chimpout/game` redirects to the game
+  (real-operator 401 unchanged), and the prod token-less entry `/space-stroker/game` redirects to the game
   page instead of `/error`. **No schema/migration** (data seeding). **Integration test waived** for
   this card (seeding/config + thin mint endpoint + FE fallback; existing SolanaToken integration tests
   cover bet→run→reward). **363 unit + 34 integration tests green** (+3 `LaunchControllerTests`, +4
@@ -509,7 +510,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `4e53e02` and #41's `9784354`; `feature/iframe-embedding` is a contained ancestor). **#3 "Make the game
   Iframe-able"** ([RGvJZNTW](https://trello.com/c/RGvJZNTW)): a **regulated (Model A)** casino embeds the
   game in an `<iframe>` — `useEmbed` detection (`window.self !== window.top` \| `?embed=1`), a secret-free
-  `{source:'chimpout',type,payload}` postMessage lifecycle API (`ready`/`game-started`/`bet-placed`/
+  `{source:'space-stroker',type,payload}` postMessage lifecycle API (`ready`/`game-started`/`bet-placed`/
   `bet-settled` bettors-only/`game-ended`/`resize` hint), and the **core fix**: an embedded 401 /
   expired / invalid token / inactive operator emits `token-expired` + a light "relaunching" state instead
   of dead-ending on `/error` (branch in `mainService.ts` + `useOperator.ts`); app fills the frame
@@ -517,9 +518,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `public/embed-example.html` + `EMBEDDING.md`. **#41 "Embedded crypto (SolanaToken) games"**
   ([PVUH9zJZ](https://trello.com/c/PVUH9zJZ)): paid **`SolanaToken`** (on-chain) bets inside that iframe —
   extensions don't inject cross-origin, so bet-time wallet connect + SPL transfer + signing move to a
-  **same-origin popup** on the game host (route `/chimpout/wallet-bridge` → `WalletBridgePage.vue`) that
+  **same-origin popup** on the game host (route `/space-stroker/wallet-bridge` → `WalletBridgePage.vue`) that
   `postMessage`s the **signature + wallet** back over an internal same-origin channel
-  (`source:'chimpout-wallet'`, `utils/walletBridge.ts`); `useGame.bet()` acquires the signature in-frame
+  (`source:'space-stroker-wallet'`, `utils/walletBridge.ts`); `useGame.bet()` acquires the signature in-frame
   (`sendToken`) **or** via the popup (`useEmbeddedWallet.ts`), opened **synchronously** on click (blocked →
   visible affordance); the `GameConsole` in-frame `connected` gate is relaxed when embedded; free (amount 0)
   SolanaToken games embed with no wallet/popup; #3's lifecycle payloads become **token-native**
@@ -577,12 +578,12 @@ see "Skills — ensure installed" in `AGENTS.md`.
   on `WaitingBets`, a **one-shot** Game Starting on `GameStarting` (once per game, running variant
   preloaded here), a **random** of three running loops on `InProgress`; own-bet/button/error SFX;
   **bettors-only** victory/lose on `Ended` (once); a **menu loop on the games page** (admin stays
-  silent); and a header **mute+volume** control (`localStorage` `chimpout.audio`, master gain in
+  silent); and a header **mute+volume** control (`localStorage` `space-stroker.audio`, master gain in
   `helpers.ts`, live re-apply). **9 generated mp3s** (kept `error1.wav`, dropped `success1.wav` + the 4
   old `.wav`s). Shipped as three cards on one branch: **(1/3)** manifest [#17 `9qiDtDAe`], **(2/3)**
   generate [#34 `OuXhyqyU`] (done **manually in the Suno UI** + ffmpeg), **(3/3)** wire [#35 `RvVdpO25`].
   **The 3/2/1 proximity "coin" bleeps were dropped** (Suno couldn't produce them) — near-miss visual
-  unchanged, no proximity audio. **Extras beyond spec:** `/`→`/chimpout/game` redirect, and a
+  unchanged, no proximity audio. **Extras beyond spec:** `/`→`/space-stroker/game` redirect, and a
   **game-connection teardown fix** (`disconnectAllPreviousConnections` enabled) that stops a stale
   game's SignalR events from corrupting the shared game state on switch/rollover. See
   `features/audio-overhaul.md`.
@@ -613,7 +614,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `formatAmount`; free bets contribute 0; resets/reseeds on rollover; no backend/DB/SignalR change.
   Trello #32 ([0FJquICm](https://trello.com/c/0FJquICm)). See `features/game-pot-display.md`.
 - Previously shipped: **Operator page (operator admin portal)** — `feature/operator-admin-page`,
-  2026-07-06; operator self-service admin at `/chimpout/admin` with admin-scoped RS256 token
+  2026-07-06; operator self-service admin at `/space-stroker/admin` with admin-scoped RS256 token
   (`X-Admin-Token`, not contract-gated), create/list/deactivate game types (all 3 modes;
   deactivate-or-create, no edit), first-game-on-create event, deactivation refunds waiting
   games. Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). See
@@ -641,22 +642,22 @@ see "Skills — ensure installed" in `AGENTS.md`.
   descoped to a separate story. Trello #20. See `features/rg-pre-bet-hook.md`.)
 - Previously shipped: **DEV QOL Stuff** — `feature/dev-qol-stuff`, 2026-06-30; operator resolved
   from the launch token's `iss` instead of the URL (routes param-free; prod launch lands on
-  `/chimpout/game/games`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
-  replaced by dev launch buttons gated on `VUE_APP_DEV_LAUNCH`, and a new `ChimpOut.Tests.Integration`
+  `/space-stroker/game/games`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
+  replaced by dev launch buttons gated on `VUE_APP_DEV_LAUNCH`, and a new `SpaceStroker.Tests.Integration`
   Testcontainers suite. Trello #28. See `features/dev-qol-stuff.md`.
-  Backlog follow-ups: ChimpOut commission per bet → https://trello.com/c/BXgxJcwP #26.
+  Backlog follow-ups: SpaceStroker commission per bet → https://trello.com/c/BXgxJcwP #26.
 
 ## The 60-second mental model
 
 - **Backend** (`monkify-backend`) is a layered .NET 8 solution split into a web **API**
-(`ChimpOut.Api`) and a background worker host (`ChimpOut.Consumers`). They share `ChimpOut.Domain`,
-`ChimpOut.Infrastructure`, and `ChimpOut.Common`.
+(`SpaceStroker.Api`) and a background worker host (`SpaceStroker.Consumers`). They share `SpaceStroker.Domain`,
+`SpaceStroker.Infrastructure`, and `SpaceStroker.Common`.
 - A **bet** is placed via `POST /games/{id}/bets`. The handler validates the on-chain Solana
 payment signature, persists the bet, and publishes a `BetPlacedEvent`.
 - **Games** progress through a state machine driven by **RabbitMQ events** (via MassTransit)
-consumed in `ChimpOut.Consumers`: `BetPlaced → RunGame → RewardGame`, with
+consumed in `SpaceStroker.Consumers`: `BetPlaced → RunGame → RewardGame`, with
 `RefundInvalidBet` for failures.
-- The **typer** (`ChimpOutTyper`) runs the game: it emits random characters over **SignalR** until
+- The **typer** (`SpaceStrokerTyper`) runs the game: it emits random characters over **SignalR** until
 a bet's choice appears; winners are then rewarded via **Solana** SPL token transfers.
 - **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters, FX rate tables
   (6h TTL), and backs SignalR. **Hangfire** (on PostgreSQL) schedules lottery games.

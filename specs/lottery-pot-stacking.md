@@ -1,4 +1,4 @@
-# ChimpOut — "Lottery Pot Stacking" Feature — Implementation Spec
+# SpaceStroker — "Lottery Pot Stacking" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/lottery-pot-stacking` on 2026-07-14. Refined via
 > Trello card
@@ -21,8 +21,8 @@ and the successor game restarts at the static config base (`LotteryParameters.Lo
 `4`). This feature carries a running jackpot forward.
 
 **Grounding fact (why "no one wins" is possible at all):** a lottery that actually **draws** always
-produces a winner **except for preset lotteries**. `ChimpOutTyper.SetBets`
-(`ChimpOut.Domain/Games/Services/ChimpOutTyper.cs:199-208`) pre-registers **every** preset choice
+produces a winner **except for preset lotteries**. `SpaceStrokerTyper.SetBets`
+(`SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs:199-208`) pre-registers **every** preset choice
 with count `0`; `CheckForWinners` (`:107-117`) and `DecideFallbackWinner` (`:162-172`) end the round
 the instant the typed window (or the fallback draw) matches **any** key in the `Bets` dictionary —
 including a preset **nobody bet on**, yielding `NumberOfWinners == 0`. A **free-type** lottery's
@@ -65,21 +65,21 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** `feature/lottery-pot-stacking` in `monkify-backend`, `monkify-front`,
   `monkify-meta`; the shared checkout stays on `main`. (Already created + pushed by
   `/monkify-create-spec`.)
-- **Unit tests:** update/add in `ChimpOut.Tests`; **report changed/added tests** at end of
+- **Unit tests:** update/add in `SpaceStroker.Tests`; **report changed/added tests** at end of
   implementation; run the suite via `scripts/run_tests.bat` (never the full `dotnet test` — the
   `ProductionGames` Monte-Carlo suite is slow).
-- **Integration test (mandatory):** this **is a game-flow change**, so `ChimpOut.Tests.Integration`
+- **Integration test (mandatory):** this **is a game-flow change**, so `SpaceStroker.Tests.Integration`
   (Testcontainers) **must** get at least one happy-path test (the preset no-winner carry, §11.2) plus
   dedicated tests for the two complex flows (under-subscription carry, deactivation transfer). Run via
   `scripts/run_integration_tests.bat`.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied only by `ChimpOut.Consumers`. Do
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `SpaceStroker.Infrastructure/Migrations/`; applied only by `SpaceStroker.Consumers`. Do
   not hand-edit the snapshot.
 - **Secrets/config:** mock-only values in committed files.
 - **Operator messaging:** player-facing surfaces never reveal operator/contract state; **admin**
   endpoints may return specific field-level validation errors (already the norm — see
   `features/operator-admin-page.md`).
-- **Host split:** money / state-machine / typer stays in `ChimpOut.Consumers`; `ChimpOut.Api` stays
+- **Host split:** money / state-machine / typer stays in `SpaceStroker.Consumers`; `SpaceStroker.Api` stays
   stateless. The deactivation transfer is a **synchronous admin API** mutation (see §6.4) — it moves
   a number between rows, no settlement — which is acceptable in the API.
 
@@ -108,7 +108,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 Entity / column change
 
-File: `monkify-backend/src/ChimpOut.Domain/Games/Entities/Game.cs` (alongside `ServerSeed`/
+File: `monkify-backend/src/SpaceStroker.Domain/Games/Entities/Game.cs` (alongside `ServerSeed`/
 `ServerSeedHash`, ~line 45):
 
 ```csharp
@@ -123,7 +123,7 @@ carry is assigned in `CreateGame` (§6.1).
 
 ### 4.2 EF configuration (inline)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`, inside the
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`, inside the
 existing `modelBuilder.Entity<Game>` block (`:134-150`), mirroring `Bet.Amount`'s precision:
 
 ```csharp
@@ -135,15 +135,15 @@ builder.Property(x => x.CarriedExtra).HasPrecision(18, 9).IsRequired().HasDefaul
 ### 4.3 Migration
 
 ```bash
-# from monkify-backend/src/ChimpOut.Infrastructure
+# from monkify-backend/src/SpaceStroker.Infrastructure
 dotnet ef migrations add AddGameCarriedExtra \
-  --startup-project ../ChimpOut.Consumers/ChimpOut.Consumers.csproj \
-  --context ChimpOutDbContext
+  --startup-project ../SpaceStroker.Consumers/SpaceStroker.Consumers.csproj \
+  --context SpaceStrokerDbContext
 ```
 
 Adds non-nullable `CarriedExtra numeric(18,9)` default `0` on `Games`. Latest existing migration is
 `20260710170016_ProvablyFair` — the new one sorts after it. Do not hand-edit
-`ChimpOutDbContextModelSnapshot.cs`; let EF regenerate it.
+`SpaceStrokerDbContextModelSnapshot.cs`; let EF regenerate it.
 
 ### 4.4 ER (delta)
 
@@ -168,7 +168,7 @@ erDiagram
 
 ### 5.1 Seeded 1-minute preset lottery (dev only)
 
-File: `monkify-backend/src/ChimpOut.Consumers/DefaultGameParameters.cs`.
+File: `monkify-backend/src/SpaceStroker.Consumers/DefaultGameParameters.cs`.
 
 The existing `Lottery(...)` factory (`:90-95`) builds a **free-type** lottery (no presets) and the
 `Preset(...)` factory (`:83-88`) builds a **non-lottery** preset race. Add a combined factory and one
@@ -210,7 +210,7 @@ defaults do not route through that validator anyway.
 ### 6.0 Carry rule helper (single source of truth)
 
 Add a small static helper so every rollover site computes the carry identically. Suggested location:
-`monkify-backend/src/ChimpOut.Domain/Games/Services/LotteryPotCarry.cs`.
+`monkify-backend/src/SpaceStroker.Domain/Games/Services/LotteryPotCarry.cs`.
 
 ```csharp
 public static class LotteryPotCarry
@@ -241,7 +241,7 @@ This helper is only meaningful for lottery types; callers gate on `LotteryParame
 
 ### 6.1 `GameService.CreateGame` — accept and persist the carry
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Services/Games/GameService.cs` (`:423-455`)
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Services/Games/GameService.cs` (`:423-455`)
 and interface `IGameService.cs:33`.
 
 ```csharp
@@ -256,7 +256,7 @@ Default `0` keeps the four non-lottery / first-game call sites unchanged.
 
 ### 6.2 `BetDomainService.SetPotAmount` — include the carry
 
-File: `monkify-backend/src/ChimpOut.Domain/Bets/Services/BetDomainService.cs` (`:114-122`):
+File: `monkify-backend/src/SpaceStroker.Domain/Bets/Services/BetDomainService.cs` (`:114-122`):
 
 ```csharp
 PotAmount = game.Bets.Sum(x => x.Amount);
@@ -269,7 +269,7 @@ PotAmount += game.CarriedExtra;   // NEW — 0 for non-lottery; the running jack
 
 ### 6.3 Rollover sites — thread the carry
 
-Both rollover sites are in `ChimpOut.Consumers`.
+Both rollover sites are in `SpaceStroker.Consumers`.
 
 **(a) Normal end-of-draw rollover** — `RunGameConsumer.cs:49-51`. The ended `game` (with `Bets`
 loaded at `:38`) and its `WinningChoice` (set by `UpdateGameStatus(game, Ended, monkey)` at
@@ -295,7 +295,7 @@ await gameService.UpdateGameStatus(game, GameStatus.NotEnoughPlayersToStart);
 await gameService.CreateGame(game.Parameters, LotteryPotCarry.NextCarriedExtra(game)); // carry unchanged
 ```
 
-**(c) Startup backfill** — `ChimpOut.Consumers/Program.cs:369`. To survive a restart mid-jackpot, when
+**(c) Startup backfill** — `SpaceStroker.Consumers/Program.cs:369`. To survive a restart mid-jackpot, when
 recreating a lottery type's game, inherit from the type's most recent game:
 
 ```csharp
@@ -319,10 +319,10 @@ race.
 
 ### 6.4 Admin deactivation transfer
 
-**Request** — `monkify-backend/src/ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeRequest.cs`:
+**Request** — `monkify-backend/src/SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeRequest.cs`:
 add `Guid? TargetLotteryId` (ctor `(Guid operatorId, Guid gameTypeId, Guid? targetLotteryId = null)`).
 
-**Controller** — `monkify-backend/src/ChimpOut.Api/Controllers/AdminController.cs:87`
+**Controller** — `monkify-backend/src/SpaceStroker.Api/Controllers/AdminController.cs:87`
 `POST admin/game-types/{id}/deactivate`: accept an optional body and forward the target:
 
 ```csharp
@@ -481,25 +481,25 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/Game.cs` | New `decimal CarriedExtra` property |
-| 2 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | Inline `CarriedExtra` mapping (`HasPrecision(18,9)`, default 0) |
-| 3 | `ChimpOut.Infrastructure/Migrations/*_AddGameCarriedExtra.*` | New migration (applied by Consumers) |
-| 4 | `ChimpOut.Domain/Games/Services/LotteryPotCarry.cs` | **New** — `NextCarriedExtra(Game)` helper (§6.0) |
-| 5 | `ChimpOut.Domain/Bets/Services/BetDomainService.cs` | `SetPotAmount` adds `game.CarriedExtra` |
-| 6 | `ChimpOut.Infrastructure/Services/Games/GameService.cs` | `CreateGame(parameters, carriedExtra = 0)`; set on new Game; add `GetMostRecentGame` read |
-| 7 | `ChimpOut.Infrastructure/Services/Games/IGameService.cs` | Update `CreateGame` signature; add `GetMostRecentGame` |
-| 8 | `ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Compute carry via helper, pass to `CreateGame` |
-| 9 | `ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Under-sub rollover passes carry (unchanged) |
-| 10 | `ChimpOut.Consumers/Program.cs` | Startup backfill inherits carry for lottery types |
-| 11 | `ChimpOut.Consumers/DefaultGameParameters.cs` | `PresetLottery(...)` factory + 1-min "6L Minute Menagerie" seed |
-| 12 | `ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeRequest.cs` | Add `Guid? TargetLotteryId` |
-| 13 | `ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeHandler.cs` | Transfer logic (§6.4) |
-| 14 | `ChimpOut.Api/Controllers/AdminController.cs` | Deactivate action accepts optional `{ targetLotteryId }` body |
-| 15 | `ChimpOut.Infrastructure/Contracts/Admin/DeactivateGameTypeBody.cs` | **New** small body contract |
-| 16 | `ChimpOut.Infrastructure/Handlers/Admin/GetOperatorGameTypes/GetOperatorGameTypesHandler.cs` | Join current game `CarriedExtra` per lottery |
-| 17 | `ChimpOut.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs` | Add `CarriedExtra` (+ optional `EffectiveJackpot`) |
-| 18 | `ChimpOut.Infrastructure/Contracts/Games/ActiveGameDto.cs` | Add `CarriedExtra = game.CarriedExtra` |
-| 19 | `ChimpOut.Common/Resources/*` (error messages) | New `LotteryDeactivationRequiresTransferTarget`, `NoEligibleLotteryTransferTarget` |
+| 1 | `SpaceStroker.Domain/Games/Entities/Game.cs` | New `decimal CarriedExtra` property |
+| 2 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | Inline `CarriedExtra` mapping (`HasPrecision(18,9)`, default 0) |
+| 3 | `SpaceStroker.Infrastructure/Migrations/*_AddGameCarriedExtra.*` | New migration (applied by Consumers) |
+| 4 | `SpaceStroker.Domain/Games/Services/LotteryPotCarry.cs` | **New** — `NextCarriedExtra(Game)` helper (§6.0) |
+| 5 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `SetPotAmount` adds `game.CarriedExtra` |
+| 6 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | `CreateGame(parameters, carriedExtra = 0)`; set on new Game; add `GetMostRecentGame` read |
+| 7 | `SpaceStroker.Infrastructure/Services/Games/IGameService.cs` | Update `CreateGame` signature; add `GetMostRecentGame` |
+| 8 | `SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | Compute carry via helper, pass to `CreateGame` |
+| 9 | `SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | Under-sub rollover passes carry (unchanged) |
+| 10 | `SpaceStroker.Consumers/Program.cs` | Startup backfill inherits carry for lottery types |
+| 11 | `SpaceStroker.Consumers/DefaultGameParameters.cs` | `PresetLottery(...)` factory + 1-min "6L Minute Menagerie" seed |
+| 12 | `SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeRequest.cs` | Add `Guid? TargetLotteryId` |
+| 13 | `SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeHandler.cs` | Transfer logic (§6.4) |
+| 14 | `SpaceStroker.Api/Controllers/AdminController.cs` | Deactivate action accepts optional `{ targetLotteryId }` body |
+| 15 | `SpaceStroker.Infrastructure/Contracts/Admin/DeactivateGameTypeBody.cs` | **New** small body contract |
+| 16 | `SpaceStroker.Infrastructure/Handlers/Admin/GetOperatorGameTypes/GetOperatorGameTypesHandler.cs` | Join current game `CarriedExtra` per lottery |
+| 17 | `SpaceStroker.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs` | Add `CarriedExtra` (+ optional `EffectiveJackpot`) |
+| 18 | `SpaceStroker.Infrastructure/Contracts/Games/ActiveGameDto.cs` | Add `CarriedExtra = game.CarriedExtra` |
+| 19 | `SpaceStroker.Common/Resources/*` (error messages) | New `LotteryDeactivationRequiresTransferTarget`, `NoEligibleLotteryTransferTarget` |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -523,7 +523,7 @@ sequenceDiagram
 
 ## 11. Tests
 
-### 11.1 Unit — `monkify-backend/src/ChimpOut.Tests` (report all changed/added)
+### 11.1 Unit — `monkify-backend/src/SpaceStroker.Tests` (report all changed/added)
 
 | Test file | Test case | Expected |
 | --- | --- | --- |
@@ -542,7 +542,7 @@ sequenceDiagram
 | " | Deactivate, carry > 0, ineligible target (diff method/token/operator/inactive/non-lottery) | `NoEligibleLotteryTransferTarget`; still active |
 | " | Deactivate, carry > 0, eligible target | target game `CarriedExtra += sourceCarry`; source `Active == false` |
 
-### 11.2 Integration — `monkify-backend/src/ChimpOut.Tests.Integration` (Testcontainers)
+### 11.2 Integration — `monkify-backend/src/SpaceStroker.Tests.Integration` (Testcontainers)
 
 **No lottery integration test exists today — this feature adds the first.** New file
 `LotteryPotStackingFlowTests.cs`, following the `ProvablyFairFlowTests.cs` driving pattern
@@ -613,7 +613,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    round's stakes + base.
 4. Repeat to watch the jackpot climb across several rounds; then bet the winning animal → pot pays out
    and the next round's `> POT:` **resets** to the base.
-5. In `/chimpout/admin`, deactivate the carrying lottery **without** a target → blocked with a clear
+5. In `/space-stroker/admin`, deactivate the carrying lottery **without** a target → blocked with a clear
    message. Create/keep a second matching lottery, retry with it as target → source deactivates and the
    target's pot jumps by the transferred amount.
 

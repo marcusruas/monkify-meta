@@ -1,4 +1,4 @@
-# ChimpOut — "Player Customization Modal" Feature — Implementation Spec
+# SpaceStroker — "Player Customization Modal" Feature — Implementation Spec
 
 > **Status: Shipped** — merged `feature/player-customization-modal` → `main` on 2026-07-02.
 > Trello: [Player Customization Modal](https://trello.com/c/ZyJViMKI). Distilled rules:
@@ -39,12 +39,12 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/player-customization-modal` in `monkify-backend`, `monkify-front`,
   and `monkify-meta`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at the end of implementation.
-  The bet-DTO / recent-bets change is game-flow-adjacent → also update `ChimpOut.Tests.Integration`.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
+- **Unit tests:** update/add in `SpaceStroker.Tests`; report changed tests at the end of implementation.
+  The bet-DTO / recent-bets change is game-flow-adjacent → also update `SpaceStroker.Tests.Integration`.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
   feature adds no columns and no migration.**
 - **Secrets/config:** the FreeCurrencyAPI key is written as a **MOCK/placeholder** in
-  `chimpoutsettings.json`; the real key is bound only from the environment. Never commit a real key.
+  `spacestrokersettings.json`; the real key is bound only from the environment. Never commit a real key.
 - **Operator messaging:** vague errors only; every token-gated endpoint returns a generic **401** on
   any auth failure (real reason logged server-side only). Never reveal contract status.
 - **Display-only conversion:** conversion must **never** feed settlement, payout, refund, bet
@@ -58,7 +58,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | Entry point is a **gear icon on the right of the header** (`GameHeader.vue`). Because `GameHeader` renders once in `App.vue` (outside `<router-view>`), the gear + modal appear on both the lobby (`/chimpout/game/games`) and live game (`/chimpout/game/play`) screens automatically. |
+| 1 | Entry point is a **gear icon on the right of the header** (`GameHeader.vue`). Because `GameHeader` renders once in `App.vue` (outside `<router-view>`), the gear + modal appear on both the lobby (`/space-stroker/game/games`) and live game (`/space-stroker/game/play`) screens automatically. |
 | 2 | Modal has two controls: **Display name** (text, all operators) and **Preferred currency** (dropdown, **regulated only** — hidden for crypto). One **Save** button issues a single `PATCH /players/preferences` with both fields; on success the active currency updates and live amounts re-render. |
 | 3 | **Currency conversion applies to regulated operators only.** Crypto operators keep showing their native SPL token; the crypto token↔{SOL,USDT} idea from the prior refinement is **dropped**. |
 | 4 | **Definitive currency set** = the currencies returned by FreeCurrencyAPI `latest` (base = USD): `AUD, BGN, BRL, CAD, CHF, CNY, CZK, DKK, EUR, GBP, HKD, HRK, HUF, IDR, ILS, INR, ISK, JPY, KRW, MXN, MYR, NOK, NZD, PHP, PLN, RON, RUB, SEK, SGD, THB, TRY, USD, ZAR` (33 incl. USD; USD rate = 1.0). |
@@ -78,10 +78,10 @@ From `monkify-meta/constraints.md` (full list there):
 
 **No entity, column, EF-mapping, or migration changes.** The feature reuses existing columns:
 
-- `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` — `DisplayName` (nullable, DB maxlen 100) and
+- `SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` — `DisplayName` (nullable, DB maxlen 100) and
   `Currency` (nullable, DB maxlen 10, defaults `"USD"` on new rows in the upsert handler). The 1–20
   display-name bound and the currency allow-list are **application-level** validation, not schema.
-- Unique index `(OperatorId, ExternalPlayerId)` already enforced inline in `ChimpOutDbContext`.
+- Unique index `(OperatorId, ExternalPlayerId)` already enforced inline in `SpaceStrokerDbContext`.
 
 ### 4.1 New (non-persistent) domain types
 
@@ -89,10 +89,10 @@ A static, in-code **supported-currency registry** — the single source of truth
 set, its metadata, and the allow-list:
 
 ```csharp
-// ChimpOut.Domain/Fx/SupportedCurrency.cs
+// SpaceStroker.Domain/Fx/SupportedCurrency.cs
 public sealed record SupportedCurrency(string Code, string Symbol, string Name);
 
-// ChimpOut.Domain/Fx/SupportedCurrencies.cs
+// SpaceStroker.Domain/Fx/SupportedCurrencies.cs
 public static class SupportedCurrencies
 {
     // 33 entries; USD first. Symbol + human name per code.
@@ -122,10 +122,10 @@ public static class SupportedCurrencies
 ### 5.1 `GeneralSettings.Fx` (new section)
 
 Model it on the existing `OperatorWalletConfig` pattern
-(`ChimpOut.Domain/Configs/Entities/OperatorWalletSettings.cs`).
+(`SpaceStroker.Domain/Configs/Entities/OperatorWalletSettings.cs`).
 
 ```csharp
-// ChimpOut.Domain/Configs/Entities/FxSettings.cs
+// SpaceStroker.Domain/Configs/Entities/FxSettings.cs
 public class FxSettings
 {
     public string Provider { get; set; } = "Mock";       // "Mock" | "FreeCurrencyApi"
@@ -137,9 +137,9 @@ public class FxSettings
 ```
 
 Add `public FxSettings Fx { get; set; } = new();` to
-`ChimpOut.Domain/Configs/Entities/GeneralSettings.cs`.
+`SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs`.
 
-`ChimpOut.Common/chimpoutsettings.json` — add under `GeneralSettings` (**mock values only**):
+`SpaceStroker.Common/spacestrokersettings.json` — add under `GeneralSettings` (**mock values only**):
 
 ```json
 "Fx": {
@@ -156,7 +156,7 @@ Add `public FxSettings Fx { get; set; } = new();` to
 
 ### 5.2 Provider selection
 
-In `ChimpOut.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), select the provider by the
+In `SpaceStroker.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), select the provider by the
 `Fx.Provider` discriminator (same pattern as cache selection by config):
 
 - `"FreeCurrencyApi"` → `AddHttpClient<FreeCurrencyApiExchangeRateProvider>()` (BaseUrl + timeout from
@@ -164,7 +164,7 @@ In `ChimpOut.Infrastructure/DependencyInjection.cs` (`AddDefaultServices`), sele
 - anything else (default `"Mock"`) → `IExchangeRateProvider → MockExchangeRateProvider` (static
   table, no HTTP). This keeps dev + all tests off the network and within the rate limit.
 
-Registered in the shared `AddDefaultServices` so **both** `ChimpOut.Api` and `ChimpOut.Consumers` get
+Registered in the shared `AddDefaultServices` so **both** `SpaceStroker.Api` and `SpaceStroker.Consumers` get
 it (only the API serves `/fx/rates`, but keeping it shared matches the existing wiring).
 
 ### 5.3 Frontend env
@@ -177,7 +177,7 @@ here.)
 
 ## 6. Backend behaviour
 
-### 6.1 FX rate provider (`ChimpOut.Infrastructure/Services/Fx/`)
+### 6.1 FX rate provider (`SpaceStroker.Infrastructure/Services/Fx/`)
 
 ```csharp
 public interface IExchangeRateProvider
@@ -195,7 +195,7 @@ public interface IExchangeRateProvider
 - **`MockExchangeRateProvider`** — returns a static USD-based table covering all
   `SupportedCurrencies.Codes` (use the sample values from the card for realism). No network.
 
-### 6.2 `GET /fx/rates` (new — `ChimpOut.Api/Controllers/FxController.cs`)
+### 6.2 `GET /fx/rates` (new — `SpaceStroker.Api/Controllers/FxController.cs`)
 
 - `[Route("fx")] FxController : BaseController`; `[HttpGet("rates")]` → `ProcessRequest(new GetFxRatesRequest())`.
   Add an `[HttpOptions("rates")]` CORS method mirroring the other controllers.
@@ -207,7 +207,7 @@ public interface IExchangeRateProvider
      `rate = table?[code]` (USD always `1.0`; `null` when unavailable).
   4. Return `FxRatesDto { Base = "USD", AsOf = DateTime.UtcNow, Rates = [{ Code, Symbol, Name, Rate }] }`.
      Never returns 5xx for a provider outage — a missing table yields `rate: null` for non-USD codes.
-- **Host:** stateless `ChimpOut.Api` (read-only). No Consumers work.
+- **Host:** stateless `SpaceStroker.Api` (read-only). No Consumers work.
 
 **Hidden blocker — token gating:** `/fx` is **not** in
 `LaunchTokenValidationMiddleware.ProtectedPrefixes` (currently `/games`, `/operators`, `/players`).
@@ -258,7 +258,7 @@ default for new rows.
   channel, so the field reaches the client with no consumer change.
 - **Winners:** unchanged on the backend. `GameResult.Winners` stays `IEnumerable<string>`
   (external ids). The frontend resolves winner display names from the bets it already holds (§7.5).
-- **Integration tests:** `ChimpOut.Tests.Integration/GameFlowTests.cs` — add an assertion that the
+- **Integration tests:** `SpaceStroker.Tests.Integration/GameFlowTests.cs` — add an assertion that the
   recent-bets notification / `BetDto` carries `DisplayName` when the better set one (game-flow
   change per `constraints.md §3`).
 
@@ -373,7 +373,7 @@ sequenceDiagram
   participant H as GameHeader (gear)
   participant M as CustomizationModal
   participant S as mainService
-  participant API as ChimpOut.Api
+  participant API as SpaceStroker.Api
   U->>H: click gear
   H->>M: open (prefill from useDisplayCurrency)
   M->>S: getPlayerPreferences() (if not loaded)
@@ -429,28 +429,28 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Fx/SupportedCurrency.cs` | **New** record `{ Code, Symbol, Name }`. |
-| 2 | `ChimpOut.Domain/Fx/SupportedCurrencies.cs` | **New** static registry: 33 entries, `Codes` set, `IsSupported`. |
-| 3 | `ChimpOut.Domain/Configs/Entities/FxSettings.cs` | **New** settings class (Provider, BaseUrl, ApiKey, TimeoutSeconds, CacheTtlHours). |
-| 4 | `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` | Add `Fx` property. |
-| 5 | `ChimpOut.Common/chimpoutsettings.json` | Add `GeneralSettings.Fx` block — **mock values only**. |
-| 6 | `ChimpOut.Infrastructure/Services/Fx/IExchangeRateProvider.cs` | **New** interface `GetUsdRatesAsync`. |
-| 7 | `ChimpOut.Infrastructure/Services/Fx/FreeCurrencyApiExchangeRateProvider.cs` | **New** typed-HttpClient provider; parse `data` map; null on failure. |
-| 8 | `ChimpOut.Infrastructure/Services/Fx/MockExchangeRateProvider.cs` | **New** static USD table for dev/tests. |
-| 9 | `ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateFxRatesCacheSettings(ttlHours)` → key `Fx:Rates:USD`. |
-| 10 | `ChimpOut.Infrastructure/Contracts/Fx/FxRatesDto.cs` | **New** `{ Base, AsOf, Rates:[{Code,Symbol,Name,Rate?}] }`. |
-| 11 | `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesRequest.cs` | **New** request → `FxRatesDto`. |
-| 12 | `ChimpOut.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` | **New** cache-first; join rates + metadata; never 5xx on outage. |
-| 13 | `ChimpOut.Api/Controllers/FxController.cs` | **New** `[Route("fx")]`, `GET rates` + `OPTIONS`. |
-| 14 | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **Add `/fx`** to protected prefixes (token-gate `/fx/rates`). |
-| 15 | `ChimpOut.Api/Controllers/PlayersController.cs` | Add `[HttpGet("preferences")]`; extend `OPTIONS` `Allow` with `GET`. |
-| 16 | `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesRequest.cs` | **New** `(OperatorId, ExternalPlayerId?, Wallet?)`. |
-| 17 | `ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | **New** read-only prefs lookup; defaults when no row; no row creation. |
-| 18 | `ChimpOut.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Add operator-scoped currency allow-list + 1–20 display-name validation before upsert. |
-| 19 | `ChimpOut.Infrastructure/Contracts/Games/BetDto.cs` | Add `DisplayName = bet.OperatorPlayer?.DisplayName`. |
-| 20 | `ChimpOut.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs` | Add `string? DisplayName`. |
-| 21 | `ChimpOut.Infrastructure/Services/Games/GameService.cs` | In `InsertBet`, capture `DisplayName` before nulling `OperatorPlayer`; pass to the event. |
-| 22 | `ChimpOut.Infrastructure/DependencyInjection.cs` | Register `IExchangeRateProvider` by `Fx.Provider`; `AddHttpClient` for the real provider. |
+| 1 | `SpaceStroker.Domain/Fx/SupportedCurrency.cs` | **New** record `{ Code, Symbol, Name }`. |
+| 2 | `SpaceStroker.Domain/Fx/SupportedCurrencies.cs` | **New** static registry: 33 entries, `Codes` set, `IsSupported`. |
+| 3 | `SpaceStroker.Domain/Configs/Entities/FxSettings.cs` | **New** settings class (Provider, BaseUrl, ApiKey, TimeoutSeconds, CacheTtlHours). |
+| 4 | `SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs` | Add `Fx` property. |
+| 5 | `SpaceStroker.Common/spacestrokersettings.json` | Add `GeneralSettings.Fx` block — **mock values only**. |
+| 6 | `SpaceStroker.Infrastructure/Services/Fx/IExchangeRateProvider.cs` | **New** interface `GetUsdRatesAsync`. |
+| 7 | `SpaceStroker.Infrastructure/Services/Fx/FreeCurrencyApiExchangeRateProvider.cs` | **New** typed-HttpClient provider; parse `data` map; null on failure. |
+| 8 | `SpaceStroker.Infrastructure/Services/Fx/MockExchangeRateProvider.cs` | **New** static USD table for dev/tests. |
+| 9 | `SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateFxRatesCacheSettings(ttlHours)` → key `Fx:Rates:USD`. |
+| 10 | `SpaceStroker.Infrastructure/Contracts/Fx/FxRatesDto.cs` | **New** `{ Base, AsOf, Rates:[{Code,Symbol,Name,Rate?}] }`. |
+| 11 | `SpaceStroker.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesRequest.cs` | **New** request → `FxRatesDto`. |
+| 12 | `SpaceStroker.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` | **New** cache-first; join rates + metadata; never 5xx on outage. |
+| 13 | `SpaceStroker.Api/Controllers/FxController.cs` | **New** `[Route("fx")]`, `GET rates` + `OPTIONS`. |
+| 14 | `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` | **Add `/fx`** to protected prefixes (token-gate `/fx/rates`). |
+| 15 | `SpaceStroker.Api/Controllers/PlayersController.cs` | Add `[HttpGet("preferences")]`; extend `OPTIONS` `Allow` with `GET`. |
+| 16 | `SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesRequest.cs` | **New** `(OperatorId, ExternalPlayerId?, Wallet?)`. |
+| 17 | `SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` | **New** read-only prefs lookup; defaults when no row; no row creation. |
+| 18 | `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` | Add operator-scoped currency allow-list + 1–20 display-name validation before upsert. |
+| 19 | `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs` | Add `DisplayName = bet.OperatorPlayer?.DisplayName`. |
+| 20 | `SpaceStroker.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs` | Add `string? DisplayName`. |
+| 21 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | In `InsertBet`, capture `DisplayName` before nulling `OperatorPlayer`; pass to the event. |
+| 22 | `SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `IExchangeRateProvider` by `Fx.Provider`; `AddHttpClient` for the real provider. |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -477,7 +477,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -488,7 +488,7 @@ Project: `monkify-backend/src/ChimpOut.Tests`.
 | `UnitTests/Handlers/UpdatePlayerPreferencesHandlerTests.cs` (extend) | Regulated accepts in-list (BRL), rejects out-of-list; crypto rejects fiat (EUR), accepts USD; display name empty/whitespace/>20 rejected, 1–20 trimmed accepted; stored value unchanged on any failure. | Generic validation failures; upsert only on valid. |
 | `UnitTests/Contracts/BetDtoTests.cs` (new or extend) | `BetDto(bet)` surfaces `DisplayName` from `OperatorPlayer`; null when no player. | Field mapped. |
 | `UnitTests/Services/GameServiceTests.cs` (extend) | `InsertBet` publishes `BetNotificationEvent` with `DisplayName` captured before the `OperatorPlayer` null-out. | Event carries name. |
-| `ChimpOut.Tests.Integration/GameFlowTests.cs` (extend) | Recent-bets notification / `BetDto` includes `DisplayName` for a named better through bet→run→reward. | Game flow unchanged; name present. |
+| `SpaceStroker.Tests.Integration/GameFlowTests.cs` (extend) | Recent-bets notification / `BetDto` includes `DisplayName` for a named better through bet→run→reward. | Game flow unchanged; name present. |
 
 Run via `scripts/run_tests.bat` (unit) and `scripts/run_integration_tests.bat` (integration).
 **Report changed/added tests at the end of implementation.**
@@ -518,13 +518,13 @@ Run via `scripts/run_tests.bat` (unit) and `scripts/run_integration_tests.bat` (
 17. Given bets exist from players who set a display name, when a player views the recent-bets feed and winners, then each player is shown by their DisplayName (their own row shows their name/`YOU`), falling back to the truncated external id when no name is set.
 18. Given any display currency is selected, when a bet is placed and a winner is paid out, then the stake/payout/refund and any operator-API amount still use USD (conversion never feeds money math).
 19. Given a request without a valid `X-Launch-Token`, when `GET /fx/rates` or `GET /players/preferences` is called, then it returns a generic 401 (real reason logged server-side only), consistent with other operator-scoped endpoints.
-20. Given the backend changes ship, then the FreeCurrencyAPI key is a MOCK placeholder (dev uses `MockExchangeRateProvider`) and `ChimpOut.Tests` covers the provider (http+mock), the `/fx/rates` handler + 6h caching, GET/PATCH preferences (defaults, allow-list, name validation), and `DisplayName` DTO/event mapping — all passing — and `ChimpOut.Tests.Integration` is updated for the DTO/SignalR change; changed tests reported.
+20. Given the backend changes ship, then the FreeCurrencyAPI key is a MOCK placeholder (dev uses `MockExchangeRateProvider`) and `SpaceStroker.Tests` covers the provider (http+mock), the `/fx/rates` handler + 6h caching, GET/PATCH preferences (defaults, allow-list, name validation), and `DisplayName` DTO/event mapping — all passing — and `SpaceStroker.Tests.Integration` is updated for the DTO/SignalR change; changed tests reported.
 
 ---
 
 ## 13. Manual QA
 
-1. `scripts/setup_local_environment.bat`, launch the stack (`docker-compose`), open `/chimpout/game`
+1. `scripts/setup_local_environment.bat`, launch the stack (`docker-compose`), open `/space-stroker/game`
    → **Regulated** dev button.
 2. Click the header **gear** → modal opens on the lobby; set a display name + pick **BRL**; Save.
 3. Confirm the BET/POT/bet amounts render `≈ R$…` with the USD value on hover; reopen the modal →

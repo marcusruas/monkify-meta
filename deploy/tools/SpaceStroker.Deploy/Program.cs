@@ -1,9 +1,9 @@
-using ChimpOut.Deploy;
+using SpaceStroker.Deploy;
 
-// chimpout-deploy — manual GCP deploy driver for ChimpOut (Terraform + Cloud Run + static sites).
+// spacestroker-deploy — manual GCP deploy driver for SpaceStroker (Terraform + Cloud Run + static sites).
 // Usage:
-//   chimpout-deploy deploy [api|consumers|front|lp]   deploy one component (or all if omitted)
-//   chimpout-deploy teardown                          destroy the workload layer (keeps the domain)
+//   spacestroker-deploy deploy [api|consumers|front|lp]   deploy one component (or all if omitted)
+//   spacestroker-deploy teardown                          destroy the workload layer (keeps the domain)
 // Options:
 //   --env <name>          environment (default: production) → secrets.<name>.json
 //   --secrets <path>      explicit secrets file path
@@ -106,11 +106,11 @@ file sealed class CliOptions
     {
         Console.WriteLine(
             """
-            chimpout-deploy — manual GCP deploy driver
+            spacestroker-deploy — manual GCP deploy driver
 
             Usage:
-              chimpout-deploy deploy [api|consumers|front|lp]  deploy one component (or all if omitted)
-              chimpout-deploy teardown                         destroy the workload layer (keeps the domain)
+              spacestroker-deploy deploy [api|consumers|front|lp]  deploy one component (or all if omitted)
+              spacestroker-deploy teardown                         destroy the workload layer (keeps the domain)
 
             Options:
               --env <name>        environment (default: production) → secrets.<name>.json

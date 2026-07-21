@@ -8,7 +8,7 @@
 
 ## What it does
 
-Gives ChimpOut one cohesive, AI-generated (Suno) **warm arcade-chiptune** sound identity across the
+Gives SpaceStroker one cohesive, AI-generated (Suno) **warm arcade-chiptune** sound identity across the
 game. Background music follows the game lifecycle, own-bet / button / error SFX and end-of-round
 victory/lose cues give players real-time feedback, a menu track plays while browsing games, and a
 header **mute + volume** control (persisted) governs everything. **Entirely frontend, display-only** —
@@ -36,14 +36,14 @@ audio never affects bets, settlement, winners, or game state.
   silent** (no lobby music). The reusable `LobbyAudio.vue` component stops the loop on navigation, so
   it never overlaps the in-game audio.
 - **Master mute + volume.** A speaker icon in the game header toggles mute on click and reveals a
-  volume slider on hover; the setting persists in `localStorage` under `chimpout.audio` (default
+  volume slider on hover; the setting persists in `localStorage` under `space-stroker.audio` (default
   **unmuted, full volume**) and applies **live** to a currently-playing loop. Backed by a master
   gain/mute multiplier in `helpers.ts` (`effective = base × (muted ? 0 : master)`); music loops play
   at base `0.1` to match the one-shot songs.
 - **Tab-visibility gating preserved.** Nothing starts while the tab is inactive; on refocus the
   background loop re-syncs to the current status — but the time-aligned `game_starting` one-shot is
   **never replayed on refocus**.
-- **`/` now redirects to `/chimpout/game`** (was `/error`).
+- **`/` now redirects to `/space-stroker/game`** (was `/error`).
 
 ## Notable fixes shipped alongside
 
@@ -79,5 +79,5 @@ audio never affects bets, settlement, winners, or game state.
 - `src/hooks/useGame.ts` — victory/lose on `Ended` (bettors only, once) **and**
   `disconnectAllPreviousConnections()` on game switch/rollover.
 - `src/pages/GameSelectPage.vue` (mounts `LobbyAudio`), `src/pages/AdminPage.vue` (no lobby).
-- `src/routes.ts` — `/` → `/chimpout/game`. `src/App.vue` — preloads the new tracks.
+- `src/routes.ts` — `/` → `/space-stroker/game`. `src/App.vue` — preloads the new tracks.
 - `src/assets/audios/` — the 9 mp3s + retained `error1.wav`. `src/shims-vue.d.ts` — `*.mp3` shim.

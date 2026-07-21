@@ -17,8 +17,8 @@
 - **Launch token:** `src/hooks/useLaunch.ts` captures the token from the launch URL fragment
   (`…#launch_token=<jwt>`), strips it from the URL, and persists it per-tab in `sessionStorage`
   (a fresh fragment overrides a stored one). In dev, tokens come from the Crypto/Regulated buttons on
-  the `/chimpout/game` landing — no silent auto-mint (see `features/dev-qol-stuff.md`).
-- **Operator entry:** game routes are **param-free** (`/chimpout/game/games`, `/chimpout/game/play`);
+  the `/space-stroker/game` landing — no silent auto-mint (see `features/dev-qol-stuff.md`).
+- **Operator entry:** game routes are **param-free** (`/space-stroker/game/games`, `/space-stroker/game/play`);
   the operator is decoded from the token's `iss` (`getOperatorIdFromToken` in `utils/launchToken.ts`),
   not the URL. Missing/undecodable token, inactive operator, or any token `401` → `/error`.
   `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, and applies
@@ -73,8 +73,8 @@
   keeps its subscription. Mobile SolanaToken bets use an "open in wallet app" deep link
   (`src/utils/walletDeepLink.ts`). Prefer `max-lg:`/`lg:` Tailwind variants + `dvh` heights over new
   breakpoints. See `features/mobile-layout.md`.
-- **Routing:** `src/routes.ts` — `/chimpout/game/games`, `/chimpout/game/play`, `/error`;
-  `/chimpout/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
+- **Routing:** `src/routes.ts` — `/space-stroker/game/games`, `/space-stroker/game/play`, `/error`;
+  `/space-stroker/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
   `/` redirects to `/error`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 

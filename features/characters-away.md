@@ -20,7 +20,7 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
 - **Distance = tail-prefix progression (KMP), not window Hamming.** For a choice of length `L`,
   `away = L − k` where `k` is the length of the longest suffix of the character stream so far that is a
   **prefix** of the choice. A natural win is exactly `k == L`, so this mirrors
-  `ChimpOutTyper.CheckForWinners`. Matched characters shown = `choice.slice(0, k)`; the remaining `away`
+  `SpaceStrokerTyper.CheckForWinners`. Matched characters shown = `choice.slice(0, k)`; the remaining `away`
   slots render as neutral `_` placeholders.
 - **Closest-approach, climbing, with a 2s loop.** Each row shows the best (largest) `k` reached in the
   current attempt. If a row does not get any closer for **2 seconds**, it resets to the start
@@ -58,7 +58,7 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
 - For **big search spaces** (e.g. 8-char alphanumeric games) the monkey statistically never approaches
   any word, and the round is decided by the **seed-based fallback winner** at the character cap — the
   winning sequence is never naturally typed into the stream.
-- In that case `GameService.RunGame` now **emits the winning word (`ChimpOutTyper.FirstChoiceTyped`)
+- In that case `GameService.RunGame` now **emits the winning word (`SpaceStrokerTyper.FirstChoiceTyped`)
   as a final `<gameId>/Terminal` batch** when `WinnerDecidedByFallback` is true, so the real stream
   (for every client) ends with the monkey "typing" the winner — matching how a natural win already
   looks. This is purely visual: winner, seed, payouts, and the status flow are unchanged.
@@ -85,7 +85,7 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
   `useGame`, so the label and the near-miss re-seed mark the same bets.
 
 **Backend (`monkify-backend`):**
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` → `RunGame` — appends
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` → `RunGame` — appends
   `monkey.FirstChoiceTyped` as a final terminal batch when `monkey.WinnerDecidedByFallback`.
-- Covered by `ChimpOut.Tests/UnitTests/Services/GameServiceTests.cs` →
+- Covered by `SpaceStroker.Tests/UnitTests/Services/GameServiceTests.cs` →
   `RunGame_FallbackDecidedWinner_EmitsWinningChoiceAsFinalTerminalBatch`.

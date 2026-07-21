@@ -3,10 +3,10 @@ using System.Text;
 using System.Text.Json;
 using Npgsql;
 
-// chimpout-db — interactive read-write REPL over the game or messaging DB via the
+// spacestroker-db — interactive read-write REPL over the game or messaging DB via the
 // Cloud SQL Auth Proxy + IAM. Reads freely; any write requires a typed confirmation.
 //
-// Usage: chimpout-db --db game|messaging [--env production] [--secrets <path>] [--local-port 5433]
+// Usage: spacestroker-db --db game|messaging [--env production] [--secrets <path>] [--local-port 5433]
 
 var opts = Options.Parse(args);
 if (opts.ShowHelp) { Options.PrintUsage(); return 0; }
@@ -22,7 +22,7 @@ catch (Exception ex)
     return 1;
 }
 
-var instanceConnectionName = $"{cfg.ProjectId}:{cfg.Region}:chimpout-pg";
+var instanceConnectionName = $"{cfg.ProjectId}:{cfg.Region}:spacestroker-pg";
 Console.WriteLine($"Starting Cloud SQL Auth Proxy for {instanceConnectionName} on 127.0.0.1:{opts.LocalPort}…");
 
 Process? proxy = null;
@@ -191,9 +191,9 @@ sealed class Options
 
     public static void PrintUsage() => Console.WriteLine(
         """
-        chimpout-db — read-write DB REPL over the Cloud SQL Auth Proxy
+        spacestroker-db — read-write DB REPL over the Cloud SQL Auth Proxy
 
-        Usage: chimpout-db --db game|messaging [--env production] [--secrets <path>] [--local-port 5433]
+        Usage: spacestroker-db --db game|messaging [--env production] [--secrets <path>] [--local-port 5433]
 
         Reads run immediately; INSERT/UPDATE/DELETE/DDL require typing YES.
         Prerequisites: cloud-sql-proxy (v2), authenticated gcloud on PATH.
@@ -224,8 +224,8 @@ sealed class Config
         var gcp = root.GetProperty("gcp");
         var secrets = root.GetProperty("secrets");
 
-        var db = opts.Db == "game" ? "chimpout" : "chimpout_messaging";
-        var connKey = opts.Db == "game" ? "ConnectionStrings:ChimpOut" : "ConnectionStrings:Messaging";
+        var db = opts.Db == "game" ? "spacestroker" : "spacestroker_messaging";
+        var connKey = opts.Db == "game" ? "ConnectionStrings:SpaceStroker" : "ConnectionStrings:Messaging";
         var connString = secrets.GetProperty(connKey).GetString()
             ?? throw new InvalidOperationException($"secrets.{connKey} is empty.");
 

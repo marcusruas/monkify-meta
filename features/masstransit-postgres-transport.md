@@ -6,25 +6,25 @@
 ## What it does
 
 The game state-machine events ride the **MassTransit Postgres SQL transport** instead of RabbitMQ, so
-ChimpOut runs with **no message broker** — one fewer always-on service to host, patch, and secure
+SpaceStroker runs with **no message broker** — one fewer always-on service to host, patch, and secure
 (important for a crypto app) and one fewer fixed cost. This unblocks deploying to GCP, which has no
 managed RabbitMQ. It is a **transport + provisioning** change only: event contracts, consumers, and the
-game flow are unchanged. The change also renamed the game database `monkify → chimpout`.
+game flow are unchanged. The change also renamed the game database `monkify → spacestroker`.
 
 ## Core rules
 
 - **No broker.** MassTransit is configured with `UsingPostgres` (`MassTransit.SqlTransport.PostgreSQL`
   8.5.4). There is no RabbitMQ/AMQP service anywhere (local compose or deployed).
 - **Separate messaging database.** The transport's queues/topics/subscriptions/messages are tables under
-  schema **`transport`** in a **`chimpout_messaging`** database — a distinct DB on the **same** Postgres
-  instance as the game DB (`chimpout`). Game tables never live in `chimpout_messaging`.
-- **Consumers provisions; API only publishes.** `ChimpOut.Consumers` runs
-  `AddPostgresMigrationHostedService()` at startup, which creates the `chimpout_messaging` database and
-  `transport` schema before the bus connects (mirroring how it owns EF migrations). `ChimpOut.Api`
+  schema **`transport`** in a **`spacestroker_messaging`** database — a distinct DB on the **same** Postgres
+  instance as the game DB (`spacestroker`). Game tables never live in `spacestroker_messaging`.
+- **Consumers provisions; API only publishes.** `SpaceStroker.Consumers` runs
+  `AddPostgresMigrationHostedService()` at startup, which creates the `spacestroker_messaging` database and
+  `transport` schema before the bus connects (mirroring how it owns EF migrations). `SpaceStroker.Api`
   registers `UsingPostgres()` **publisher-only** and never provisions the transport (it stays stateless).
 - **One reused credential.** Both hosts bind `SqlTransportOptions` from `ConnectionStrings:Messaging`,
   reusing the game-DB user/host/password (only `Database=` differs). That user must have **`CREATE
-  DATABASE`** on the instance so the migration service can create `chimpout_messaging`.
+  DATABASE`** on the instance so the migration service can create `spacestroker_messaging`.
 - **Eight named endpoints kept.** The Consumers host still declares one explicitly-named
   `ReceiveEndpoint` per consumer (`BetPlacedConsumer`, `RunGameConsumer`, `RewardGameConsumer`,
   `RefundInvalidBetConsumer`, `BetNotificationConsumer`, `ChatMessagePersistedConsumer`,
@@ -33,39 +33,39 @@ game flow are unchanged. The change also renamed the game database `monkify → 
   `SKIP LOCKED` + `LISTEN/NOTIFY`). Reward/refund idempotency is ledger-based (`TransactionLog`): a
   redelivered `RewardGameEvent` for an already-rewarded game short-circuits (the winners are no longer
   `NeedsRewarding`) and credits the winner **exactly once** (verified by an integration test).
-- **Hangfire is unchanged** and stays on the **game** DB (`chimpout`); Redis (cache + SignalR backplane)
+- **Hangfire is unchanged** and stays on the **game** DB (`spacestroker`); Redis (cache + SignalR backplane)
   is unchanged.
 - **Publish abstraction renamed** transport-neutral: `IMessageBus` / `MessageBusPublisher`
   (was `IRabbitMQService` / `RabbitMQService`).
-- **DB / infra rename:** the game database is `chimpout` (was `monkify`); the local docker network is
-  `chimpout-network`.
+- **DB / infra rename:** the game database is `spacestroker` (was `monkify`); the local docker network is
+  `spacestroker-network`.
 
 ## Key code touchpoints
 
 Backend (`monkify-backend`, on `main`):
-- `src/ChimpOut.Infrastructure/Services/Messaging/` — `IMessageBus`, `MessageBusPublisher`,
-  `MessagingRegistration.AddChimpOutSqlTransportOptions` (binds `SqlTransportOptions` from
+- `src/SpaceStroker.Infrastructure/Services/Messaging/` — `IMessageBus`, `MessageBusPublisher`,
+  `MessagingRegistration.AddSpaceStrokerSqlTransportOptions` (binds `SqlTransportOptions` from
   `ConnectionStrings:Messaging` via `NpgsqlConnectionStringBuilder`; reuses the game-DB user as
   runtime + admin + role).
-- `src/ChimpOut.Api/Program.cs` — `AddChimpOutSqlTransportOptions` + `AddMassTransit(x => x.UsingPostgres())`
+- `src/SpaceStroker.Api/Program.cs` — `AddSpaceStrokerSqlTransportOptions` + `AddMassTransit(x => x.UsingPostgres())`
   (publisher-only).
-- `src/ChimpOut.Consumers/Program.cs` — `AddChimpOutSqlTransportOptions` +
+- `src/SpaceStroker.Consumers/Program.cs` — `AddSpaceStrokerSqlTransportOptions` +
   `AddPostgresMigrationHostedService()` + `AddMassTransit(... UsingPostgres(...))` with the 8 named endpoints.
-- `src/ChimpOut.{Api,Infrastructure,Consumers}/*.csproj` — `MassTransit.SqlTransport.PostgreSQL` 8.5.4
+- `src/SpaceStroker.{Api,Infrastructure,Consumers}/*.csproj` — `MassTransit.SqlTransport.PostgreSQL` 8.5.4
   (replaced `MassTransit.RabbitMQ`).
-- `src/ChimpOut.Common/chimpoutsettings.json` — `ConnectionStrings:ChimpOut` (`Database=chimpout`) +
-  `ConnectionStrings:Messaging` (`Database=chimpout_messaging`); no `RabbitMQ` entry.
+- `src/SpaceStroker.Common/spacestrokersettings.json` — `ConnectionStrings:SpaceStroker` (`Database=spacestroker`) +
+  `ConnectionStrings:Messaging` (`Database=spacestroker_messaging`); no `RabbitMQ` entry.
 - `docker-compose.yml` — no `rabbitmq` service; `ConnectionStrings__Messaging` on api + consumers;
-  `POSTGRES_DB=chimpout`; `chimpout-network`. `scripts/setup_local_environment.bat` network ref updated.
+  `POSTGRES_DB=spacestroker`; `spacestroker-network`. `scripts/setup_local_environment.bat` network ref updated.
 - Consumers/handlers/hubs resolve `IMessageBus` (GameService, ActiveGamesHub, RunGameConsumer,
   BetPlacedConsumer, GameTypeDeactivatedConsumer, BetNotificationConsumer, RegisterBetHandler,
   CreateGameTypeHandler, DeactivateGameTypeHandler).
 
 Tests:
-- `src/ChimpOut.Tests.Integration/Harness/IntegrationTestFixture.cs` — no `RabbitMqContainer`; derives
-  `ConnectionStrings__Messaging` from the Postgres container (`Database=chimpout_messaging`); the
+- `src/SpaceStroker.Tests.Integration/Harness/IntegrationTestFixture.cs` — no `RabbitMqContainer`; derives
+  `ConnectionStrings__Messaging` from the Postgres container (`Database=spacestroker_messaging`); the
   Consumers migration service provisions it. `PublishRewardGameAsync` helper added.
-- `src/ChimpOut.Tests.Integration/TransportIdempotencyFlowTests.cs` — redelivery idempotency test.
+- `src/SpaceStroker.Tests.Integration/TransportIdempotencyFlowTests.cs` — redelivery idempotency test.
 - `GameFlowTests` now exercises the happy path over the Postgres transport.
 
 Frontend: **none** (no client/API/SignalR change).

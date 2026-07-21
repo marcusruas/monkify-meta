@@ -1,4 +1,4 @@
-# ChimpOut — "Add chat" Feature — Implementation Spec
+# SpaceStroker — "Add chat" Feature — Implementation Spec
 
 > **Status: Shipped (v2)** — merged `feature/game-chat` → `main` on 2026-07-03.
 > Trello: [Add chat](https://trello.com/c/7UnjEOom/4-add-chat). Distilled rules:
@@ -27,7 +27,7 @@ per game (`wsGamesConnection` in `useGame`) and joins the game group via
 | **Limits** | **Client-side:** 200 chars max, **1 message / 1 s**, inline validation. Server enforces **length (≤200) + non-empty** as a hard guard; **no** server rate limiting. |
 | **Lifecycle** | Visible the whole time on `/game`. After the game ends (`Ended`), messages stay visible and the input goes **read-only**. On game rollover (auto-advance to the next instance), the message list clears, input re-enables, the same identity is kept, and chat re-joins the new game group. |
 | **UI** | Right sidebar, absolutely positioned, **open by default**, hide/show toggle (not persisted). |
-| **Hosts** | `ChimpOut.Api` (hub + broadcast + publish); `ChimpOut.Consumers` (persistence consumer + purge job + migration). |
+| **Hosts** | `SpaceStroker.Api` (hub + broadcast + publish); `SpaceStroker.Consumers` (persistence consumer + purge job + migration). |
 
 There is **no REST API** for chat. Sending is over SignalR; persistence is over RabbitMQ.
 
@@ -39,20 +39,20 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/game-chat` in **both** `monkify-backend` and `monkify-front`
   (and this doc in `monkify-meta`).
-- **Unit tests:** add/update tests in `ChimpOut.Tests` for the hub guard + publish, the persistence
+- **Unit tests:** add/update tests in `SpaceStroker.Tests` for the hub guard + publish, the persistence
   consumer, and the purge job; **report which tests changed/added** at end of work. Run the full
   suite via `scripts/run_tests.bat`. **This feature does not change the game lifecycle**, so the
   integration suite is not required.
 - **EF mapping:** the new `GameChatMessage` mapping is **inline** in
-  `ChimpOutDbContext.OnModelCreating` — no `IEntityTypeConfiguration`.
-- **Migrations:** add one under `ChimpOut.Infrastructure/Migrations/`; applied only by
-  `ChimpOut.Consumers` at startup. Do not hand-edit the snapshot; regenerate via `dotnet ef`.
+  `SpaceStrokerDbContext.OnModelCreating` — no `IEntityTypeConfiguration`.
+- **Migrations:** add one under `SpaceStroker.Infrastructure/Migrations/`; applied only by
+  `SpaceStroker.Consumers` at startup. Do not hand-edit the snapshot; regenerate via `dotnet ef`.
 - **Secrets/config:** only mock/placeholder values in committed config. The new settings
   (`GameChatEndpoint`, `Chat.RetentionDays`) are non-secret.
 - **Operator messaging:** unchanged — chat adds **no** operator-specific messaging; operator scoping
   is implicit via the per-game group and the game row.
 - **Host responsibilities intact:** the API broadcasts and publishes but **does not** write chat to
-  the DB on the realtime path; persistence + migration + purge live in `ChimpOut.Consumers`.
+  the DB on the realtime path; persistence + migration + purge live in `SpaceStroker.Consumers`.
 
 ---
 
@@ -88,7 +88,7 @@ From `monkify-meta/constraints.md` (full list there):
 New `GameChatMessage : TableEntity` (base gives `Id: Guid` + `CreatedDate: DateTime` — the latter
 **is** the `sentAt` and the purge key).
 
-`ChimpOut.Domain/Games/Entities/GameChatMessage.cs`:
+`SpaceStroker.Domain/Games/Entities/GameChatMessage.cs`:
 
 ```csharp
 public class GameChatMessage : TableEntity
@@ -113,7 +113,7 @@ public class GameChatMessage : TableEntity
 
 ### 4.2 EF configuration (inline)
 
-`ChimpOutDbContext`: add `public DbSet<GameChatMessage> GameChatMessages { get; set; }` and a
+`SpaceStrokerDbContext`: add `public DbSet<GameChatMessage> GameChatMessages { get; set; }` and a
 mapping block in `OnModelCreating` following the existing style:
 
 ```csharp
@@ -134,10 +134,10 @@ modelBuilder.Entity<GameChatMessage>(builder =>
 ```bash
 # from monkify-backend/src
 dotnet ef migrations add AddGameChatMessages \
-  --project ChimpOut.Infrastructure --startup-project ChimpOut.Consumers
+  --project SpaceStroker.Infrastructure --startup-project SpaceStroker.Consumers
 ```
 
-Applied automatically by `ChimpOut.Consumers` at startup (`Database.Migrate()`). Do not hand-edit the
+Applied automatically by `SpaceStroker.Consumers` at startup (`Database.Migrate()`). Do not hand-edit the
 snapshot.
 
 ---
@@ -146,10 +146,10 @@ snapshot.
 
 ### 5.1 Backend
 
-- **`ChimpOut.Domain/Configs/Entities/GameSettings.cs`** — `GameChatEndpoint` (already present
+- **`SpaceStroker.Domain/Configs/Entities/GameSettings.cs`** — `GameChatEndpoint` (already present
   from v1; keep): the per-game broadcast method template.
 
-- **New `ChimpOut.Domain/Configs/Entities/ChatSettings.cs`** and a `Chat` property on
+- **New `SpaceStroker.Domain/Configs/Entities/ChatSettings.cs`** and a `Chat` property on
   `GeneralSettings`:
 
   ```csharp
@@ -160,7 +160,7 @@ snapshot.
   // GeneralSettings: public ChatSettings Chat { get; set; }
   ```
 
-- **`ChimpOut.Common/chimpoutsettings.json`**:
+- **`SpaceStroker.Common/spacestrokersettings.json`**:
   - `GeneralSettings.Games.GameChatEndpoint` = `"{0}/ChatMessage"` (already present).
   - `GeneralSettings.Chat` = `{ "RetentionDays": 7 }` (new).
 
@@ -173,7 +173,7 @@ Rate/length limits are constants in the composable: `MAX_CHAT_LENGTH = 200`,
 
 ## 6. Backend behaviour
 
-### 6.1 `ActiveGamesHub.SendChatMessage` (`ChimpOut.Api` via `ChimpOut.Infrastructure/Hubs`)
+### 6.1 `ActiveGamesHub.SendChatMessage` (`SpaceStroker.Api` via `SpaceStroker.Infrastructure/Hubs`)
 
 The hub already injects `GeneralSettings` (v1). Add `IRabbitMQService` (already registered; used by
 `GameService` for `BetPlaced`/`BetNotification`) so the hub can publish the persist event.
@@ -206,14 +206,14 @@ public async Task SendChatMessage(string gameId, string displayName, string text
   (it has no launch token — hubs are unauthenticated here), which is what keeps it fast.
 - **`sentAt`** is a server UTC timestamp.
 
-### 6.2 Persist event + consumer (`ChimpOut.Consumers`)
+### 6.2 Persist event + consumer (`SpaceStroker.Consumers`)
 
-- **`ChatMessagePersistedEvent`** (`ChimpOut.Infrastructure/Events/ChatMessage/…` or alongside
+- **`ChatMessagePersistedEvent`** (`SpaceStroker.Infrastructure/Events/ChatMessage/…` or alongside
   `BetNotificationEvent`): `record ChatMessagePersistedEvent(Guid GameId, string DisplayName, string Text)`.
 - **`ChatMessagePersistedConsumer : BaseConsumer<ChatMessagePersistedEvent>`** (mirror
-  `BetNotificationConsumer`): resolves `ChimpOutDbContext` from a scope and inserts a
+  `BetNotificationConsumer`): resolves `SpaceStrokerDbContext` from a scope and inserts a
   `GameChatMessage(GameId, DisplayName, Text)` (its `CreatedDate` = persist time).
-- Register in **`ChimpOut.Consumers/Program.cs`**: `x.AddConsumer<ChatMessagePersistedConsumer>()` and a
+- Register in **`SpaceStroker.Consumers/Program.cs`**: `x.AddConsumer<ChatMessagePersistedConsumer>()` and a
   `cfg.ReceiveEndpoint(nameof(ChatMessagePersistedConsumer), …)` block, following the existing
   consumers.
 
@@ -221,17 +221,17 @@ public async Task SendChatMessage(string gameId, string displayName, string text
 > queue latency (sub-second). That's acceptable — persistence is audit-only and never shown to
 > players, so the two timestamps need not be identical.
 
-### 6.3 Purge job (`ChimpOut.Consumers`)
+### 6.3 Purge job (`SpaceStroker.Consumers`)
 
 - A daily **Hangfire recurring job** registered at startup (Hangfire is already configured with a
-  dashboard in `ChimpOut.Consumers/Program.cs`):
+  dashboard in `SpaceStroker.Consumers/Program.cs`):
 
   ```csharp
   RecurringJob.AddOrUpdate<ChatMessagePurgeJob>(
       "game-chat-purge", job => job.Purge(), Cron.Daily());
   ```
 
-- **`ChatMessagePurgeJob`** resolves `ChimpOutDbContext` + `GeneralSettings` and deletes rows older
+- **`ChatMessagePurgeJob`** resolves `SpaceStrokerDbContext` + `GeneralSettings` and deletes rows older
   than retention:
 
   ```csharp
@@ -319,10 +319,10 @@ export interface ChatMessage {
 ```mermaid
 sequenceDiagram
   participant A as Player A (tab)
-  participant Hub as ActiveGamesHub (ChimpOut.Api)
+  participant Hub as ActiveGamesHub (SpaceStroker.Api)
   participant B as Player B (tab)
   participant MQ as RabbitMQ
-  participant C as ChatMessagePersistedConsumer (ChimpOut.Consumers)
+  participant C as ChatMessagePersistedConsumer (SpaceStroker.Consumers)
   participant DB as PostgreSQL
   A->>Hub: invoke SendChatMessage(gameId, displayName, text)
   alt invalid (empty/whitespace, >200, no name/game)
@@ -373,21 +373,21 @@ flowchart LR
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/GameChatMessage.cs` | **New** entity (`: TableEntity`). |
-| 2 | `ChimpOut.Domain/Configs/Entities/ChatSettings.cs` | **New** — `RetentionDays` (default 7). |
-| 3 | `ChimpOut.Domain/Configs/Entities/GeneralSettings.cs` | Add `Chat` property. |
-| 4 | `ChimpOut.Domain/Configs/Entities/GameSettings.cs` | `GameChatEndpoint` (already added in v1). |
-| 5 | `ChimpOut.Common/chimpoutsettings.json` | `Games.GameChatEndpoint` (present) + new `Chat.RetentionDays: 7`. |
-| 6 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | Add `DbSet<GameChatMessage>` + inline mapping. |
-| 7 | `ChimpOut.Infrastructure/Migrations/*_AddGameChatMessages.cs` | **New** migration (generated). |
-| 8 | `ChimpOut.Infrastructure/Events/.../ChatMessagePersistedEvent.cs` | **New** event record. |
-| 9 | `ChimpOut.Infrastructure/Consumers/.../ChatMessagePersistedConsumer.cs` | **New** `BaseConsumer<>` persisting the row. |
-| 10 | `ChimpOut.Infrastructure/.../ChatMessagePurgeJob.cs` | **New** purge job (`ExecuteDeleteAsync`). |
-| 11 | `ChimpOut.Infrastructure/Hubs/ActiveGamesHub.cs` | Inject `IRabbitMQService`; broadcast `{displayName,text,sentAt}` + publish persist event. |
-| 12 | `ChimpOut.Consumers/Program.cs` | Register the consumer (`AddConsumer` + receive endpoint) and the daily `RecurringJob`. |
-| 13 | `ChimpOut.Tests/UnitTests/Hubs/ActiveGamesHubTests.cs` | Update: assert publish on valid, no publish/broadcast on invalid, `displayName` in payload. |
-| 14 | `ChimpOut.Tests/UnitTests/.../ChatMessagePersistedConsumerTests.cs` | **New** — inserts the row. |
-| 15 | `ChimpOut.Tests/UnitTests/.../ChatMessagePurgeJobTests.cs` | **New** — deletes only rows older than retention. |
+| 1 | `SpaceStroker.Domain/Games/Entities/GameChatMessage.cs` | **New** entity (`: TableEntity`). |
+| 2 | `SpaceStroker.Domain/Configs/Entities/ChatSettings.cs` | **New** — `RetentionDays` (default 7). |
+| 3 | `SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs` | Add `Chat` property. |
+| 4 | `SpaceStroker.Domain/Configs/Entities/GameSettings.cs` | `GameChatEndpoint` (already added in v1). |
+| 5 | `SpaceStroker.Common/spacestrokersettings.json` | `Games.GameChatEndpoint` (present) + new `Chat.RetentionDays: 7`. |
+| 6 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | Add `DbSet<GameChatMessage>` + inline mapping. |
+| 7 | `SpaceStroker.Infrastructure/Migrations/*_AddGameChatMessages.cs` | **New** migration (generated). |
+| 8 | `SpaceStroker.Infrastructure/Events/.../ChatMessagePersistedEvent.cs` | **New** event record. |
+| 9 | `SpaceStroker.Infrastructure/Consumers/.../ChatMessagePersistedConsumer.cs` | **New** `BaseConsumer<>` persisting the row. |
+| 10 | `SpaceStroker.Infrastructure/.../ChatMessagePurgeJob.cs` | **New** purge job (`ExecuteDeleteAsync`). |
+| 11 | `SpaceStroker.Infrastructure/Hubs/ActiveGamesHub.cs` | Inject `IRabbitMQService`; broadcast `{displayName,text,sentAt}` + publish persist event. |
+| 12 | `SpaceStroker.Consumers/Program.cs` | Register the consumer (`AddConsumer` + receive endpoint) and the daily `RecurringJob`. |
+| 13 | `SpaceStroker.Tests/UnitTests/Hubs/ActiveGamesHubTests.cs` | Update: assert publish on valid, no publish/broadcast on invalid, `displayName` in payload. |
+| 14 | `SpaceStroker.Tests/UnitTests/.../ChatMessagePersistedConsumerTests.cs` | **New** — inserts the row. |
+| 15 | `SpaceStroker.Tests/UnitTests/.../ChatMessagePurgeJobTests.cs` | **New** — deletes only rows older than retention. |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -411,7 +411,7 @@ flowchart LR
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |

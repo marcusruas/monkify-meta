@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace ChimpOut.Deploy;
+namespace SpaceStroker.Deploy;
 
 /// <summary>
 /// Implements the deploy pipeline: sync secrets → Secret Manager, emit Terraform vars,
@@ -34,12 +34,12 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         switch (component)
         {
             case "api":
-                BuildAndPushImage("api", Path.Combine("ChimpOut.Api", "Dockerfile"));
-                UpdateCloudRun("chimpout-api");
+                BuildAndPushImage("api", Path.Combine("SpaceStroker.Api", "Dockerfile"));
+                UpdateCloudRun("spacestroker-api");
                 break;
             case "consumers":
-                BuildAndPushImage("consumers", Path.Combine("ChimpOut.Consumers", "Dockerfile"));
-                UpdateCloudRun("chimpout-consumers");
+                BuildAndPushImage("consumers", Path.Combine("SpaceStroker.Consumers", "Dockerfile"));
+                UpdateCloudRun("spacestroker-consumers");
                 break;
             case "front":
                 BuildStaticSite(_paths.FrontRepo, isYarn: true);
@@ -116,7 +116,7 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         var wl = _paths.TerraformWorkload;
         var region = _s.Gcp.Region;
         var project = _s.Gcp.ProjectId;
-        var registry = $"{region}-docker.pkg.dev/{project}/chimpout";
+        var registry = $"{region}-docker.pkg.dev/{project}/spacestroker";
 
         var plainEnv = new Dictionary<string, string>();
         foreach (var (k, v) in _s.AppConfig)
@@ -132,7 +132,7 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             ["api_max_instances"] = _s.Gcp.ApiMaxInstances,
             ["consumer_count"] = _s.Gcp.ConsumerCount,
             ["enable_deletion_protection"] = deletionProtectionOverride ?? _s.Gcp.EnableDeletionProtection,
-            ["db_app_password"] = _s.Secrets.TryGetValue("ConnectionStrings:ChimpOut", out var cs)
+            ["db_app_password"] = _s.Secrets.TryGetValue("ConnectionStrings:SpaceStroker", out var cs)
                 ? ExtractPassword(cs)
                 : "",
             ["front_bucket_name"] = BucketName("front"),
@@ -164,7 +164,7 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
 
     private void BuildAndPushImage(string image, string dockerfileRelative)
     {
-        var tag = $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/chimpout/{image}:latest";
+        var tag = $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/spacestroker/{image}:latest";
         var context = Path.Combine(_paths.BackendRepo, "src");
         ProcessRunner.RunOrThrow("docker",
             $"build -t {tag} -f \"{Path.Combine(context, dockerfileRelative)}\" \"{context}\"");
@@ -174,8 +174,8 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
     private void UpdateCloudRun(string service)
     {
         var tag = service.EndsWith("api")
-            ? $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/chimpout/api:latest"
-            : $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/chimpout/consumers:latest";
+            ? $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/spacestroker/api:latest"
+            : $"{_s.Gcp.Region}-docker.pkg.dev/{_s.Gcp.ProjectId}/spacestroker/consumers:latest";
         ProcessRunner.RunOrThrow("gcloud",
             $"run services update {service} --project={_s.Gcp.ProjectId} --region={_s.Gcp.Region} --image={tag}");
     }
@@ -212,12 +212,12 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         ProcessRunner.RunOrThrow("gsutil", $"-m rsync -r -d \"{distDir}\" gs://{bucket}");
         // CDN cache invalidation (best-effort; url-map name follows the module convention).
         ProcessRunner.Run("gcloud",
-            $"compute url-maps invalidate-cdn-cache chimpout-urlmap --project={_s.Gcp.ProjectId} --path=\"/*\" --async");
+            $"compute url-maps invalidate-cdn-cache spacestroker-urlmap --project={_s.Gcp.ProjectId} --path=\"/*\" --async");
     }
 
     // --- Helpers -----------------------------------------------------------------
 
-    private string BucketName(string site) => $"chimpout-{site}-{_s.Gcp.ProjectId}";
+    private string BucketName(string site) => $"spacestroker-{site}-{_s.Gcp.ProjectId}";
 
     private static string AutoTfvarsPath(string dir) => Path.Combine(dir, "production.auto.tfvars.json");
 

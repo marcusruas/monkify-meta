@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace ChimpOut.Deploy;
+namespace SpaceStroker.Deploy;
 
 /// <summary>Runs external CLIs (gcloud, docker, terraform, gsutil, yarn, npm) and streams output.</summary>
 public static class ProcessRunner

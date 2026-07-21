@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ChimpOut.Deploy;
+namespace SpaceStroker.Deploy;
 
 /// <summary>
 /// The unversioned local secrets.&lt;env&gt;.json — the single source of truth for a deploy.

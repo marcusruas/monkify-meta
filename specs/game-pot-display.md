@@ -1,4 +1,4 @@
-# ChimpOut — "Show Game Pot Value" Feature — Implementation Spec
+# SpaceStroker — "Show Game Pot Value" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/game-pot-display` on 2026-07-07.
 > Distilled summary: `../features/game-pot-display.md`.
@@ -47,7 +47,7 @@ From `monkify-meta/constraints.md` (full list there):
   test" rule (`constraints.md` → "Integration tests are mandatory") is **backend/game-flow
   scoped**. This card has **no backend surface** (no handler, consumer, entity, endpoint, DTO, or
   SignalR contract change), so it introduces no backend happy path to exercise. No
-  `ChimpOut.Tests.Integration` test is added.
+  `SpaceStroker.Tests.Integration` test is added.
 - **Frontend has no unit-test harness.** `monkify-front/package.json` exposes only `serve`, `build`,
   and `lint` (no `test`/jest/vitest, and no `.spec`/`.test` files under `src/`). Verification is
   therefore **`npm run lint` + `npm run build` clean + manual QA in the running app** (§13), not an
@@ -272,7 +272,7 @@ updateNewGame (rollover) ─► currentPot = 0 ─► getBets reseeds
 
 **None — the frontend has no unit-test harness** (see §2). `monkify-front` ships no test runner and no
 `src` tests; adding a framework for this display-only change is out of scope. Verification is
-`npm run lint` + `npm run build` + the manual QA in §13. (Backend `ChimpOut.Tests` is untouched —
+`npm run lint` + `npm run build` + the manual QA in §13. (Backend `SpaceStroker.Tests` is untouched —
 there is no backend change.)
 
 ---

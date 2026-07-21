@@ -5,7 +5,7 @@
 
 ## What it does
 
-A **regulated (Model A) operator casino** can embed the ChimpOut game in an `<iframe>` on its own site —
+A **regulated (Model A) operator casino** can embed the SpaceStroker game in an `<iframe>` on its own site —
 the white-label delivery path for the B2B integration. The SPA detects it is framed, speaks a stable
 `postMessage` API to the parent casino (lifecycle + resize), and — the core fix — **never dead-ends on
 `/error` inside a frame**: on an auth failure it signals `token-expired` and shows a light "relaunching"
@@ -19,7 +19,7 @@ is the sibling feature [[iframe-crypto-games]].
   for local testing), evaluated once at load. Loaded standalone, behavior is exactly as before and **no
   `postMessage` is emitted**.
 - **Token handoff is unchanged:** the casino sets the iframe `src` to
-  `…/chimpout/game/games#launch_token=<jwt>`; the existing `useLaunch` fragment capture stores the token
+  `…/space-stroker/game/games#launch_token=<jwt>`; the existing `useLaunch` fragment capture stores the token
   in `sessionStorage`, strips it from the URL, and decodes the operator from the token's `iss` claim. The
   signed **RS256 launch token is the security boundary**, not the frame header.
 - **No `/error` when embedded:** on a 401 / invalid / expired token / inactive operator, the app emits a
@@ -28,7 +28,7 @@ is the sibling feature [[iframe-crypto-games]].
 - **Clean re-launch:** the casino re-sets the iframe `src` with a fresh `#launch_token=` → full reload
   back to game-select, with prior-game SignalR torn down (`disconnectAllPreviousConnections`), no
   stale state.
-- **Parent `postMessage` API — stable envelope `{ source: 'chimpout', type, payload }`, `targetOrigin '*'`,
+- **Parent `postMessage` API — stable envelope `{ source: 'space-stroker', type, payload }`, `targetOrigin '*'`,
   no secrets/tokens in any payload:** events are `ready`, `token-expired`, `game-started`,
   `bet-placed`, `bet-settled` (carries `won`), `game-ended`, and a one-time `resize` size **hint**
   (not continuous auto-height).

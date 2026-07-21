@@ -1,10 +1,10 @@
-# ChimpOut — "Typer Pacing Scalability" Feature — Implementation Spec
+# SpaceStroker — "Typer Pacing Scalability" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/typer-pacing-scalability` on 2026-06-29.
-> Trello: [Check chimpout typer logic to make more scallable](https://trello.com/c/uCTNtBDe/10-check-monkify-typer-logic-to-make-more-scallable).
+> Trello: [Check spacestroker typer logic to make more scallable](https://trello.com/c/uCTNtBDe/10-check-monkify-typer-logic-to-make-more-scallable).
 > Distilled rules: `features/typer-pacing-scalability.md`.
 >
-> **Purpose:** Retune `ChimpOutTyper` wall-clock pacing so game duration stays within agreed
+> **Purpose:** Retune `SpaceStrokerTyper` wall-clock pacing so game duration stays within agreed
 > statistical bounds across choice length, charset, bet count, and server hardware — **without**
 > changing RNG, seed derivation, character order, or winning outcomes.
 
@@ -44,7 +44,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/typer-pacing-scalability` in `monkify-backend`, `monkify-front`,
   and `monkify-meta`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at end of implementation.
+- **Unit tests:** update/add in `SpaceStroker.Tests`; report changed tests at end of implementation.
   Run full suite before declaring done.
 - **EF mapping / migrations:** **None** — no schema changes.
 - **Secrets/config:** mock-only values in committed config if touched.
@@ -84,10 +84,10 @@ Lottery vs race is detected at runtime from existing `Game.Parameters.LotteryPar
 Add pacing settings under `GeneralSettings.Games` (or a nested `TyperPacing` object on
 `GameSettings`).
 
-File: `monkify-backend/src/ChimpOut.Domain/Configs/Entities/GameSettings.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Configs/Entities/GameSettings.cs`
 
 ```csharp
-// Suggested properties (names may be adjusted; wire in chimpoutsettings.json)
+// Suggested properties (names may be adjusted; wire in spacestrokersettings.json)
 public int RaceTargetMeanSecondsMin { get; set; } = 8;
 public int RaceTargetMeanSecondsMax { get; set; } = 18;
 public int RaceTargetP95SecondsMax { get; set; } = 30;
@@ -96,11 +96,11 @@ public int LotteryTargetMeanSecondsMax { get; set; } = 30;
 public int LotteryTargetP95SecondsMax { get; set; } = 45;
 ```
 
-File: `monkify-backend/src/ChimpOut.Common/chimpoutsettings.json` — add defaults above under
+File: `monkify-backend/src/SpaceStroker.Common/spacestrokersettings.json` — add defaults above under
 `GeneralSettings.Games`. Use the same numeric defaults; no secrets.
 
-Inject settings into `ChimpOutTyper` via constructor overload or factory from `GameService`
-(the typer today is `new ChimpOutTyper(game)` only — extend to pass pacing settings + lottery flag).
+Inject settings into `SpaceStrokerTyper` via constructor overload or factory from `GameService`
+(the typer today is `new SpaceStrokerTyper(game)` only — extend to pass pacing settings + lottery flag).
 
 ---
 
@@ -108,7 +108,7 @@ Inject settings into `ChimpOutTyper` via constructor overload or factory from `G
 
 ### 6.1 Root cause (code exploration)
 
-File: `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs`
+File: `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs`
 
 1. **`CalculateDelayIntervals`** sets `_expectedCharsToWin = poolSize^QueueLength / Bets.Count`
    (dictionary **key** count, including preset choices registered at 0).
@@ -122,7 +122,7 @@ File: `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs`
 5. Speed ramp (`CurrentTypingSpeed` 1→2→3) triggers at `_expectedCharsToWin` and `2×` that count —
    decoupled from wall-clock targets.
 
-File: `ChimpOut.Infrastructure/Services/Games/GameService.cs` — `RunGame` loops
+File: `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `RunGame` loops
 `GenerateNextCharacter`, batches to `TerminalBatchLimit` (500), emits `DisplaySpeed` on change.
 No wall-clock pacing at this layer today.
 
@@ -168,7 +168,7 @@ Recommended approach (implementer may refine constants but must honour decisions
   **ordinally-sorted** set of choices (`Bets.Keys`). `NumberOfWinners = Bets[winningChoice]`.
 - **Reproducibility is preserved.** The trigger is a fixed character count (not wall-clock), and the
   draw depends only on the already-audited `GameSeed` and the choice set. The same seed + bets
-  therefore yield the same character stream **and** the same winner on any host — `ChimpOutTyper`
+  therefore yield the same character stream **and** the same winner on any host — `SpaceStrokerTyper`
   exposes `WinnerDecidedByFallback` for observability.
 - **Fairness is preserved in distribution.** A natural first-match is ~uniform over the distinct
   choices; the fallback draw is uniform over the same choices, so no bias is introduced.
@@ -200,13 +200,13 @@ Recommended approach (implementer may refine constants but must honour decisions
 | `GameMetricsTestParameters` has no lottery flag | Add `IsLottery` or `LotteryParameters` helper; new test methods for 7L lottery |
 | No 7L/8L / `NumbersAndLetters` cases | Add `ProductionGameTests` theories |
 | No reproducibility test | New test: fixed bets + fixed bet seeds → same char sequence before/after pacing change |
-| `ChimpOutTyperTests.DefaultGameAverageDuration` unused | Remove or wire to new pacing unit tests |
+| `SpaceStrokerTyperTests.DefaultGameAverageDuration` unused | Remove or wire to new pacing unit tests |
 
 ### 6.5 Host ownership
 
 | Component | Host |
 | --- | --- |
-| `ChimpOutTyper` pacing | `ChimpOut.Consumers` (via `RunGameConsumer` → `GameService.RunGame`) |
+| `SpaceStrokerTyper` pacing | `SpaceStroker.Consumers` (via `RunGameConsumer` → `GameService.RunGame`) |
 | SignalR terminal / DisplaySpeed | Same (Consumers publish via hub) |
 | API | **No changes** |
 
@@ -250,12 +250,12 @@ Current behaviour:
 sequenceDiagram
     participant RS as RunGameConsumer
     participant SS as GameService
-    participant MT as ChimpOutTyper
+    participant MT as SpaceStrokerTyper
     participant SW as Stopwatch schedule
     participant Hub as SignalR
 
     RS->>SS: RunGame(game)
-    SS->>MT: new ChimpOutTyper(game, pacingSettings)
+    SS->>MT: new SpaceStrokerTyper(game, pacingSettings)
     loop Until HasWinners
         SS->>MT: GenerateNextCharacter()
         MT->>MT: RNG next char (unchanged)
@@ -266,7 +266,7 @@ sequenceDiagram
         end
         SS->>Hub: Batch terminal / DisplaySpeed
     end
-    SS-->>RS: ChimpOutTyper (winner)
+    SS-->>RS: SpaceStrokerTyper (winner)
 ```
 
 ---
@@ -288,15 +288,15 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs` | Time-budget pacing; inject settings; retune speed milestones; remove modulo 1 ms delay |
-| 2 | `ChimpOut.Domain/Configs/Entities/GameSettings.cs` | Add typer pacing target properties |
-| 3 | `ChimpOut.Common/chimpoutsettings.json` | Default pacing values under `GeneralSettings.Games` |
-| 4 | `ChimpOut.Infrastructure/Services/Games/GameService.cs` | Pass pacing settings + lottery flag into typer; optional batch flush tuning |
-| 5 | `ChimpOut.Tests/UnitTests/Shared/BaseGameMetricsTestsClass.cs` | Monte Carlo size, p95 helper, mode-specific validators |
-| 6 | `ChimpOut.Tests/UnitTests/Shared/GameMetricsTestParameters.cs` | Lottery / charset / length helpers |
-| 7 | `ChimpOut.Tests/UnitTests/Domain/ProductionGameTests.cs` | New theories: 7L lottery, 7–8L races, NumbersAndLetters; updated bounds |
-| 8 | `ChimpOut.Tests/UnitTests/Domain/Games/ChimpOutTyperTests.cs` | Reproducibility test; remove dead constant or add pacing assertions |
-| 9 | `ChimpOut.Tests/UnitTests/Shared/GameServiceTestFactory.cs` | Wire pacing settings in test `GeneralSettings` |
+| 1 | `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` | Time-budget pacing; inject settings; retune speed milestones; remove modulo 1 ms delay |
+| 2 | `SpaceStroker.Domain/Configs/Entities/GameSettings.cs` | Add typer pacing target properties |
+| 3 | `SpaceStroker.Common/spacestrokersettings.json` | Default pacing values under `GeneralSettings.Games` |
+| 4 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | Pass pacing settings + lottery flag into typer; optional batch flush tuning |
+| 5 | `SpaceStroker.Tests/UnitTests/Shared/BaseGameMetricsTestsClass.cs` | Monte Carlo size, p95 helper, mode-specific validators |
+| 6 | `SpaceStroker.Tests/UnitTests/Shared/GameMetricsTestParameters.cs` | Lottery / charset / length helpers |
+| 7 | `SpaceStroker.Tests/UnitTests/Domain/ProductionGameTests.cs` | New theories: 7L lottery, 7–8L races, NumbersAndLetters; updated bounds |
+| 8 | `SpaceStroker.Tests/UnitTests/Domain/Games/SpaceStrokerTyperTests.cs` | Reproducibility test; remove dead constant or add pacing assertions |
+| 9 | `SpaceStroker.Tests/UnitTests/Shared/GameServiceTestFactory.cs` | Wire pacing settings in test `GeneralSettings` |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -318,7 +318,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 ### 11.1 Refactor metrics harness
 
@@ -347,7 +347,7 @@ Keep existing 2–400 bet `[InlineData]` sweep; update assertions to new validat
 
 ### 11.3 Reproducibility
 
-**File:** `ChimpOutTyperTests.cs` (or new `ChimpOutTyperReproducibilityTests.cs`)
+**File:** `SpaceStrokerTyperTests.cs` (or new `SpaceStrokerTyperReproducibilityTests.cs`)
 
 | Test | Expected |
 | --- | --- |
@@ -393,9 +393,9 @@ Implementation tip: extract package-private helper to drain typer without Signal
 
 ## 14. Trello / pipeline
 
-- **Source card:** [Check chimpout typer logic to make more scallable](https://trello.com/c/uCTNtBDe/10-check-monkify-typer-logic-to-make-more-scallable) — list **Specs created**; **Implementation** section on card lists branch + spec.
+- **Source card:** [Check spacestroker typer logic to make more scallable](https://trello.com/c/uCTNtBDe/10-check-monkify-typer-logic-to-make-more-scallable) — list **Specs created**; **Implementation** section on card lists branch + spec.
 - **Branch:** `feature/typer-pacing-scalability` in `monkify-backend`, `monkify-front`, `monkify-meta`.
-- **After merge:** `/monkify-ship-feature Check chimpout typer logic to make more scallable`
+- **After merge:** `/monkify-ship-feature Check spacestroker typer logic to make more scallable`
 
 ---
 
@@ -404,4 +404,4 @@ Implementation tip: extract package-private helper to drain typer without Signal
 | Date | Change |
 | --- | --- |
 | 2026-06-26 | Initial spec from refined Trello card + refinement conversation |
-| 2026-06-29 | Implemented on `feature/typer-pacing-scalability`. Time-budget (`Stopwatch`) pacing replaces the modulo 1 ms delay; added `GameSettings` pacing targets + `MaxTyperCharacters`; added deterministic seed-based fallback winner at the character cap (§6.2.1) to bound otherwise-unreachable large search spaces while preserving reproducibility and fairness. Test harness reworked: Monte-Carlo `RunCount` (default 100, `CHIMPOUT_TEST_RUNCOUNT` override), p95 + mode-specific validators, lottery / `NumbersAndLetters` theories, reproducibility + fallback unit tests. Frontend `GameTyper.vue` refresh tied to `DisplaySpeed`, crop tuned, duplicate `clearInterval` fixed. |
+| 2026-06-29 | Implemented on `feature/typer-pacing-scalability`. Time-budget (`Stopwatch`) pacing replaces the modulo 1 ms delay; added `GameSettings` pacing targets + `MaxTyperCharacters`; added deterministic seed-based fallback winner at the character cap (§6.2.1) to bound otherwise-unreachable large search spaces while preserving reproducibility and fairness. Test harness reworked: Monte-Carlo `RunCount` (default 100, `SPACESTROKER_TEST_RUNCOUNT` override), p95 + mode-specific validators, lottery / `NumbersAndLetters` theories, reproducibility + fallback unit tests. Frontend `GameTyper.vue` refresh tied to `DisplaySpeed`, crop tuned, duplicate `clearInterval` fixed. |

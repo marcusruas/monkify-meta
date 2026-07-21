@@ -1,4 +1,4 @@
-namespace ChimpOut.Deploy;
+namespace SpaceStroker.Deploy;
 
 /// <summary>Resolves workspace-root-relative paths (repos + terraform dirs).</summary>
 public sealed class RepoPaths

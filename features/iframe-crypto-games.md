@@ -25,11 +25,11 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
   (`connected || wallet.readyState === 'Installed'`). In a real cross-origin iframe no adapter injects →
   popup.
 - **Popup is same-origin and opened synchronously in the bet-click gesture** (dodges popup-blockers) at
-  `<origin>/chimpout/wallet-bridge`. It carries **no launch token and no operator context** in its URL. If
+  `<origin>/space-stroker/wallet-bridge`. It carries **no launch token and no operator context** in its URL. If
   the browser still blocks it, a visible **"Connect wallet"** affordance appears — **never a silent
   failure**.
-- **Internal handshake envelope `{ source: 'chimpout-wallet', … }`** (distinct from the parent-facing
-  `chimpout` envelope), strictly **same-origin**: both sides target and verify `window.location.origin` and
+- **Internal handshake envelope `{ source: 'space-stroker-wallet', … }`** (distinct from the parent-facing
+  `spacestroker` envelope), strictly **same-origin**: both sides target and verify `window.location.origin` and
   check `event.source` (opener ↔ popup). Messages: `bridge-ready` → `sign-request`
   `{ receiver, mint, amount, network }` → `sign-result` `{ signature, wallet }` (or `sign-error` /
   `cancelled`). Payloads carry **only public data** (mint / receiver / amount / network / signature /
@@ -56,19 +56,19 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
 ## Key code touchpoints
 
 - `monkify-front/src/hooks/useEmbeddedWallet.ts` — **new.** `inFrameWalletAvailable()` (sync),
-  `openWalletPopup()` (sync, same-origin `/chimpout/wallet-bridge`), `requestSignatureFromPopup()`
+  `openWalletPopup()` (sync, same-origin `/space-stroker/wallet-bridge`), `requestSignatureFromPopup()`
   (handshake + origin/source validation + `popup.closed` cancel watch), `walletPopupBlocked` state.
 - `monkify-front/src/pages/WalletBridgePage.vue` — **new.** The popup page: posts `bridge-ready`, shows the
   wallet connect UI, on `sign-request` runs `startConnection()` + `sendToken` → posts `sign-result` +
   `window.close()`; generic `sign-error` on reject/fail.
-- `monkify-front/src/utils/walletBridge.ts` — **new.** `WALLET_BRIDGE_SOURCE = 'chimpout-wallet'`, the
+- `monkify-front/src/utils/walletBridge.ts` — **new.** `WALLET_BRIDGE_SOURCE = 'space-stroker-wallet'`, the
   `WalletBridgeMessage` union, same-origin targeting/validation.
 - `monkify-front/src/hooks/useGame.ts` — `bet()` SolanaToken branch acquires the signature in-frame
   (`sendToken`) **or** via popup; plus the method-aware `currency`/amount on the [[iframe-embedding]]
   lifecycle emits (`tokenSymbol` for SolanaToken).
 - `monkify-front/src/components/game/GameConsole.vue` — relaxes the in-frame `connected` gate in
   `placeBet()` when embedded; adds the popup-blocked "Connect wallet" affordance.
-- `monkify-front/src/routes.ts` — `WalletBridge` route `/chimpout/wallet-bridge` → `WalletBridgePage.vue`
+- `monkify-front/src/routes.ts` — `WalletBridge` route `/space-stroker/wallet-bridge` → `WalletBridgePage.vue`
   (registered in prod).
 - `monkify-front/public/embed-example.html` + `monkify-front/EMBEDDING.md` — extend [[iframe-embedding]]'s
   example page + README with the SolanaToken in-frame-then-popup flow.

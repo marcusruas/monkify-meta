@@ -1,4 +1,4 @@
-# ChimpOut — "Main production casino (default operator + auto-mint)" Feature — Implementation Spec
+# SpaceStroker — "Main production casino (default operator + auto-mint)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/main-production-operator` on 2026-07-15. Refined via Trello
 > card [Main Prd cassino (#60)](https://trello.com/c/bdkTZJOL/60-main-prd-cassino).
@@ -21,7 +21,7 @@ Two independent-but-paired changes:
 | --- | --- |
 | **Backend — seeding** | Seed an operator named **`Main`** in **all** environments (prod included), pre-provisioned with one registered `OperatorToken` (from `GeneralSettings.Token`) and **three SolanaToken** default game types (free-type race, preset "horse race", 24h lottery — all 6-char alphanumeric, free bets **off**). Keep the existing **DEV Cassino** seeding **non-prod-gated** and unchanged. |
 | **Backend — mint** | New **production-enabled** endpoint `POST /launch-token/default` that mints an **anonymous** (`sub` empty) RS256 launch token for **Main only**, signed with Main's private key from config. Not under `/dev`; not 404 in prod; hard-wired to Main. |
-| **Frontend — auto-mint** | When `ensureLaunchToken()` finds no fragment/stored token (and we're **not** embedded), call `POST /launch-token/default`, store the token (flagged as auto-minted), and proceed to Main's game list. A real fragment/stored token always wins. On a **401 of an auto-minted token**, silently **re-mint + retry** instead of routing to `/error`. Real-operator 401s still route to `/error` (unchanged). The prod token-less entry (`/chimpout/game`) redirects to the game page instead of `/error`. |
+| **Frontend — auto-mint** | When `ensureLaunchToken()` finds no fragment/stored token (and we're **not** embedded), call `POST /launch-token/default`, store the token (flagged as auto-minted), and proceed to Main's game list. A real fragment/stored token always wins. On a **401 of an auto-minted token**, silently **re-mint + retry** instead of routing to `/error`. Real-operator 401s still route to `/error` (unchanged). The prod token-less entry (`/space-stroker/game`) redirects to the game page instead of `/error`. |
 
 Net effect: **prod → only Main exists**; **non-prod → both Main and DEV Cassino** (DEV Cassino + its dev landing buttons unchanged, so local testing is preserved and Main's auto-mint is exercisable locally by hitting the game route with no token).
 
@@ -35,22 +35,22 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Worktree-per-repo / hub stays on `main`:** `feature/main-production-operator` in each affected
   repo; all work in `.worktrees/main-production-operator/<repo>`. Never `git checkout -b` in a hub.
-- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at end of implementation.
+- **Unit tests:** update/add in `SpaceStroker.Tests`; report changed tests at end of implementation.
 - **Integration test — WAIVED for this card** (per card author). Rationale: seeding/config + a thin
   mint endpoint + a frontend fallback introduce **no new game-lifecycle behaviour**; Main's crypto
   `bet → run → reward` path is already covered by the existing SolanaToken integration tests
   (`GameFlowTests` `…PaidCrypto…`). The ship gate should **not** expect a new integration test for
   this card. (This is an explicit, recorded exception to `constraints.md §3` / `AGENTS.md` rule 8.)
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **No
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **No
   schema change expected** (Main is seeded data, not new columns) → **no migration**.
 - **Secrets/config:** **mock-only** values in committed files. Main's launch **private** signing key,
   Main's launch **public** key, and the reused `GeneralSettings.Token.TokenOwnerPrivateKey` in
-  `chimpoutsettings.json` are **placeholders**; the real values are injected via the prod environment.
+  `spacestrokersettings.json` are **placeholders**; the real values are injected via the prod environment.
   Never print/commit real credentials.
 - **Operator messaging:** vague errors only; never reveal contract status. Real-operator 401s stay
   generic (`/error`); the Main auto-mint path never leaks operator internals.
-- **Host split:** the mint endpoint lives in `ChimpOut.Api` (sign only, no private-token-key decrypt);
-  seeding runs in `ChimpOut.Consumers` at startup (as today).
+- **Host split:** the mint endpoint lives in `SpaceStroker.Api` (sign only, no private-token-key decrypt);
+  seeding runs in `SpaceStroker.Consumers` at startup (as today).
 
 ---
 
@@ -63,7 +63,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 3 | **Main's Solana token** is one registered `OperatorToken` seeded from **`GeneralSettings.Token`** (the same source the dev token uses), private key **encrypted at rest** via `ISecretProtector`. Mock values in repo; real values via prod env. → SolanaToken becomes available for Main. |
 | 4 | **Three default game types for Main**, all **SolanaToken**, **6-char alphanumeric** (`NumbersAndLetters`), **`AllowFreeBet = false`**, `RequiredAmount = 1`, `MinimumNumberOfPlayers = 2`, duplicates allowed: (a) **free-type race**; (b) **preset "horse race"** — back 1 of **8 six-char alphanumeric runners** (placeholder codes; renamable); (c) **lottery** — **24h** draw, base `LotteryPot = 4`. |
 | 5 | **Auto-mint endpoint** `POST /launch-token/default` — **production-enabled** (outside `/dev`, not 404 in prod). Mints an **anonymous Main token** (`sub` empty), signed with Main's private signing key from config, TTL = `LaunchTokens.MainTokenTtlSeconds` (mock default 3600). **Hard-wired to only ever issue for the Main operator** — no operator parameter; it resolves Main by name and mints for nobody else. The minted token is a normal RS256 launch token validated against Main's stored `LaunchPublicKey` (no middleware change). |
-| 6 | **Frontend.** `useLaunch.ensureLaunchToken()`: no fragment/stored token **and not embedded** → call the mint endpoint, store as **auto-minted** (marker in `sessionStorage`), proceed. A real fragment/stored token always wins (and clears the marker). On a **401 of an auto-minted token** (standalone, non-embedded) → silently **re-mint + retry once**, not `/error`. Real-operator 401 → `/error` (unchanged). Embedded + no token → unchanged (`token-expired`, never auto-mint Main into someone else's frame). Prod token-less entry `/chimpout/game` redirects to the game page (which auto-mints Main) instead of `/error`. |
+| 6 | **Frontend.** `useLaunch.ensureLaunchToken()`: no fragment/stored token **and not embedded** → call the mint endpoint, store as **auto-minted** (marker in `sessionStorage`), proceed. A real fragment/stored token always wins (and clears the marker). On a **401 of an auto-minted token** (standalone, non-embedded) → silently **re-mint + retry once**, not `/error`. Real-operator 401 → `/error` (unchanged). Embedded + no token → unchanged (`token-expired`, never auto-mint Main into someone else's frame). Prod token-less entry `/space-stroker/game` redirects to the game page (which auto-mints Main) instead of `/error`. |
 | 7 | **Integration test waived**; unit tests still required (see §11). |
 
 ---
@@ -79,7 +79,7 @@ From `monkify-meta/constraints.md` (full list there):
 - `GameParameters` (existing) — three new seeded rows for Main (`PaymentMethod = SolanaToken`,
   `OperatorTokenId` = Main's token, one carrying `PresetChoices`, one carrying `LotteryParameters`).
 
-EF mapping already covers all three entities (no change). `ChimpOutDbContext.OnModelCreating` is **not**
+EF mapping already covers all three entities (no change). `SpaceStrokerDbContext.OnModelCreating` is **not**
 touched.
 
 ---
@@ -88,7 +88,7 @@ touched.
 
 All committed values are **mock/placeholder** (`constraints.md §1`).
 
-### 5.1 `ChimpOut.Domain/Configs/Entities/LaunchTokenSettings.cs` — add three members
+### 5.1 `SpaceStroker.Domain/Configs/Entities/LaunchTokenSettings.cs` — add three members
 
 ```csharp
 // MOCK-only PEM used by the /launch-token/default endpoint to sign Main's launch tokens.
@@ -107,7 +107,7 @@ public int MainTokenTtlSeconds { get; set; }
 > real**, and DEV Cassino is never seeded in prod. Main needs a **real** signing key in production, so
 > it must have its own config keys.
 
-### 5.2 `ChimpOut.Common/chimpoutsettings.json` — under `GeneralSettings.LaunchTokens`
+### 5.2 `SpaceStroker.Common/spacestrokersettings.json` — under `GeneralSettings.LaunchTokens`
 
 Add mock PEMs + TTL alongside the existing `ClockSkewSeconds` / `DevSigningPrivateKeyPem` /
 `DevOperatorPublicKeyPem`:
@@ -140,7 +140,7 @@ keep them generic in the committed seed.
 
 ## 6. Backend behaviour
 
-### 6.1 Seeding — `ChimpOut.Consumers/Program.cs`
+### 6.1 Seeding — `SpaceStroker.Consumers/Program.cs`
 
 Refactor `CreateDefaultOperatorAsync` so **Main seeds in every environment** while **DEV stays
 non-prod-gated**:
@@ -149,7 +149,7 @@ non-prod-gated**:
 void CreateDefaultOperatorAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
-    var context   = scope.ServiceProvider.GetRequiredService<ChimpOutDbContext>();
+    var context   = scope.ServiceProvider.GetRequiredService<SpaceStrokerDbContext>();
     var settings  = scope.ServiceProvider.GetRequiredService<GeneralSettings>();
     var cache     = scope.ServiceProvider.GetRequiredService<ICacheService>();
     var protector = scope.ServiceProvider.GetRequiredService<ISecretProtector>();
@@ -186,7 +186,7 @@ void CreateDefaultOperatorAsync(WebApplication app)
 > **Idempotency:** re-running Consumers must not duplicate Main, its token, or its game types — all
 > guards key off `Name == "Main"` / existing token / existing active params, exactly like the dev path.
 
-### 6.2 Default game types — `ChimpOut.Consumers/DefaultGameParameters.cs`
+### 6.2 Default game types — `SpaceStroker.Consumers/DefaultGameParameters.cs`
 
 Add a Main-specific generator (all **SolanaToken**, `NumbersAndLetters`, length 6, **free bets off**):
 
@@ -232,7 +232,7 @@ private static GameParameters MainLottery(string name, string description, Guid 
   charset at length 6) — rename freely.
 - `AllowFreeBet = false` overrides the `Base(...)` default of `true`.
 
-### 6.3 Seed Main's game types — `ChimpOut.Consumers/Program.cs` (`CreateDefaultGameParametersAsync`)
+### 6.3 Seed Main's game types — `SpaceStroker.Consumers/Program.cs` (`CreateDefaultGameParametersAsync`)
 
 Currently seeds only for `DEV Cassino`. Extend to **also** seed Main's three crypto types when Main has
 no active params. Add a Main branch that mirrors the crypto-seeding block already used for dev:
@@ -263,7 +263,7 @@ Keep the existing DEV Cassino block (non-prod) untouched. `OpenNewGames` already
 **all** active-parameter operators whose contract is active, so Main's games start automatically —
 **no change** to `OpenNewGames`.
 
-### 6.4 Mint endpoint — new `ChimpOut.Api/Controllers/LaunchController.cs`
+### 6.4 Mint endpoint — new `SpaceStroker.Api/Controllers/LaunchController.cs`
 
 Production-enabled controller (route does **not** start with a middleware-protected prefix, so it is
 **not** token-guarded):
@@ -274,7 +274,7 @@ Production-enabled controller (route does **not** start with a middleware-protec
 public class LaunchController(
     GeneralSettings settings,
     ILaunchTokenService tokenService,
-    ChimpOutDbContext context) : ControllerBase
+    SpaceStrokerDbContext context) : ControllerBase
 {
     private const string MainOperatorName = "Main";
 
@@ -329,7 +329,7 @@ public class LaunchController(
 Add a per-tab marker so the 401 handler can tell an auto-minted Main token from a real operator token:
 
 ```ts
-const AUTO_LAUNCH_KEY = 'chimpout.autoLaunch';
+const AUTO_LAUNCH_KEY = 'space-stroker.autoLaunch';
 
 export function setAutoMintedLaunchToken(token: string): void {
   setLaunchToken(token);
@@ -452,13 +452,13 @@ page, so App.vue's boot runs `loadOperator()` → `ensureLaunchToken()` → auto
 
 ```ts
 const entryRoute = devLaunchEnabled
-  ? { name: 'DevLanding', path: '/chimpout/game', component: require('@/pages/DevLandingPage.vue').default }
-  : { path: '/chimpout/game', redirect: '/chimpout/game/games' };   // was: redirect '/error'
+  ? { name: 'DevLanding', path: '/space-stroker/game', component: require('@/pages/DevLandingPage.vue').default }
+  : { path: '/space-stroker/game', redirect: '/space-stroker/game/games' };   // was: redirect '/error'
 ```
 
-- **Dev unchanged:** `/chimpout/game` still shows the DEV Cassino launch buttons. To exercise Main
-  locally, navigate to `/chimpout/game/games` with no token → auto-mint Main.
-- **Prod:** `/` → `/chimpout/game` → `/chimpout/game/games` → boot auto-mints Main → Main games.
+- **Dev unchanged:** `/space-stroker/game` still shows the DEV Cassino launch buttons. To exercise Main
+  locally, navigate to `/space-stroker/game/games` with no token → auto-mint Main.
+- **Prod:** `/` → `/space-stroker/game` → `/space-stroker/game/games` → boot auto-mints Main → Main games.
 
 ### 7.5 Optional (dev convenience)
 
@@ -483,10 +483,10 @@ sequenceDiagram
   participant U as Visitor
   participant SPA as Frontend (App.vue / useOperator)
   participant L as useLaunch.ensureLaunchToken
-  participant API as ChimpOut.Api
+  participant API as SpaceStroker.Api
 
   U->>SPA: open / (no launch token)
-  SPA->>SPA: / → /chimpout/game → /chimpout/game/games
+  SPA->>SPA: / → /space-stroker/game → /space-stroker/game/games
   SPA->>L: ensureLaunchToken()
   L->>L: no fragment, no stored, not embedded
   L->>API: POST /launch-token/default
@@ -504,7 +504,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant SPA as Frontend (mainAPI interceptor)
-  participant API as ChimpOut.Api
+  participant API as SpaceStroker.Api
   SPA->>API: GET /games/... (expired auto-minted token)
   API-->>SPA: 401
   SPA->>SPA: isAutoMintedLaunch() && !_retriedDefaultMint
@@ -521,7 +521,7 @@ sequenceDiagram
 
 - Real production token mint/sender/owner-keypair and Main's real launch private key (injected via
   env; repo holds mock placeholders only).
-- Admin-portal changes for Main (Main can use the existing `/chimpout/admin` flows later).
+- Admin-portal changes for Main (Main can use the existing `/space-stroker/admin` flows later).
 - **Standard** (off-chain) game types for Main — all Main types are crypto for now.
 - Branding/naming polish beyond `Main` (final `MainPageUrl`/`IconUrl`/token symbol).
 - Any **new integration test** (explicitly waived — see §2).
@@ -535,13 +535,13 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Domain/Configs/Entities/LaunchTokenSettings.cs` | Add `MainSigningPrivateKeyPem`, `MainOperatorPublicKeyPem`, `MainTokenTtlSeconds`; update doc comment. |
-| 2 | `src/ChimpOut.Common/chimpoutsettings.json` | Add the two mock Main PEMs (a valid RSA pair) + `MainTokenTtlSeconds` under `GeneralSettings.LaunchTokens`. Mock only. |
-| 3 | `src/ChimpOut.Consumers/Program.cs` | Refactor `CreateDefaultOperatorAsync` (seed Main in all envs; DEV stays non-prod). Add `EnsureMainOperator` + `EnsureMainOperatorToken` + `MainOperatorName`/`MainOperatorId` constants. Extend `CreateDefaultGameParametersAsync` with the Main crypto-seeding branch. |
-| 4 | `src/ChimpOut.Consumers/DefaultGameParameters.cs` | Add `GenerateMainDefaultParameters(Guid operatorTokenId)` + `MainBase`/`MainRace`/`MainPreset`/`MainLottery` helpers (SolanaToken, `NumbersAndLetters` len 6, `AllowFreeBet=false`). |
-| 5 | `src/ChimpOut.Api/Controllers/LaunchController.cs` | **New.** `POST /launch-token/default` → mint anonymous Main token (Main-only, empty sub, prod-enabled). |
-| 6 | `src/ChimpOut.Api/Launch/LaunchTokenService.cs` | Doc-comment only: `Issue`/interface note now "dev mint **and** default-operator mint". No behaviour change. |
-| 7 | `src/ChimpOut.Tests/...` | New/updated unit tests (see §11). |
+| 1 | `src/SpaceStroker.Domain/Configs/Entities/LaunchTokenSettings.cs` | Add `MainSigningPrivateKeyPem`, `MainOperatorPublicKeyPem`, `MainTokenTtlSeconds`; update doc comment. |
+| 2 | `src/SpaceStroker.Common/spacestrokersettings.json` | Add the two mock Main PEMs (a valid RSA pair) + `MainTokenTtlSeconds` under `GeneralSettings.LaunchTokens`. Mock only. |
+| 3 | `src/SpaceStroker.Consumers/Program.cs` | Refactor `CreateDefaultOperatorAsync` (seed Main in all envs; DEV stays non-prod). Add `EnsureMainOperator` + `EnsureMainOperatorToken` + `MainOperatorName`/`MainOperatorId` constants. Extend `CreateDefaultGameParametersAsync` with the Main crypto-seeding branch. |
+| 4 | `src/SpaceStroker.Consumers/DefaultGameParameters.cs` | Add `GenerateMainDefaultParameters(Guid operatorTokenId)` + `MainBase`/`MainRace`/`MainPreset`/`MainLottery` helpers (SolanaToken, `NumbersAndLetters` len 6, `AllowFreeBet=false`). |
+| 5 | `src/SpaceStroker.Api/Controllers/LaunchController.cs` | **New.** `POST /launch-token/default` → mint anonymous Main token (Main-only, empty sub, prod-enabled). |
+| 6 | `src/SpaceStroker.Api/Launch/LaunchTokenService.cs` | Doc-comment only: `Issue`/interface note now "dev mint **and** default-operator mint". No behaviour change. |
+| 7 | `src/SpaceStroker.Tests/...` | New/updated unit tests (see §11). |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -550,7 +550,7 @@ sequenceDiagram
 | 1 | `src/utils/launchToken.ts` | Add `AUTO_LAUNCH_KEY`, `setAutoMintedLaunchToken`, `isAutoMintedLaunch`; clear the marker inside `setLaunchToken`. |
 | 2 | `src/services/mainService.ts` | Add `getDefaultLaunchToken()`; 401 interceptor re-mints + retries once for auto-minted tokens (else `/error` as today); export the new fn. |
 | 3 | `src/hooks/useLaunch.ts` | `ensureLaunchToken()` auto-mints Main when no fragment/stored token **and not embedded**; store via `setAutoMintedLaunchToken`. |
-| 4 | `src/routes.ts` | Prod `entryRoute`: redirect `/chimpout/game` → `/chimpout/game/games` (was `/error`). Dev unchanged. |
+| 4 | `src/routes.ts` | Prod `entryRoute`: redirect `/space-stroker/game` → `/space-stroker/game/games` (was `/error`). Dev unchanged. |
 | 5 | `src/pages/DevLandingPage.vue` | **Optional** dev "Enter as Main (default)" button. |
 
 ### 10.3 Meta (`monkify-meta`)
@@ -564,7 +564,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`. (Integration test **waived** — §2.)
+Project: `monkify-backend/src/SpaceStroker.Tests`. (Integration test **waived** — §2.)
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -588,9 +588,9 @@ behaviour via Manual QA (§13).
 
 Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 
-1. Given a production environment, when `ChimpOut.Consumers` starts, then an operator named "Main"
+1. Given a production environment, when `SpaceStroker.Consumers` starts, then an operator named "Main"
    exists (active, no contract end date, with a `LaunchPublicKey`) and DEV Cassino is **not** seeded.
-2. Given a non-production environment, when `ChimpOut.Consumers` starts, then **both** "Main" and
+2. Given a non-production environment, when `SpaceStroker.Consumers` starts, then **both** "Main" and
    "DEV Cassino" exist, and DEV Cassino retains all its existing default game types plus the dev
    landing buttons unchanged.
 3. Given Main is seeded, when its default parameters are created, then Main has **exactly three**
@@ -620,11 +620,11 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 1. `scripts/setup_local_environment.bat` → Consumers seeds **Main** + **DEV Cassino** (non-prod).
    Confirm one `Main` operator, one active `OperatorToken` for Main, and three active Main
    `GameParameters` (race / preset / 24h lottery), all SolanaToken.
-2. In a fresh tab, open `/chimpout/game/games` **with no token** → the app calls
+2. In a fresh tab, open `/space-stroker/game/games` **with no token** → the app calls
    `POST /launch-token/default`, lands on **Main**'s game list (not `/error`). DevTools →
-   `sessionStorage` shows `chimpout.launchToken` + `chimpout.autoLaunch=1`.
-3. Open `/chimpout/game` (dev) → DEV Cassino launch buttons still work (regression).
-4. Launch with a real `#launch_token=<jwt>` fragment → uses that token; `chimpout.autoLaunch` is
+   `sessionStorage` shows `space-stroker.launchToken` + `space-stroker.autoLaunch=1`.
+3. Open `/space-stroker/game` (dev) → DEV Cassino launch buttons still work (regression).
+4. Launch with a real `#launch_token=<jwt>` fragment → uses that token; `space-stroker.autoLaunch` is
    **absent** (real operator). (AC #5)
 5. Connect a wallet, place a bet on a Main type → requires signature, amounts render token-native. (AC #9)
 6. Force-expire the auto-minted token (short `MainTokenTtlSeconds`, or clear/replace it) and trigger a

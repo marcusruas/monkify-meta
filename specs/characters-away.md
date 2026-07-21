@@ -1,4 +1,4 @@
-# ChimpOut — "Characters Away" (near-miss reveal) — Implementation Spec
+# SpaceStroker — "Characters Away" (near-miss reveal) — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/characters-away` on 2026-07-07.
 > Repos affected: **`monkify-front`** + **`monkify-backend`** + this doc in **`monkify-meta`**.
@@ -18,7 +18,7 @@
 >   "keeps trying to type it" loop). On a **win**, the winning choice (if the player bet it) is **typed
 >   out to the full word** and held.
 > - **Backend (added):** on a **fallback-decided** winner, `GameService.RunGame` emits
->   `ChimpOutTyper.FirstChoiceTyped` as a final `<gameId>/Terminal` batch so the terminal ends with
+>   `SpaceStrokerTyper.FirstChoiceTyped` as a final `<gameId>/Terminal` batch so the terminal ends with
 >   the word "typed". Purely visual; winner/seed/payouts/status unchanged. Unit-tested
 >   (`GameServiceTests.RunGame_FallbackDecidedWinner_EmitsWinningChoiceAsFinalTerminalBatch`).
 > - Frontend detector is `src/utils/nearMiss.ts` (pure KMP; `advance()` → live matched length) +
@@ -54,8 +54,8 @@ the **growing correct prefix at the tail of the stream**:
 > Let `L = choice.length`. Let `k` = the length of the **longest suffix of the character stream so far
 > that equals a prefix of `choice`**. Then `away = L − k`. A **win** is exactly `k == L` (the stream
 > ends with the whole choice) — so this metric *does* mirror the win, and reaches `away == 0` exactly
-> when the backend's `ChimpOutTyper.CheckForWinners` would (see
-> `monkify-backend/src/ChimpOut.Domain/Games/Services/ChimpOutTyper.cs`, exact-window equality).
+> when the backend's `SpaceStrokerTyper.CheckForWinners` would (see
+> `monkify-backend/src/SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs`, exact-window equality).
 
 This is the **KMP partial-match state**: on each new character, `k` advances by **at most +1** (or drops
 back via the failure function when the run breaks). Because `k` can only *grow one at a time*, it
@@ -459,10 +459,10 @@ not window Hamming):
 
 Run locally (crypto or regulated operator, dev launch buttons). Because a natural win/near-miss is
 random, use a **short choice length** game (or a **preset-choice race**, whose typer pool is drawn
-from the preset choices — see `ChimpOutTyper.SetCharactersOnTyper`) so the stream is biased toward the
+from the preset choices — see `SpaceStrokerTyper.SetCharactersOnTyper`) so the stream is biased toward the
 choice characters and near-misses appear quickly.
 
-1. Launch `/chimpout/game`, select a race, connect (or free-bet dev mode), place **one** bet (e.g. a
+1. Launch `/space-stroker/game`, select a race, connect (or free-bet dev mode), place **one** bet (e.g. a
    6-letter word).
 2. Pull the lever; while the stream runs, watch for `3 AWAY` → `2 AWAY` → `1 AWAY` beats with the matched
    partial word highlighted, appearing in order.

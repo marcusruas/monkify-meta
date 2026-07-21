@@ -5,7 +5,7 @@
 
 ## What it does
 
-For **`SolanaToken` (crypto) game types only**, ChimpOut retains a small **house commission** on
+For **`SolanaToken` (crypto) game types only**, SpaceStroker retains a small **house commission** on
 winnings instead of paying out the whole pot. The cut is taken only from each winner's **profit above
 their own stake** (a winner always gets their stake back), defaults to **0.5%**, and is realized by
 crediting winners less on-chain — the retained amount simply stays in the operator's token account.
@@ -63,20 +63,20 @@ The commission surfaced a latent multi-winner payout bug in the reward path, fix
 
 **Backend (`monkify-backend`)**
 
-- Reward math: `ChimpOut.Domain/Bets/Services/BetDomainService.cs` — ctor captures `_isSolanaToken`,
+- Reward math: `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` — ctor captures `_isSolanaToken`,
   `_houseFundedBase`, `_commissionRate`, `_payableWinnerCount` (+ `PayableWinnerCount`); `CommissionForWinner`
   applies the cut in `CalculateRewardForBet`; `Winners` is materialized.
-- Config: `ChimpOut.Domain/Configs/Entities/TokenSettings.cs` (`CommissionPercentage`);
-  `ChimpOut.Common/chimpoutsettings.json` → `GeneralSettings.Token.CommissionPercentage` (mock `0.5`).
-- DTO: `ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs` (`CommissionPercentage`, SolanaToken
+- Config: `SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` (`CommissionPercentage`);
+  `SpaceStroker.Common/spacestrokersettings.json` → `GeneralSettings.Token.CommissionPercentage` (mock `0.5`).
+- DTO: `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` (`CommissionPercentage`, SolanaToken
   → rate else 0); populated in
-  `ChimpOut.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs`
+  `SpaceStroker.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs`
   (injects `GeneralSettings`).
-- Settlement (unchanged wiring): `ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
+- Settlement (unchanged wiring): `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
   credits `rewardResult.Value` via the payment strategy.
-- Tests: `ChimpOut.Tests/UnitTests/Domain/Games/BetDomainServiceTests.cs` (commission + sequential-
-  payout regression), `ChimpOut.Tests/UnitTests/Handlers/GetActiveParametersHandlerTests.cs` (rate on
-  SolanaToken only), `ChimpOut.Tests.Integration/GameFlowTests.cs`
+- Tests: `SpaceStroker.Tests/UnitTests/Domain/Games/BetDomainServiceTests.cs` (commission + sequential-
+  payout regression), `SpaceStroker.Tests/UnitTests/Handlers/GetActiveParametersHandlerTests.cs` (rate on
+  SolanaToken only), `SpaceStroker.Tests.Integration/GameFlowTests.cs`
   (`PaidCryptoRace_AppliesCommission_CreditsPotMinusCut`, + Standard full-pot assertion).
 
 **Frontend (`monkify-front`)**

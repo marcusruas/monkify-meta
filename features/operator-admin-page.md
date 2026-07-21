@@ -13,7 +13,7 @@
 
 ## What it does
 
-Gives operators (casinos) a **self-service admin portal** at `/chimpout/admin` where they authenticate
+Gives operators (casinos) a **self-service admin portal** at `/space-stroker/admin` where they authenticate
 with an operator-signed **admin-scoped JWT** and manage **their own** game types (game
 configurations). Operators can **create**, **list**, and **soft-deactivate** types across all three
 modes (free-type race, preset-choice, lottery). There is **no in-place edit** — to change a type,
@@ -23,7 +23,7 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
 
 - **Auth:** operator signs an RS256 JWT with `scope = "admin"`, `iss = operatorId`, **no `sub`**,
   validated against the operator's existing `LaunchPublicKey`. Transport: redirect to
-  `/chimpout/admin#admin_token=<jwt>`; SPA stores per-tab in `sessionStorage` and sends
+  `/space-stroker/admin#admin_token=<jwt>`; SPA stores per-tab in `sessionStorage` and sends
   **`X-Admin-Token`** on admin REST calls.
 - **Token separation:** admin tokens are **rejected** on player endpoints (`/games`, `/operators`,
   `/players`, `/fx`); launch/player tokens are **rejected** on `/admin`. Any auth failure → vague
@@ -66,7 +66,7 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
   validation errors are acceptable on authenticated admin endpoints (not the vague auth path).
 - **Cache:** every create/deactivate invalidates `ActiveParameters:{operatorId}`.
 - **Dev entry:** `DevAdminButton` in `GameHeader` (gated by `VUE_APP_DEV_LAUNCH`) offers
-  Crypto/Regulated → `POST /dev/admin-token?paymentModel=…` (404 in prod) → `/chimpout/admin`.
+  Crypto/Regulated → `POST /dev/admin-token?paymentModel=…` (404 in prod) → `/space-stroker/admin`.
 
 ## Key code touchpoints
 
@@ -74,12 +74,12 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
 
 - Auth: `LaunchTokenService.IssueAdmin` + `Scope` on `LaunchTokenValidationResult`;
   `AdminTokenValidationMiddleware` (guards `/admin`); launch middleware rejects `scope == "admin"`.
-- Identity: `IAdminContext` (`ChimpOut.Infrastructure/Services/Admin/`); `GetOperatorById` (no
+- Identity: `IAdminContext` (`SpaceStroker.Infrastructure/Services/Admin/`); `GetOperatorById` (no
   contract filter) on `IOperatorService`.
 - Controller: `AdminController` — `GET /admin/game-types`, `POST /admin/game-types`,
   `POST /admin/game-types/{id}/deactivate`.
 - Handlers: `Handlers/Admin/{GetOperatorGameTypes,CreateGameType,DeactivateGameType}/`.
-- Validation: `ChimpOut.Domain/Games/Services/GameParametersValidation.cs`.
+- Validation: `SpaceStroker.Domain/Games/Services/GameParametersValidation.cs`.
 - DTOs: `Contracts/Admin/{GameTypeAdminDto,GameTypeRequestBody}.cs`.
 - Consumers: `GameParametersCreatedConsumer`, `GameTypeDeactivatedConsumer`;
   `RunGameConsumer` uses `GetActiveParametersForRollover`; `BetPlacedConsumer` guards against
@@ -91,7 +91,7 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
 
 **Frontend (`monkify-front`)**
 
-- Route: `/chimpout/admin` (`AdminPage.vue`) — not dev-gated; token is the access control.
+- Route: `/space-stroker/admin` (`AdminPage.vue`) — not dev-gated; token is the access control.
 - Token: `utils/adminToken.ts`, `hooks/useAdmin.ts` (fragment capture/strip/store).
 - Service: `services/adminService.ts` — dedicated axios instance with `X-Admin-Token`; 401 → `/error`.
 - UI: `components/admin/{GameTypeManager,GameTypeList,GameTypeForm}.vue` (create + list +

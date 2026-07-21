@@ -1,4 +1,4 @@
-# ChimpOut — "Replace RabbitMQ with MassTransit Postgres SQL transport" — Implementation Spec
+# SpaceStroker — "Replace RabbitMQ with MassTransit Postgres SQL transport" — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/masstransit-postgres-transport` on 2026-07-16
 > (`monkify-backend` + `monkify-meta`). Distilled summary: `../features/masstransit-postgres-transport.md`.
@@ -13,8 +13,8 @@
 > managed RabbitMQ) with **no broker VM** — one fewer always-on attack surface and one fewer fixed
 > cost for a crypto app. Event contracts and consumer handler logic are unchanged; this is a
 > transport-registration + provisioning swap. The card also folds in a config-only rename of the game
-> database **`monkify → chimpout`** (plus cosmetic docker infra names) so all storage lines up with
-> the ChimpOut brand before #61's terraform hardcodes names.
+> database **`monkify → spacestroker`** (plus cosmetic docker infra names) so all storage lines up with
+> the SpaceStroker brand before #61's terraform hardcodes names.
 
 ---
 
@@ -32,10 +32,10 @@ flow over Postgres.
 | --- | --- | --- |
 | Transport pkg | `MassTransit.RabbitMQ` | `MassTransit.SqlTransport.PostgreSQL` |
 | Bus registration | `UsingRabbitMq(cfg.Host(conn))` | `UsingPostgres` (reads `SqlTransportOptions` from DI) |
-| Broker | RabbitMQ container / VM | none — Postgres `chimpout_messaging` DB |
-| Messaging store | AMQP queues | tables in DB `chimpout_messaging` (schema `transport`), **same Postgres instance** as the game DB |
-| Schema owner | RabbitMQ auto-declares | MassTransit **Postgres migration hosted service** in `ChimpOut.Consumers` at startup |
-| Game DB name | `monkify` | `chimpout` |
+| Broker | RabbitMQ container / VM | none — Postgres `spacestroker_messaging` DB |
+| Messaging store | AMQP queues | tables in DB `spacestroker_messaging` (schema `transport`), **same Postgres instance** as the game DB |
+| Schema owner | RabbitMQ auto-declares | MassTransit **Postgres migration hosted service** in `SpaceStroker.Consumers` at startup |
+| Game DB name | `monkify` | `spacestroker` |
 | New secret | — | `ConnectionStrings:Messaging` |
 | Delivery | at-least-once (AMQP) | at-least-once (SQL: LISTEN/NOTIFY + polling, SKIP-LOCKED competing consumers) |
 
@@ -51,17 +51,17 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** work lives in `.worktrees/masstransit-postgres-transport/<repo>`; the shared
   checkout stays on `main`. Branch `feature/masstransit-postgres-transport` in each affected repo (the
   merge/PR ref), pushed to `origin`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; run via `scripts/run_tests.bat` (never the full
+- **Unit tests:** update/add in `SpaceStroker.Tests`; run via `scripts/run_tests.bat` (never the full
   `dotnet test` — `ProductionSessions` is a slow Monte Carlo suite); **report changed tests** at the
   end of implementation.
-- **Integration test mandatory (message-flow change):** the Testcontainers `ChimpOut.Tests.Integration`
+- **Integration test mandatory (message-flow change):** the Testcontainers `SpaceStroker.Tests.Integration`
   suite must exercise the game happy path **over the Postgres transport**; run via
   `scripts/run_integration_tests.bat`. See §11.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`. **This
   card adds no EF entity/migration** — the transport schema is MassTransit-owned, not in the DbContext.
-- **Migrations owned by `ChimpOut.Consumers`;** the **API stays stateless** — it registers the bus as
+- **Migrations owned by `SpaceStroker.Consumers`;** the **API stays stateless** — it registers the bus as
   **publisher-only** and does **not** provision the transport schema.
-- **Secrets/config:** only mock/placeholder values in committed files (e.g. `chimpoutsettings.json`).
+- **Secrets/config:** only mock/placeholder values in committed files (e.g. `spacestrokersettings.json`).
 - **Out-of-scope domain rename:** `app.monkify.net` / token symbol stay untouched (owned by #62/#63 +
   ops) — this card renames only the **database identifier** and cosmetic docker infra.
 
@@ -71,14 +71,14 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Transport:** MassTransit **8.5.4** Postgres SQL transport. Replace `MassTransit.RabbitMQ` with **`MassTransit.SqlTransport.PostgreSQL`** (8.5.4) in `ChimpOut.Api`, `ChimpOut.Infrastructure`, `ChimpOut.Consumers`. `ChimpOut.Common` keeps core `MassTransit` only. |
-| 2 | **Messaging store:** a **separate database `chimpout_messaging`** on the **same** Postgres/Cloud SQL instance as the game DB. Transport objects live under schema **`transport`**. |
-| 3 | **Provisioning:** `ChimpOut.Consumers` runs MassTransit's **Postgres migration hosted service** at startup to create the messaging DB + schema. The **API never provisions** (publisher-only). |
-| 4 | **Credentials:** **reuse the game-DB app user** (same host/user/password; only `Database=` differs). That user therefore needs **CREATE DATABASE** on the instance so MT can create `chimpout_messaging` (a #61 grant requirement). |
+| 1 | **Transport:** MassTransit **8.5.4** Postgres SQL transport. Replace `MassTransit.RabbitMQ` with **`MassTransit.SqlTransport.PostgreSQL`** (8.5.4) in `SpaceStroker.Api`, `SpaceStroker.Infrastructure`, `SpaceStroker.Consumers`. `SpaceStroker.Common` keeps core `MassTransit` only. |
+| 2 | **Messaging store:** a **separate database `spacestroker_messaging`** on the **same** Postgres/Cloud SQL instance as the game DB. Transport objects live under schema **`transport`**. |
+| 3 | **Provisioning:** `SpaceStroker.Consumers` runs MassTransit's **Postgres migration hosted service** at startup to create the messaging DB + schema. The **API never provisions** (publisher-only). |
+| 4 | **Credentials:** **reuse the game-DB app user** (same host/user/password; only `Database=` differs). That user therefore needs **CREATE DATABASE** on the instance so MT can create `spacestroker_messaging` (a #61 grant requirement). |
 | 5 | **Config shape:** add an **explicit `ConnectionStrings:Messaging`** connection string; translate it into `SqlTransportOptions` via `NpgsqlConnectionStringBuilder`. Independently rotatable; becomes a new secret for #61. |
 | 6 | **Endpoints:** **keep all 8 explicitly-named `ReceiveEndpoint`s** + `ConfigureEndpoints` in Consumers (smallest behavioral diff). Clean cutover — no in-flight RabbitMQ messages to preserve. |
 | 7 | **Publisher rename:** `IRabbitMQService`/`RabbitMQService` → **`IMessageBus`/`MessageBusPublisher`**; folder + namespace `Services/RabbitMQ` → `Services/Messaging`; fix the "published to RabbitMQ" log text. Mechanical across all call sites; still wraps `IPublishEndpoint.Publish`. |
-| 8 | **DB rename `monkify → chimpout`:** config-only (EF `Database.Migrate()` creates the fresh `chimpout` DB at Consumers startup — greenfield dev). Also rename cosmetic infra (`monkify-network` → `chimpout-network` + the `setup_local_environment.bat` network reference). |
+| 8 | **DB rename `monkify → spacestroker`:** config-only (EF `Database.Migrate()` creates the fresh `spacestroker` DB at Consumers startup — greenfield dev). Also rename cosmetic infra (`monkify-network` → `spacestroker-network` + the `setup_local_environment.bat` network reference). |
 | 9 | **Delivery semantics:** keep MassTransit defaults (LISTEN/NOTIFY + polling fallback; competing consumers via SKIP-LOCKED; `_error`/`_skipped` handling). Transport latency is negligible for gameplay (the flow already waits `MinimumWaitPeriodForBets` before `RunGame`). |
 | 10 | **Idempotency:** re-confirm reward/refund idempotency (ledger-based in `TransactionLog`) holds under at-least-once redelivery. Known related risk documented in §6.5. |
 
@@ -87,30 +87,30 @@ From `monkify-meta/constraints.md` (full list there):
 ## 4. Data model
 
 **No EF entity or migration change.** The MassTransit SQL transport manages its own tables (queues,
-topics, subscriptions, messages) under schema `transport` in the `chimpout_messaging` database,
-created by the MassTransit migration hosted service — **not** by `ChimpOutDbContext` and **not** under
-`ChimpOut.Infrastructure/Migrations/`.
+topics, subscriptions, messages) under schema `transport` in the `spacestroker_messaging` database,
+created by the MassTransit migration hosted service — **not** by `SpaceStrokerDbContext` and **not** under
+`SpaceStroker.Infrastructure/Migrations/`.
 
-The game database `chimpout` (renamed from `monkify`) keeps its existing EF schema unchanged; the
+The game database `spacestroker` (renamed from `monkify`) keeps its existing EF schema unchanged; the
 rename is a connection-string identifier change only. `Database.Migrate()` at Consumers startup creates
-the fresh `chimpout` database and applies existing migrations (greenfield dev — no data preservation).
+the fresh `spacestroker` database and applies existing migrations (greenfield dev — no data preservation).
 
 ---
 
 ## 5. Configuration
 
-### 5.1 `chimpoutsettings.json` (`ChimpOut.Common`, committed — mock values only)
+### 5.1 `spacestrokersettings.json` (`SpaceStroker.Common`, committed — mock values only)
 
 ```jsonc
 "ConnectionStrings": {
-  "ChimpOut":  "Host=localhost;Port=5432;Database=chimpout;Username=postgres;Password=postgres",
-  "Messaging": "Host=localhost;Port=5432;Database=chimpout_messaging;Username=postgres;Password=postgres"
+  "SpaceStroker":  "Host=localhost;Port=5432;Database=spacestroker;Username=postgres;Password=postgres",
+  "Messaging": "Host=localhost;Port=5432;Database=spacestroker_messaging;Username=postgres;Password=postgres"
   // "RabbitMQ" line REMOVED
 }
 ```
 
-- `ChimpOut`: `Database=monkify` → `Database=chimpout`.
-- `Messaging`: new; same host/user/password as `ChimpOut`, only `Database=` differs.
+- `SpaceStroker`: `Database=monkify` → `Database=spacestroker`.
+- `Messaging`: new; same host/user/password as `SpaceStroker`, only `Database=` differs.
 - Remove the `RabbitMQ` (`amqp://…`) entry.
 
 > Both hosts read `ConnectionStrings:Messaging` (via env override in containers/prod). The API needs it
@@ -119,11 +119,11 @@ the fresh `chimpout` database and applies existing migrations (greenfield dev �
 ### 5.2 `SqlTransportOptions` binding (shared)
 
 Both hosts translate the `Messaging` connection string into `SqlTransportOptions`. Add a small shared
-helper in `ChimpOut.Infrastructure` (e.g. `MessagingRegistration.AddChimpOutSqlTransportOptions`) so
+helper in `SpaceStroker.Infrastructure` (e.g. `MessagingRegistration.AddSpaceStrokerSqlTransportOptions`) so
 the parse is not duplicated:
 
 ```csharp
-public static IServiceCollection AddChimpOutSqlTransportOptions(
+public static IServiceCollection AddSpaceStrokerSqlTransportOptions(
     this IServiceCollection services, IConfiguration configuration)
 {
     var b = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("Messaging"));
@@ -131,7 +131,7 @@ public static IServiceCollection AddChimpOutSqlTransportOptions(
     {
         o.Host     = b.Host;
         o.Port     = b.Port;
-        o.Database = b.Database;      // chimpout_messaging
+        o.Database = b.Database;      // spacestroker_messaging
         o.Schema   = "transport";
         o.Username = b.Username;
         o.Password = b.Password;
@@ -152,12 +152,12 @@ public static IServiceCollection AddChimpOutSqlTransportOptions(
 
 ## 6. Backend behaviour
 
-### 6.1 API host — `ChimpOut.Api/Program.cs` (publisher-only)
+### 6.1 API host — `SpaceStroker.Api/Program.cs` (publisher-only)
 
 Replace (lines ~75–81):
 
 ```csharp
-builder.Services.AddChimpOutSqlTransportOptions(builder.Configuration);
+builder.Services.AddSpaceStrokerSqlTransportOptions(builder.Configuration);
 builder.Services.AddMassTransit(x =>
 {
     x.UsingPostgres(); // reads SqlTransportOptions from DI
@@ -167,13 +167,13 @@ builder.Services.AddMassTransit(x =>
 - **No** consumers, **no** migration hosted service (API stays stateless — Decision 3).
 - `IPublishEndpoint` is still provided by `AddMassTransit`, so `MessageBusPublisher` keeps working.
 
-### 6.2 Consumers host — `ChimpOut.Consumers/Program.cs`
+### 6.2 Consumers host — `SpaceStroker.Consumers/Program.cs`
 
 Replace the `AddMassTransit` block (lines ~52–109):
 
 ```csharp
-builder.Services.AddChimpOutSqlTransportOptions(builder.Configuration);
-builder.Services.AddPostgresMigrationHostedService(); // creates chimpout_messaging DB + transport schema at startup
+builder.Services.AddSpaceStrokerSqlTransportOptions(builder.Configuration);
+builder.Services.AddPostgresMigrationHostedService(); // creates spacestroker_messaging DB + transport schema at startup
 
 builder.Services.AddMassTransit(x =>
 {
@@ -204,13 +204,13 @@ builder.Services.AddMassTransit(x =>
 - Keep the 8 named endpoints (Decision 6).
 - `AddPostgresMigrationHostedService` runs before the bus hosted service, so the schema exists before
   consumers/publishers connect. The existing `ApplyMigrations(app)` (EF `Database.Migrate()`, line ~164)
-  is unchanged and creates the separate `chimpout` game DB — the two provisioning steps target different
+  is unchanged and creates the separate `spacestroker` game DB — the two provisioning steps target different
   databases, so their ordering is independent.
 
-### 6.3 Publish abstraction rename (`ChimpOut.Infrastructure`)
+### 6.3 Publish abstraction rename (`SpaceStroker.Infrastructure`)
 
-- Move `Services/RabbitMQ/` → `Services/Messaging/`; namespace `ChimpOut.Infrastructure.Services.RabbitMQ`
-  → `ChimpOut.Infrastructure.Services.Messaging`.
+- Move `Services/RabbitMQ/` → `Services/Messaging/`; namespace `SpaceStroker.Infrastructure.Services.RabbitMQ`
+  → `SpaceStroker.Infrastructure.Services.Messaging`.
 - `IRabbitMQService` → `IMessageBus` (method `PublishEventAsync<T>` unchanged).
 - `RabbitMQService` → `MessageBusPublisher` (still injects `IPublishEndpoint`; update the log line to
   "Event of type {eventType} published via MassTransit." — drop "RabbitMQ").
@@ -260,22 +260,22 @@ exactly once.
 - **Remove** the `rabbitmq` service (lines ~80–96) and both `rabbitmq: condition: service_healthy`
   `depends_on` entries (api + consumers).
 - **Remove** both `ConnectionStrings__RabbitMQ` env lines; **add** to api **and** consumers:
-  `ConnectionStrings__Messaging=Host=database;Port=5432;Database=chimpout_messaging;Username=postgres;Password=postgres`.
-- **Rename game DB:** api/consumers `ConnectionStrings__ChimpOut` `Database=chimpout`; `database` service
-  `POSTGRES_DB=chimpout`; healthcheck `pg_isready -U postgres -d chimpout`.
-- **Rename network** `monkify-network` → `chimpout-network` (the `networks:` block + all 4 service
+  `ConnectionStrings__Messaging=Host=database;Port=5432;Database=spacestroker_messaging;Username=postgres;Password=postgres`.
+- **Rename game DB:** api/consumers `ConnectionStrings__SpaceStroker` `Database=spacestroker`; `database` service
+  `POSTGRES_DB=spacestroker`; healthcheck `pg_isready -U postgres -d spacestroker`.
+- **Rename network** `monkify-network` → `spacestroker-network` (the `networks:` block + all 4 service
   references).
 
-> The single Postgres `database` container hosts both `chimpout` (POSTGRES_DB, created by the image) and
-> `chimpout_messaging` (created by the MT migration hosted service at Consumers startup — the `postgres`
+> The single Postgres `database` container hosts both `spacestroker` (POSTGRES_DB, created by the image) and
+> `spacestroker_messaging` (created by the MT migration hosted service at Consumers startup — the `postgres`
 > superuser has createdb). The api still `depends_on: consumers healthy`, so the messaging schema exists
 > before the api publishes.
 
 ### 8.2 `scripts/setup_local_environment.bat`
 
-- Line ~33: `--network monkify-backend_monkify-network` → `--network monkify-backend_chimpout-network`
+- Line ~33: `--network monkify-backend_monkify-network` → `--network monkify-backend_spacestroker-network`
   (compose derives `<project>_<network>`; project stays `monkify-backend`, network becomes
-  `chimpout-network`). Update the comment lines ~5–6 and ~30 (drop "rabbitmq" from the container list).
+  `spacestroker-network`). Update the comment lines ~5–6 and ~30 (drop "rabbitmq" from the container list).
 
 ### 8.3 `scripts/run_integration_tests.bat`
 
@@ -302,30 +302,30 @@ exactly once.
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Api/ChimpOut.Api.csproj` | `MassTransit.RabbitMQ` → `MassTransit.SqlTransport.PostgreSQL` (8.5.4) |
-| 2 | `src/ChimpOut.Infrastructure/ChimpOut.Infrastructure.csproj` | same package swap |
-| 3 | `src/ChimpOut.Consumers/ChimpOut.Consumers.csproj` | same package swap |
-| 4 | `src/ChimpOut.Api/Program.cs` | `UsingRabbitMq` → `UsingPostgres` (publisher-only); add `AddChimpOutSqlTransportOptions` |
-| 5 | `src/ChimpOut.Consumers/Program.cs` | `UsingRabbitMq` → `UsingPostgres`; keep 8 named endpoints; add `AddChimpOutSqlTransportOptions` + `AddPostgresMigrationHostedService` |
-| 6 | `src/ChimpOut.Infrastructure/Services/RabbitMQ/IRabbitMQService.cs` | → `Services/Messaging/IMessageBus.cs` (rename type + namespace) |
-| 7 | `src/ChimpOut.Infrastructure/Services/RabbitMQ/RabbitMQService.cs` | → `Services/Messaging/MessageBusPublisher.cs` (rename type + namespace; fix log text) |
-| 8 | `src/ChimpOut.Infrastructure/Messaging` (new) | `AddChimpOutSqlTransportOptions` helper (`NpgsqlConnectionStringBuilder` → `SqlTransportOptions`) |
-| 9 | `src/ChimpOut.Infrastructure/DependencyInjection.cs` | registration + `using` → `IMessageBus`/`MessageBusPublisher` |
-| 10 | `src/ChimpOut.Infrastructure/Services/Games/GameService.cs` | `IRabbitMQService` → `IMessageBus` (ctor + field) |
-| 11 | `src/ChimpOut.Infrastructure/Hubs/ActiveGamesHub.cs` | `IRabbitMQService` → `IMessageBus` |
-| 12 | `src/ChimpOut.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | resolve `IMessageBus` |
-| 13 | `src/ChimpOut.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | resolve `IMessageBus` |
-| 14 | `src/ChimpOut.Infrastructure/Consumers/GameTypeDeactivated/GameTypeDeactivatedConsumer.cs` | resolve `IMessageBus` |
-| 15 | `src/ChimpOut.Infrastructure/Consumers/BetNotification/BetNotificationConsumer.cs` | update `using` (namespace move) |
-| 16 | `src/ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | `IRabbitMQService` → `IMessageBus` |
-| 17 | `src/ChimpOut.Infrastructure/Handlers/Admin/CreateGameType/CreateGameTypeHandler.cs` | `IRabbitMQService` → `IMessageBus` |
-| 18 | `src/ChimpOut.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeHandler.cs` | `IRabbitMQService` → `IMessageBus` |
-| 19 | `src/ChimpOut.Common/chimpoutsettings.json` | `Database=chimpout`; add `Messaging` conn; remove `RabbitMQ` conn |
-| 20 | `docker-compose.yml` | drop `rabbitmq` svc + depends_on + `ConnectionStrings__RabbitMQ`; add `ConnectionStrings__Messaging`; rename game DB → `chimpout`; `monkify-network` → `chimpout-network` |
-| 21 | `scripts/setup_local_environment.bat` | network ref `monkify-backend_chimpout-network`; comment cleanup |
+| 1 | `src/SpaceStroker.Api/SpaceStroker.Api.csproj` | `MassTransit.RabbitMQ` → `MassTransit.SqlTransport.PostgreSQL` (8.5.4) |
+| 2 | `src/SpaceStroker.Infrastructure/SpaceStroker.Infrastructure.csproj` | same package swap |
+| 3 | `src/SpaceStroker.Consumers/SpaceStroker.Consumers.csproj` | same package swap |
+| 4 | `src/SpaceStroker.Api/Program.cs` | `UsingRabbitMq` → `UsingPostgres` (publisher-only); add `AddSpaceStrokerSqlTransportOptions` |
+| 5 | `src/SpaceStroker.Consumers/Program.cs` | `UsingRabbitMq` → `UsingPostgres`; keep 8 named endpoints; add `AddSpaceStrokerSqlTransportOptions` + `AddPostgresMigrationHostedService` |
+| 6 | `src/SpaceStroker.Infrastructure/Services/RabbitMQ/IRabbitMQService.cs` | → `Services/Messaging/IMessageBus.cs` (rename type + namespace) |
+| 7 | `src/SpaceStroker.Infrastructure/Services/RabbitMQ/RabbitMQService.cs` | → `Services/Messaging/MessageBusPublisher.cs` (rename type + namespace; fix log text) |
+| 8 | `src/SpaceStroker.Infrastructure/Messaging` (new) | `AddSpaceStrokerSqlTransportOptions` helper (`NpgsqlConnectionStringBuilder` → `SqlTransportOptions`) |
+| 9 | `src/SpaceStroker.Infrastructure/DependencyInjection.cs` | registration + `using` → `IMessageBus`/`MessageBusPublisher` |
+| 10 | `src/SpaceStroker.Infrastructure/Services/Games/GameService.cs` | `IRabbitMQService` → `IMessageBus` (ctor + field) |
+| 11 | `src/SpaceStroker.Infrastructure/Hubs/ActiveGamesHub.cs` | `IRabbitMQService` → `IMessageBus` |
+| 12 | `src/SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | resolve `IMessageBus` |
+| 13 | `src/SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` | resolve `IMessageBus` |
+| 14 | `src/SpaceStroker.Infrastructure/Consumers/GameTypeDeactivated/GameTypeDeactivatedConsumer.cs` | resolve `IMessageBus` |
+| 15 | `src/SpaceStroker.Infrastructure/Consumers/BetNotification/BetNotificationConsumer.cs` | update `using` (namespace move) |
+| 16 | `src/SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | `IRabbitMQService` → `IMessageBus` |
+| 17 | `src/SpaceStroker.Infrastructure/Handlers/Admin/CreateGameType/CreateGameTypeHandler.cs` | `IRabbitMQService` → `IMessageBus` |
+| 18 | `src/SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/DeactivateGameTypeHandler.cs` | `IRabbitMQService` → `IMessageBus` |
+| 19 | `src/SpaceStroker.Common/spacestrokersettings.json` | `Database=spacestroker`; add `Messaging` conn; remove `RabbitMQ` conn |
+| 20 | `docker-compose.yml` | drop `rabbitmq` svc + depends_on + `ConnectionStrings__RabbitMQ`; add `ConnectionStrings__Messaging`; rename game DB → `spacestroker`; `monkify-network` → `spacestroker-network` |
+| 21 | `scripts/setup_local_environment.bat` | network ref `monkify-backend_spacestroker-network`; comment cleanup |
 | 22 | `scripts/run_integration_tests.bat` | comment cleanup (drop RabbitMQ) |
-| 23 | `src/ChimpOut.Tests.Integration/ChimpOut.Tests.Integration.csproj` | remove `Testcontainers.RabbitMq` |
-| 24 | `src/ChimpOut.Tests.Integration/Harness/IntegrationTestFixture.cs` | drop `RabbitMqContainer` + `using`; set `ConnectionStrings__Messaging` from the PG container (swap `Database=chimpout_messaging`); `PublishRunGameAsync` resolves `IMessageBus`; fix XML doc |
+| 23 | `src/SpaceStroker.Tests.Integration/SpaceStroker.Tests.Integration.csproj` | remove `Testcontainers.RabbitMq` |
+| 24 | `src/SpaceStroker.Tests.Integration/Harness/IntegrationTestFixture.cs` | drop `RabbitMqContainer` + `using`; set `ConnectionStrings__Messaging` from the PG container (swap `Database=spacestroker_messaging`); `PublishRunGameAsync` resolves `IMessageBus`; fix XML doc |
 | 25 | Unit test files (§11) | swap `Mock<IRabbitMQService>` → `Mock<IMessageBus>` + `using` |
 
 ### 10.2 Frontend (`monkify-front`)
@@ -338,13 +338,13 @@ None.
 | --- | --- | --- |
 | 1 | `specs/masstransit-postgres-transport.md` | this spec |
 | 2 | `INDEX.md` | add spec row (Ready); update "Feature currently in flight" |
-| 3 | `architecture.md` | **at ship time** (`/monkify-ship-feature`): §4 messaging (RabbitMQ→Postgres SQL transport), diagram, DB names `chimpout`/`chimpout_messaging`, §12 docker-compose (no rabbitmq). Not edited now. |
+| 3 | `architecture.md` | **at ship time** (`/monkify-ship-feature`): §4 messaging (RabbitMQ→Postgres SQL transport), diagram, DB names `spacestroker`/`spacestroker_messaging`, §12 docker-compose (no rabbitmq). Not edited now. |
 
 ---
 
 ## 11. Tests
 
-### 11.1 Unit tests — project `ChimpOut.Tests` (run `scripts/run_tests.bat`)
+### 11.1 Unit tests — project `SpaceStroker.Tests` (run `scripts/run_tests.bat`)
 
 Mechanical: every `Mock<IRabbitMQService>` becomes `Mock<IMessageBus>`; update `using`s. No behavior
 change — these assert publish calls, which are transport-agnostic.
@@ -362,7 +362,7 @@ change — these assert publish calls, which are transport-agnostic.
 | `UnitTests/Background/BetPlacedHandlerTests.cs` | same | green |
 | `UnitTests/Background/CreateGameTests.cs` | same (2 local mocks) | green |
 
-### 11.2 Integration tests — project `ChimpOut.Tests.Integration` (run `scripts/run_integration_tests.bat`)
+### 11.2 Integration tests — project `SpaceStroker.Tests.Integration` (run `scripts/run_integration_tests.bat`)
 
 **Harness swap** (`Harness/IntegrationTestFixture.cs`):
 
@@ -370,10 +370,10 @@ change — these assert publish calls, which are transport-agnostic.
   the `ConnectionStrings__RabbitMQ` env var.
 - Set the messaging connection from the Postgres container:
   ```csharp
-  var msg = new NpgsqlConnectionStringBuilder(_postgres.GetConnectionString()) { Database = "chimpout_messaging" };
+  var msg = new NpgsqlConnectionStringBuilder(_postgres.GetConnectionString()) { Database = "spacestroker_messaging" };
   Environment.SetEnvironmentVariable("ConnectionStrings__Messaging", msg.ToString());
   ```
-  The Consumers host's MT migration hosted service creates `chimpout_messaging` inside the same
+  The Consumers host's MT migration hosted service creates `spacestroker_messaging` inside the same
   container (the container's superuser has createdb).
 - `PublishRunGameAsync` (line ~349): resolve `IMessageBus` instead of `IRabbitMQService`.
 - Update the class XML doc ("Postgres + Redis Testcontainers").
@@ -399,12 +399,12 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    Api/Infrastructure/Consumers reference `MassTransit.SqlTransport.PostgreSQL` (8.5.4).
 2. Given the local docker-compose stack, when it starts fresh, then there is no `rabbitmq` service and
    no `ConnectionStrings__RabbitMQ` anywhere, and both hosts start healthy.
-3. Given `ChimpOut.Consumers` starts against a Postgres instance with no messaging DB, when it boots,
-   then MassTransit's Postgres migration hosted service creates the `chimpout_messaging` database and
+3. Given `SpaceStroker.Consumers` starts against a Postgres instance with no messaging DB, when it boots,
+   then MassTransit's Postgres migration hosted service creates the `spacestroker_messaging` database and
    transport schema, and the consumers come up healthy.
 4. Given the messaging transport is configured, when the bus connects, then it uses
-   `ConnectionStrings:Messaging` (`Database=chimpout_messaging`, same host/user as the game DB) and the
-   messaging tables live in `chimpout_messaging`, not in the game database.
+   `ConnectionStrings:Messaging` (`Database=spacestroker_messaging`, same host/user as the game DB) and the
+   messaging tables live in `spacestroker_messaging`, not in the game database.
 5. Given a player places a bet, when the game runs, then the full `BetPlaced → RunGame → RewardGame`
    flow completes over the Postgres transport (no RabbitMQ) with all 8 named consumer endpoints active,
    and a winner is paid out.
@@ -414,11 +414,11 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 7. Given the publish abstraction is renamed, when the code compiles, then `IRabbitMQService`/
    `RabbitMQService` and the `Services/RabbitMQ` namespace no longer exist (replaced by `IMessageBus`/
    `MessageBusPublisher` under `Services/Messaging`) and no log/comment text still says "RabbitMQ".
-8. Given the `monkify → chimpout` rename, when the stack runs, then the game database is named
-   `chimpout` (chimpoutsettings.json + docker-compose `Database=`/`POSTGRES_DB=`/`pg_isready`), the
-   docker network is `chimpout-network`, and no `monkify`-named DB/infra remains.
-9. Given the `ChimpOut.Tests.Integration` suite, when it runs, then it uses no `RabbitMqContainer`,
-   provisions `chimpout_messaging` inside the Postgres container, and a happy-path test drives a full
+8. Given the `monkify → spacestroker` rename, when the stack runs, then the game database is named
+   `spacestroker` (spacestrokersettings.json + docker-compose `Database=`/`POSTGRES_DB=`/`pg_isready`), the
+   docker network is `spacestroker-network`, and no `monkify`-named DB/infra remains.
+9. Given the `SpaceStroker.Tests.Integration` suite, when it runs, then it uses no `RabbitMqContainer`,
+   provisions `spacestroker_messaging` inside the Postgres container, and a happy-path test drives a full
    game over the Postgres transport and asserts it works end to end.
 10. Given the affected unit tests, when the suite runs via `scripts/run_tests.bat`, then all tests pass
     and any RabbitMQ-referencing tests are updated to the Postgres transport / `IMessageBus`, with the
@@ -431,27 +431,27 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 1. From `monkify-backend`, run `scripts/setup_local_environment.bat` (fresh `docker compose down -v`
    first). Confirm **no** `rabbitmq` container starts and all of api/consumers/database/redis come up
    healthy.
-2. `docker exec` into the `database` container: `psql -U postgres -l` shows **both** `chimpout` and
-   `chimpout_messaging`; `\dt transport.*` in `chimpout_messaging` shows MassTransit tables; the game
-   schema tables are **not** in `chimpout_messaging`.
+2. `docker exec` into the `database` container: `psql -U postgres -l` shows **both** `spacestroker` and
+   `spacestroker_messaging`; `\dt transport.*` in `spacestroker_messaging` shows MassTransit tables; the game
+   schema tables are **not** in `spacestroker_messaging`.
 3. Open the SPA (`localhost:6003`), place a bet on a dev game, confirm the round runs (SignalR terminal
    streams) and a winner is paid — proving the full event flow over Postgres.
 4. Confirm the Hangfire dashboard (`localhost:6002/hangfire`) still lists `game-chat-purge` and lottery
-   schedules (Hangfire still on the `chimpout` game DB).
+   schedules (Hangfire still on the `spacestroker` game DB).
 
 ---
 
 ## 14. Handoff to #61 (terraform — [QrjmQttY](https://trello.com/c/QrjmQttY))
 
 - **New secret:** `ConnectionStrings:Messaging` (same instance/user as the game DB,
-  `Database=chimpout_messaging`) → Secret Manager.
+  `Database=spacestroker_messaging`) → Secret Manager.
 - **Grant:** the game-DB user needs **CREATE DATABASE** on the Cloud SQL instance (MT creates
-  `chimpout_messaging` at startup), **or** #61 pre-creates the empty DB and the user only needs schema
+  `spacestroker_messaging` at startup), **or** #61 pre-creates the empty DB and the user only needs schema
   rights.
 - **Sizing:** size Cloud SQL `max_connections` for the EF pool + Hangfire + the transport's LISTEN/poll
   connections on one instance; note autovacuum on the messaging DB (high queue churn).
-- **Naming:** the game DB is now **`chimpout`** (not `monkify`); terraform/Cloud SQL must reference
-  `chimpout` + `chimpout_messaging`.
+- **Naming:** the game DB is now **`spacestroker`** (not `monkify`); terraform/Cloud SQL must reference
+  `spacestroker` + `spacestroker_messaging`.
 
 ---
 

@@ -1,4 +1,4 @@
-# ChimpOut — "OperatorPlayer identity (unified player model)" Feature — Implementation Spec
+# SpaceStroker — "OperatorPlayer identity (unified player model)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/operator-player-identity` (2026-06-29).
 > Trello: [Add OperatorPlayer identity (unified player model)](https://trello.com/c/CFDCy5DG).
@@ -46,9 +46,9 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/operator-player-identity` in `monkify-backend`, `monkify-front`,
   `monkify-meta`.
-- **Unit tests:** update/add in `ChimpOut.Tests`; report changed tests at end of implementation.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
-- **Migrations:** under `ChimpOut.Infrastructure/Migrations/`; applied only by `ChimpOut.Consumers`.
+- **Unit tests:** update/add in `SpaceStroker.Tests`; report changed tests at end of implementation.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **Migrations:** under `SpaceStroker.Infrastructure/Migrations/`; applied only by `SpaceStroker.Consumers`.
 - **Secrets/config:** mock-only values in committed files.
 - **Operator messaging:** vague errors only; never reveal contract status.
 - **No PII** on `OperatorPlayer` (no CPF, email, phone, full legal name, address).
@@ -78,7 +78,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 ### 4.1 New entity — `OperatorPlayer`
 
-File: `monkify-backend/src/ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` (new)
+File: `monkify-backend/src/SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` (new)
 
 ```csharp
 public class OperatorPlayer : TableEntity
@@ -96,7 +96,7 @@ public class OperatorPlayer : TableEntity
 
 ### 4.2 `Bet` entity changes
 
-File: `monkify-backend/src/ChimpOut.Domain/Bets/Entities/Bet.cs`
+File: `monkify-backend/src/SpaceStroker.Domain/Bets/Entities/Bet.cs`
 
 - **Remove** property `Wallet` and constructor parameters that accept `wallet`.
 - **Add** nullable FK:
@@ -113,7 +113,7 @@ Update constructors:
 
 ### 4.3 EF configuration (inline)
 
-File: `monkify-backend/src/ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs`
+File: `monkify-backend/src/SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs`
 
 Add `DbSet<OperatorPlayer> OperatorPlayers`.
 
@@ -165,10 +165,10 @@ Steps in migration `Up()`:
 4. Drop column `Bets.Wallet` and its index.
 
 ```bash
-# from monkify-backend/src/ChimpOut.Infrastructure
+# from monkify-backend/src/SpaceStroker.Infrastructure
 dotnet ef migrations add AddOperatorPlayerIdentity \
-  --startup-project ../ChimpOut.Consumers/ChimpOut.Consumers.csproj \
-  --context ChimpOutDbContext
+  --startup-project ../SpaceStroker.Consumers/SpaceStroker.Consumers.csproj \
+  --context SpaceStrokerDbContext
 ```
 
 Review generated migration; ensure backfill runs **before** dropping `Wallet`.
@@ -401,10 +401,10 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `ChimpOut.Domain/Games/Entities/OperatorPlayer.cs` | New entity |
-| 2 | `ChimpOut.Domain/Bets/Entities/Bet.cs` | Remove Wallet; add OperatorPlayerId FK; update constructors |
-| 3 | `ChimpOut.Infrastructure/Data/Context/ChimpOutDbContext.cs` | OperatorPlayer mapping; Bet FK; remove Wallet |
-| 4 | `ChimpOut.Infrastructure/Migrations/*AddOperatorPlayerIdentity*` | Table + backfill + drop Wallet |
+| 1 | `SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` | New entity |
+| 2 | `SpaceStroker.Domain/Bets/Entities/Bet.cs` | Remove Wallet; add OperatorPlayerId FK; update constructors |
+| 3 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | OperatorPlayer mapping; Bet FK; remove Wallet |
+| 4 | `SpaceStroker.Infrastructure/Migrations/*AddOperatorPlayerIdentity*` | Table + backfill + drop Wallet |
 | 5 | `RegisterBetRequestBody.cs` | Add externalPlayerId, displayName, currency |
 | 6 | `RegisterBetHandler.cs` | Upsert operator player; duplicate rules; refund wallet resolution |
 | 7 | `SolanaService.cs` | Resolve wallet from OperatorPlayer |
@@ -416,7 +416,7 @@ sequenceDiagram
 | 13 | `BetNotificationConsumer.cs` | Pass through renamed field |
 | 14 | `BetDto.cs` | Wallet → ExternalPlayerId |
 | 15 | `GetGameHistoryHandler.cs` | Filter/join on OperatorPlayer |
-| 16 | `ChimpOut.Tests/**` | Update all Bet constructions and assertions |
+| 16 | `SpaceStroker.Tests/**` | Update all Bet constructions and assertions |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -438,7 +438,7 @@ sequenceDiagram
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests`.
+Project: `monkify-backend/src/SpaceStroker.Tests`.
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
@@ -489,7 +489,7 @@ Add migration integration test only if project already has migration test patter
 2. Free bet mode ON, wallet disconnected → bet succeeds; `OperatorPlayerId` NULL in DB.
 3. Same wallet, second bet same choice → duplicate error.
 4. Game history with `?wallet=<pubkey>` returns games where player participated.
-5. Run full `ChimpOut.Tests` suite.
+5. Run full `SpaceStroker.Tests` suite.
 
 ---
 

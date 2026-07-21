@@ -14,24 +14,24 @@ shape.
 ## Core rules
 
 - **Operator identity comes from the token, not the URL.** Operator-scoped frontend routes are
-  param-free (`/chimpout/game/games`, `/chimpout/game/play`). The frontend decodes the operator id
+  param-free (`/space-stroker/game/games`, `/space-stroker/game/play`). The frontend decodes the operator id
   from the launch token's `iss` claim (`getOperatorIdFromToken`) and calls `GET /operators/{id}` with
-  it. The production casino launch URL is `…/chimpout/game/games#launch_token=<jwt>`. Full launch
+  it. The production casino launch URL is `…/space-stroker/game/games#launch_token=<jwt>`. Full launch
   details live in `features/launch-token-validation.md`.
 - **Dev launch endpoint returns `{ token }` only.** `POST /dev/launch-token?paymentModel=Crypto|Regulated`
   no longer returns `operatorId` (recoverable from `iss`); the minted dev token is long-lived
   (effectively non-expiring) for local convenience. Still 404 in production.
-- **Explicit dev entry, no silent auto-mint.** `/chimpout/game` is a dev-only landing
+- **Explicit dev entry, no silent auto-mint.** `/space-stroker/game` is a dev-only landing
   (`DevLandingPage.vue`) with **Crypto** and **Regulated** buttons; each mints a token and enters the
   game-select page. The old silent `mintDevToken` fallback in `useLaunch` is removed.
 - **`VUE_APP_DEV_LAUNCH` gates the dev landing** (`featureFlags.ts` — `devLaunchEnabled =
   VUE_APP_DEV_LAUNCH !== 'false'`, default **on**, mirroring `VUE_APP_ALLOW_FREE_BETS`). Production
-  (`.env.production`) sets it `false` → `/chimpout/game` redirects to `/error` and the buttons never
+  (`.env.production`) sets it `false` → `/space-stroker/game` redirects to `/error` and the buttons never
   ship. Gating is **not** on `NODE_ENV`, because the local docker environment builds the SPA in
   production mode; `scripts/setup_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true` into
   the generated `.env.production.local` so the buttons appear there (the api/consumers containers run
   `ASPNETCORE_ENVIRONMENT=Development`, so `/dev/launch-token` is available).
-- **Game-flow integration tests exist and must stay current.** `ChimpOut.Tests.Integration`
+- **Game-flow integration tests exist and must stay current.** `SpaceStroker.Tests.Integration`
   (Testcontainers: PostgreSQL + RabbitMQ + Redis) boots the **API** and **Consumers** hosts via
   `WebApplicationFactory` and runs representative default game types end-to-end
   (bet → run → reward) with Solana/operator-wallet mocked. It asserts each game reaches
@@ -45,10 +45,10 @@ shape.
 
 **Backend (`monkify-backend`)**
 
-- `ChimpOut.Api/Controllers/DevController.cs` — `MintLaunchToken` returns `{ token }`, non-expiring TTL.
-- `ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs` — assert token `iss` + no `operatorId`.
-- `ChimpOut.Tests.Integration/` — `Harness/` (fixture, `TestDoubles`, `InMemoryLogSink`) +
-  `GameFlowTests.cs`; `scripts/run_integration_tests.bat`; project added to `ChimpOut.sln`;
+- `SpaceStroker.Api/Controllers/DevController.cs` — `MintLaunchToken` returns `{ token }`, non-expiring TTL.
+- `SpaceStroker.Tests/UnitTests/Controllers/DevControllerTests.cs` — assert token `iss` + no `operatorId`.
+- `SpaceStroker.Tests.Integration/` — `Harness/` (fixture, `TestDoubles`, `InMemoryLogSink`) +
+  `GameFlowTests.cs`; `scripts/run_integration_tests.bat`; project added to `SpaceStroker.sln`;
   `Program.cs` in Api + Consumers expose `public partial class Program` for the test factory;
   Api/Consumers `Dockerfile` copy the integration csproj before `dotnet restore`.
 - `scripts/setup_local_environment.bat` — recreate local env; sets `VUE_APP_DEV_LAUNCH=true`.

@@ -1,4 +1,4 @@
-# ChimpOut — "Add commission (crypto games)" Feature — Implementation Spec
+# SpaceStroker — "Add commission (crypto games)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/crypto-commission` on 2026-07-17. Refined via Trello card
 > [Add comission (#66)](https://trello.com/c/qq0F0ZNJ). Distilled: `features/crypto-commission.md`.
@@ -7,7 +7,7 @@
 > **Purpose:** Re-introduce a house **commission** on winnings, scoped to **crypto (SolanaToken)
 > games only**. When a crypto game's winners are rewarded, **0.5% of the player-funded winnings is
 > retained** ("stays in the token") instead of being paid out, and the fee is stated in the game's
-> STATS side panel. Standard/USD games are unchanged (0% cut). ChimpOut previously had a commission
+> STATS side panel. Standard/USD games are unchanged (0% cut). SpaceStroker previously had a commission
 > (`TokenSettings.CommisionPercentage`) that was **removed** in the operator-wallet-api refactor; this
 > re-adds it, correctly spelled and crypto-scoped.
 
@@ -16,7 +16,7 @@
 ## 1. Summary
 
 Today `BetDomainService` pays winners the **full pot** (`pot / winnerCount`) with no commission
-(`SetPotAmount` comment: *"No ChimpOut commission…"*). This feature adds a configurable house cut
+(`SetPotAmount` comment: *"No SpaceStroker commission…"*). This feature adds a configurable house cut
 that applies **only to `SolanaToken` game types**, computed so that:
 
 - a winner **always keeps their full stake** (the cut comes only from profit above the stake), and
@@ -44,15 +44,15 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Worktree-per-repo:** work in `.worktrees/crypto-commission/<repo>`; the shared checkout stays on
   `main` (never `git checkout -b` there). Branch `feature/crypto-commission` in each affected repo.
-- **Unit tests:** update/add in `ChimpOut.Tests`; run via `scripts/run_tests.bat` (never the full
+- **Unit tests:** update/add in `SpaceStroker.Tests`; run via `scripts/run_tests.bat` (never the full
   `dotnet test` — `ProductionSessions` is a slow Monte-Carlo suite). Report changed tests at the end.
 - **Integration test mandatory (new feature):** add at least one happy-path integration test in
-  `ChimpOut.Tests.Integration` (Testcontainers) asserting a crypto winner receives `pot − 0.5%`
+  `SpaceStroker.Tests.Integration` (Testcontainers) asserting a crypto winner receives `pot − 0.5%`
   end-to-end; the lottery/multi-winner variant covers the more complex flow (see §11.2).
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating`; no `IEntityTypeConfiguration`.
   **(N/A here — no schema change.)**
-- **Migrations:** applied only by `ChimpOut.Consumers`. **(N/A — no migration.)**
-- **Secrets/config:** mock/placeholder values only in committed files (`chimpoutsettings.json`).
+- **Migrations:** applied only by `SpaceStroker.Consumers`. **(N/A — no migration.)**
+- **Secrets/config:** mock/placeholder values only in committed files (`spacestrokersettings.json`).
 - **Operator messaging:** vague errors only; never reveal contract status. (No user-facing operator
   messaging changes here.)
 
@@ -90,7 +90,7 @@ migration work.
 Add a commission rate to the existing token settings (this is where the *old* commission lived
 before removal, so it restores a known location):
 
-`ChimpOut.Domain/Configs/Entities/TokenSettings.cs`
+`SpaceStroker.Domain/Configs/Entities/TokenSettings.cs`
 ```csharp
 public class TokenSettings
 {
@@ -106,7 +106,7 @@ public class TokenSettings
 }
 ```
 
-`ChimpOut.Common/chimpoutsettings.json` → `GeneralSettings.Token`: add `"CommissionPercentage": 0.5`
+`SpaceStroker.Common/spacestrokersettings.json` → `GeneralSettings.Token`: add `"CommissionPercentage": 0.5`
 (mock/default committed value). Absence binds to `0` (a safe no-commission fallback).
 
 > The rate is a **percent**. Convert to a fraction in the domain: `rate = CommissionPercentage / 100m`.
@@ -117,7 +117,7 @@ public class TokenSettings
 
 ### 6.1 `BetDomainService` — apply the commission in the reward calc
 
-`ChimpOut.Domain/Bets/Services/BetDomainService.cs`. The constructor already receives the full
+`SpaceStroker.Domain/Bets/Services/BetDomainService.cs`. The constructor already receives the full
 `Game` and the global `TokenSettings`, so no new dependency is needed. Capture the three inputs the
 commission needs once, in the constructor:
 
@@ -191,7 +191,7 @@ Notes:
 
 ### 6.2 Surface the rate on the active-types payload
 
-`ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs` — add a field and an optional ctor
+`SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` — add a field and an optional ctor
 param (default 0 keeps existing test/callers compiling):
 
 ```csharp
@@ -204,11 +204,11 @@ public class GameParametersDto(GameParameters parameters, decimal commissionPerc
 }
 ```
 
-`ChimpOut.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs` — inject
+`SpaceStroker.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs` — inject
 `GeneralSettings` and pass the rate:
 
 ```csharp
-public GetActiveParametersHandler(IGameService gameService, ChimpOutDbContext context,
+public GetActiveParametersHandler(IGameService gameService, SpaceStrokerDbContext context,
     IMessaging messaging, GeneralSettings settings) : base(context, messaging)
 { _gameService = gameService; _settings = settings; }
 
@@ -294,11 +294,11 @@ flowchart TD
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Domain/Configs/Entities/TokenSettings.cs` | Add `decimal CommissionPercentage`. |
-| 2 | `src/ChimpOut.Common/chimpoutsettings.json` | `GeneralSettings.Token.CommissionPercentage: 0.5` (mock/default). |
-| 3 | `src/ChimpOut.Domain/Bets/Services/BetDomainService.cs` | Capture `_isSolanaToken`, `_houseFundedBase`, `_commissionRate` in ctor; apply commission in `CalculateRewardForBet` (SolanaToken only, profit-above-stake, house base excluded). |
-| 4 | `src/ChimpOut.Infrastructure/Contracts/Games/GameParametersDto.cs` | Add `CommissionPercentage` field + optional ctor param (SolanaToken → rate, else 0). |
-| 5 | `src/ChimpOut.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs` | Inject `GeneralSettings`; pass `Token.CommissionPercentage` to the DTO. |
+| 1 | `src/SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` | Add `decimal CommissionPercentage`. |
+| 2 | `src/SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Token.CommissionPercentage: 0.5` (mock/default). |
+| 3 | `src/SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | Capture `_isSolanaToken`, `_houseFundedBase`, `_commissionRate` in ctor; apply commission in `CalculateRewardForBet` (SolanaToken only, profit-above-stake, house base excluded). |
+| 4 | `src/SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` | Add `CommissionPercentage` field + optional ctor param (SolanaToken → rate, else 0). |
+| 5 | `src/SpaceStroker.Infrastructure/Handlers/Games/GetActiveParameters/GetActiveParametersHandler.cs` | Inject `GeneralSettings`; pass `Token.CommissionPercentage` to the DTO. |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -319,7 +319,7 @@ flowchart TD
 
 ## 11. Tests
 
-### 11.1 Unit tests — `src/ChimpOut.Tests`
+### 11.1 Unit tests — `src/SpaceStroker.Tests`
 
 Extend `UnitTests/Domain/Games/BetDomainServiceTests.cs` (already tests `CalculateRewardForBet`).
 Use a config with `CommissionPercentage = 0.5m`.
@@ -339,7 +339,7 @@ Use a config with `CommissionPercentage = 0.5m`.
 Also add a `GetActiveParametersHandler`/DTO test (extend the relevant handler test): SolanaToken type
 → `CommissionPercentage == configured`; Standard type → `0`.
 
-### 11.2 Integration tests — `src/ChimpOut.Tests.Integration` (mandatory)
+### 11.2 Integration tests — `src/SpaceStroker.Tests.Integration` (mandatory)
 
 Extend `GameFlowTests.cs` (the Testcontainers suite; SolanaToken payouts run through the harness's
 `FakeSolanaService`, which records transfers):

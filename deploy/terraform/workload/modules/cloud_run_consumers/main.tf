@@ -1,4 +1,4 @@
-# ChimpOut.Consumers — INTERNAL-only Cloud Run service (never on the public LB; it
+# SpaceStroker.Consumers — INTERNAL-only Cloud Run service (never on the public LB; it
 # hosts /hangfire and owns EF migrations/seeding). CPU always-on (runs the game loop
 # + Hangfire), instance count pinned to consumer_count (never scales to zero).
 

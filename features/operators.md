@@ -5,7 +5,7 @@
 >
 > **Superseded (2026-06-30) by `features/launch-token-validation.md`:** the `x-operator-id` header is
 > **removed**. Operator (and player) identity now comes from a signed **launch token**
-> (`X-Launch-Token`, validated in `ChimpOut.Api` middleware). The multi-tenancy/contract/branding rules
+> (`X-Launch-Token`, validated in `SpaceStroker.Api` middleware). The multi-tenancy/contract/branding rules
 > below still hold; only the transport changed — read the launch-token doc for the current request flow.
 > Operators also gained `PaymentModel` (`Regulated` | `Crypto`) and `LaunchPublicKey`.
 
@@ -13,7 +13,7 @@
 
 Introduces **Operators** (casino/betting platforms, e.g. BetMGM, BetFury). Every `GameParameters`
 row **must** have an `OperatorId`. Players arrive via a signed launch token (the operator is the
-token's `iss` — game routes are **param-free**: `/chimpout/game/games`, `/chimpout/game/play`); the
+token's `iss` — game routes are **param-free**: `/space-stroker/game/games`, `/space-stroker/game/play`); the
 frontend sends a signed **`X-Launch-Token`** on every operator-scoped REST call (was `x-operator-id`).
 There is **no house / operator-less mode**.
 
@@ -38,17 +38,17 @@ There is **no house / operator-less mode**.
 - **Empty lists:** `GET /games/active-types` and game history return **200 with `[]`** when empty.
 - **SignalR:** game id in the hub URL is sufficient — no token on websocket connections.
 - **Payments:** SOL only.
-- **Non-prod seed:** when no operators exist, `ChimpOut.Consumers` seeds **DEV Cassino** and assigns
-  default `GameParameters` to it. Local play: the dev launch buttons at `/chimpout/game` (dev-only;
+- **Non-prod seed:** when no operators exist, `SpaceStroker.Consumers` seeds **DEV Cassino** and assigns
+  default `GameParameters` to it. Local play: the dev launch buttons at `/space-stroker/game` (dev-only;
   see `features/dev-qol-stuff.md`).
 
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
 
-- Entity: `ChimpOut.Domain/Games/Entities/Operator.cs`; required FK on `GameParameters`.
-- Migrations: `AddOperators`, `MakeOperatorIdRequired` in `ChimpOut.Infrastructure/Migrations/`.
-- Identity: `LaunchTokenValidationMiddleware` (`ChimpOut.Api/Middleware/`) validates `X-Launch-Token`
+- Entity: `SpaceStroker.Domain/Games/Entities/Operator.cs`; required FK on `GameParameters`.
+- Migrations: `AddOperators`, `MakeOperatorIdRequired` in `SpaceStroker.Infrastructure/Migrations/`.
+- Identity: `LaunchTokenValidationMiddleware` (`SpaceStroker.Api/Middleware/`) validates `X-Launch-Token`
   and populates `ILaunchContext`; controllers read operator/player from it (the old
   `GamesController.RequireOperatorId` / `x-operator-id` binding is removed). See
   `features/launch-token-validation.md`.
@@ -59,13 +59,13 @@ There is **no house / operator-less mode**.
 - Services: operator-scoped `GameService.GetAllActiveGameParameters(Guid)`; internal
   `GetAllActiveGameParametersForAllOperators()` for consumers; cache keys
   `ActiveParameters:{operatorId}` and `Operator:{operatorId}` in `CacheHelper`.
-- Seeding: `ChimpOut.Consumers/Program.cs` — `CreateDefaultOperatorAsync`, `CreateDefaultGameParametersAsync`,
+- Seeding: `SpaceStroker.Consumers/Program.cs` — `CreateDefaultOperatorAsync`, `CreateDefaultGameParametersAsync`,
   `OpenNewGames` (skips inactive operators).
 
 **Frontend (`monkify-front`)**
 
-- Routes: `src/routes.ts` — param-free `/chimpout/game/games`, `/chimpout/game/play`, `/error`;
-  `/chimpout/game` is the dev launch landing (prod → `/error`). Operator id comes from the token `iss`
+- Routes: `src/routes.ts` — param-free `/space-stroker/game/games`, `/space-stroker/game/play`, `/error`;
+  `/space-stroker/game` is the dev launch landing (prod → `/error`). Operator id comes from the token `iss`
   (`src/utils/launchToken.ts` `getOperatorIdFromToken`), not the route.
 - Composable: `src/hooks/useOperator.ts` — loads branding via `getOperator`, applies theme, redirects
   on failure.

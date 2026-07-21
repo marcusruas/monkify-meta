@@ -1,4 +1,4 @@
-# ChimpOut — "DEV QOL Stuff" Feature — Implementation Spec
+# SpaceStroker — "DEV QOL Stuff" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/dev-qol-stuff` on 2026-06-30. Distilled in
 > `../features/dev-qol-stuff.md`. Refined via Trello card
@@ -23,13 +23,13 @@ Four largely independent work items:
 | --- | --- | --- | --- |
 | **A** | Drop `operatorId` from the game URL; resolve the operator from the launch token's `iss` claim instead | front + backend | Backend change is only the dev-mint response shape |
 | **B** | Replace the silent dev auto-mint with two explicit dev-only buttons (Crypto / Regulated) on a token-less landing | front | Buttons are the only dev entry point |
-| **C** | New `ChimpOut.Tests.Integration` project (Testcontainers) running games end-to-end | backend | **Independent — can be built by a parallel agent** |
+| **C** | New `SpaceStroker.Tests.Integration` project (Testcontainers) running games end-to-end | backend | **Independent — can be built by a parallel agent** |
 | **D** | Meta rule: game-flow changes must update the integration suite | meta | Doc-only |
 
 **A, B** are coupled (same frontend launch flow + one backend response tweak). **C** is independent.
 **D** is a knowledge-base rule that lands with this feature.
 
-> **Note on "the launch token":** in production a casino redirects the player to ChimpOut with a
+> **Note on "the launch token":** in production a casino redirects the player to SpaceStroker with a
 > signed RS256 JWT (`#launch_token=<jwt>`); the operator is the token's `iss` claim. See
 > `features/launch-token-validation.md`. This feature does **not** change token signing/validation —
 > only where the frontend reads the operatorId from, and the shape of the dev-only mint response.
@@ -42,15 +42,15 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Branch-per-repo:** `feature/dev-qol-stuff` in `monkify-backend`, `monkify-front`, and `monkify-meta`
   (already created + pushed by `/monkify-create-spec`).
-- **Unit tests:** update/add in `ChimpOut.Tests`; **report changed tests at end of implementation.**
+- **Unit tests:** update/add in `SpaceStroker.Tests`; **report changed tests at end of implementation.**
   Run `scripts/run_tests.bat` (fast suite) before declaring done. The new integration suite (item C)
   runs separately via `scripts/run_integration_tests.bat`.
 - **EF mapping / migrations:** **none needed** — this feature adds no entities, columns, or migrations.
 - **Secrets/config:** the dev launch-token signing key stays a **mock** placeholder in
-  `chimpoutsettings.json` — never a real key. Testcontainers connection strings are ephemeral/mock.
+  `spacestrokersettings.json` — never a real key. Testcontainers connection strings are ephemeral/mock.
 - **Operator messaging:** unchanged — auth/operator failures still route to a vague `/error`; never
   reveal contract status.
-- **Hosts:** API stays stateless and does **not** migrate; `ChimpOut.Consumers` keeps owning
+- **Hosts:** API stays stateless and does **not** migrate; `SpaceStroker.Consumers` keeps owning
   background/typer/money work + migrations. (Relevant to how the integration harness boots both hosts.)
 
 ---
@@ -63,11 +63,11 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | `operatorId` is removed from the game route path. Operator-scoped pages no longer carry `:operatorId`. |
 | 3 | `DevController.MintLaunchToken` returns **`{ token }` only** (drop `operatorId` from the response + XML doc). |
 | 4 | The silent dev auto-mint (`mintDevToken` in `useLaunch.ts`) is **removed entirely**. |
-| 5 | Two **dev-only** buttons (Crypto / Regulated) live on a token-less landing at `/chimpout/game` (prod → `/error`). Each mints via `POST /dev/launch-token?paymentModel=…`, stores the token, and navigates to the game-select page. |
-| 6 | New backend integration tests live in a **separate** `ChimpOut.Tests.Integration` project, excluded from the default fast suite, with their own runner script. |
+| 5 | Two **dev-only** buttons (Crypto / Regulated) live on a token-less landing at `/space-stroker/game` (prod → `/error`). Each mints via `POST /dev/launch-token?paymentModel=…`, stores the token, and navigates to the game-select page. |
+| 6 | New backend integration tests live in a **separate** `SpaceStroker.Tests.Integration` project, excluded from the default fast suite, with their own runner script. |
 | 7 | Integration tests use **Testcontainers** (PostgreSQL + RabbitMQ + Redis), boot the **API** + **Consumers** hosts, run a representative sample of default game types end-to-end, and cover **both free and paid** bets. Solana is mocked. |
 | 8 | Solana is never really called in tests — `ISolanaService` is replaced with a test double (crypto/Model B paths); the regulated/Model A paid path mocks `IOperatorWalletService` instead. |
-| 9 | Meta rule: any change to the game lifecycle/flow must also update `ChimpOut.Tests.Integration`. |
+| 9 | Meta rule: any change to the game lifecycle/flow must also update `SpaceStroker.Tests.Integration`. |
 
 ---
 
@@ -82,7 +82,7 @@ existing tables — `Games`, `Bets`, `TransactionLogs` — but adds none.)
 
 - **Backend:** no new `GeneralSettings`. The integration harness **overrides** the three connection
   strings to point at Testcontainers, via environment variables (.NET double-underscore convention):
-  - `ConnectionStrings__ChimpOut` → the Postgres container (also used by Hangfire).
+  - `ConnectionStrings__SpaceStroker` → the Postgres container (also used by Hangfire).
   - `ConnectionStrings__RabbitMQ` → the RabbitMQ container.
   - `ConnectionStrings__Redis` → the Redis container.
   Lower `GeneralSettings:Games:MinimumWaitPeriodForBets` (and related worker intervals) in the test
@@ -96,7 +96,7 @@ existing tables — `Games`, `Bets`, `TransactionLogs` — but adds none.)
   - **Env files (same convention as `VUE_APP_ALLOW_FREE_BETS`):** `.env.production` and the `*.local`
     files are **git-ignored** (ops/deploy-managed); the committed template is **`.env.example`**, which
     documents `VUE_APP_DEV_LAUNCH`. The **production deploy must set `VUE_APP_DEV_LAUNCH=false`** in its
-    `.env.production` (so `/chimpout/game` → `/error`).
+    `.env.production` (so `/space-stroker/game` → `/error`).
   - **Local docker env:** `scripts/setup_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true`
     into the generated `.env.production.local` (Vue CLI's highest-priority file → overrides
     `.env.production`). The api/consumers containers run `ASPNETCORE_ENVIRONMENT=Development`, so the
@@ -108,7 +108,7 @@ existing tables — `Games`, `Bets`, `TransactionLogs` — but adds none.)
 
 ### 6.1 `DevController.MintLaunchToken` — slim the response (item A)
 
-File: `monkify-backend/src/ChimpOut.Api/Controllers/DevController.cs`
+File: `monkify-backend/src/SpaceStroker.Api/Controllers/DevController.cs`
 
 Today (line 58): `return Ok(new { token, operatorId = devOperator.Id });`
 
@@ -136,37 +136,37 @@ with the operatorId it decodes from the token, so the existing iss-match protect
 This is **test-project work only** — no production code changes. Documented here so the implementer
 has the exact seams.
 
-**New project:** `monkify-backend/src/ChimpOut.Tests.Integration` (see §10.1 for csproj + §10.4 for the
-.sln entry). Namespace root `ChimpOut.Tests.Integration.*` — naturally excluded from
-`scripts/run_tests.bat` (which `cd`s into `ChimpOut.Tests` and also filters `FullyQualifiedName~UnitTests`).
+**New project:** `monkify-backend/src/SpaceStroker.Tests.Integration` (see §10.1 for csproj + §10.4 for the
+.sln entry). Namespace root `SpaceStroker.Tests.Integration.*` — naturally excluded from
+`scripts/run_tests.bat` (which `cd`s into `SpaceStroker.Tests` and also filters `FullyQualifiedName~UnitTests`).
 
 **Containers (Testcontainers):**
 
 | Container | Module | Purpose |
 | --- | --- | --- |
-| PostgreSQL | `Testcontainers.PostgreSql` | EF store **and** Hangfire storage (`ConnectionStrings__ChimpOut`) |
+| PostgreSQL | `Testcontainers.PostgreSql` | EF store **and** Hangfire storage (`ConnectionStrings__SpaceStroker`) |
 | RabbitMQ | `Testcontainers.RabbitMq` | MassTransit broker (`ConnectionStrings__RabbitMQ`) |
 | Redis | `Testcontainers.Redis` | Cache + SignalR backplane (`ConnectionStrings__Redis`) |
 
-> The existing `ChimpOut.Tests.csproj` references `Testcontainers.MsSql`, which is the **wrong** engine
-> (ChimpOut is Postgres/Npgsql). Do **not** reuse it — add the three modules above to the new project.
+> The existing `SpaceStroker.Tests.csproj` references `Testcontainers.MsSql`, which is the **wrong** engine
+> (SpaceStroker is Postgres/Npgsql). Do **not** reuse it — add the three modules above to the new project.
 
 **Booting the hosts** (collection fixture, started once, shared across the suite):
 
 1. Start the three containers; capture their connection strings into environment variables
-   (`ConnectionStrings__ChimpOut/RabbitMQ/Redis`) **before** building the hosts.
-2. Boot **`ChimpOut.Consumers`** via `WebApplicationFactory<Program>` (it is a `WebApplication`). On
+   (`ConnectionStrings__SpaceStroker/RabbitMQ/Redis`) **before** building the hosts.
+2. Boot **`SpaceStroker.Consumers`** via `WebApplicationFactory<Program>` (it is a `WebApplication`). On
    startup it **applies EF migrations**, **seeds the two dev operators** (`DEV Cassino` /
    `DEV Regulated Cassino`), seeds the default game parameters, and registers the MassTransit
    consumers + Hangfire. This is the host that runs the game loop.
-3. Boot **`ChimpOut.Api`** via `WebApplicationFactory<Program>` against the **same** containers (it does
+3. Boot **`SpaceStroker.Api`** via `WebApplicationFactory<Program>` against the **same** containers (it does
    not migrate). Use its `HttpClient` to place bets.
 4. In **both** factories' `ConfigureTestServices`, **replace Solana / wallet** with test doubles
    (§6.4) and **lower** `MinimumWaitPeriodForBets`.
    - `Program.cs` is top-level-statements; reference it via `public partial class Program { }` (add a
      one-line partial in each host project if `WebApplicationFactory<Program>` cannot see it).
 
-> **Caveat — background game creator:** `ChimpOut.Consumers` runs a `BaseWorker`-derived background
+> **Caveat — background game creator:** `SpaceStroker.Consumers` runs a `BaseWorker`-derived background
 > service (interval `GeneralSettings:Workers` / `CreateGamesInterval`) plus `BetPlacedConsumer` /
 > `RunGameConsumer`, all of which auto-create `Game` rows. For **deterministic** tests, **seed
 > the `Game` row directly** via a DbContext scope (status `WaitingBets`, tied to a chosen seeded
@@ -272,18 +272,18 @@ Current routes:
 
 | Name | Path (today) | Component |
 | --- | --- | --- |
-| — | `/chimpout/game` | redirect → `/error` |
-| `Game` | `/chimpout/game/:operatorId` | `GameSelectPage.vue` |
-| `Game` | `/chimpout/game/:operatorId/play` | `GamePage.vue` |
+| — | `/space-stroker/game` | redirect → `/error` |
+| `Game` | `/space-stroker/game/:operatorId` | `GameSelectPage.vue` |
+| `Game` | `/space-stroker/game/:operatorId/play` | `GamePage.vue` |
 | `Error` | `/error` | `ErrorPage.vue` |
 
 New routes:
 
 | Name | Path (new) | Component | Notes |
 | --- | --- | --- | --- |
-| `DevLanding` | `/chimpout/game` | new `DevLandingPage.vue` (dev only) | In **production**, redirect → `/error` (dev-only buttons never ship/render). |
-| `Game` | `/chimpout/game/games` | `GameSelectPage.vue` | (exact path string is a naming choice — keep it param-free) |
-| `Game` | `/chimpout/game/play` | `GamePage.vue` | |
+| `DevLanding` | `/space-stroker/game` | new `DevLandingPage.vue` (dev only) | In **production**, redirect → `/error` (dev-only buttons never ship/render). |
+| `Game` | `/space-stroker/game/games` | `GameSelectPage.vue` | (exact path string is a naming choice — keep it param-free) |
+| `Game` | `/space-stroker/game/play` | `GamePage.vue` | |
 | `Error` | `/error` | `ErrorPage.vue` | |
 
 - **Remove** the `requireValidOperator` `beforeEnter` guard (there is no `:operatorId` to validate).
@@ -291,9 +291,9 @@ New routes:
   when no token / no operator resolves).
 - The dev-landing route must be reachable **without** a token; gate it on the **`devLaunchEnabled`**
   flag (`VUE_APP_DEV_LAUNCH !== 'false'`, see §5) and redirect to `/error` when disabled (production).
-- **Production casino launch landing.** Because `/chimpout/game` is the dev landing (prod → `/error`),
+- **Production casino launch landing.** Because `/space-stroker/game` is the dev landing (prod → `/error`),
   the real casino launch lands on the **game-select route**: the new launch URL is
-  **`…/chimpout/game/games#launch_token=<jwt>`** (replacing `…/chimpout/game/<operatorId>#launch_token=<jwt>`).
+  **`…/space-stroker/game/games#launch_token=<jwt>`** (replacing `…/space-stroker/game/<operatorId>#launch_token=<jwt>`).
   `App.vue`'s `onMounted` already calls `loadOperator()` for the `Game`/`Game` routes, so the
   fragment token is captured, stripped, stored, and decoded on that hard load. (The dev buttons reach
   the same `Game` route via SPA navigation and call `loadOperator()` themselves.)
@@ -329,7 +329,7 @@ Drop the `operatorId` param from every router navigation:
 ### 7.6 Dev landing page + two buttons (item B)
 
 New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component rendered by the
-`/chimpout/game` route). Dev-only.
+`/space-stroker/game` route). Dev-only.
 
 - Renders exactly two buttons: **Crypto** and **Regulated**.
 - On click:
@@ -340,7 +340,7 @@ New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component ren
   setLaunchToken(data.token);            // from launchToken.ts
   router.push({ name: 'Game' });      // game-select; useOperator decodes iss + loads branding
   ```
-- Guard: when `devLaunchEnabled` is false (production — `VUE_APP_DEV_LAUNCH=false`), `/chimpout/game`
+- Guard: when `devLaunchEnabled` is false (production — `VUE_APP_DEV_LAUNCH=false`), `/space-stroker/game`
   redirects to `/error` and the buttons are never rendered/shipped (see §5).
 
 ---
@@ -352,9 +352,9 @@ New file: `monkify-front/src/pages/DevLandingPage.vue` (or a small component ren
 ```mermaid
 sequenceDiagram
     participant Dev as Developer (no token)
-    participant FE as Frontend (/chimpout/game, dev only)
+    participant FE as Frontend (/space-stroker/game, dev only)
     participant API as DevController
-    Dev->>FE: open /chimpout/game
+    Dev->>FE: open /space-stroker/game
     FE-->>Dev: show [Crypto] [Regulated]
     Dev->>FE: click Regulated
     FE->>API: POST /dev/launch-token?paymentModel=Regulated
@@ -368,8 +368,8 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant T as Test
-    participant API as ChimpOut.Api (WAF)
-    participant C as ChimpOut.Consumers (WAF)
+    participant API as SpaceStroker.Api (WAF)
+    participant C as SpaceStroker.Consumers (WAF)
     participant DB as Postgres (Testcontainers)
     T->>DB: seed Game (WaitingBets) for a GameParameters
     T->>API: POST /games/{id}/bets x N (amount>0, fake sig)
@@ -402,22 +402,22 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Api/Controllers/DevController.cs` | `MintLaunchToken` returns `{ token }` only; update XML doc |
-| 2 | `src/ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs` | Drop `operatorId` assertions (see §11) |
-| 3 | `src/ChimpOut.Tests.Integration/ChimpOut.Tests.Integration.csproj` | **New** project (see §10.3) |
-| 4 | `src/ChimpOut.Tests.Integration/*` | **New** collection fixture (containers + 2 WAF hosts), test doubles, game-flow tests |
-| 5 | `src/ChimpOut.Api/Program.cs` & `src/ChimpOut.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
+| 1 | `src/SpaceStroker.Api/Controllers/DevController.cs` | `MintLaunchToken` returns `{ token }` only; update XML doc |
+| 2 | `src/SpaceStroker.Tests/UnitTests/Controllers/DevControllerTests.cs` | Drop `operatorId` assertions (see §11) |
+| 3 | `src/SpaceStroker.Tests.Integration/SpaceStroker.Tests.Integration.csproj` | **New** project (see §10.3) |
+| 4 | `src/SpaceStroker.Tests.Integration/*` | **New** collection fixture (containers + 2 WAF hosts), test doubles, game-flow tests |
+| 5 | `src/SpaceStroker.Api/Program.cs` & `src/SpaceStroker.Consumers/Program.cs` | Add `public partial class Program { }` if needed for `WebApplicationFactory<Program>` |
 | 6 | `scripts/run_integration_tests.bat` | **New** runner (mirror `run_production_game_tests.bat`) |
-| 7 | `src/ChimpOut.sln` | Add the new project + build configs |
+| 7 | `src/SpaceStroker.sln` | Add the new project + build configs |
 | 8 | `scripts/setup_local_environment.bat` | Materialise `VUE_APP_DEV_LAUNCH=true` into the generated `.env.production.local` so the local (prod-built) container shows the dev launch buttons |
-| 9 | `src/ChimpOut.Api/Dockerfile` & `src/ChimpOut.Consumers/Dockerfile` | Add `COPY` for `ChimpOut.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
+| 9 | `src/SpaceStroker.Api/Dockerfile` & `src/SpaceStroker.Consumers/Dockerfile` | Add `COPY` for `SpaceStroker.Tests.Integration.csproj` before `dotnet restore` (the layered restore is on the whole `.sln`, so every referenced csproj must be copied) |
 
 ### 10.2 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/utils/launchToken.ts` | Add `getOperatorIdFromToken()` |
-| 2 | `src/routes.ts` | Drop `:operatorId`; remove `requireValidOperator`; `/chimpout/game` → dev landing (prod → `/error`) |
+| 2 | `src/routes.ts` | Drop `:operatorId`; remove `requireValidOperator`; `/space-stroker/game` → dev landing (prod → `/error`) |
 | 3 | `src/hooks/useLaunch.ts` | Remove `mintDevToken` + auto-mint; `ensureLaunchToken()` no arg |
 | 4 | `src/hooks/useOperator.ts` | Derive `operatorId` from token; call `ensureLaunchToken()`/`getOperatorIdFromToken()` |
 | 5 | `src/components/GameHeader.vue` | `gameHomeRoute` → `{ name: 'Game' }` (no params) |
@@ -427,22 +427,22 @@ sequenceDiagram
 | 9 | `src/constants/featureFlags.ts` | Add `devLaunchEnabled` (`VUE_APP_DEV_LAUNCH !== 'false'`) |
 | 10 | `.env.example` (committed) | Document `VUE_APP_DEV_LAUNCH`. NB `.env.production` is git-ignored/ops-managed — production deploy must set `VUE_APP_DEV_LAUNCH=false` there |
 
-### 10.3 New integration csproj (mirror of `ChimpOut.Tests.csproj`)
+### 10.3 New integration csproj (mirror of `SpaceStroker.Tests.csproj`)
 
 `net8.0`, `IsTestProject=true`. Package references: `Microsoft.NET.Test.Sdk` 17.6.0, `xunit` 2.4.2,
 `xunit.runner.visualstudio` 2.4.5, `Shouldly` 4.2.1, `Moq` 4.20.70, `Bogus` 35.5.0,
 `coverlet.collector` 6.0.2, **`Microsoft.AspNetCore.Mvc.Testing`** (8.0.x, for `WebApplicationFactory`),
 **`Testcontainers.PostgreSql`**, **`Testcontainers.RabbitMq`**, **`Testcontainers.Redis`** (4.6.0, to
-match the existing Testcontainers 4.6.0). Project references: `ChimpOut.Api`, `ChimpOut.Consumers`,
-`ChimpOut.Infrastructure`, `ChimpOut.Domain`, `ChimpOut.Common`. (Do **not** copy `Testcontainers.MsSql`.)
+match the existing Testcontainers 4.6.0). Project references: `SpaceStroker.Api`, `SpaceStroker.Consumers`,
+`SpaceStroker.Infrastructure`, `SpaceStroker.Domain`, `SpaceStroker.Common`. (Do **not** copy `Testcontainers.MsSql`.)
 
 ### 10.4 Meta (`monkify-meta`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `conventions/backend.md` | Add the rule: game-flow changes must update `ChimpOut.Tests.Integration` |
+| 1 | `conventions/backend.md` | Add the rule: game-flow changes must update `SpaceStroker.Tests.Integration` |
 | 2 | `constraints.md` | Add a one-line pointer (in §3 Unit tests) to that rule |
-| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example: production launch lands on the game route — `…/chimpout/game/games#launch_token=<jwt>` (was `…/chimpout/game/<operatorId>#launch_token=<jwt>`) |
+| 3 | `features/launch-token-validation.md` | (on ship) update the launch URL example: production launch lands on the game route — `…/space-stroker/game/games#launch_token=<jwt>` (was `…/space-stroker/game/<operatorId>#launch_token=<jwt>`) |
 | 4 | `specs/dev-qol-stuff.md` | This spec |
 | 5 | `INDEX.md` | Map row + "Feature currently in flight" |
 
@@ -450,12 +450,12 @@ match the existing Testcontainers 4.6.0). Project references: `ChimpOut.Api`, `C
 
 ## 11. Unit tests
 
-Project: `monkify-backend/src/ChimpOut.Tests` (fast suite) + the new `ChimpOut.Tests.Integration`.
+Project: `monkify-backend/src/SpaceStroker.Tests` (fast suite) + the new `SpaceStroker.Tests.Integration`.
 **Report all changed/added tests at end of implementation.**
 
 ### 11.1 `DevControllerTests` (existing — must update)
 
-File: `src/ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs`
+File: `src/SpaceStroker.Tests/UnitTests/Controllers/DevControllerTests.cs`
 
 | Test case | Change |
 | --- | --- |
@@ -464,9 +464,9 @@ File: `src/ChimpOut.Tests/UnitTests/Controllers/DevControllerTests.cs`
 | `MintLaunchToken_DefaultsToCrypto` / `_NoDevOperator_Returns404` / `_Production_Returns404` | Unchanged (no `operatorId` assertion) |
 | **New** | Assert the response shape has **no** `operatorId` property (reflection: `GetProperty("operatorId") == null`) |
 
-### 11.2 `ChimpOut.Tests.Integration` (new)
+### 11.2 `SpaceStroker.Tests.Integration` (new)
 
-Namespace `ChimpOut.Tests.Integration.*`. One collection fixture (containers + both WAF hosts + doubles).
+Namespace `SpaceStroker.Tests.Integration.*`. One collection fixture (containers + both WAF hosts + doubles).
 
 | Test | Expect |
 | --- | --- |
@@ -493,16 +493,16 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
    then it uses the operatorId decoded from the token's `iss` (validated by `isValidOperatorGuid`).
 3. **A3** — Given a successful `POST /dev/launch-token` in dev, when the response is returned, then its
    body contains only `{ token }` and no `operatorId`.
-4. **B1** — Given dev environment with no token, when a dev opens `/chimpout/game`, then a dev-only
+4. **B1** — Given dev environment with no token, when a dev opens `/space-stroker/game`, then a dev-only
    landing renders exactly two buttons: Crypto and Regulated.
 5. **B2** — Given the dev landing, when the dev clicks Crypto (or Regulated), then
    `POST /dev/launch-token?paymentModel=Crypto` (or `Regulated`) is called, the returned token is
    stored via `setLaunchToken`, and the dev is navigated to the game-select page for that operator.
-6. **B3** — Given production build, when a user navigates to `/chimpout/game`, then they are redirected
+6. **B3** — Given production build, when a user navigates to `/space-stroker/game`, then they are redirected
    to `/error` and no dev buttons are present in the shipped bundle.
 7. **B4** — Given dev environment and no token, when the app loads, then no token is auto-minted
    silently (the `mintDevToken` fallback is removed); entry requires clicking a button.
-8. **C1** — Given the `ChimpOut.Tests.Integration` suite with Testcontainers (Postgres + RabbitMQ +
+8. **C1** — Given the `SpaceStroker.Tests.Integration` suite with Testcontainers (Postgres + RabbitMQ +
    Redis), when it runs the representative default game types end-to-end (free and paid bets, Solana
    mocked), then each game reaches a terminal status and winners are marked `Rewarded`.
 9. **C2** — Given the integration run, when the API and Consumers process the games, then no
@@ -511,9 +511,9 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
     correct payout and `TransactionLog` rows, free bets are excluded from the pot, and all bets
     persisted with expected statuses.
 11. **C4** — Given the default fast suite (`scripts/run_tests.bat`), when it runs, then
-    `ChimpOut.Tests.Integration` is excluded and runs only via its own `scripts/run_integration_tests.bat`.
+    `SpaceStroker.Tests.Integration` is excluded and runs only via its own `scripts/run_integration_tests.bat`.
 12. **D1** — Given a change to the game lifecycle/flow, when the work is done, then `monkify-meta`
-    (`conventions/backend.md` + `constraints.md §3` pointer) documents that `ChimpOut.Tests.Integration`
+    (`conventions/backend.md` + `constraints.md §3` pointer) documents that `SpaceStroker.Tests.Integration`
     must also be updated.
 
 ---
@@ -521,11 +521,11 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (card #28):
 ## 13. Manual QA (dev)
 
 1. Run backend (Consumers + API) locally with docker-compose (Postgres/RabbitMQ/Redis up).
-2. Run the frontend in dev. Open `/chimpout/game` → see **Crypto** / **Regulated** buttons.
+2. Run the frontend in dev. Open `/space-stroker/game` → see **Crypto** / **Regulated** buttons.
 3. Click **Crypto** → lands on the game-select page, branded for `DEV Cassino`, with a token in
    `sessionStorage` and **no** `operatorId` in the URL. Play a game.
 4. Click **Regulated** (fresh tab) → branded for `DEV Regulated Cassino`; bet without a wallet.
-5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/chimpout/game` →
+5. Build with `VUE_APP_DEV_LAUNCH=false` (the `.env.production` default) and open `/space-stroker/game` →
    redirected to `/error`, no buttons. (The docker local env sets it back to `true` via
    `setup_local_environment.bat`, so the buttons appear there.)
 6. `cd backend && scripts/run_tests.bat` → passes, integration suite **not** run.

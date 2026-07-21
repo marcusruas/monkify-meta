@@ -6,7 +6,7 @@
 ## What it does
 
 Lets an operator **allow or deny a bet on responsible-gaming (RG) grounds before it is accepted** —
-self-exclusion, deposit/time limits, cooling-off, incomplete KYC, or a blocked account. ChimpOut owns
+self-exclusion, deposit/time limits, cooling-off, incomplete KYC, or a blocked account. SpaceStroker owns
 no RG state and stores no player PII; it calls a pluggable **per-operator pre-bet check adapter** and
 acts on the answer. The check is **opt-in**: an operator with no RG provider configured behaves exactly
 as before. (The pitch-facing RG/operator integration document is a separate, unshipped story.)
@@ -42,7 +42,7 @@ as before. (The pitch-facing RG/operator integration document is a separate, uns
   ("USD"), `gameId`, `gameType` (`GameParameters.Name`), `betId`.
 - **Config & secrets.** Per-operator RG config lives under
   `GeneralSettings.OperatorRgChecks.Operators[<operatorId>]` = `{ Provider, BaseUrl, ApiKey,
-  TimeoutSeconds }` in `chimpoutsettings.json`, **mock values only**; the committed block ships empty
+  TimeoutSeconds }` in `spacestrokersettings.json`, **mock values only**; the committed block ships empty
   (`Operators: {}`). A provider configured with an **unknown** name is a hard configuration error
   (throws) — only an *absent* provider is silently skipped.
 - **Adapter selection.** `IPreBetCheckResolver` maps the operator's configured provider name to a
@@ -54,27 +54,27 @@ as before. (The pitch-facing RG/operator integration document is a separate, uns
 
 **Backend (`monkify-backend`)**
 
-- Abstraction: `ChimpOut.Infrastructure/Services/PreBetChecks/` — `IPreBetCheckService`,
+- Abstraction: `SpaceStroker.Infrastructure/Services/PreBetChecks/` — `IPreBetCheckService`,
   `PreBetCheckRequest`, `PreBetCheckResult` (+ `PreBetCheckOutcome`),
   `PreBetCheckDenyReason` (`SelfExcluded | LimitReached | CoolingOff | KycRequired | Blocked | Other`),
   `IPreBetCheckResolver` + `PreBetCheckResolver` (returns `null` when unconfigured; throws on a
   configured-but-unknown provider).
-- Shared mock: `ChimpOut.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs` also
+- Shared mock: `SpaceStroker.Infrastructure/Services/OperatorWallets/MockOperatorWalletService.cs` also
   implements `IPreBetCheckService` (provider `"mock"`, always `Allowed`).
-- Handler: `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
+- Handler: `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
   (`RunPreBetCheck`, `MapDenyReasonToMessage`; called after `ValidateBetParameters`, before
   `DebitOperatorWallet`, guarded by `resolvedExternalId != null`; fail-closed try/catch).
-- Config: `ChimpOut.Domain/Configs/Entities/OperatorRgCheckSettings.cs`;
+- Config: `SpaceStroker.Domain/Configs/Entities/OperatorRgCheckSettings.cs`;
   `GeneralSettings.OperatorRgChecks`; empty `OperatorRgChecks` block in
-  `ChimpOut.Common/chimpoutsettings.json` (mock).
-- Messages: `ChimpOut.Common/Resources/ErrorMessages` — `RgSelfExcluded`, `RgLimitReached`,
+  `SpaceStroker.Common/spacestrokersettings.json` (mock).
+- Messages: `SpaceStroker.Common/Resources/ErrorMessages` — `RgSelfExcluded`, `RgLimitReached`,
   `RgCoolingOff`, `RgKycRequired`, `RgBlocked`, generic `RgBetNotAllowed`, and
   `RgCheckTemporarilyUnavailable`.
-- DI: `ChimpOut.Infrastructure/DependencyInjection.cs` registers `IPreBetCheckService` (mock) +
+- DI: `SpaceStroker.Infrastructure/DependencyInjection.cs` registers `IPreBetCheckService` (mock) +
   `IPreBetCheckResolver`.
-- Host: `ChimpOut.Api` (synchronous, on the bet path). **No entity, EF mapping, or migration.**
-- Tests: `ChimpOut.Tests/UnitTests/Handlers/RegisterBetHandlerTests.cs` (RG allow/deny/unavailable/
-  throws/skip/free-bet/crypto cases), `ChimpOut.Tests/UnitTests/Services/PreBetChecks/PreBetCheckResolverTests.cs`.
+- Host: `SpaceStroker.Api` (synchronous, on the bet path). **No entity, EF mapping, or migration.**
+- Tests: `SpaceStroker.Tests/UnitTests/Handlers/RegisterBetHandlerTests.cs` (RG allow/deny/unavailable/
+  throws/skip/free-bet/crypto cases), `SpaceStroker.Tests/UnitTests/Services/PreBetChecks/PreBetCheckResolverTests.cs`.
 
 **Frontend (`monkify-front`)**
 

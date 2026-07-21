@@ -50,8 +50,8 @@ bets at the API and hide the UI toggle.
 **Backend (`monkify-backend`)**
 
 - Entity: `GameParameters.AllowFreeBet`; config: `GameSettings.AllowFreeBets` in
-  `chimpoutsettings.json` → `GeneralSettings.Games`.
-- Helper: `ChimpOut.Domain/Bets/Services/BetExtensions.cs` — `IsFreeBetRequest`, `IsFreeBet`.
+  `spacestrokersettings.json` → `GeneralSettings.Games`.
+- Helper: `SpaceStroker.Domain/Bets/Services/BetExtensions.cs` — `IsFreeBetRequest`, `IsFreeBet`.
 - Handler: `RegisterBetHandler` — gate, skip payment validation, alternate duplicate keys, no refund
   event for invalid free bets.
 - Domain: `BetDomainService.ChoiceIsValidForGame(..., isFreeBet)` — amount rules for free vs paid.

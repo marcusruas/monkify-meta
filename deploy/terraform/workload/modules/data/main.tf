@@ -1,5 +1,5 @@
 # Private-IP-only data tier: one Cloud SQL Postgres 16 instance hosting BOTH the
-# game DB (chimpout) and the messaging DB (chimpout_messaging), plus Memorystore
+# game DB (spacestroker) and the messaging DB (spacestroker_messaging), plus Memorystore
 # Redis 7. No public IPs — reachable only over the VPC / private services peering.
 
 resource "google_sql_database_instance" "postgres" {
@@ -39,7 +39,7 @@ resource "google_sql_database_instance" "postgres" {
 }
 
 resource "google_sql_database" "game" {
-  name     = "chimpout"
+  name     = "spacestroker"
   project  = var.project_id
   instance = google_sql_database_instance.postgres.name
 }
@@ -48,7 +48,7 @@ resource "google_sql_database" "game" {
 # terraform provisions "one instance, two DBs"; the Consumers MT migration hosted
 # service is idempotent against an existing DB.
 resource "google_sql_database" "messaging" {
-  name     = "chimpout_messaging"
+  name     = "spacestroker_messaging"
   project  = var.project_id
   instance = google_sql_database_instance.postgres.name
 }

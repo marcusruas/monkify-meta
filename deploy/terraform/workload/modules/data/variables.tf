@@ -44,7 +44,7 @@ variable "max_connections" {
 
 variable "db_app_user" {
   type    = string
-  default = "chimpout_app"
+  default = "spacestroker_app"
 }
 
 variable "db_app_password" {

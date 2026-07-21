@@ -1,4 +1,4 @@
-# ChimpOut — "Audio Overhaul with AI" — (2/3) Asset Generation Spec
+# SpaceStroker — "Audio Overhaul with AI" — (2/3) Asset Generation Spec
 
 > **Status: Shipped** (2026-07-07, merged via `feature/audio-overhaul`). **Post-ship reality:** assets
 > were generated **manually in the Suno UI** (the MCP ran out of credits) then post-processed with
@@ -62,7 +62,7 @@ From `monkify-meta/constraints.md` (full list there):
 - **Shared branch/worktree:** work in the **existing** `feature/audio-overhaul` worktrees
   (`.worktrees/audio-overhaul/monkify-front` for assets, `.worktrees/audio-overhaul/monkify-meta` for
   this spec). The hubs stay on `main`. **Do not create a new branch/slug.**
-- **Mock secrets only:** the `ACEDATACLOUD_API_TOKEN` in any committed file (`E:\ChimpOut\.mcp.json`)
+- **Mock secrets only:** the `ACEDATACLOUD_API_TOKEN` in any committed file (`E:\SpaceStroker\.mcp.json`)
   stays a **placeholder**. The real token is supplied by the user at runtime (environment / local
   edit) and is **never printed, echoed, or committed**.
 - **Frontend-only → no backend integration test** (no backend behavior). **No unit tests** are added
@@ -77,7 +77,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 | # | Decision |
 | --- | --- |
-| 1 | **Agent-automated generation via the Suno MCP.** Server `suno` = `mcp-suno` (`uvx mcp-suno`, env `ACEDATACLOUD_API_TOKEN`), installed + registered in `E:\ChimpOut\.mcp.json`. |
+| 1 | **Agent-automated generation via the Suno MCP.** Server `suno` = `mcp-suno` (`uvx mcp-suno`, env `ACEDATACLOUD_API_TOKEN`), installed + registered in `E:\SpaceStroker\.mcp.json`. |
 | 2 | **Verify before generating.** The `suno` MCP must be loaded (game restarted after the token is set) and its tools must respond. If the token/MCP is missing or failing → **stop and tell the user**; never fabricate or hand-fake assets. |
 | 3 | **Post-processing with `ffmpeg`/`ffprobe`** (n7.1.1, confirmed present): trim to target durations, **slice** the escalating bleep take into 3 files, loudness-normalize, convert to mp3. No manual audio editor. |
 | 4 | **Generate strictly to card 1's manifest** — each item uses card 1 §5's prompt (instrumental; SNES reference + video URL passed **verbatim** per §5.0). This card does not alter the sound design. |
@@ -98,7 +98,7 @@ Confirmed on this machine during refinement (2026-07-07):
 | `mcp-suno` | 2026.7.4.0 (installed via `uv tool install`) | Suno MCP server |
 | `ffmpeg` / `ffprobe` | n7.1.1 (`C:\Program Files (x86)\ffmpeg\bin`) | trim / slice / normalize / mp3 |
 
-**MCP registration** — `E:\ChimpOut\.mcp.json` (workspace root, untracked):
+**MCP registration** — `E:\SpaceStroker\.mcp.json` (workspace root, untracked):
 
 ```json
 {

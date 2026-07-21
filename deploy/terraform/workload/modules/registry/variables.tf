@@ -8,8 +8,8 @@ variable "region" {
 
 variable "repository_id" {
   type        = string
-  description = "Artifact Registry repository id (e.g. chimpout)."
-  default     = "chimpout"
+  description = "Artifact Registry repository id (e.g. spacestroker)."
+  default     = "spacestroker"
 }
 
 variable "labels" {

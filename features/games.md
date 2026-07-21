@@ -6,13 +6,13 @@
 >
 > Primary code:
 >
-> - Backend domain: `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs`,
-> `ChimpOut.Domain/Bets/Services/BetDomainService.cs`,
-> `ChimpOut.Domain/Games/Entities/*`, `ChimpOut.Domain/Games/ValueObjects/GameStatus.cs`.
-> - Backend services/consumers: `ChimpOut.Infrastructure/Services/Games/GameService.cs`,
-> `ChimpOut.Infrastructure/Consumers/{BetPlaced,RunGame,RewardGame,RefundInvalidBet,BetNotification}/*`.
-> - API: `ChimpOut.Api/Controllers/GamesController.cs`, DTOs in
-> `ChimpOut.Infrastructure/Contracts/Games/*`. Seed data: `ChimpOut.Consumers/DefaultGameParameters.cs`.
+> - Backend domain: `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs`,
+> `SpaceStroker.Domain/Bets/Services/BetDomainService.cs`,
+> `SpaceStroker.Domain/Games/Entities/*`, `SpaceStroker.Domain/Games/ValueObjects/GameStatus.cs`.
+> - Backend services/consumers: `SpaceStroker.Infrastructure/Services/Games/GameService.cs`,
+> `SpaceStroker.Infrastructure/Consumers/{BetPlaced,RunGame,RewardGame,RefundInvalidBet,BetNotification}/*`.
+> - API: `SpaceStroker.Api/Controllers/GamesController.cs`, DTOs in
+> `SpaceStroker.Infrastructure/Contracts/Games/*`. Seed data: `SpaceStroker.Consumers/DefaultGameParameters.cs`.
 > - Frontend: `src/pages/{GameSelectPage,GamePage}.vue`,
 > `src/components/game-selection/{GameTypes,GameTypeCard}.vue`,
 > `src/components/game/{GameTerminal,GameTyper,GameConsole,GameMonkey}.vue`,
@@ -22,7 +22,7 @@
 
 ## 1. What is a "game type"?
 
-A **game type** is a row of `GameParameters` (`ChimpOut.Domain/Games/Entities/GameParameters.cs`).
+A **game type** is a row of `GameParameters` (`SpaceStroker.Domain/Games/Entities/GameParameters.cs`).
 A **game** (`Game`) is one concrete round created from a `GameParameters`. Many games are
 created over time from the same parameters (one rolls into the next).
 
@@ -43,7 +43,7 @@ The fields on `GameParameters` define how a type behaves:
 | `OperatorId` / `Operator`    | Optional tenant owner (null = "house"). See `operators.md`.                                |
 
 
-`GameCharacterType` (`ChimpOut.Domain/Games/ValueObjects/GameCharacterType.cs`) — the
+`GameCharacterType` (`SpaceStroker.Domain/Games/ValueObjects/GameCharacterType.cs`) — the
 `[Description]` is the literal character pool:
 
 
@@ -118,8 +118,8 @@ Key frontend types (`src/types/index.ts`): `ActiveGame` (incl. `lotteryParameter
 
 ## 4. How a game is played (full end-to-end flow)
 
-> Roles: **API** (`ChimpOut.Api`) handles bet submission + serves data and SignalR; **Consumers**
-> (`ChimpOut.Consumers`) runs the state machine, the typer, and payouts. See `architecture.md`.
+> Roles: **API** (`SpaceStroker.Api`) handles bet submission + serves data and SignalR; **Consumers**
+> (`SpaceStroker.Consumers`) runs the state machine, the typer, and payouts. See `architecture.md`.
 
 1. **Pick a game type** in the lobby (§3) and land on `/game`.
 2. **Connect a Solana wallet** (`solana-wallets-vue`) — **unless** free bet mode is active (see
@@ -149,7 +149,7 @@ Key frontend types (`src/types/index.ts`): `ActiveGame` (incl. `lotteryParameter
   bets. If a **lottery** is under-subscribed once the window has elapsed, every paid bet is refunded
   (`RefundInvalidBetEvent`) and the game is marked `NotEnoughPlayersToStart`.
 6. **Run the round** (`RunGameConsumer` → `GameService.RunGame`): status → `InProgress`,
-  the `ChimpOutTyper` streams characters over SignalR (`…/Terminal`, `…/DisplaySpeed`) until a bet's
+  the `SpaceStrokerTyper` streams characters over SignalR (`…/Terminal`, `…/DisplaySpeed`) until a bet's
    choice appears, then status → `Ended`. Winning bets are flagged `NeedsRewarding`, the **next
    game is created**, and a `RewardGameEvent` is published.
 7. **Reward winners** (`RewardGameConsumer`): status → `RewardForWinnersInProgress`; for each
@@ -177,7 +177,7 @@ un-won pot **transfers** it to an eligible lottery. See `features/lottery-pot-st
 
 ## 5. Game state machine
 
-`GameStatus` (`ChimpOut.Domain/Games/ValueObjects/GameStatus.cs`):
+`GameStatus` (`SpaceStroker.Domain/Games/ValueObjects/GameStatus.cs`):
 
 
 | Status                       | Set by                           | Meaning                                                                                   |
@@ -204,7 +204,7 @@ wording for **race** vs **lottery** modes.
 
 ## 6. Real-time / SignalR contract
 
-Two hubs, mapped in `ChimpOut.Api/Program.cs`, with a **Redis backplane** so messages fan out across
+Two hubs, mapped in `SpaceStroker.Api/Program.cs`, with a **Redis backplane** so messages fan out across
 instances. Clients join a per-game group via `JoinGame(gameId)` (and `LeaveGame`).
 
 
@@ -224,9 +224,9 @@ in `useGame.initalizeWebsocketConnections` and renders the stream via `GameTyper
 
 ---
 
-## 7. The Typer (`ChimpOutTyper` internals)
+## 7. The Typer (`SpaceStrokerTyper` internals)
 
-`ChimpOut.Domain/Games/Services/ChimpOutTyper.cs` is constructed from a `Game` (which must have
+`SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` is constructed from a `Game` (which must have
 bets) and drives the round.
 
 - **Provably-fair seed (commit-reveal + portable RNG):** the typer reads the game's committed
@@ -340,9 +340,9 @@ to pay (a winning sequence is guaranteed eventually, but guarded for safety).
 sequenceDiagram
     actor Player
     participant FE as Frontend (useGame)
-    participant API as ChimpOut.Api (RegisterBetHandler)
+    participant API as SpaceStroker.Api (RegisterBetHandler)
     participant MQ as RabbitMQ
-    participant C as ChimpOut.Consumers
+    participant C as SpaceStroker.Consumers
     participant SOL as SolanaService
     participant WS as SignalR (Games/RecentBets)
 

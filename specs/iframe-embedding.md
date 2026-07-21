@@ -1,4 +1,4 @@
-# ChimpOut — "Make the Game Iframe-able" Feature — Implementation Spec
+# SpaceStroker — "Make the Game Iframe-able" Feature — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/iframe-crypto-games` on 2026-07-14 (stacked
 > with card #41 `iframe-crypto-games`; one merge landed both). Distilled in
@@ -6,7 +6,7 @@
 > [Make the game Iframe-able](https://trello.com/c/RGvJZNTW/3-make-the-game-iframe-able) (spec 2026-07-08).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend`: none.**
 >
-> **Purpose:** Let a **regulated (Model A) operator casino** embed the ChimpOut game inside an
+> **Purpose:** Let a **regulated (Model A) operator casino** embed the SpaceStroker game inside an
 > `<iframe>` on its own site — the white-label delivery path for the B2B integration — with a stable
 > parent↔iframe `postMessage` API, an embedded-mode re-launch flow that never dead-ends on `/error`,
 > a static example embed page, and an integration README. Production-grade but demo-able now.
@@ -56,7 +56,7 @@ From `monkify-meta/constraints.md` (full list there):
 - **Backend integration-test mandate — N/A (§8).** The "every new feature ships a backend integration
   test" rule is **backend/game-flow scoped**. This card has **no backend surface** (no handler,
   consumer, entity, endpoint, DTO, SignalR-contract, or game-flow change), so it introduces no
-  backend happy path to exercise. No `ChimpOut.Tests.Integration` test is added — consistent with prior
+  backend happy path to exercise. No `SpaceStroker.Tests.Integration` test is added — consistent with prior
   frontend-only features (`audio-overhaul`, `game-pot-display`).
 - **Frontend has no unit-test harness.** `monkify-front/package.json` exposes only `serve`, `build`,
   `lint`, `lint:fix` — no `test`/jest/vitest and no `.spec`/`.test` files under `src/`. Verification is
@@ -79,9 +79,9 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | **Wallet scope: regulated (Model A) only.** No Solana wallet inside the iframe (extensions like Phantom/Solflare block cross-origin injection). Crypto operators are out of scope for embedding and keep launching standalone. |
 | 3 | **Security posture: permissive frame header; the signed RS256 launch token is the real boundary.** A forged embed can't produce a valid token. Per-operator origin allow-listing is deferred (§9). |
 | 4 | **Embedded detection:** `useEmbed` composable → `isEmbedded = window.self !== window.top`, with an explicit `?embed=1` override for local testing. Standalone behaviour is byte-for-byte unchanged. |
-| 5 | **Token handoff (unchanged):** the casino sets the iframe `src` to `…/chimpout/game/games#launch_token=<jwt>`; the existing `useLaunch` fragment capture handles it inside a frame (token → `sessionStorage`, stripped from URL, operator id decoded from `iss`). |
+| 5 | **Token handoff (unchanged):** the casino sets the iframe `src` to `…/space-stroker/game/games#launch_token=<jwt>`; the existing `useLaunch` fragment capture handles it inside a frame (token → `sessionStorage`, stripped from URL, operator id decoded from `iss`). |
 | 6 | **Re-launch (the core fix):** in embedded mode, a 401 / invalid / expired token / inactive operator must **not** hard-route to `/error`. Instead emit a `token-expired` postMessage and show a light in-frame "relaunching…" state; the casino re-launches by re-setting the iframe `src` with a fresh `#launch_token=` (full clean reload). Inbound `relaunch`-with-token message (no-reload) is **deferred** (§9). |
-| 7 | **postMessage API:** stable envelope `{ source: 'chimpout', type, payload }`, outbound `targetOrigin: '*'`, payloads carry **no secrets/tokens**. Events: `ready`, `token-expired`, `game-started`, `bet-placed`, `bet-settled` (carries `won`), `game-ended`, `resize` (ideal/min size **hint** only — not continuous auto-height). Lifecycle amounts are **USD** (the settlement currency) so the casino can refresh the player's displayed balance. |
+| 7 | **postMessage API:** stable envelope `{ source: 'space-stroker', type, payload }`, outbound `targetOrigin: '*'`, payloads carry **no secrets/tokens**. Events: `ready`, `token-expired`, `game-started`, `bet-placed`, `bet-settled` (carries `won`), `game-ended`, `resize` (ideal/min size **hint** only — not continuous auto-height). Lifecycle amounts are **USD** (the settlement currency) so the casino can refresh the player's displayed balance. |
 | 8 | **Sizing:** the game fills 100%×100% of whatever box the casino sizes; it only **emits** a size hint (once on mount / on significant layout change) and never drives continuous auto-height. Genuine small-screen/mobile responsiveness stays owned by card #5 ("(DESIGN) Mobile layout for the game screen"). |
 | 9 | **Embedded chrome:** the wallet cluster is already hidden for regulated games (Standard payment method → `showWallet === false`); additionally, in embedded mode no in-app action performs a **top-level** navigation that breaks out of the frame. |
 | 10 | **Deliverables in this card:** the in-app embedding work + a **static example embed page** in `monkify-front` (an iframe host that logs every event and demonstrates re-launch) + an **integration README** (snippet, fragment, event reference, re-launch flow). The full fake-operator/mock-wallet sales demo stays on card #22. |
@@ -185,7 +185,7 @@ export const useEmbed = () => ({
 ### 7.2 New: `src/utils/embed.ts` — the postMessage emitter
 
 ```ts
-export const EMBED_SOURCE = 'chimpout' as const;
+export const EMBED_SOURCE = 'space-stroker' as const;
 
 export type EmbedEventType =
   | 'ready'
@@ -343,10 +343,10 @@ A dependency-free HTML page that:
 
 1. Renders an `<iframe>` sized by the host page (e.g. a fixed box) pointing at the game.
 2. Has a **launch-token input** + a **Launch / Re-launch** button that sets the iframe `src` to
-   `${GAME_ORIGIN}/chimpout/game/games#launch_token=${token}` (and re-sets it on re-launch → full
-   reload). In local dev without a token, the button may instead point the iframe at `/chimpout/game`
+   `${GAME_ORIGIN}/space-stroker/game/games#launch_token=${token}` (and re-sets it on re-launch → full
+   reload). In local dev without a token, the button may instead point the iframe at `/space-stroker/game`
    (the dev landing with the Enter-dev button) so the page is demoable without a real casino redirect.
-3. Registers `window.addEventListener('message', …)`, filters `event.data.source === 'chimpout'`, and
+3. Registers `window.addEventListener('message', …)`, filters `event.data.source === 'space-stroker'`, and
    **logs every event** (`ready`, `token-expired`, `game-started`, `bet-placed`, `bet-settled`,
    `game-ended`, `resize`) to an on-page console.
 4. On `token-expired`, demonstrates the re-launch flow (prompt for / reuse a fresh token and re-set
@@ -355,7 +355,7 @@ A dependency-free HTML page that:
 ### 7.11 New: `EMBEDDING.md` — integration README
 
 Operator-facing guide documenting: the `<iframe>` snippet; the `#launch_token=<jwt>` fragment handoff;
-the full `postMessage` event reference (envelope `{ source:'chimpout', type, payload }`, each type's
+the full `postMessage` event reference (envelope `{ source:'space-stroker', type, payload }`, each type's
 payload, USD amounts, "no secrets in payloads", `targetOrigin '*'`); the **re-launch flow** on
 `token-expired`; the frame-header requirement (§5.4); and the regulated-only / crypto-standalone scope.
 
@@ -364,7 +364,7 @@ payload, USD amounts, "no secrets in payloads", `targetOrigin '*'`); the **re-la
 - **Wallet cluster (AC #9):** `GameHeader.showWallet = selectedGame.paymentMethod === SolanaToken`.
   Regulated operators run **Standard** games → `showWallet === false` → wallet already hidden. No
   change needed; document that embedding is regulated-only so the wallet never appears.
-- **`adminService.ts` 401 → `/error`:** the operator **admin portal** (`/chimpout/admin`) is **not**
+- **`adminService.ts` 401 → `/error`:** the operator **admin portal** (`/space-stroker/admin`) is **not**
   embedded (operators reach it standalone via their own `#admin_token=` redirect). Its 401→`/error` is
   intentionally left unchanged. Out of scope.
 - **Logo `RouterLink`** in `GameHeader` is an SPA navigation (stays inside the frame) — not a
@@ -380,10 +380,10 @@ payload, USD amounts, "no secrets in payloads", `targetOrigin '*'`); the **re-la
 ```mermaid
 sequenceDiagram
   participant Casino as Casino page (parent)
-  participant Frame as iframe (ChimpOut SPA)
+  participant Frame as iframe (SpaceStroker SPA)
   participant API as monkify-backend
 
-  Casino->>Frame: src = …/chimpout/game/games#launch_token=<jwt>
+  Casino->>Frame: src = …/space-stroker/game/games#launch_token=<jwt>
   Frame->>Frame: useLaunch captures token → sessionStorage, strips fragment
   Frame->>API: GET /operators/{iss}  (X-Launch-Token)
   API-->>Frame: 200 branding
@@ -404,7 +404,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Casino as Casino page (parent)
-  participant Frame as iframe (ChimpOut SPA)
+  participant Frame as iframe (SpaceStroker SPA)
   participant API as monkify-backend
 
   Frame->>API: any REST call (X-Launch-Token)
@@ -445,7 +445,7 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/hooks/useEmbed.ts` | **New.** `isEmbedded` (`window.self !== window.top` \| `?embed=1`) + module-scope `relaunching` ref + `setRelaunching`. |
-| 2 | `src/utils/embed.ts` | **New.** `EMBED_SOURCE`, `EmbedEventType`, `postToParent(type, payload)` — envelope `{source:'chimpout',type,payload}`, `targetOrigin '*'`, no-op standalone, secret-free. |
+| 2 | `src/utils/embed.ts` | **New.** `EMBED_SOURCE`, `EmbedEventType`, `postToParent(type, payload)` — envelope `{source:'space-stroker',type,payload}`, `targetOrigin '*'`, no-op standalone, secret-free. |
 | 3 | `src/components/EmbedRelaunching.vue` | **New.** Light full-fill "Relaunching…" in-frame state (generic copy, no contract status). |
 | 4 | `src/services/mainService.ts` | Branch the 401 interceptor: embedded → `postToParent('token-expired')` + `setRelaunching(true)` (no nav); standalone → existing `/error`. |
 | 5 | `src/hooks/useOperator.ts` | Replace the three `router.replace('/error')` sites with a `failAuth()` helper that, when embedded, emits `token-expired` + sets relaunch instead of routing to `/error`. |
@@ -469,7 +469,7 @@ sequenceDiagram
 
 **None — the frontend has no unit-test harness** (see §2). `monkify-front` ships no test runner and no
 `src` tests; adding a framework for this change is out of scope. Verification is `yarn lint` +
-`yarn build` clean + the manual QA in §13. Backend `ChimpOut.Tests` / `ChimpOut.Tests.Integration` are
+`yarn build` clean + the manual QA in §13. Backend `SpaceStroker.Tests` / `SpaceStroker.Tests.Integration` are
 untouched — there is no backend change.
 
 ---
@@ -482,7 +482,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    boots, then `isEmbedded` is true and embedded behaviour applies; loaded standalone, behaviour is
    exactly as today. *(§7.1)*
 2. **Fragment handoff.** Given a casino sets the iframe `src` to
-   `…/chimpout/game/games#launch_token=<jwt>`, when the game loads, then it captures the token from
+   `…/space-stroker/game/games#launch_token=<jwt>`, when the game loads, then it captures the token from
    the fragment, strips it from the URL, and opens the operator's game-select with no `/operatorId`
    path segment. *(existing `useLaunch` — verified unchanged in a frame)*
 3. **No /error when embedded on 401.** Given the game is embedded and a REST call returns 401
@@ -493,7 +493,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    resumes at the operator's game-select with no stale SignalR state from the prior game.
    *(full reload + existing `disconnectAllPreviousConnections`)*
 5. **`ready` envelope.** Given the game is embedded, when it finishes booting, then it posts a `ready`
-   message using `{ source:'chimpout', type:'ready', payload }`. *(§7.7)*
+   message using `{ source:'space-stroker', type:'ready', payload }`. *(§7.7)*
 6. **Lifecycle events.** Given the game is embedded, when a game starts, a bet is placed, a bet
    settles (won/lost), or a game ends, then it posts the matching lifecycle message
    (`game-started` / `bet-placed` / `bet-settled` / `game-ended`) with a non-sensitive USD
@@ -541,7 +541,7 @@ Run the local stack (`setup_local_environment.bat` / the front's `yarn serve`) a
 5. **Token expiry → relaunch:** force a 401 (expired/invalid token) while embedded → no `/error`; the
    frame shows "Relaunching…" and the example page logs `token-expired`; re-launch with a fresh token
    from the example page → clean reload back to game-select, no stale SignalR/pot/terminal state.
-6. **Payloads:** confirm every logged event has `source:'chimpout'` and **no token/secret** in the
+6. **Payloads:** confirm every logged event has `source:'space-stroker'` and **no token/secret** in the
    payload; amounts read as USD.
 7. **Fill:** the game fills the iframe box with no letterbox at a couple of casino-chosen sizes.
 8. **Regulated chrome:** on a Standard (regulated) game the wallet cluster is absent; no click

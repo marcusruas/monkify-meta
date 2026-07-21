@@ -1,10 +1,10 @@
-# ChimpOut — "Create Terraform to deploy the app (GCP)" — Implementation Spec
+# SpaceStroker — "Create Terraform to deploy the app (GCP)" — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/terraform-gcp-deploy` on 2026-07-17. Distilled summary:
 > `../features/terraform-gcp-deploy.md`. Refined via Trello card
 > [Create terraform to deploy the app](https://trello.com/c/QrjmQttY) (2026-07-16).
 > **Post-ship note:** the API already exposed `/health` via `HomeController` (only Consumers gained one);
-> the committed CORS default + Main-operator seed URLs are `app.chimpout.com` (retired `monkify.net`). The
+> the committed CORS default + Main-operator seed URLs are `app.spacestroker.com` (retired `monkify.net`). The
 > real `terraform apply` is an ops step (needs a registered domain + real Solana/Fx secrets).
 > Repos affected: `monkify-meta` (Terraform + both C# console apps + secrets template/docs — **primary**),
 > `monkify-backend` (Cloud Run readiness — health probes, forwarded headers, deploy ordering; **no game
@@ -13,11 +13,11 @@
 >
 > **Blocked by #64** — [Replace RabbitMQ with MassTransit Postgres SQL transport](https://trello.com/c/nPCH4e5R)
 > (spec `specs/masstransit-postgres-transport.md`, **Specs created**). This spec assumes #64's outcome:
-> **no broker**, events on the MassTransit **Postgres SQL transport**, game DB `chimpout` + messaging DB
-> `chimpout_messaging` on **one** Cloud SQL instance, new secret `ConnectionStrings:Messaging`, and the
+> **no broker**, events on the MassTransit **Postgres SQL transport**, game DB `spacestroker` + messaging DB
+> `spacestroker_messaging` on **one** Cloud SQL instance, new secret `ConnectionStrings:Messaging`, and the
 > game-DB user holding **CREATE DATABASE**. Implement/ship **after or in lockstep with #64**.
 >
-> **Purpose:** Stand up a secure, production **GCP** deployment of all of ChimpOut as Infrastructure-as-Code,
+> **Purpose:** Stand up a secure, production **GCP** deployment of all of SpaceStroker as Infrastructure-as-Code,
 > plus two local **C# console tools** (deploy + DB access), driven by a single **unversioned local secrets
 > file**. The app moves crypto and will be actively attacked, so hardening (WAF, private data tier,
 > least-privilege, admin surfaces off the public edge) is a first-class requirement.
@@ -33,7 +33,7 @@ never committed):
 | --- | --- | --- |
 | 1 | **Terraform project** | Provisions the full GCP stack. Split into a **persistent layer** (Cloud DNS zone + domain + remote-state bucket, `prevent_destroy`) and a **workload layer** (everything else). Production-only now, structured as a reusable module + per-env tfvars. Remote state in a versioned+locked GCS bucket. |
 | 2 | **Deploy console app (C#)** | `deploy [api\|consumers\|front\|lp]` builds/releases each component independently; `teardown` destroys the workload layer only. Reads the local `secrets.<env>.json`, syncs secrets → Secret Manager, feeds Terraform vars + the static build config, and runs `terraform apply`/`destroy`. |
-| 3 | **DB query console app (C#)** | Interactive **read-write** REPL against **both** databases (game `chimpout` + messaging `chimpout_messaging`) via the **Cloud SQL Auth Proxy + IAM**, with a typed confirmation prompt before any write. |
+| 3 | **DB query console app (C#)** | Interactive **read-write** REPL against **both** databases (game `spacestroker` + messaging `spacestroker_messaging`) via the **Cloud SQL Auth Proxy + IAM**, with a typed confirmation prompt before any write. |
 
 ### 1.1 Target topology
 
@@ -42,18 +42,18 @@ never committed):
                                                        │
 Internet ──► External HTTPS LB ──► Cloud Armor (WAF + per-IP rate limit)
                  │
-                 ├─ /  , /chimpout/*  (host app.chimpout.com) ──► GCS bucket + Cloud CDN  (front, static)
-                 ├─ /            (host chimpout.com / www)     ──► GCS bucket + Cloud CDN  (lp, static)
-                 └─ api.*        (host api.chimpout.com)       ──► Cloud Run: ChimpOut.Api (autoscale, min≥1)
+                 ├─ /  , /space-stroker/*  (host app.spacestroker.com) ──► GCS bucket + Cloud CDN  (front, static)
+                 ├─ /            (host spacestroker.com / www)     ──► GCS bucket + Cloud CDN  (lp, static)
+                 └─ api.*        (host api.spacestroker.com)       ──► Cloud Run: SpaceStroker.Api (autoscale, min≥1)
 
-   ChimpOut.Consumers (Cloud Run, CPU always-on, count = var.consumer_count default 1)
+   SpaceStroker.Consumers (Cloud Run, CPU always-on, count = var.consumer_count default 1)
         └─ NOT on the public LB (hosts /hangfire + owns migrations/seeding) — internal ingress / IAP
 
    Private tier (VPC, no public IPs, egress via Cloud NAT):
-        Cloud SQL Postgres 16  (one instance: DB chimpout + DB chimpout_messaging)
+        Cloud SQL Postgres 16  (one instance: DB spacestroker + DB spacestroker_messaging)
         Memorystore Redis 7
    Cloud Run ──(Serverless VPC Access connector)──► private tier
-   Artifact Registry: ChimpOut.Api + ChimpOut.Consumers images
+   Artifact Registry: SpaceStroker.Api + SpaceStroker.Consumers images
    Secret Manager: all app secrets (synced from secrets.<env>.json by the deploy tool)
 ```
 
@@ -77,13 +77,13 @@ From `monkify-meta/constraints.md` (full list there):
 - **`.gitignore`** in `monkify-meta` must exclude `secrets*.json`, `*.tfvars` (except `*.example`),
   `*.tfstate*`, `.terraform/`, and the C# `bin/`/`obj/` output.
 - **Unit tests (backend):** the backend changes here (health endpoints, forwarded headers) are small; add
-  focused unit tests in `ChimpOut.Tests` and **report changed tests** at the end of implementation.
-- **EF/migrations:** unchanged — **migrations are applied only by `ChimpOut.Consumers`** at startup. The
+  focused unit tests in `SpaceStroker.Tests` and **report changed tests** at the end of implementation.
+- **EF/migrations:** unchanged — **migrations are applied only by `SpaceStroker.Consumers`** at startup. The
   deploy tool must therefore **release Consumers before Api** (AC #8). No EF entity/migration in this card.
 - **Operator messaging:** unchanged — vague errors only; nothing here changes user-facing operator copy.
 - **This is infra/deploy tooling, not a new game feature** → **no new backend integration test is required**
   by the "integration test mandatory" rule (that rule scopes to game features). The game happy path is
-  already covered by the existing `ChimpOut.Tests.Integration` suite (which #64 keeps green over the Postgres
+  already covered by the existing `SpaceStroker.Tests.Integration` suite (which #64 keeps green over the Postgres
   transport). See §14.
 
 ---
@@ -96,12 +96,12 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | **Consumers → Cloud Run**, **CPU always-on** (`cpu_idle = false`), instance count pinned to `var.consumer_count` (**default 1**, set manually), **never scales to zero** (runs the game loop, Hangfire, migrations/seeding). **Not on the public LB** (internal ingress / IAP). |
 | 3 | **front + lp → GCS bucket + Cloud CDN** behind the LB (static hosting; **no containers**, neither has a needed Dockerfile in the static path). |
 | 4 | **Container images (API + Consumers) → Artifact Registry.** |
-| 5 | **Postgres → Cloud SQL for PostgreSQL 16**, **one instance, two databases**: game `chimpout` + messaging `chimpout_messaging` (messaging owned by #64). **Private IP only.** The app user has **CREATE DATABASE** (per #64) so MassTransit provisions `chimpout_messaging` at Consumers startup. |
+| 5 | **Postgres → Cloud SQL for PostgreSQL 16**, **one instance, two databases**: game `spacestroker` + messaging `spacestroker_messaging` (messaging owned by #64). **Private IP only.** The app user has **CREATE DATABASE** (per #64) so MassTransit provisions `spacestroker_messaging` at Consumers startup. |
 | 6 | **Redis → Memorystore for Redis 7**, private IP only. |
 | 7 | **No message broker** — RabbitMQ dropped (#64); events ride the MassTransit **Postgres SQL transport**. |
 | 8 | **Secrets:** local `secrets.<env>.json` is the source of truth. The **deploy tool** syncs each secret into **Secret Manager**; Cloud Run reads them via **IAM at boot** (secret **references**, not values, in Terraform/service config). The same file also feeds Terraform vars + build-time front/lp config. |
 | 9 | **Security posture:** one external **HTTPS LB** → **Cloud Armor** (managed/OWASP rules + per-IP rate limiting, complementing the app's in-process `IpRateLimiting`) → api / app / lp. Private-only data tier (VPC, no public IPs, Cloud NAT egress, Serverless VPC Access connector). Admin surfaces (`/hangfire`, management endpoints) **not** on the public LB (internal-only / IAP). **Least-privilege SA per component.** |
-| 10 | **Domains/DNS/TLS:** new domains swapping `monkify → chimpout` — **`.com` preferred, `.net` fallback**. Hosts as **Terraform variables** (nothing hard-coded): `api.chimpout.com` (API), `app.chimpout.com` (front), `chimpout.com`/`www` (lp). Terraform manages the **Cloud DNS** zone + **Google-managed TLS certs**. Domain **registration is an out-of-band prerequisite**. |
+| 10 | **Domains/DNS/TLS:** new domains swapping `monkify → spacestroker` — **`.com` preferred, `.net` fallback**. Hosts as **Terraform variables** (nothing hard-coded): `api.spacestroker.com` (API), `app.spacestroker.com` (front), `spacestroker.com`/`www` (lp). Terraform manages the **Cloud DNS** zone + **Google-managed TLS certs**. Domain **registration is an out-of-band prerequisite**. |
 | 11 | **Project/state/region:** **existing GCP project** (id via tfvars/secrets). Remote state in a **versioned + locked GCS bucket**. Region default **`us-central1`**. Production-only now, structured (module + per-env tfvars) for more envs later. State-bucket chicken-and-egg documented. |
 | 12 | **Teardown ("drop everything, keep the domain"):** Terraform split into a **persistent layer** (DNS zone + domain + state bucket, `prevent_destroy`; teardown never touches it) and a **workload layer** (everything else). `teardown` runs `terraform destroy` on the **workload layer only**, requires a **typed confirmation** (re-type the environment name), warns about **irreversible Cloud SQL data loss**, and deliberately overrides Cloud SQL **deletion-protection**. Re-running `deploy` recreates the workload and **re-attaches** to the preserved domain/DNS + managed certs. |
 | 13 | **Deploys are manual** via the console app — **no CI/CD** in scope (structure it callable for CI later). |
@@ -140,18 +140,18 @@ monkify-meta/
           secrets/                 # Secret Manager secret + version placeholders + IAM accessor bindings per SA
           iam/                     # per-component service accounts + least-privilege role bindings
     tools/
-      ChimpOut.Deploy/             # C# console — deploy [api|consumers|front|lp] + teardown (§7)
-        ChimpOut.Deploy.csproj     # net8.0, OutputType Exe, SDK Microsoft.NET.Sdk
+      SpaceStroker.Deploy/             # C# console — deploy [api|consumers|front|lp] + teardown (§7)
+        SpaceStroker.Deploy.csproj     # net8.0, OutputType Exe, SDK Microsoft.NET.Sdk
         Program.cs  ...
-      ChimpOut.DbConsole/          # C# console — interactive read-write REPL over both DBs (§8)
-        ChimpOut.DbConsole.csproj
+      SpaceStroker.DbConsole/          # C# console — interactive read-write REPL over both DBs (§8)
+        SpaceStroker.DbConsole.csproj
         Program.cs  ...
-      ChimpOut.DeployTools.sln     # ties the two console apps together (self-contained; does NOT reference monkify-backend)
+      SpaceStroker.DeployTools.sln     # ties the two console apps together (self-contained; does NOT reference monkify-backend)
 ```
 
 > The console apps are **standalone** — they operate on the backend via CLI (`docker`, `gcloud`,
 > `terraform`) and over the network (Npgsql through the Cloud SQL Auth Proxy). They **do not** reference
-> the `ChimpOut.*` backend projects, so nothing is added to `src/ChimpOut.sln`.
+> the `SpaceStroker.*` backend projects, so nothing is added to `src/SpaceStroker.sln`.
 
 ---
 
@@ -177,7 +177,7 @@ A/AAAA records attach to the preserved zone on every re-deploy.
 
 - **Cloud SQL Postgres 16** (`modules/data`): one `google_sql_database_instance`, **private IP** only
   (`ip_configuration { ipv4_enabled = false, private_network = <vpc> }`), **no public IP**; two
-  `google_sql_database` resources — `chimpout` and `chimpout_messaging`; one `google_sql_user` (the app
+  `google_sql_database` resources — `spacestroker` and `spacestroker_messaging`; one `google_sql_user` (the app
   user) — **granted `CREATE DATABASE`** (per #64 so MassTransit provisions the messaging DB at startup; if
   the chosen approach is to pre-create the DB instead, both DBs are declared here and the user needs only
   schema rights — the module supports both via a variable). **`deletion_protection = var.enable_deletion_protection`** (default `true`; the deploy tool's `teardown` flips it to `false` — Decision 12). `max_connections` sized via a database flag for EF pool + Hangfire + transport LISTEN/poll (per #64 §14 handoff).
@@ -187,8 +187,8 @@ A/AAAA records attach to the preserved zone on every re-deploy.
 ### 5.4 Edge — LB + Cloud Armor + CDN + TLS
 
 - **`modules/edge`**: one external **HTTPS** application LB (global). URL map with **host rules**:
-  `api.chimpout.com` → API serverless NEG (Cloud Run); `app.chimpout.com` → front backend-bucket (CDN);
-  `chimpout.com`/`www.chimpout.com` → lp backend-bucket (CDN).
+  `api.spacestroker.com` → API serverless NEG (Cloud Run); `app.spacestroker.com` → front backend-bucket (CDN);
+  `spacestroker.com`/`www.spacestroker.com` → lp backend-bucket (CDN).
 - **Cloud Armor** (`google_compute_security_policy`): managed/OWASP preconfigured WAF rules +
   `rate_limit_options` per-IP throttling, attached to the API backend service (and optionally the bucket
   backends).
@@ -197,7 +197,7 @@ A/AAAA records attach to the preserved zone on every re-deploy.
   `Content-Security-Policy: frame-ancestors *` and deliberately **omit** `X-Frame-Options` — reproducing the
   retired `nginx.conf` behaviour (front `EMBEDDING.md` contract). See §10.2.
 - **SPA rewrite**: the front bucket is a website bucket with `not_found_page = index.html` **and** the URL
-  map serves `index.html` for unknown `/chimpout/*` paths (history-mode routing — §10.1).
+  map serves `index.html` for unknown `/space-stroker/*` paths (history-mode routing — §10.1).
 
 ### 5.5 Static hosting — `modules/static_site` (reused for front + lp)
 
@@ -243,8 +243,8 @@ secrets.production.json  (local, unversioned, operator-owned — NEVER committed
    Secret VALUES never enter Terraform state or plaintext service config.
 ```
 
-- **Secret set** (moved to Secret Manager): `ConnectionStrings:ChimpOut` (contains the DB password),
-  `ConnectionStrings:Messaging` (#64 — same instance/user, `Database=chimpout_messaging`),
+- **Secret set** (moved to Secret Manager): `ConnectionStrings:SpaceStroker` (contains the DB password),
+  `ConnectionStrings:Messaging` (#64 — same instance/user, `Database=spacestroker_messaging`),
   `ConnectionStrings:Redis`, `GeneralSettings:Token:TokenOwnerPrivateKey`,
   `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`,
   `GeneralSettings:Fx:ApiKey`, and each `GeneralSettings:OperatorWallets:Operators:<guid>:ApiKey`.
@@ -252,20 +252,20 @@ secrets.production.json  (local, unversioned, operator-owned — NEVER committed
   (`MainOperatorPublicKeyPem`), `Token` public fields (`ClusterUrl`, `MintAddress`, `SenderAccount`,
   `TokenOwnerPublicKey`, `Decimals`), timings, DNS/domain names.
 - Config keys map to env via the `__` delimiter (backend already calls `.AddEnvironmentVariables()` in
-  `AddChimpOutSettings()`), e.g. `ConnectionStrings__ChimpOut`, `GeneralSettings__Token__TokenOwnerPrivateKey`.
+  `AddSpaceStrokerSettings()`), e.g. `ConnectionStrings__SpaceStroker`, `GeneralSettings__Token__TokenOwnerPrivateKey`.
 - **Dev keys excluded in prod**: `LaunchTokens:DevSigningPrivateKeyPem`/`DevOperatorPublicKeyPem` are not
   synced for a production deploy.
 
 ---
 
-## 7. Deploy console app — `ChimpOut.Deploy`
+## 7. Deploy console app — `SpaceStroker.Deploy`
 
 A .NET 8 console app (SDK `Microsoft.NET.Sdk`, `OutputType Exe`). Commands:
 
 | Command | Behaviour |
 | --- | --- |
-| `deploy api` | Build `ChimpOut.Api` image (from `monkify-backend/src`, `ChimpOut.Api/Dockerfile`) → push to Artifact Registry → `terraform apply -target` the API Cloud Run service (image tag var). Does **not** touch other components. |
-| `deploy consumers` | Same for `ChimpOut.Consumers`. **Consumers is deployed before Api in a full deploy** (owns EF migrations/seeding — AC #8). |
+| `deploy api` | Build `SpaceStroker.Api` image (from `monkify-backend/src`, `SpaceStroker.Api/Dockerfile`) → push to Artifact Registry → `terraform apply -target` the API Cloud Run service (image tag var). Does **not** touch other components. |
+| `deploy consumers` | Same for `SpaceStroker.Consumers`. **Consumers is deployed before Api in a full deploy** (owns EF migrations/seeding — AC #8). |
 | `deploy front` | Generate the front build env from secrets → `yarn install --frozen-lockfile` + `yarn build` (clean worktree, so the `.env.production.local` dev footgun is absent — §10.1) → `gsutil rsync`/upload `dist/` to the front bucket → CDN cache-invalidate. |
 | `deploy lp` | `npm ci` + `astro build` → upload `dist/` to the lp bucket → CDN cache-invalidate. |
 | `deploy` (all / `apply`) | Sync secrets → Secret Manager; ensure state bucket; `terraform apply` the workload; then release components in order **consumers → api → front → lp**. |
@@ -280,11 +280,11 @@ Cross-cutting:
 
 ---
 
-## 8. DB query console app — `ChimpOut.DbConsole`
+## 8. DB query console app — `SpaceStroker.DbConsole`
 
 A .NET 8 console REPL:
 
-- On start, pick the target DB (`chimpout` game DB or `chimpout_messaging`), connect via **Cloud SQL Auth
+- On start, pick the target DB (`spacestroker` game DB or `spacestroker_messaging`), connect via **Cloud SQL Auth
   Proxy + IAM** (the tool starts/uses the proxy; Npgsql connects to the local proxy endpoint). No public DB
   IP is required (matches the private-only data tier).
 - **Read-write** REPL: `SELECT`/read queries run immediately; any statement that mutates data
@@ -306,20 +306,20 @@ deployable on Cloud Run behind an LB.
 
 **Correction (found in implementation):** the **API already exposes `GET /health`** via
 `HomeController` (`[Route("/")]` + `[HttpGet("health")]` → `Ok("Api running!")`, 200) — the compose
-`api` healthcheck already targets it and passes. So only **`ChimpOut.Consumers`** genuinely lacked a
+`api` healthcheck already targets it and passes. So only **`SpaceStroker.Consumers`** genuinely lacked a
 health endpoint (its compose healthcheck probed `/hangfire`).
 
-- `src/ChimpOut.Api/Program.cs`: **no health-endpoint change** — the existing `HomeController` `/health`
+- `src/SpaceStroker.Api/Program.cs`: **no health-endpoint change** — the existing `HomeController` `/health`
   is the Cloud Run probe. (Do **not** add `MapHealthChecks("/health")` here — it duplicates the
   controller route and risks an ambiguous match.)
-- `src/ChimpOut.Consumers/Program.cs`: add `builder.Services.AddHealthChecks()` +
+- `src/SpaceStroker.Consumers/Program.cs`: add `builder.Services.AddHealthChecks()` +
   `app.MapHealthChecks("/health")` (after `UseRouting`) so Cloud Run can probe Consumers without relying
   on `/hangfire`. Liveness-only (`Healthy` when the host is up; not gated on DB/Redis). The compose
   consumers healthcheck moves from `/hangfire` → `/health`.
 
 ### 9.2 Honor the proxy — forwarded headers + HTTPS redirect (redirect-loop risk)
 
-The API calls `app.UseHttpsRedirection()` (`ChimpOut.Api/Program.cs:134`). Behind Cloud Run + the external
+The API calls `app.UseHttpsRedirection()` (`SpaceStroker.Api/Program.cs:134`). Behind Cloud Run + the external
 LB, TLS is terminated at the edge and the container receives **HTTP**; without forwarded-header handling
 `UseHttpsRedirection` can cause redirect loops and SignalR/websocket issues.
 
@@ -337,17 +337,17 @@ still binds. Low-risk; note in the PR.
 
 ### 9.4 CORS allowed origin (config-driven)
 
-`ChimpOut.Api/Program.cs` previously hardcoded the non-dev CORS origin as `https://app.monkify.net`. It is
+`SpaceStroker.Api/Program.cs` previously hardcoded the non-dev CORS origin as `https://app.monkify.net`. It is
 now **config-driven** via `CorsOriginResolver.ResolveAllowedOrigins(config)` reading
-`GeneralSettings:Cors:AllowedOrigins` (both hosts). The **committed default is `https://app.chimpout.com`**
-(`CorsOriginResolver.DefaultOrigins` + `chimpoutsettings.json`) — the retired `monkify.net` domain is gone
+`GeneralSettings:Cors:AllowedOrigins` (both hosts). The **committed default is `https://app.spacestroker.com`**
+(`CorsOriginResolver.DefaultOrigins` + `spacestrokersettings.json`) — the retired `monkify.net` domain is gone
 from the code; production can still override the origin list via `GeneralSettings__Cors__AllowedOrigins__0`.
-The Main-operator seed `MainPageUrl`/`IconUrl` (`ChimpOut.Consumers/Program.cs`) were likewise moved to
-`https://app.chimpout.com`.
+The Main-operator seed `MainPageUrl`/`IconUrl` (`SpaceStroker.Consumers/Program.cs`) were likewise moved to
+`https://app.spacestroker.com`.
 
 ### 9.5 Hangfire dashboard exposure
 
-`ChimpOut.Consumers/Program.cs:155-159` serves `/hangfire` with an **allow-all** authorization filter
+`SpaceStroker.Consumers/Program.cs:155-159` serves `/hangfire` with an **allow-all** authorization filter
 (`AllowAllHangfireDashboardAuthorizationFilter`). Because Consumers is deployed with **internal ingress**
 (not on the public LB — §5.2), the dashboard is not internet-reachable, satisfying AC #6 **without an app
 change**. Document this dependency (the allow-all filter is only safe because the network keeps it private);
@@ -364,22 +364,22 @@ All `VUE_APP_*` vars are inlined at build by Vue CLI; a static host cannot chang
 
 | Var | Production value |
 | --- | --- |
-| `VUE_APP_API_BASE_URL` | `https://api.chimpout.com` |
-| `VUE_APP_WEBSOCKET_BASE_URL` | `https://api.chimpout.com/Hubs` |
+| `VUE_APP_API_BASE_URL` | `https://api.spacestroker.com` |
+| `VUE_APP_WEBSOCKET_BASE_URL` | `https://api.spacestroker.com/Hubs` |
 | `VUE_APP_SOLANA_NETWORK` | **`mainnet-beta`** (currently `devnet` even in `.env.production` — must flip) |
 | `VUE_APP_GAME_TOKEN_ADDRESS` / `VUE_APP_USDC_TOKEN_ADDRESS` | real mainnet mint addresses (from secrets/config) |
 | `VUE_APP_ALLOW_FREE_BETS` | `false` |
-| `VUE_APP_DEV_LAUNCH` | **`false`** (also flips route shape — `/chimpout/game` becomes the lobby, dev launch buttons gone) |
+| `VUE_APP_DEV_LAUNCH` | **`false`** (also flips route shape — `/space-stroker/game` becomes the lobby, dev launch buttons gone) |
 
 - The build env is **generated by the deploy tool from `secrets.<env>.json`** (same mechanism
   `scripts/setup_local_environment.bat` already uses to materialize `.env.production.local`). Building from a
   **clean worktree** means the local `.env.production.local` dev-override footgun is absent.
 - **Assets from root**: `vue.config.js` sets no `publicPath`, so assets load from `/`; the front bucket must
-  hold `index.html` + hashed assets at the domain root even though app routes live under `/chimpout/*`.
+  hold `index.html` + hashed assets at the domain root even though app routes live under `/space-stroker/*`.
 - **SPA history-mode rewrite**: `createWebHistory()` (`main.ts:23`) → the LB/bucket must serve `index.html`
-  for unknown `/chimpout/*` paths (bucket `not_found_page = index.html`).
+  for unknown `/space-stroker/*` paths (bucket `not_found_page = index.html`).
 - **Front repo change**: minimal — align the committed **`.env.example`** to document the prod-relevant vars
-  (mainnet, chimpout hosts, flags off) as guidance; keep only **mock/placeholder** values committed. No
+  (mainnet, spacestroker hosts, flags off) as guidance; keep only **mock/placeholder** values committed. No
   app-logic change. (The real values come from the operator's secrets file at deploy time.)
 
 ### 10.2 CSP header moves to the LB
@@ -394,7 +394,7 @@ use; not used by GCS/CDN).
 
 Astro static (`astro build` → `dist/`, no `site`/`base`, no env vars). The deploy tool builds and uploads
 it; **no repo change is required** (card checkbox left unchecked). **Caveat/handoff:** `src/pages/index.astro`
-hardcodes the **`https://app.monkify.net`** "Play now" links (lines ~91/161/200). Under the new chimpout
+hardcodes the **`https://app.monkify.net`** "Play now" links (lines ~91/161/200). Under the new spacestroker
 domains these point at the retired host — flag for the domain/ops cards (#62/#63); updating the literal is a
 content edit outside this card's terraform scope. Documented here so it isn't lost.
 
@@ -407,7 +407,7 @@ content edit outside this card's terraform scope. Documented here so it isn't lo
 ```mermaid
 sequenceDiagram
     participant Op as Operator
-    participant CLI as ChimpOut.Deploy
+    participant CLI as SpaceStroker.Deploy
     participant SM as Secret Manager
     participant TF as Terraform (workload)
     participant AR as Artifact Registry
@@ -430,7 +430,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Op as Operator
-    participant CLI as ChimpOut.Deploy
+    participant CLI as SpaceStroker.Deploy
     participant TFw as Terraform (workload)
     participant TFp as Terraform (persistent)
     Op->>CLI: teardown --env production
@@ -448,7 +448,7 @@ sequenceDiagram
 - **CI/CD pipeline** — deploys are manual via the console app (structured callable, but no GitHub Actions).
 - **The broker swap itself (#64)** — this card consumes its outcome.
 - **Non-production environments** — structure allows them later (per-env tfvars); only `production` now.
-- **Making `ChimpOut.Consumers` horizontally scale-safe** (`consumer_count` default 1 caveat).
+- **Making `SpaceStroker.Consumers` horizontally scale-safe** (`consumer_count` default 1 caveat).
 - **Actual domain purchase** and provisioning of **real Solana mainnet keys** (out-of-band prerequisites).
 - **Updating the lp hardcoded `app.monkify.net` link** and finalizing CORS/token symbol — owned by #62/#63 + ops.
 - **IAP wiring in front of Consumers/Hangfire** beyond internal-ingress (internal-only is sufficient here).
@@ -464,9 +464,9 @@ sequenceDiagram
 | 1 | `deploy/terraform/persistent/*` | DNS managed zone + domain + state-bucket bootstrap; `prevent_destroy` |
 | 2 | `deploy/terraform/workload/*` + `modules/{network,data,registry,cloud_run_api,cloud_run_consumers,static_site,edge,secrets,iam}` | full workload stack (§5) |
 | 3 | `deploy/terraform/**/production.tfvars.example` | placeholder tfvars per layer |
-| 4 | `deploy/tools/ChimpOut.Deploy/*` | deploy console app (§7) |
-| 5 | `deploy/tools/ChimpOut.DbConsole/*` | DB query console app (§8) |
-| 6 | `deploy/tools/ChimpOut.DeployTools.sln` | solution for the two console apps |
+| 4 | `deploy/tools/SpaceStroker.Deploy/*` | deploy console app (§7) |
+| 5 | `deploy/tools/SpaceStroker.DbConsole/*` | DB query console app (§8) |
+| 6 | `deploy/tools/SpaceStroker.DeployTools.sln` | solution for the two console apps |
 | 7 | `deploy/secrets.example.json` | committed secrets template — placeholders only (§17) |
 | 8 | `deploy/README.md` | bootstrap, deploy, teardown, and the "replace for production" rundown |
 | 9 | `deploy/.gitignore` | ignore `secrets*.json` (except `.example`), `*.tfvars` (except `.example`), `*.tfstate*`, `.terraform/`, `bin/`, `obj/` |
@@ -478,18 +478,18 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Api/Program.cs` | add `UseForwardedHeaders` (before HTTPS redirect/rate-limiting); make CORS allowed origin config-driven. **No** health change — `HomeController` already serves `/health`. |
-| 2 | `src/ChimpOut.Consumers/Program.cs` | `AddHealthChecks()` + `MapHealthChecks("/health")` (the host that lacked one); CORS config-driven |
-| 3 | `src/ChimpOut.Api/Dockerfile`, `src/ChimpOut.Consumers/Dockerfile` | (optional) `ASPNETCORE_URLS=http://+:${PORT}` with 8080 default (§9.3) |
-| 4 | `src/ChimpOut.Common/chimpoutsettings.json` | add a mock CORS `AllowedOrigins` config key (placeholder) for §9.4 |
+| 1 | `src/SpaceStroker.Api/Program.cs` | add `UseForwardedHeaders` (before HTTPS redirect/rate-limiting); make CORS allowed origin config-driven. **No** health change — `HomeController` already serves `/health`. |
+| 2 | `src/SpaceStroker.Consumers/Program.cs` | `AddHealthChecks()` + `MapHealthChecks("/health")` (the host that lacked one); CORS config-driven |
+| 3 | `src/SpaceStroker.Api/Dockerfile`, `src/SpaceStroker.Consumers/Dockerfile` | (optional) `ASPNETCORE_URLS=http://+:${PORT}` with 8080 default (§9.3) |
+| 4 | `src/SpaceStroker.Common/spacestrokersettings.json` | add a mock CORS `AllowedOrigins` config key (placeholder) for §9.4 |
 | 5 | `docker-compose.yml` | (optional) point the `api` healthcheck at the now-real `/health` |
-| 6 | `src/ChimpOut.Tests/**` | unit tests for the new health endpoints (§14) |
+| 6 | `src/SpaceStroker.Tests/**` | unit tests for the new health endpoints (§14) |
 
 ### 13.3 Frontend (`monkify-front`)
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `.env.example` | document prod-relevant vars (mainnet, chimpout hosts, `DEV_LAUNCH=false`, `ALLOW_FREE_BETS=false`) — placeholders only |
+| 1 | `.env.example` | document prod-relevant vars (mainnet, spacestroker hosts, `DEV_LAUNCH=false`, `ALLOW_FREE_BETS=false`) — placeholders only |
 
 > `monkify-lp`: no repo change (§10.3).
 
@@ -497,14 +497,14 @@ sequenceDiagram
 
 ## 14. Tests
 
-**Backend** (`ChimpOut.Tests`, run via `scripts/run_tests.bat`): add a focused test asserting `/health`
+**Backend** (`SpaceStroker.Tests`, run via `scripts/run_tests.bat`): add a focused test asserting `/health`
 returns `200 Healthy` for the API host (and, if feasibly testable, Consumers) and that it is reachable
 without a launch/admin token (bypasses the auth middleware + rate limiting). Report the added/changed tests
 at implementation end.
 
 **Integration:** **no new integration test required** — this is infra/deploy tooling, not a new game
 feature (constraints.md "integration test mandatory" scopes to game features). The game happy path stays
-covered by the existing `ChimpOut.Tests.Integration` suite (kept green over the Postgres transport by #64).
+covered by the existing `SpaceStroker.Tests.Integration` suite (kept green over the Postgres transport by #64).
 The Terraform + console apps are verified by **manual QA** (§16) against a real/scratch GCP project — they
 are not exercised by the .NET test suites.
 
@@ -557,15 +557,15 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 ## 16. Manual QA (against a scratch/real GCP project)
 
 1. Bootstrap the state bucket per `deploy/README.md`; `terraform init` both layers.
-2. `ChimpOut.Deploy deploy --env production` against a clean project; confirm every AC-1 resource exists
+2. `SpaceStroker.Deploy deploy --env production` against a clean project; confirm every AC-1 resource exists
    (`gcloud run services list`, `gcloud sql instances describe`, `gcloud compute security-policies`, DNS zone,
    managed cert `ACTIVE`).
 3. Confirm **no** public IP on Cloud SQL/Memorystore; Consumers ingress is **internal**; `/hangfire` is
-   unreachable from the internet but the game runs (place a bet via the app on `app.chimpout.com`).
+   unreachable from the internet but the game runs (place a bet via the app on `app.spacestroker.com`).
 4. `deploy front` only → confirm the API/Consumers revisions are unchanged and the CDN cache is invalidated.
-5. `curl -I https://app.chimpout.com` → `Content-Security-Policy: frame-ancestors *` present, no
+5. `curl -I https://app.spacestroker.com` → `Content-Security-Policy: frame-ancestors *` present, no
    `X-Frame-Options`.
-6. Connect `ChimpOut.DbConsole` to both DBs; run a `SELECT` (immediate) and an `UPDATE` (prompts for
+6. Connect `SpaceStroker.DbConsole` to both DBs; run a `SELECT` (immediate) and an `UPDATE` (prompts for
    confirmation).
 7. `teardown` → type the env name → confirm workload gone but DNS zone + domain remain; then `deploy` again
    → serves on the same domains (certs re-attach).
@@ -575,8 +575,8 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 ## 17. Secrets to replace for production (final rundown — `deploy/README.md` + `secrets.example.json`)
 
 - **GCP:** `project_id`, `region`, billing/labels.
-- **Cloud SQL:** app-user password(s) → `ConnectionStrings:ChimpOut` (game `chimpout`) and
-  `ConnectionStrings:Messaging` (messaging `chimpout_messaging`, #64).
+- **Cloud SQL:** app-user password(s) → `ConnectionStrings:SpaceStroker` (game `spacestroker`) and
+  `ConnectionStrings:Messaging` (messaging `spacestroker_messaging`, #64).
 - **Redis:** Memorystore AUTH string (if enabled) → `ConnectionStrings:Redis`.
 - **Solana `Token`:** `ClusterUrl` (devnet → **mainnet**), `MintAddress`, `SenderAccount`,
   `TokenOwnerPublicKey`, **`TokenOwnerPrivateKey`** (secret), `Decimals`.
@@ -586,7 +586,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 - **`Fx:ApiKey`** (FreeCurrencyAPI).
 - **`OperatorWallets:Operators:<guid>:ApiKey`** (per real Standard operator, if any).
 - **Domains/CORS:** `domain_api`/`domain_app`/`domain_lp`, and the API CORS allowed origin
-  (`https://app.chimpout.com`).
+  (`https://app.spacestroker.com`).
 - **Front/lp build config:** `VUE_APP_API_BASE_URL`, `VUE_APP_WEBSOCKET_BASE_URL`,
   `VUE_APP_SOLANA_NETWORK=mainnet-beta`, token addresses, `VUE_APP_ALLOW_FREE_BETS=false`,
   `VUE_APP_DEV_LAUNCH=false`.
@@ -602,7 +602,7 @@ Every one of these is a **placeholder** in committed files; real values live onl
   section on the card carries branch + spec + worktree.
 - **Depends on:** [#64 nPCH4e5R](https://trello.com/c/nPCH4e5R) (Postgres transport + DB rename) — implement
   #61 **after or in lockstep with** #64.
-- **Prerequisites (out-of-band):** register `chimpout.com` (fallback `.net`); real Solana mainnet token +
+- **Prerequisites (out-of-band):** register `spacestroker.com` (fallback `.net`); real Solana mainnet token +
   keys (#62 [h0bO1Adv](https://trello.com/c/h0bO1Adv)); FreeCurrencyAPI production key.
 - **Next:** `/monkify-implement-feature Create terraform to deploy the app` (build it), then
   `/monkify-ship-feature Create terraform to deploy the app` (sync KB — incl. `architecture.md` — and merge

@@ -6,13 +6,13 @@
 
 ## What it does
 
-A **selective visual revamp** of the shipped ChimpOut landing page (`monkify-lp`, Astro 5 + Vue 3 +
+A **selective visual revamp** of the shipped SpaceStroker landing page (`monkify-lp`, Astro 5 + Vue 3 +
 Tailwind v4, static) — cherry-picking the winning pieces of a Claude design mock onto the live LP,
 re-implemented in the real Astro/Vue components and staying **inside the existing arcade skin** (the
 Tailwind v4 `@theme` tokens; no palette/font drift). Frontend-only; no backend / game-app / DB change.
-It restructures and restyles several sections while **preserving** the ChimpOut brand, the token-free
+It restructures and restyles several sections while **preserving** the SpaceStroker brand, the token-free
 USDC messaging, the three trust points, and the ship placeholders documented in
-`features/lp-chimpout-relaunch.md`. Audience: pre-launch degen/arcade players.
+`features/lp-space-stroker-relaunch.md`. Audience: pre-launch degen/arcade players.
 
 ## Core rules (current LP structure)
 
@@ -31,7 +31,7 @@ USDC messaging, the three trust points, and the ship placeholders documented in
   one-at-a-time layout.
 - **Story** keeps the EDSON.LOG CRT terminal (typed caption, `CH n/6`, PREV/NEXT + dots) wrapping
   Bolso's painted `part1–6` slides — **restyled, not rebuilt**.
-- **`#token` "No token. Yet."** is a two-column card (heading + body left; "$CHIMPOUT is not us"
+- **`#token` "No token. Yet."** is a two-column card (heading + body left; "$SPACESTROKER is not us"
   anti-scam warning + "Join the troop" CTA right); the token-free copy is unchanged in meaning.
 - **Header:** coin icon + CHIMP·OUT wordmark, nav **Modes / Story / Roadmap / Troop**, and a **PLAY
   NOW** button → `PLAY_URL`. The nav intentionally drops the standalone "Token"/"About" slots; those

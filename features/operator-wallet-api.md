@@ -13,12 +13,12 @@
 
 ## What it does
 
-For **regulated operators** (`Operator.PaymentModel == Regulated`, "Model A"), ChimpOut holds **no
+For **regulated operators** (`Operator.PaymentModel == Regulated`, "Model A"), SpaceStroker holds **no
 player float**: it instructs the operator's own wallet API to **debit** the stake when a bet is
 placed, **credit** winnings when a game is rewarded, and **refund** cancelled/invalid bets.
 **Crypto operators** (`PaymentModel == Crypto`, "Model B") are unchanged — they still pay on-chain via
 Solana. This feature also carries two app-wide changes that touch both payment models: the money
-ledger is unified onto `TransactionLog`, and the ChimpOut commission is removed (winners receive the
+ledger is unified onto `TransactionLog`, and the SpaceStroker commission is removed (winners receive the
 full pot).
 
 ## Core rules
@@ -28,7 +28,7 @@ full pot).
   maps the provider name to a registered adapter. The repo ships **one** adapter — `MockOperatorWalletService`
   (provider `"mock"`) for dev + tests; real casino adapters are added per onboarding.
 - **Config & secrets.** Per-operator wallet config (`Provider`, `BaseUrl`, `ApiKey`, `TimeoutSeconds`)
-  lives under `GeneralSettings.OperatorWallets.Operators[<operatorId>]` in `chimpoutsettings.json`,
+  lives under `GeneralSettings.OperatorWallets.Operators[<operatorId>]` in `spacestrokersettings.json`,
   **mock values only**. A regulated operator with **no/unknown provider** configured raises a
   configuration error — the wallet call is never silently skipped.
 - **Amounts are USD.** Debit/credit/refund send the canonical **USD decimal** amount with
@@ -72,30 +72,30 @@ full pot).
 
 **Backend (`monkify-backend`)**
 
-- Adapter: `ChimpOut.Infrastructure/Services/OperatorWallets/` — `IOperatorWalletService`,
+- Adapter: `SpaceStroker.Infrastructure/Services/OperatorWallets/` — `IOperatorWalletService`,
   `OperatorWalletResult`, `OperatorWalletError` (`InsufficientFunds | PlayerBlocked | Duplicate | Timeout
   | Unavailable`), `IOperatorWalletResolver` + `OperatorWalletResolver`, `MockOperatorWalletService`.
-  Registered in `ChimpOut.Infrastructure/DependencyInjection.cs`.
-- Config: `ChimpOut.Domain/Configs/Entities/OperatorWalletSettings.cs`; `GeneralSettings.OperatorWallets`;
-  `ChimpOut.Common/chimpoutsettings.json` → `GeneralSettings.OperatorWallets` (mock).
-- Debit: `ChimpOut.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
-  (`DebitOperatorWallet`, `MapWalletErrorToMessage`); messages in `ChimpOut.Common/Resources/ErrorMessages`
+  Registered in `SpaceStroker.Infrastructure/DependencyInjection.cs`.
+- Config: `SpaceStroker.Domain/Configs/Entities/OperatorWalletSettings.cs`; `GeneralSettings.OperatorWallets`;
+  `SpaceStroker.Common/spacestrokersettings.json` → `GeneralSettings.OperatorWallets` (mock).
+- Debit: `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs`
+  (`DebitOperatorWallet`, `MapWalletErrorToMessage`); messages in `SpaceStroker.Common/Resources/ErrorMessages`
   (`WalletInsufficientFunds`, `WalletPlayerBlocked`, `WalletDuplicateBet`, `WalletTemporarilyUnavailable`).
-- Credit: `ChimpOut.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
+- Credit: `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs`
   (`CreditThroughOperatorWallet`).
-- Refund: `ChimpOut.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`
+- Refund: `SpaceStroker.Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs`
   (`RefundThroughOperatorWallet`); `RefundInvalidBetEvent` now carries `BetId` (publishers:
   `RegisterBetHandler`, `BetPlacedConsumer`). Crypto refund: `SolanaService.RefundTokens` writes a
   `Refund`-typed `TransactionLog` (the `RefundLog` table is gone).
-- Ledger: `ChimpOut.Domain/Bets/Entities/TransactionLog.cs`,
-  `ChimpOut.Domain/Bets/ValueObjects/TransactionLogType.cs`; inline mapping in
-  `ChimpOutDbContext.OnModelCreating`; migration
-  `ChimpOut.Infrastructure/Migrations/20260630183419_AddOperatorWalletLedger.cs` (adds columns, backfills
+- Ledger: `SpaceStroker.Domain/Bets/Entities/TransactionLog.cs`,
+  `SpaceStroker.Domain/Bets/ValueObjects/TransactionLogType.cs`; inline mapping in
+  `SpaceStrokerDbContext.OnModelCreating`; migration
+  `SpaceStroker.Infrastructure/Migrations/20260630183419_AddOperatorWalletLedger.cs` (adds columns, backfills
   existing rows as `Credit`, migrates `RefundLog` → `TransactionLog`, drops `Refunds`).
-- Money math: `ChimpOut.Domain/Bets/Services/BetDomainService.cs` (type-aware credit/refund sums).
+- Money math: `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` (type-aware credit/refund sums).
   Config removed here: `TokenSettings.CommisionPercentage` — **later re-added (correctly spelled) as
   `TokenSettings.CommissionPercentage` for the crypto commission**; see `features/crypto-commission.md`.
-- Host split: debit in `ChimpOut.Api` (synchronous, at bet time); credit/refund in `ChimpOut.Consumers`.
+- Host split: debit in `SpaceStroker.Api` (synchronous, at bet time); credit/refund in `SpaceStroker.Consumers`.
 
 **Frontend (`monkify-front`)**
 

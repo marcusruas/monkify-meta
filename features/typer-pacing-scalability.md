@@ -19,7 +19,7 @@ pacing.
   - **Race** (free-type + preset): mean **8–18 s**, **p95 ≤ 30 s**
   - **Lottery draw** (typer run, not Hangfire schedule): mean **10–30 s**, **p95 ≤ 45 s**
 - **No minimum duration** — instant natural wins are allowed.
-- **Time-budget pacing:** `ChimpOutTyper` schedules ms-per-character from mode targets and a
+- **Time-budget pacing:** `SpaceStrokerTyper` schedules ms-per-character from mode targets and a
   search-space horizon (`min(expectedCharsToWin, MaxTyperCharacters)`). A `Stopwatch` drives delays:
   sleep only when **ahead** of schedule (≥ 4 ms surplus); never slow further when behind →
   hardware- and load-stable.
@@ -29,7 +29,7 @@ pacing.
   sliding-window match, the typer picks the winner with `new Random(GameSeed)` over
   ordinally-sorted choices. Trigger is a **fixed character count**, so same seed + bets → same
   stream **and** same winner on any host. Exposed as `WinnerDecidedByFallback`.
-- **Config:** `GameSettings` in `chimpoutsettings.json` — race/lottery mean and p95 targets,
+- **Config:** `GameSettings` in `spacestrokersettings.json` — race/lottery mean and p95 targets,
   `MaxTyperCharacters` (default 5,000,000). No admin UI.
 - **Production metrics gate:** `ProductionGames` tests (one class per default game parameter,
   2–400 bet sweep) run via `scripts/run_production_game_tests.bat`; excluded from
@@ -37,11 +37,11 @@ pacing.
 
 ## Key code touchpoints
 
-- `ChimpOut.Domain/Games/Services/ChimpOutTyper.cs` — `CalculatePacing`, `ApplyPacingDelay`,
+- `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` — `CalculatePacing`, `ApplyPacingDelay`,
   `DecideFallbackWinner`, `UpdateTypingSpeed`
-- `ChimpOut.Domain/Configs/Entities/GameSettings.cs` — pacing target properties
-- `ChimpOut.Common/chimpoutsettings.json` — default pacing values
-- `ChimpOut.Infrastructure/Services/Games/GameService.cs` — passes settings + lottery flag
-- `ChimpOut.Tests/UnitTests/Domain/ProductionGameTests.cs` — per-game Monte Carlo metrics
-- `ChimpOut.Tests/UnitTests/Domain/Games/ChimpOutTyperTests.cs` — reproducibility + fallback
+- `SpaceStroker.Domain/Configs/Entities/GameSettings.cs` — pacing target properties
+- `SpaceStroker.Common/spacestrokersettings.json` — default pacing values
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — passes settings + lottery flag
+- `SpaceStroker.Tests/UnitTests/Domain/ProductionGameTests.cs` — per-game Monte Carlo metrics
+- `SpaceStroker.Tests/UnitTests/Domain/Games/SpaceStrokerTyperTests.cs` — reproducibility + fallback
 - `monkify-front/src/components/game/GameTyper.vue` — refresh 50/35/25 ms by `DisplaySpeed`

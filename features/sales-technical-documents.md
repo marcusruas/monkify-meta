@@ -20,7 +20,7 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
   doc via the canonical track table and `MODEL-A-PROFILE` / `MODEL-B-PROFILE` blocks (EN + PT-BR).
   - **Model A (Regulated):** operator-owned wallet; player = launch-token `sub` (`ExternalPlayerId`);
     settlement via operator wallet API (debit / credit / refund); optional RG pre-bet hook.
-  - **Model B (Crypto-native):** ChimpOut-hosted on-chain payments; player = wallet public key;
+  - **Model B (Crypto-native):** SpaceStroker-hosted on-chain payments; player = wallet public key;
     settlement via Solana SPL transfers; launch token has empty `sub`.
 - **Per-model docs:** `sales/model-a/` and `sales/model-b/` each hold `01-pitch` and
   `02-integration-overview`. Doc 03 stays at `sales/03-anti-clone-playbook.md`.

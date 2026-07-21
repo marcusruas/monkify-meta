@@ -1,7 +1,7 @@
-# ChimpOut — GCP deploy (`deploy/`)
+# SpaceStroker — GCP deploy (`deploy/`)
 
 Infrastructure-as-Code + two local console tools that stand up (and tear down) the production
-ChimpOut stack on GCP. **Manual deploys only** — no CI. Everything is driven by one **unversioned local
+SpaceStroker stack on GCP. **Manual deploys only** — no CI. Everything is driven by one **unversioned local
 secrets file** (`secrets.<env>.json`), never committed.
 
 See `monkify-meta/specs/terraform-gcp-deploy.md` for the full design and the acceptance criteria.
@@ -16,9 +16,9 @@ deploy/
     workload/                  # LAYER 2 — everything teardown may destroy
       modules/{network,data,registry,iam,secrets,cloud_run_api,cloud_run_consumers,static_site,edge}
   tools/
-    ChimpOut.Deploy/           # `chimpout-deploy deploy [api|consumers|front|lp]` + `teardown`
-    ChimpOut.DbConsole/        # `chimpout-db --db game|messaging` (read-write REPL, write-confirm)
-    ChimpOut.DeployTools.sln
+    SpaceStroker.Deploy/           # `spacestroker-deploy deploy [api|consumers|front|lp]` + `teardown`
+    SpaceStroker.DbConsole/        # `spacestroker-db --db game|messaging` (read-write REPL, write-confirm)
+    SpaceStroker.DeployTools.sln
 ```
 
 ## Prerequisites (on PATH, authenticated)
@@ -30,7 +30,7 @@ deploy/
 - **cloud-sql-proxy** v2 (for the DB console)
 - **.NET 8 SDK** (to build/run the console tools)
 
-Out-of-band prerequisites: register **chimpout.com** (then delegate its nameservers to Cloud DNS —
+Out-of-band prerequisites: register **spacestroker.com** (then delegate its nameservers to Cloud DNS —
 see bootstrap step 3); real **Solana mainnet** token + keys; a **FreeCurrencyAPI** production key.
 
 ## One-time bootstrap (state bucket + persistent layer)
@@ -55,12 +55,12 @@ terraform init -migrate-state \
 terraform output dns_name_servers
 ```
 
-(The `chimpout-deploy` tool creates the state bucket automatically on first `deploy` if it is missing.)
+(The `spacestroker-deploy` tool creates the state bucket automatically on first `deploy` if it is missing.)
 
 ## Deploy
 
 ```bash
-cd deploy/tools/ChimpOut.Deploy
+cd deploy/tools/SpaceStroker.Deploy
 cp ../../secrets.example.json ../../secrets.production.json   # fill in real values (never commit)
 
 dotnet run -- deploy                 # full workload: secrets → Secret Manager, tfvars, apply,
@@ -77,7 +77,7 @@ invalidates the CDN. **Consumers is released before the API** (it owns EF migrat
 ## Teardown ("drop everything, keep the domain")
 
 ```bash
-cd deploy/tools/ChimpOut.Deploy
+cd deploy/tools/SpaceStroker.Deploy
 dotnet run -- teardown               # re-type the environment name to confirm
 ```
 
@@ -89,7 +89,7 @@ same domains + managed certs. Cloud SQL deletion-protection is deliberately over
 ## DB console
 
 ```bash
-cd deploy/tools/ChimpOut.DbConsole
+cd deploy/tools/SpaceStroker.DbConsole
 dotnet run -- --db game              # or: --db messaging
 ```
 
@@ -104,13 +104,13 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 | Where | Keys |
 | --- | --- |
 | **`gcp`** | `projectId`, `region`, `stateBucket`, `dnsZoneName`, `dnsDomain`, `domains.{api,app,lp,lpWww}`, `consumerCount`, `apiMinInstances`, `apiMaxInstances`, `enableDeletionProtection` |
-| **`secrets`** (→ Secret Manager) | `ConnectionStrings:ChimpOut` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Token:TokenOwnerPrivateKey`, `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`, `GeneralSettings:Fx:ApiKey` |
-| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Token:{ClusterUrl(mainnet),MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:LaunchTokens:MainOperatorPublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.chimpout.com` |
+| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Token:TokenOwnerPrivateKey`, `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`, `GeneralSettings:Fx:ApiKey` |
+| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Token:{ClusterUrl(mainnet),MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:LaunchTokens:MainOperatorPublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
 | **`frontBuild`** (baked into the SPA) | `VUE_APP_API_BASE_URL`, `VUE_APP_WEBSOCKET_BASE_URL`, `VUE_APP_SOLANA_NETWORK=mainnet-beta`, `VUE_APP_USDC_TOKEN_ADDRESS`, `VUE_APP_GAME_TOKEN_ADDRESS`, `VUE_APP_ALLOW_FREE_BETS=false`, `VUE_APP_DEV_LAUNCH=false` |
 
-> The game-DB user needs **CREATE DATABASE** (or pre-create `chimpout_messaging`) so the MassTransit
+> The game-DB user needs **CREATE DATABASE** (or pre-create `spacestroker_messaging`) so the MassTransit
 > Postgres transport can provision its DB at Consumers startup (#64). Both DBs are declared in the
-> `data` module, so a default apply already creates `chimpout` + `chimpout_messaging`.
+> `data` module, so a default apply already creates `spacestroker` + `spacestroker_messaging`.
 
 ## Notes / caveats
 

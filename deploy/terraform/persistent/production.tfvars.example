@@ -2,10 +2,10 @@
 # or production.tfvars, then `terraform apply -var-file=...`. Placeholders only.
 project_id        = "your-gcp-project-id"
 region            = "us-central1"
-dns_zone_name     = "chimpout-zone"
-dns_domain        = "chimpout.com."
-state_bucket_name = "chimpout-tfstate-your-gcp-project-id"
+dns_zone_name     = "spacestroker-zone"
+dns_domain        = "spacestroker.com."
+state_bucket_name = "spacestroker-tfstate-your-gcp-project-id"
 labels = {
-  app        = "chimpout"
+  app        = "spacestroker"
   managed_by = "terraform"
 }

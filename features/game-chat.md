@@ -26,7 +26,7 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
   `CreatedDate` = sent time). **Never replayed** to players — late joiners see no prior messages; no
   history-load endpoint.
 - **Retention:** daily Hangfire job `ChatMessagePurgeJob` deletes rows older than
-  `GeneralSettings.Chat.RetentionDays` (**default 7**). Migration applied by `ChimpOut.Consumers`.
+  `GeneralSettings.Chat.RetentionDays` (**default 7**). Migration applied by `SpaceStroker.Consumers`.
 - **Hub guards:** reject empty/whitespace text, text **> 200** chars, empty game id, or empty
   display name — no broadcast, no persist. **No server rate limiting.**
 - **Client limits:** plain text only; **200 chars max**, **1 message / 1 second**, inline validation
@@ -51,13 +51,13 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
 
 **Backend (`monkify-backend`)**
 
-- `ChimpOut.Infrastructure/Hubs/ActiveGamesHub.cs` — `SendChatMessage`, `MaxChatMessageLength = 200`
-- `ChimpOut.Infrastructure/Consumers/ChatMessagePersisted/` — event + consumer
-- `ChimpOut.Infrastructure/Jobs/ChatMessagePurgeJob.cs` — daily purge (registered in `ChimpOut.Consumers/Program.cs`)
-- `ChimpOut.Domain/Games/Entities/GameChatMessage.cs` — EF entity
-- `ChimpOut.Infrastructure/Migrations/20260703145848_AddGameChatMessages.cs`
-- `ChimpOut.Domain/Configs/Entities/ChatSettings.cs` — `RetentionDays`
-- `ChimpOut.Common/chimpoutsettings.json` — `Chat.RetentionDays`, `Games.GameChatEndpoint`
+- `SpaceStroker.Infrastructure/Hubs/ActiveGamesHub.cs` — `SendChatMessage`, `MaxChatMessageLength = 200`
+- `SpaceStroker.Infrastructure/Consumers/ChatMessagePersisted/` — event + consumer
+- `SpaceStroker.Infrastructure/Jobs/ChatMessagePurgeJob.cs` — daily purge (registered in `SpaceStroker.Consumers/Program.cs`)
+- `SpaceStroker.Domain/Games/Entities/GameChatMessage.cs` — EF entity
+- `SpaceStroker.Infrastructure/Migrations/20260703145848_AddGameChatMessages.cs`
+- `SpaceStroker.Domain/Configs/Entities/ChatSettings.cs` — `RetentionDays`
+- `SpaceStroker.Common/spacestrokersettings.json` — `Chat.RetentionDays`, `Games.GameChatEndpoint`
 - Tests: `ActiveGamesHubTests`, `ChatMessagePersistedConsumerTests`, `ChatMessagePurgeJobTests`
 
 **Frontend (`monkify-front`)**

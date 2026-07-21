@@ -1,6 +1,6 @@
 variable "project_id" {
   type        = string
-  description = "Existing GCP project id that hosts ChimpOut."
+  description = "Existing GCP project id that hosts SpaceStroker."
 }
 
 variable "region" {
@@ -11,16 +11,16 @@ variable "region" {
 
 variable "dns_zone_name" {
   type        = string
-  description = "Cloud DNS managed-zone resource name (e.g. chimpout-zone)."
+  description = "Cloud DNS managed-zone resource name (e.g. spacestroker-zone)."
 }
 
 variable "dns_domain" {
   type        = string
-  description = "Zone DNS name as an FQDN with a trailing dot, e.g. \"chimpout.com.\"."
+  description = "Zone DNS name as an FQDN with a trailing dot, e.g. \"spacestroker.com.\"."
 
   validation {
     condition     = endswith(var.dns_domain, ".")
-    error_message = "dns_domain must be a fully-qualified name ending in a dot, e.g. \"chimpout.com.\"."
+    error_message = "dns_domain must be a fully-qualified name ending in a dot, e.g. \"spacestroker.com.\"."
   }
 }
 

@@ -1,4 +1,4 @@
-# ChimpOut — "Display name per connected wallet for SolanaToken games" — Implementation Spec
+# SpaceStroker — "Display name per connected wallet for SolanaToken games" — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/wallet-display-name` on 2026-07-14. Refined via Trello card
 > [Display name per connected wallet for SolanaToken games](https://trello.com/c/sohAuZN0).
@@ -46,7 +46,7 @@ From `monkify-meta/constraints.md` (full list there):
   `git checkout -b` there). Branch pushed to `origin` for the PR.
 - **Backend unit tests + a happy-path integration test (now required).** The scope correction (§6) made
   this a backend change, so per `constraints.md` → "Integration tests are mandatory for every new
-  feature" it ships with updated/added `ChimpOut.Tests` unit tests **and** a `ChimpOut.Tests.Integration`
+  feature" it ships with updated/added `SpaceStroker.Tests` unit tests **and** a `SpaceStroker.Tests.Integration`
   happy-path test proving the wallet-keyed display name end to end (see §11). Report the changed tests.
 - **EF / migrations:** none — no entity, mapping, or migration change (§6.3).
 - **Secrets/config:** none touched; only mock values ever committed.
@@ -99,7 +99,7 @@ untouched.
 
 ### 6.1 Preference identity — prefer the wallet when provided
 
-`ChimpOut.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` and
+`SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs` and
 `.../UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`: change identity resolution from
 `sub`-first to **wallet-first-when-present**:
 
@@ -115,7 +115,7 @@ The client only sends a wallet in a SolanaToken context (§7), so Standard prefs
 
 ### 6.2 Live bet notification — capture the wallet before detaching `OperatorPlayer`
 
-`ChimpOut.Infrastructure/Services/Games/GameService.cs` → `InsertBet` set `bet.OperatorPlayer =
+`SpaceStroker.Infrastructure/Services/Games/GameService.cs` → `InsertBet` set `bet.OperatorPlayer =
 null` **before** calling `bet.GetWalletAddress()` (which reads `OperatorPlayer.ExternalPlayerId`), so
 every **live** `BetNotificationEvent` shipped `ExternalPlayerId = null` — breaking the `YOU` match on
 live bets. Capture the id (like the display name already is) **before** nulling:
@@ -319,14 +319,14 @@ flowchart TD
 
 ## 11. Tests
 
-**Backend unit — `ChimpOut.Tests` (added, all green — 342 total):**
+**Backend unit — `SpaceStroker.Tests` (added, all green — 342 total):**
 
 | Test file | Test case | Asserts |
 | --- | --- | --- |
 | `UnitTests/Handlers/GetPlayerPreferencesHandlerTests.cs` | `WalletProvided_TakesPrecedenceOverSub` | With both a `sub` row and a wallet row seeded, a request carrying `sub` + `wallet` returns the **wallet** row's prefs. |
 | `UnitTests/Handlers/UpdatePlayerPreferencesHandlerTests.cs` | `WalletInBody_TakesPrecedenceOverSub_WritesToWalletIdentity` | PATCH with `sub` in the token + `wallet` in the body writes the name to the **wallet** `OperatorPlayer`; no `sub` row is created. |
 
-**Backend integration — `ChimpOut.Tests.Integration` (mandatory happy path, added):**
+**Backend integration — `SpaceStroker.Tests.Integration` (mandatory happy path, added):**
 
 | Test file | Test case | Asserts |
 | --- | --- | --- |

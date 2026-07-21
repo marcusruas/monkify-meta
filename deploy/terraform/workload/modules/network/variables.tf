@@ -8,7 +8,7 @@ variable "region" {
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix for network resource names (e.g. chimpout)."
+  description = "Prefix for network resource names (e.g. spacestroker)."
 }
 
 variable "subnet_cidr" {

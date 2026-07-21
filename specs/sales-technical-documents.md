@@ -1,4 +1,4 @@
-# ChimpOut — "Sales Technical Documents (B2B SaaS)" — Implementation Spec
+# SpaceStroker — "Sales Technical Documents (B2B SaaS)" — Implementation Spec
 
 > **Status: Shipped** — merged to `main` via `feature/sales-technical-documents` on 2026-07-01.
 > Refined via Trello card
@@ -43,8 +43,8 @@ so there is still one canonical definition; each doc just shows the buyer their 
 
 - **Model A (Regulated)** — operator-owned wallet; buyer example BetMGM / BR-licensed; integration =
   signed **launch token** + operator **wallet API** (debit/credit/refund) + optional **RG pre-bet hook**;
-  player identity = token `sub` (`ExternalPlayerId`). ChimpOut holds **no float**.
-- **Model B (Crypto-native)** — ChimpOut-hosted payments (SOL/USDT/etc.); buyer example BetFury-style;
+  player identity = token `sub` (`ExternalPlayerId`). SpaceStroker holds **no float**.
+- **Model B (Crypto-native)** — SpaceStroker-hosted payments (SOL/USDT/etc.); buyer example BetFury-style;
   integration = launch token (`iss` operator, empty `sub`) + wallet public key as the player reference,
   on-chain settlement via Solana.
 
@@ -125,7 +125,7 @@ Every document opens with the same front block, then Purpose and body, and close
 control:
 
 ```markdown
-# ChimpOut — <Document Title>
+# SpaceStroker — <Document Title>
 
 > **Version:** <n> · **Date:** <YYYY-MM-DD>
 > **Audience:** <who this is for>
@@ -165,7 +165,7 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
   - **One-liner + "why it's different"** (players bet on the first word a simulated monkey types;
     fully built backend/web/mobile/ops). The Model B version adds the "provably fair" hook.
   - **Its own single-model profile block** (pasted **verbatim** from `README.md`: `MODEL-A-PROFILE` or
-    `MODEL-B-PROFILE`) — covers payments, identity, settlement, RG, integration surface, and ChimpOut-
+    `MODEL-B-PROFILE`) — covers payments, identity, settlement, RG, integration surface, and SpaceStroker-
     vs-operator ownership for that track.
   - **Messaging guardrail:** *"integrate with YOUR wallet and player account"* — never "we don't do
     payments".
@@ -187,8 +187,8 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
   secrets/keys/credentials — any example token/config is an obvious mock.
 - **Required content (grounded in §6 code):**
   1. **Launch** — the casino signs an **RS256 launch token** with its private key; redirects to
-     `…/chimpout/game/games#launch_token=<jwt>`. Claims: `iss` = operatorId, `sub` =
-     externalPlayerId (empty for crypto), `exp`/`iat`/`jti`. ChimpOut validates against
+     `…/space-stroker/game/games#launch_token=<jwt>`. Claims: `iss` = operatorId, `sub` =
+     externalPlayerId (empty for crypto), `exp`/`iat`/`jti`. SpaceStroker validates against
      `Operator.LaunchPublicKey` (±2 min skew) in `LaunchTokenValidationMiddleware`; every
      operator-scoped REST call carries **`X-Launch-Token`**. Any failure → **generic HTTP 401** (real
      reason logged server-side only) — never reveals contract status.
@@ -206,7 +206,7 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
   5. **Settle** — **credit** at reward (Model A: `CreditThroughOperatorWallet` in
      `RewardGameConsumer`; Model B: `ISolanaService.TransferTokensForBet`); **refund** on
      post-acceptance cancellation (Model A: `RefundThroughOperatorWallet` in
-     `RefundInvalidBetConsumer`; Model B: on-chain refund). **No ChimpOut commission** — winners
+     `RefundInvalidBetConsumer`; Model B: on-chain refund). **No SpaceStroker commission** — winners
      receive the **full pot**. Every money movement is a **`TransactionLog`** row
      (`Credit | Debit | Refund`); there is **no** `RefundLog`.
   6. **What the operator implements (Model A):** a wallet API with **Debit / Credit / Refund**
@@ -221,13 +221,13 @@ is deferred; (e) the discipline note (placeholders, illustrative operator names,
 ### 5.3 `03-anti-clone-playbook.md` (+ PT-BR)
 
 - **What:** An internal **commercial/GTM positioning playbook** (1–2 pages) that makes *licensing*
-  ChimpOut easier than *building* internally, plus a **pre-sales-call checklist**.
+  SpaceStroker easier than *building* internally, plus a **pre-sales-call checklist**.
 - **Body:**
   - **First reference operator** — even one crypto-native live deployment is social proof (framed
     **aspirationally — no client is named or claimed**; use "target" / "once live" language).
   - **Exclusivity** — a paid contract add-on (territory / vertical / time-boxed).
   - **Speed narrative** — "weeks to launch vs months to build + certify internally".
-  - **Brand** — players/operators ask for ChimpOut by name, not "word typer game".
+  - **Brand** — players/operators ask for SpaceStroker by name, not "word typer game".
   - **Cost framing** — internal rebuild + certify vs SaaS setup + monthly (tie to Doc 01 pricing; no
     %NGR).
   - **Pre-sales-call checklist** — a short checklist sales runs before a prospect call (which doc to
@@ -244,13 +244,13 @@ map, the code is the ground truth. Confirmed touchpoints (verified 2026-07-01):
 
 | Area | Read (no edits) | Confirm |
 | --- | --- | --- |
-| Launch token | `ChimpOut.Api/Middleware/LaunchTokenValidationMiddleware.cs`; `ChimpOut.Api/Launch/LaunchTokenService.cs`; `Infrastructure/Services/Launch/ILaunchContext.cs`; `features/launch-token-validation.md` | `X-Launch-Token` RS256; `iss`/`sub`; ±2 min skew; generic 401; `paymentModel` from `GET /operators/{id}` |
-| Endpoints | `ChimpOut.Api/Controllers/{Games,Operators,Players,Dev}Controller.cs` | Routes: `GET /games/active-types`, `GET /games/{gameTypeId}`, `POST /games/{id}/bets`, `GET /operators/{id:guid}`, `PATCH /players/preferences`, `POST /dev/launch-token` (dev-only) |
+| Launch token | `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs`; `SpaceStroker.Api/Launch/LaunchTokenService.cs`; `Infrastructure/Services/Launch/ILaunchContext.cs`; `features/launch-token-validation.md` | `X-Launch-Token` RS256; `iss`/`sub`; ±2 min skew; generic 401; `paymentModel` from `GET /operators/{id}` |
+| Endpoints | `SpaceStroker.Api/Controllers/{Games,Operators,Players,Dev}Controller.cs` | Routes: `GET /games/active-types`, `GET /games/{gameTypeId}`, `POST /games/{id}/bets`, `GET /operators/{id:guid}`, `PATCH /players/preferences`, `POST /dev/launch-token` (dev-only) |
 | Bet + RG + debit | `Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` (`RunPreBetCheck`, `DebitOperatorWallet`, `MapWalletErrorToMessage`) | RG check before debit; debit last + fail-closed; specific player wallet messages |
 | RG hook | `Infrastructure/Services/PreBetChecks/IPreBetCheckService.cs`, `IPreBetCheckResolver.cs`; `features/rg-pre-bet-hook.md` | allow / deny(reason) / fail-closed; opt-in per operator; unconfigured ⇒ skipped |
 | Wallet adapter | `Infrastructure/Services/OperatorWallets/IOperatorWalletService.cs`, `MockOperatorWalletService.cs` | Debit / Credit / Refund; USD; per-operator provider resolver |
 | Credit / refund | `Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` (`CreditThroughOperatorWallet`); `Infrastructure/Consumers/RefundInvalidBet/RefundInvalidBetConsumer.cs` (`RefundThroughOperatorWallet`) | Model A wallet vs Model B Solana; free bets skipped |
-| Ledger | `ChimpOut.Domain/Bets/Entities/TransactionLog.cs`; `ChimpOut.Domain/Bets/ValueObjects/TransactionLogType.cs`; `features/operator-wallet-api.md` | Unified `TransactionLog` (`Credit`/`Debit`/`Refund`); **no** `RefundLog`; **no commission** |
+| Ledger | `SpaceStroker.Domain/Bets/Entities/TransactionLog.cs`; `SpaceStroker.Domain/Bets/ValueObjects/TransactionLogType.cs`; `features/operator-wallet-api.md` | Unified `TransactionLog` (`Credit`/`Debit`/`Refund`); **no** `RefundLog`; **no commission** |
 | State machine | `architecture.md` §4; `Infrastructure/Consumers/{BetPlaced,RunGame,RewardGame,RefundInvalidBet}/*` | `BetPlaced → RunGame → RewardGame`; `RefundInvalidBet`; SignalR hubs |
 
 ---
@@ -273,11 +273,11 @@ Each Doc 02 version carries **only its own** diagram (no cross-model `alt`).
 ```mermaid
 sequenceDiagram
   participant Casino as Operator/Casino
-  participant SPA as ChimpOut SPA
-  participant API as ChimpOut.Api
+  participant SPA as SpaceStroker SPA
+  participant API as SpaceStroker.Api
   participant RG as Your RG pre-bet adapter (opt-in)
   participant Wallet as Your Wallet API
-  participant Cons as ChimpOut background worker
+  participant Cons as SpaceStroker background worker
 
   Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss + sub=ExternalPlayerId)
   SPA->>API: GET /operators/{id} (X-Launch-Token)
@@ -302,11 +302,11 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Casino as Operator/Casino
-  participant SPA as ChimpOut SPA (+ wallet)
-  participant API as ChimpOut.Api
+  participant SPA as SpaceStroker SPA (+ wallet)
+  participant API as SpaceStroker.Api
   participant RG as Your RG pre-bet adapter (opt-in)
   participant Chain as Solana
-  participant Cons as ChimpOut background worker
+  participant Cons as SpaceStroker background worker
 
   Casino->>SPA: redirect …#launch_token=<jwt> (RS256, iss, sub empty)
   SPA->>API: GET /operators/{id} (X-Launch-Token)
@@ -369,7 +369,7 @@ None (read-only grounding — no files changed).
 ## 11. Unit tests
 
 **Not applicable.** This is a non-code, document-production story — no backend behavior changes, so
-`ChimpOut.Tests` is not touched and the §3 test-discipline constraint does not apply. "Verification" is
+`SpaceStroker.Tests` is not touched and the §3 test-discipline constraint does not apply. "Verification" is
 the §12 acceptance-criteria review (see §13 Manual QA), not automated tests.
 
 ---
@@ -384,7 +384,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    status, purpose, body, control) with Mermaid used for any diagram.
 2. Given docs 01 and 02 come in a Model-A and a Model-B version, when reviewed, then each shows **only
    its own** track (Model A = regulated / operator wallet + launch token + RG hook; Model B = crypto /
-   ChimpOut-hosted, wallet as ExternalPlayerId) and includes a one-line pointer to the other version.
+   SpaceStroker-hosted, wallet as ExternalPlayerId) and includes a one-line pointer to the other version.
 3. Given a per-model doc, when its single-model profile block is compared to `sales/README.md`, then it
    is byte-for-byte the matching `MODEL-A-PROFILE` / `MODEL-B-PROFILE` block (EN docs → EN block; PT-BR
    docs → PT-BR block) with no divergent wording.

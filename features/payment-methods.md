@@ -82,8 +82,8 @@ strategy + `IPaymentMethodResolver`**, keyed on the game's `PaymentMethod`, mirr
   game **skips wallet-connect**. Free-bet detection is now `IsFreeBet => bet.Amount == 0` (the
   dropped `PaymentSignature` check is gone). `AllowFreeBet` stays hidden in the admin form / false in
   prod.
-- **Host split preserved.** Standard debit + SolanaToken bet-time validation run in **`ChimpOut.Api`**
-  (validation only, no private-key decrypt); Credit/Refund for both methods run in **`ChimpOut.Consumers`**
+- **Host split preserved.** Standard debit + SolanaToken bet-time validation run in **`SpaceStroker.Api`**
+  (validation only, no private-key decrypt); Credit/Refund for both methods run in **`SpaceStroker.Consumers`**
   (SolanaToken decrypts the key there). Token registration `Protect`s in the API.
 - **Amounts are method-native and never converted.** Standard = USD; SolanaToken = the token's own units
   (scaled by the token's `Decimals`, not the global `GeneralSettings.Token.Decimals`). No SOL↔USD, no
@@ -127,7 +127,7 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   poll while on a connected SolanaToken game (paused when the tab is hidden, stopped on
   unmount/disconnect) plus an **instant optimistic decrement on the player's own bet**, a **win-payout
   read ~5 s after `Ended`**, and a refresh on refund (`NotEnoughPlayersToStart`) / reward-error. There
-  is **no balance surface for Standard games** (ChimpOut holds no player float). See
+  is **no balance surface for Standard games** (SpaceStroker holds no player float). See
   `../specs/wallet-balance-refresh.md`.
   The player-settings **gear** is gated on **operator context derived from the launch token**
   (`hasOperatorContext = operatorId ?? getOperatorIdFromToken()`) so it survives an operatorId reset from
@@ -162,7 +162,7 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   Sprint**, **6N Token Tumble**, **6X Crypto Clash** — referencing the seeded token.
 - `DevController` resolves the single dev operator; the dev launch token carries `sub = dev-player` so
   Standard identity works, and SolanaToken games still get their wallet from wallet-connect.
-- **Config:** `GeneralSettings.SecretProtection.Key` (mock passphrase) added to `chimpoutsettings.json`;
+- **Config:** `GeneralSettings.SecretProtection.Key` (mock passphrase) added to `spacestrokersettings.json`;
   `OperatorWallets.Operators` re-keyed to the dev GUID. **Mock values only** — the token private key in
   config is a placeholder.
 
@@ -195,12 +195,12 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   GameTypeRequestBody,GameTypeAdminDto}.cs`.
 - DTOs / prefs: `Contracts/Games/{GameParametersDto,BetDto,OperatorDto}.cs`;
   `Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs` (fiat allowed for all).
-- EF + migration: inline mapping in `ChimpOutDbContext.OnModelCreating` (DbSets `OperatorTokens`,
+- EF + migration: inline mapping in `SpaceStrokerDbContext.OnModelCreating` (DbSets `OperatorTokens`,
   `CryptoTransactionLogs`; drops + new columns); migration
   `Migrations/20260707210000_RefactorPaymentMethods.cs`.
-- Config / dev: `ChimpOut.Common/chimpoutsettings.json` (`SecretProtection`, `OperatorWallets` re-keyed),
-  `ChimpOut.Consumers/Program.cs` (single dev operator, `EnsureDevOperatorToken`, seeding),
-  `ChimpOut.Consumers/DefaultGameParameters.cs`, `Api/Controllers/DevController.cs`.
+- Config / dev: `SpaceStroker.Common/spacestrokersettings.json` (`SecretProtection`, `OperatorWallets` re-keyed),
+  `SpaceStroker.Consumers/Program.cs` (single dev operator, `EnsureDevOperatorToken`, seeding),
+  `SpaceStroker.Consumers/DefaultGameParameters.cs`, `Api/Controllers/DevController.cs`.
 - Tests: unit — `PaymentMethodResolverTests`, `AesSecretProtectorTests`, `OperatorTokenHandlerTests`
   (new) + updated `RegisterBetHandlerTests`, `RewardWinnersHandlerTests`, `RefundInvalidBetConsumerTests`,
   `SolanaServiceTests`, `DevControllerTests`, `UpdatePlayerPreferencesHandlerTests`, `BetDtoTests`,

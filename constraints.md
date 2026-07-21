@@ -1,4 +1,4 @@
-# ChimpOut — Constraints (non-negotiable)
+# SpaceStroker — Constraints (non-negotiable)
 
 > Read this **before** writing code, running commands, or touching git. These rules override
 > convenience. When in doubt, stop and ask the user.
@@ -6,7 +6,7 @@
 ## 1. Secrets & configuration — only ever write MOCK values
 
 - You **may** read, create, and edit secrets/config files (e.g. `appsettings.json`,
-  `appsettings.*.json`, `secrets.json`, `web.config`, `chimpoutsettings.json`, `.env`, `.env.*`),
+  `appsettings.*.json`, `secrets.json`, `web.config`, `spacestrokersettings.json`, `.env`, `.env.*`),
   **but only ever put MOCK / placeholder values in them.** Never write a real credential, key,
   token, connection string, or secret into any file.
 - Never print, echo, copy, or commit a **real** secret value. If you encounter a real secret while
@@ -67,17 +67,17 @@ agents work different features at once without colliding.
 
 - When you change **backend** behavior in `monkify-backend`, **update the affected unit tests so
   they pass and assert the intended behavior**, and **add tests** for new behavior. Test project:
-  `ChimpOut.Tests` (xUnit + Shouldly + Moq + Bogus; in-memory EF).
+  `SpaceStroker.Tests` (xUnit + Shouldly + Moq + Bogus; in-memory EF).
 - At the **end of the work, report exactly which unit tests were changed or added.**
 - Run the full suite before declaring done.
 - **Game-flow changes also update the integration tests.** Any change to the game
-  lifecycle/flow must update the separate **`ChimpOut.Tests.Integration`** (Testcontainers) project,
+  lifecycle/flow must update the separate **`SpaceStroker.Tests.Integration`** (Testcontainers) project,
   run via `scripts/run_integration_tests.bat`. See `conventions/backend.md` → Tests.
 
 ### Integration tests are mandatory for every new feature
 
 - **Every new feature ships with a backend integration test for its happy path.** For each **new
-  feature**, `ChimpOut.Tests.Integration` (the Testcontainers suite in `monkify-backend`) **must**
+  feature**, `SpaceStroker.Tests.Integration` (the Testcontainers suite in `monkify-backend`) **must**
   contain **at least one integration test** that drives the feature's **happy path end to end** and
   **asserts it works 100%** (real API + Consumers hosts against real Postgres/RabbitMQ/Redis
   containers, following the `GameFlowTests` pattern — not a mock-only unit test).
@@ -91,16 +91,16 @@ agents work different features at once without colliding.
   before syncing the KB.
 
 > Note on the team rule "always run unit tests for Central de Reservas": that rule is for **CR**,
-> a different app. For **ChimpOut** the equivalent expectation is the test discipline above
+> a different app. For **SpaceStroker** the equivalent expectation is the test discipline above
 > (update + add + report changed tests).
 
 ## 4. Database & migrations
 
-- **EF configuration is inline** in `ChimpOutDbContext.OnModelCreating`. Do **not** introduce
+- **EF configuration is inline** in `SpaceStrokerDbContext.OnModelCreating`. Do **not** introduce
   `IEntityTypeConfiguration` classes — keep new mapping inline in the existing style.
-- **Migrations are applied only by `ChimpOut.Consumers`** at startup (`Database.Migrate()`). The API
-  does not migrate. Add new migrations under `ChimpOut.Infrastructure/Migrations/`.
-- Never hand-edit `ChimpOutDbContextModelSnapshot.cs`; regenerate it with `dotnet ef migrations add`.
+- **Migrations are applied only by `SpaceStroker.Consumers`** at startup (`Database.Migrate()`). The API
+  does not migrate. Add new migrations under `SpaceStroker.Infrastructure/Migrations/`.
+- Never hand-edit `SpaceStrokerDbContextModelSnapshot.cs`; regenerate it with `dotnet ef migrations add`.
 
 ## 5. Production data, queries & external APIs
 
@@ -121,4 +121,4 @@ agents work different features at once without colliding.
 - For reversible, low-risk choices (naming, formatting, equivalent approaches), decide and note it.
   For scope changes or destructive actions, ask first.
 - Keep the two deployable hosts' responsibilities intact: the **API** stays stateless and does not
-  migrate; background/money/typer work stays in **`ChimpOut.Consumers`**.
+  migrate; background/money/typer work stays in **`SpaceStroker.Consumers`**.

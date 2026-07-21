@@ -1,4 +1,4 @@
-# ChimpOut — "Live wallet balance refresh on the game page" Feature — Implementation Spec
+# SpaceStroker — "Live wallet balance refresh on the game page" Feature — Implementation Spec
 
 > **Status: Shipped** (2026-07-17) — merged via `feature/wallet-balance-refresh` into `main`
 > (`monkify-front` + `monkify-meta`). Refined via Trello card
@@ -19,7 +19,7 @@
 
 The only wallet balance rendered anywhere on the game page is the on-chain **SPL-token balance** in
 the header (`TokenBalance.vue`, mounted inside `GameHeader.vue`), and it renders **only for
-SolanaToken games** — Standard (off-chain USD) games show no balance at all (ChimpOut holds no player
+SolanaToken games** — Standard (off-chain USD) games show no balance at all (SpaceStroker holds no player
 float; there is no balance endpoint, only debit/credit/refund). So this card is **SolanaToken-only**.
 
 Today the balance is read from chain (`getTokenBalance` → `getTokenAccountBalance`) at only three
@@ -64,7 +64,7 @@ From `monkify-meta/constraints.md` (full list there):
   interval is a named constant; see §5.)
 - **No backend integration test required.** Per `AGENTS.md` rule 8, the mandatory happy-path
   integration test applies to **new features**, not bug fixes — this is a frontend-only bug fix.
-  `ChimpOut.Tests` / `ChimpOut.Tests.Integration` are untouched.
+  `SpaceStroker.Tests` / `SpaceStroker.Tests.Integration` are untouched.
 - **No frontend unit-test harness exists** (`monkify-front` has no vitest/jest). Verification is
   `yarn lint` + `yarn build` green + the manual QA in §13.
 - **Front-worktree build gotchas** apply at implement/deploy time: copy the hub `yarn.lock` into the
@@ -240,7 +240,7 @@ sequenceDiagram
   participant P as Player (browser)
   participant TB as TokenBalance.vue
   participant RPC as Solana RPC
-  participant BE as ChimpOut backend (SignalR)
+  participant BE as SpaceStroker backend (SignalR)
 
   Note over TB: mounted only for a connected SolanaToken game
   TB->>RPC: getTokenBalance(mint)  (initial)
@@ -298,7 +298,7 @@ sequenceDiagram
 
 **N/A (no frontend test harness).** `monkify-front` has no vitest/jest setup and no `test` script;
 existing frontend-only features verify via `yarn lint` + `yarn build` + manual QA. Backend
-`ChimpOut.Tests` is untouched. See §13 for manual verification mapped to the acceptance criteria.
+`SpaceStroker.Tests` is untouched. See §13 for manual verification mapped to the acceptance criteria.
 
 ---
 

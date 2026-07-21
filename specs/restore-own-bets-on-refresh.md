@@ -1,4 +1,4 @@
-# ChimpOut — "Restore your own bets after a refresh" Feature — Implementation Spec
+# SpaceStroker — "Restore your own bets after a refresh" Feature — Implementation Spec
 
 > **Status: Shipped** (2026-07-17) — merged via `feature/restore-own-bets-on-refresh` into `main`
 > (`monkify-front` + `monkify-meta`). Refined via Trello card
@@ -57,8 +57,8 @@ From `monkify-meta/constraints.md` (full list there):
   (never `git checkout -b` on the hub). Branch `feature/restore-own-bets-on-refresh` in
   `monkify-front` and `monkify-meta`. Push after branch work.
 - **Frontend-only bug fix ⇒ no backend integration test required.** Per `AGENTS.md` rule 8, the
-  mandatory happy-path integration test applies to **new features**, not bug fixes. `ChimpOut.Tests` /
-  `ChimpOut.Tests.Integration` are untouched. (`Level: Minor change`.)
+  mandatory happy-path integration test applies to **new features**, not bug fixes. `SpaceStroker.Tests` /
+  `SpaceStroker.Tests.Integration` are untouched. (`Level: Minor change`.)
 - **No frontend unit-test harness exists** (`monkify-front` has no vitest/jest, no `test` script).
   Verification is `yarn lint` + `yarn build` green + the manual QA in §13.
 - **Frontend env vars use `VUE_APP_*`** (Vue CLI), not `VITE_*`. (This spec adds **no** env var.)
@@ -105,9 +105,9 @@ unchanged.
 
 - **`GET /games/{gameTypeId}`** → `GetActiveGameForParameterHandler` → `ActiveGameDto` whose `Bets`
   are `BetDto` carrying `ExternalPlayerId` + `DisplayName`
-  (`ChimpOut.Infrastructure/Contracts/Games/BetDto.cs`, `ActiveGameDto.cs:22`).
+  (`SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs`, `ActiveGameDto.cs:22`).
 - **SignalR `{gameId}/Bets`** → `BetNotificationEvent(GameId, ExternalPlayerId, DisplayName, Amount,
-  Choice)` (`ChimpOut.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs:9`).
+  Choice)` (`SpaceStroker.Infrastructure/Consumers/BetNotification/BetNotificationEvent.cs:9`).
 
 Bet ownership is bound server-side from the launch token at registration
 (`GamesController.cs:108` → `ExternalPlayerId = _launchContext.ExternalPlayerId`). The frontend simply
@@ -331,7 +331,7 @@ sequenceDiagram
 
 **N/A (no frontend test harness).** `monkify-front` has no vitest/jest setup and no `test` script;
 frontend-only changes verify via `yarn lint` + `yarn build` green + the manual QA in §13. Backend
-`ChimpOut.Tests` / `ChimpOut.Tests.Integration` are untouched (frontend-only bug fix; `AGENTS.md`
+`SpaceStroker.Tests` / `SpaceStroker.Tests.Integration` are untouched (frontend-only bug fix; `AGENTS.md`
 rule 8 exemption).
 
 ---

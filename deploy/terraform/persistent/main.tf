@@ -24,14 +24,14 @@ resource "google_storage_bucket" "tf_state" {
   }
 }
 
-# Public DNS zone for the ChimpOut domain. Domain REGISTRATION is out-of-band:
+# Public DNS zone for the SpaceStroker domain. Domain REGISTRATION is out-of-band:
 # after the first apply, repoint the registrar's nameservers to
 # `google_dns_managed_zone.primary.name_servers` (see the dns_name_servers output).
 resource "google_dns_managed_zone" "primary" {
   name        = var.dns_zone_name
   project     = var.project_id
   dns_name    = var.dns_domain
-  description = "ChimpOut public DNS zone (persistent — survives teardown)."
+  description = "SpaceStroker public DNS zone (persistent — survives teardown)."
   labels      = var.labels
 
   lifecycle {

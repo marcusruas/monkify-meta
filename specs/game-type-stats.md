@@ -1,4 +1,4 @@
-# ChimpOut — "Per-game general stats (all-time, per game type)" Feature — Implementation Spec
+# SpaceStroker — "Per-game general stats (all-time, per game type)" Feature — Implementation Spec
 
 > **Status: Shipped** — merged via `feature/game-type-stats` on 2026-07-10. Distilled summary:
 > `../features/game-type-stats.md`. _Originally: Ready for implementation_ — refined via Trello card
@@ -14,7 +14,7 @@
 > **Purpose:** Show casino-style "general stats" for a **game type** (`GameParameters`) —
 > biggest pot ever split, biggest single payout, rounds played, total paid out, and (for preset
 > types) the hottest choice — aggregated **all-time** across every round that type has run. Surfaced
-> as a **lazy-loaded stats panel on the live `/game` screen**. ChimpOut's twist: **no house cut**
+> as a **lazy-loaded stats panel on the live `/game` screen**. SpaceStroker's twist: **no house cut**
 > (winners split 100%), so we lean into trust rather than RTP/house-edge.
 
 ---
@@ -54,7 +54,7 @@ From `monkify-meta/constraints.md` (full list there):
 
 - **Worktree-per-repo:** `feature/game-type-stats` in an isolated worktree in each affected repo
   (`monkify-backend`, `monkify-front`, `monkify-meta`); hub stays on `main`. Push after branch work.
-- **Unit tests:** add/update in `ChimpOut.Tests`; report changed tests at end of implementation.
+- **Unit tests:** add/update in `SpaceStroker.Tests`; report changed tests at end of implementation.
 - **EF mapping:** N/A — **no entity/column change** (read-only feature). Do not add
   `IEntityTypeConfiguration`.
 - **Migrations:** **None** — no schema change.
@@ -63,10 +63,10 @@ From `monkify-meta/constraints.md` (full list there):
 - **Operator messaging:** vague errors only. A stats request for a type that does not belong to the
   caller's operator, or whose operator contract is not active, returns the **generic**
   `ParameterNotFound` — never reveal the type's existence or contract status.
-- **Backend integration test (mandatory — this is a new feature):** `ChimpOut.Tests.Integration` must
+- **Backend integration test (mandatory — this is a new feature):** `SpaceStroker.Tests.Integration` must
   contain a happy-path test that drives a preset-type game end-to-end to
   `RewardForWinnersCompleted`, then `GET`s the stats endpoint and asserts the result. See §11.2.
-- **Host split:** the endpoint is a **stateless read served by `ChimpOut.Api`**; `ChimpOut.Consumers`
+- **Host split:** the endpoint is a **stateless read served by `SpaceStroker.Api`**; `SpaceStroker.Consumers`
   is untouched (no write path).
 
 ---
@@ -97,20 +97,20 @@ This section documents the **existing** shapes the aggregation reads.
 
 Existing entities (read-only for this feature):
 
-- `ChimpOut.Domain/Games/Entities/Game.cs` — `ParametersId`, `Status` (`GameStatus`),
+- `SpaceStroker.Domain/Games/Entities/Game.cs` — `ParametersId`, `Status` (`GameStatus`),
   `WinningChoice`, `Seed`, `ICollection<Bet> Bets`. **No pot column** — pot is derived. Static status
   sets on the entity: `Game.GameEndedStatus` includes several ended states; this feature uses
   **only** `GameStatus.RewardForWinnersCompleted`.
-- `ChimpOut.Domain/Games/ValueObjects/GameStatus.cs` — `RewardForWinnersCompleted` is the
+- `SpaceStroker.Domain/Games/ValueObjects/GameStatus.cs` — `RewardForWinnersCompleted` is the
   terminal-success status used for "rounds played".
-- `ChimpOut.Domain/Bets/Entities/Bet.cs` — `Amount` (`decimal`), `Choice` (normalized trim+lower),
+- `SpaceStroker.Domain/Bets/Entities/Bet.cs` — `Amount` (`decimal`), `Choice` (normalized trim+lower),
   `PaymentMethod`, `OperatorPlayerId?`, `Status`, `ICollection<TransactionLog> TransactionLogs`.
-- `ChimpOut.Domain/Bets/Entities/TransactionLog.cs` + `ValueObjects/TransactionLogType.cs`
+- `SpaceStroker.Domain/Bets/Entities/TransactionLog.cs` + `ValueObjects/TransactionLogType.cs`
   (`Credit = 0`, `Debit = 1`, `Refund = 2`) — payouts are the `Credit` rows.
-- `ChimpOut.Domain/Games/Entities/GameParameters.cs` — `OperatorId`, `PaymentMethod`,
+- `SpaceStroker.Domain/Games/Entities/GameParameters.cs` — `OperatorId`, `PaymentMethod`,
   `OperatorTokenId?`, `OperatorToken?`, `ICollection<PresetChoice> PresetChoices`,
   `LotteryParameters`.
-- `ChimpOut.Domain/Games/Entities/OperatorToken.cs` — `Label` (display symbol), `Decimals`,
+- `SpaceStroker.Domain/Games/Entities/OperatorToken.cs` — `Label` (display symbol), `Decimals`,
   `MintAddress` (used to build the currency descriptor for `SolanaToken` types).
 
 ### 4.1 Aggregation logic (reference)
@@ -155,11 +155,11 @@ hottestChoice     = p.PresetChoices.Any()
 
 ## 6. Backend behaviour
 
-Host: **`ChimpOut.Api`** (stateless read). No consumer, event, or SignalR change.
+Host: **`SpaceStroker.Api`** (stateless read). No consumer, event, or SignalR change.
 
 ### 6.1 Endpoint & controller
 
-`ChimpOut.Api/Controllers/GamesController.cs` — add a GET action mirroring
+`SpaceStroker.Api/Controllers/GamesController.cs` — add a GET action mirroring
 `GetActiveGameForParameter` (which uses `_launchContext.OperatorId` and `ProcessRequest`):
 
 ```csharp
@@ -177,7 +177,7 @@ public async Task<IActionResult> GetGameTypeStats(Guid parametersId)
 
 ### 6.2 Handler (read pattern)
 
-New `ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/`:
+New `SpaceStroker.Infrastructure/Handlers/Games/GetGameTypeStats/`:
 
 - `GetGameTypeStatsRequest.cs`:
   ```csharp
@@ -186,7 +186,7 @@ New `ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/`:
   ```
 - `GetGameTypeStatsHandler.cs : BaseRequestHandler<GetGameTypeStatsRequest, GameTypeStatsDto>`
   — ctor injects `IGameService gameService`, `IGameStatsService statsService`,
-  `ChimpOutDbContext context`, `IMessaging messaging` (passes `context, messaging` to base). Logic:
+  `SpaceStrokerDbContext context`, `IMessaging messaging` (passes `context, messaging` to base). Logic:
 
   ```
   1. parameters = await _gameService.GetGameParametersById(request.ParametersId, request.OperatorId);
@@ -207,9 +207,9 @@ New `ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/`:
 
 ### 6.3 Aggregation service
 
-New `ChimpOut.Infrastructure/Services/Games/GameStatsService.cs` implementing
+New `SpaceStroker.Infrastructure/Services/Games/GameStatsService.cs` implementing
 `IGameStatsService` (keeps `GameService` focused; testable in isolation). Ctor injects
-`ChimpOutDbContext context, ICacheService cache`.
+`SpaceStrokerDbContext context, ICacheService cache`.
 
 ```csharp
 public async Task<GameTypeStats> GetStats(GameParameters parameters)
@@ -237,7 +237,7 @@ public async Task<GameTypeStats> GetStats(GameParameters parameters)
 
 ### 6.4 DTO
 
-`ChimpOut.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` — built from
+`SpaceStroker.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` — built from
 `GameTypeStats` + `GameParameters` (for the currency descriptor, mirroring
 `GameParametersDto`'s token fields):
 
@@ -356,7 +356,7 @@ Add `<game-stats-panel />` as a sibling inside the inner `relative` flex row (ne
 sequenceDiagram
     actor Player
     participant FE as GameStatsPanel (/game)
-    participant API as ChimpOut.Api (GetGameTypeStatsHandler)
+    participant API as SpaceStroker.Api (GetGameTypeStatsHandler)
     participant SS as IGameService
     participant ST as IGameStatsService
     participant R as Redis (ICacheService)
@@ -406,14 +406,14 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/ChimpOut.Api/Controllers/GamesController.cs` | Add `GET {parametersId}/stats` action → `GetGameTypeStatsRequest(parametersId, _launchContext.OperatorId)` via `ProcessRequest`. |
-| 2 | `src/ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/GetGameTypeStatsRequest.cs` | New request record `(Guid ParametersId, Guid OperatorId) : IRequest<GameTypeStatsDto>`. |
-| 3 | `src/ChimpOut.Infrastructure/Handlers/Games/GetGameTypeStats/GetGameTypeStatsHandler.cs` | New handler: scope+contract via `IGameService.GetGameParametersById`; null → vague `ParameterNotFound`; else `IGameStatsService.GetStats` → `GameTypeStatsDto`. |
-| 4 | `src/ChimpOut.Infrastructure/Services/Games/IGameStatsService.cs` | New interface `Task<GameTypeStats> GetStats(GameParameters parameters)`. |
-| 5 | `src/ChimpOut.Infrastructure/Services/Games/GameStatsService.cs` | New service: Redis-cached on-demand aggregation over completed rounds (excl. free bets); computes rounds/pot/payout/total/hottest (preset only). |
-| 6 | `src/ChimpOut.Infrastructure/Services/Games/GameTypeStats.cs` (or a `Models`/`ValueObjects` folder) | New result record cached by `ICacheService`. |
-| 7 | `src/ChimpOut.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` | New DTO (+ `HottestChoiceDto`) built from `GameTypeStats` + `GameParameters` (currency descriptor). |
-| 8 | `src/ChimpOut.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateGameStatsCacheSettings(Guid parametersId)` → `GameStats:{parametersId}`, 120 s TTL. |
+| 1 | `src/SpaceStroker.Api/Controllers/GamesController.cs` | Add `GET {parametersId}/stats` action → `GetGameTypeStatsRequest(parametersId, _launchContext.OperatorId)` via `ProcessRequest`. |
+| 2 | `src/SpaceStroker.Infrastructure/Handlers/Games/GetGameTypeStats/GetGameTypeStatsRequest.cs` | New request record `(Guid ParametersId, Guid OperatorId) : IRequest<GameTypeStatsDto>`. |
+| 3 | `src/SpaceStroker.Infrastructure/Handlers/Games/GetGameTypeStats/GetGameTypeStatsHandler.cs` | New handler: scope+contract via `IGameService.GetGameParametersById`; null → vague `ParameterNotFound`; else `IGameStatsService.GetStats` → `GameTypeStatsDto`. |
+| 4 | `src/SpaceStroker.Infrastructure/Services/Games/IGameStatsService.cs` | New interface `Task<GameTypeStats> GetStats(GameParameters parameters)`. |
+| 5 | `src/SpaceStroker.Infrastructure/Services/Games/GameStatsService.cs` | New service: Redis-cached on-demand aggregation over completed rounds (excl. free bets); computes rounds/pot/payout/total/hottest (preset only). |
+| 6 | `src/SpaceStroker.Infrastructure/Services/Games/GameTypeStats.cs` (or a `Models`/`ValueObjects` folder) | New result record cached by `ICacheService`. |
+| 7 | `src/SpaceStroker.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` | New DTO (+ `HottestChoiceDto`) built from `GameTypeStats` + `GameParameters` (currency descriptor). |
+| 8 | `src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateGameStatsCacheSettings(Guid parametersId)` → `GameStats:{parametersId}`, 120 s TTL. |
 | 9 | Infrastructure DI module (where `IGameService` is registered) | Register `IGameStatsService → GameStatsService`. |
 | 10 | `IGameService.GetGameParametersById` (verify only) | Confirm `.Include(OperatorToken)`; add it if that path omits it (needed for the currency descriptor). |
 
@@ -439,7 +439,7 @@ sequenceDiagram
 
 ## 11. Tests
 
-### 11.1 Unit tests — `monkify-backend/src/ChimpOut.Tests`
+### 11.1 Unit tests — `monkify-backend/src/SpaceStroker.Tests`
 
 Mirror `UnitTests/Handlers/GetActiveGameForParameterHandlerTests.cs` (in-memory EF via
 `UnitTestsClass`, Bogus `Faker`, Moq `IGameService`, Shouldly). New file
@@ -460,7 +460,7 @@ Mirror `UnitTests/Handlers/GetActiveGameForParameterHandlerTests.cs` (in-memory 
 | " | Cache hit (`Mock<ICacheService>.TryGet` returns true) | Aggregate query NOT executed; cached value returned |
 | " | Biggest single payout | `MAX(Credit)`; total paid out `Σ Credit` |
 
-### 11.2 Integration test (MANDATORY) — `monkify-backend/src/ChimpOut.Tests.Integration`
+### 11.2 Integration test (MANDATORY) — `monkify-backend/src/SpaceStroker.Tests.Integration`
 
 Add to `GameFlowTests.cs` (or a new `GameStatsFlowTests.cs`) using the `IntegrationTestFixture`
 harness. **Because the fixture is shared once-per-suite** (completed rounds accumulate against the
