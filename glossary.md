@@ -3,6 +3,16 @@
 > Domain vocabulary for agents. Source of truth: `monkify-backend/src/ChimpOut.Domain`.
 > See `architecture.md` for how terms fit together; `features/operators.md` for operator rules.
 
+- **Brand — "Space Stroker" (consumer) vs `ChimpOut` (technical)** — as of the #74 frontend rebrand
+  (shipped 2026-07-21, `specs/rebrand-space-stroker.md`), the **consumer-facing brand is Space
+  Stroker**: the frontend wordmark/copy, the routes `/space-stroker/*`, the client-storage `space-stroker.*`
+  keys, and the embed `source:'space-stroker'` (`'space-stroker-wallet'`). The **technical/backend
+  name stays `ChimpOut`** and is **still current** in this KB — C# namespaces (`ChimpOut.*`), the
+  domain source, DB, `chimpoutsettings.json`, `api.chimpout.com`, and SignalR hub names are unchanged
+  (the backend/infra rename is the separate follow-up card #75). So `ChimpOut.*` /
+  `chimpoutsettings.json` / backend-host references throughout these docs are accurate; older
+  **`/chimpout/*` route and `chimpout.*` storage-key** references describe paths now served under
+  `/space-stroker/*` and `space-stroker.*` (a full frontend-path sweep of `features/` is deferred).
 - **Game** — one round of the game for a given game type. Has a status lifecycle
   (`WaitingBets → GameStarting → InProgress → Ended → RewardForWinners…`). Entity: `Game`.
 - **GameParameters** — a "game type" / configuration (name, required amount, allowed characters,

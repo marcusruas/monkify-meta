@@ -136,7 +136,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/crypto-commission.md` | **Full-stack:** re-add a house **commission on winnings, crypto (`SolanaToken`) games only** — `0.5%` of **player-funded winnings above each winner's own stake**, with the house-funded lottery base (`LotteryPot + CarriedExtra`) excluded (≡ 0.5% of losing-bet stakes); a winner never nets below stake. Configurable global rate `GeneralSettings.Token.CommissionPercentage` (default 0.5, `0` disables). Realized by crediting winners less on-chain (remainder stays in the token account) — **no new transfer, no ledger row, no migration**. Reward math in `BetDomainService.CalculateRewardForBet`; rate exposed on `GameParametersDto`→`ActiveGame`; UI = **STATS side-panel badge only** (method-aware `0.5%`/`0% HOUSE CUT`). Standard/USD games unchanged. Shipped alongside a pre-existing multi-winner reward-division fix (frozen winner set + paid-winner divisor). | Shipped |
 | `features/crypto-commission.md` | Distilled: crypto (`SolanaToken`) house **commission** on winnings — default 0.5% (`GeneralSettings.Token.CommissionPercentage`), taken from profit above each winner's own stake, house-funded lottery base excluded; realized by a smaller on-chain credit (no transfer/ledger/migration); STATS-badge-only UI; Standard unchanged. Includes the multi-winner **paid-winner divisor / frozen winner-set** reward fix. | Shipped |
 | `specs/restore-own-bets-on-refresh.md` | **Frontend-only bug fix:** after a refresh/rejoin the player's **own-bet cues** (the `> N AWAY!` near-miss rows, the returning-bettor victory/lose sound, the embedded `bet-settled`) vanished because `ownBetChoices` (`useGame.ts`) is only written on the live PLACE BET click. Fix: on the load path re-derive ownership from the fetched `gameInstance.bets` (which already carry `externalPlayerId`) via a shared reactive `currentPlayerId`, replaying owned choices through the idempotent `recordOwnChoice`; reactive re-run for SolanaToken wallet reconnect; live `{gameId}/Bets` identity match. **No backend change.** Ended-view reload out of scope (GET excludes ended games; DTO lacks `winners`). | Shipped |
-| `specs/rebrand-space-stroker.md` | **Frontend-only rebrand (Minor change):** rename the **consumer-facing brand** `ChimpOut → Space Stroker` across `monkify-front` + `monkify-lp` only — a **clean break** (no aliases/redirects; safe because nothing is live): display copy/wordmark (split-colour `SPACE`·`STROKER`), `<title>`/meta, route prefix `/chimpout/*`→`/space-stroker/*` (+ runtime wallet-bridge URL), postMessage contract `source:'chimpout'`→`'space-stroker'`, `chimpout.*` storage keys, `.chimpout-toast*` CSS, package names, `EMBEDDING.md`/`embed-example.html`. Monkey/space lore (Edson, art, "BET ON THE MONKEY", story) **retained**; the `// Mirrors backend ChimpOut.*` namespace comments **kept accurate**. **Backend/DB/infra stay ChimpOut** (follow-up #75). No backend/DB/test. | Ready |
+| `specs/rebrand-space-stroker.md` | **Frontend-only rebrand (Minor change):** rename the **consumer-facing brand** `ChimpOut → Space Stroker` across `monkify-front` + `monkify-lp` only — a **clean break** (no aliases/redirects; safe because nothing is live): display copy/wordmark (split-colour `SPACE`·`STROKER`), `<title>`/meta, route prefix `/chimpout/*`→`/space-stroker/*` (+ runtime wallet-bridge URL), postMessage contract `source:'chimpout'`→`'space-stroker'`, `chimpout.*` storage keys, `.chimpout-toast*` CSS, package names, `EMBEDDING.md`/`embed-example.html`. Monkey/space lore (Edson, art, "BET ON THE MONKEY", story) **retained**; the `// Mirrors backend ChimpOut.*` namespace comments **kept accurate**. **Backend/DB/infra stay ChimpOut** (follow-up #75). No backend/DB/test. Shipped alongside a Mission Roadmap rebuild on the LP. | Shipped |
 | `skills/`                   | Agent Skills that power the ChimpOut task pipeline (see below)                            | Drafted              |
 
 
@@ -158,26 +158,32 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created 2026-07-20):_ **Frontend rebrand — ChimpOut → "Space Stroker"** —
-  `feature/rebrand-space-stroker` (`monkify-front` + `monkify-lp` + `monkify-meta`; **no backend**).
-  **Frontend-only, Minor change.** Renames the **consumer-facing brand** `ChimpOut → Space Stroker`
-  across both frontends as a **clean break** (no aliases/redirects — safe because nothing is live: LP
-  `PLAY_URL` is a placeholder host, domain undecided, no integrated casino, no persisted player seed).
-  Scope: display copy + split-colour wordmark (`SPACE`·`STROKER`), `<title>`/meta, **route prefix**
-  `/chimpout/*`→`/space-stroker/*` (incl. the runtime-built wallet-bridge URL), the **postMessage
-  embed contract** `source:'chimpout'`→`'space-stroker'` (+ `'space-stroker-wallet'`), the
-  `chimpout.*` **client-storage keys**, `.chimpout-toast*` CSS, `package.json` names
-  (`space-stroker`/`space-stroker-lp`), and the operator docs (`EMBEDDING.md`, `embed-example.html`).
-  Full editorial pass on user-facing text + repo docs (fixes the LP `PRODUCT.md` `$MONKIFY` leftovers
-  and stale front `CLAUDE.md`). **Monkey/space lore retained 100%** (Edson, all art/GIFs, `EDSON.LOG`
-  story, `BET ON THE MONKEY`, "infinite monkey" — no new assets). Two find/replace traps handled by
-  hand: the split-`<span>` wordmark in `GameHeader.vue` and the all-caps `CHIMPOUT` in `verify.html`.
-  The `// Mirrors backend ChimpOut.*` namespace comments are **deliberately kept** (backend keeps its
-  name). **Backend / DB / infra / `chimpout.com` stay ChimpOut** — intentional first-step drift,
-  tracked by follow-up card **#75** ([VgNMpTzu](https://trello.com/c/VgNMpTzu)). Frontend-only ⇒ **no
-  integration test, no new `features/` doc**; verify via `yarn lint`/`yarn build` (front) +
-  `npm run build` (LP). Spec `specs/rebrand-space-stroker.md`; Trello #74
-  ([qbcZgHuX](https://trello.com/c/qbcZgHuX)).
+- _Last shipped:_ **Frontend rebrand — ChimpOut → "Space Stroker"** —
+  `feature/rebrand-space-stroker` (`monkify-front` → `main` + `monkify-lp` → `master` + `monkify-meta`
+  → `main`; **no backend**), **shipped 2026-07-21**. **Frontend-only, Minor change.** Renamed the
+  **consumer-facing brand** `ChimpOut → Space Stroker` across both frontends as a **clean break** (no
+  aliases/redirects — safe because nothing is live: LP `PLAY_URL` is a placeholder host, domain
+  undecided, no integrated casino, no persisted player seed). Scope: display copy + split-colour
+  wordmark (`SPACE`·`STROKER`), `<title>`/meta, **route prefix** `/chimpout/*`→`/space-stroker/*`
+  (incl. the runtime-built wallet-bridge URL), the **postMessage embed contract**
+  `source:'chimpout'`→`'space-stroker'` (+ `'space-stroker-wallet'`), the `chimpout.*`
+  **client-storage keys**, `.chimpout-toast*` CSS, `package.json` names
+  (`space-stroker`/`space-stroker-lp`), and operator docs (`EMBEDDING.md`, `embed-example.html`) + a
+  full editorial pass (fixed the LP `PRODUCT.md` `$MONKIFY` leftovers and stale front `CLAUDE.md`).
+  **Monkey/space lore retained 100%** (Edson, all art/GIFs, `EDSON.LOG` story, `BET ON THE MONKEY`,
+  "infinite monkey"). The `// Mirrors backend ChimpOut.*` namespace comments are **deliberately kept**
+  — **backend / DB / infra / `chimpout.com` stay ChimpOut**, an intentional first-step drift tracked
+  by follow-up card **#75** ([VgNMpTzu](https://trello.com/c/VgNMpTzu)). **Bundled in the same ship
+  (beyond the rename):** a **Mission Roadmap rebuild** on the LP (`SpaceRoadmap.vue`) — **5
+  space-themed nodes** (Earth → Moon → Gas Giant → Comet → Galaxy; the previously-dropped 4th comet
+  node restored), a **HI-SCORE north-star banner** (10k players / $1M bet / 250k rounds), a live
+  flashing **"WE ARE HERE"** beacon on the current node, rewritten per-node copy, and **future-phase
+  copy that teases a token launch + airdrop** — the site itself stays **token-free now** (the
+  `#token` "No token. Yet." + anti-scam card is unchanged; the roadmap phases are the forward plan,
+  we're at phase ①). Frontend-only ⇒ **no integration test, no new `features/` doc**; verified —
+  `yarn lint` + `yarn build` (front) and `npm run build` (LP) all green, brand sweep clean (only the
+  intentional backend-namespace refs remain). LP `08c195a`, front `1f267b4`. Spec
+  `specs/rebrand-space-stroker.md`; Trello #74 ([qbcZgHuX](https://trello.com/c/qbcZgHuX)).
 - _Last shipped:_ **Landing-page visual redesign (arcade-cabinet)** — `feature/lp-redesign`
   (`monkify-lp` → `master`; **no backend / game-app change**), **shipped 2026-07-19**. **Frontend-only**
   selective visual revamp of the ChimpOut LP: cherry-picked the winning pieces of a Claude design mock

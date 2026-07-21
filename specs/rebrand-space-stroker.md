@@ -1,6 +1,7 @@
 # ChimpOut → "Space Stroker" — Frontend Rebrand — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-21) — merged on `feature/rebrand-space-stroker` (front → `main`,
+> LP → `master`, meta → `main`). Refined via Trello card
 > [Change app name to "Space Stroker"](https://trello.com/c/qbcZgHuX) (2026-07-20).
 > Repos affected: `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 > **Backend (`monkify-backend`) is intentionally NOT touched** — see §6.
