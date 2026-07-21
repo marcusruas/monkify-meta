@@ -52,20 +52,22 @@ Bet real USDC on what Edson — an immortal space chimp — types next. First ex
 **Pinned WELCOME message** — _media: `edson-ship-typing.gif`_ · _carries the ▶️ PLAY NOW button (delivered by the bot; plain-link fallback below)_
 
 ```
-Welcome to the Space Stroker lobby, degen. 🐵
+gm degens — welcome to the Space Stroker lobby. 🐵🍌
 
-One room, the whole gang. This is where we call Edson's keystrokes together.
+One room, the whole gang. This is where we watch an immortal space chimp smash a keyboard and throw USDC on the gibberish. Peak degeneracy. We're not sorry.
 
-What is this? An immortal space chimp smashes a keyboard forever. You bet real USDC on what he types next — first exact pick sweeps the whole pot.
+The play: call what Edson types next → back it with USDC → yank the lever → first EXACT pick sweeps the entire pot. That's the whole game.
 
-🎲 Provably fair — every round seeded, verify it yourself
-⚡ Instant payouts — on-chain, on Solana
-↩️ Auto-refunds — invalid bets bounce back
-🚫 No token, no presale, nothing to buy
+🎲 Provably fair — every round seeded, verify it yourself. No trust-me-bro.
+⚡ Instant payouts — on-chain on Solana, zero "pending" cope.
+↩️ Auto-refunds — busted bets bounce straight back.
+🚫 No token, no presale, no CA. Nothing to buy but the bet.
 
-▶️ Play: [PLAY_URL]
+Bet what you can afford to lose, anon — it's a monkey and a keyboard, not a pension plan.
 
-📌 New here? Read the pinned safety note. TL;DR: admins will NEVER DM you first, and there is NO contract address.
+▶️ Ape in: [PLAY_URL]
+
+📌 READ THE PINNED SAFETY NOTE. TL;DR: admins NEVER DM you first, and there is NO contract address — anyone who says otherwise is trying to rob you.
 ```
 ↳ **inline button:** `[ 🎮 PLAY NOW → [PLAY_URL] ]` (posted via the bot welcome message; if you run no bot, the raw
 `[PLAY_URL]` line above is already tappable — keep it).
