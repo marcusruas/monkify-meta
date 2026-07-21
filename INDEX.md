@@ -140,7 +140,9 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/rebrand-space-stroker-backend.md` | **Backend + infra rename (Minor change), follow-up to #74:** finish the Space Stroker rebrand by renaming the **backend + infra** half `SpaceStroker → SpaceStroker` (machine) / `Space Stroker` (display) — C# solution/projects/namespaces (`SpaceStroker.* → SpaceStroker.*`, `src/` folders + `.sln` on disk), `SpaceStrokerDbContext`→`SpaceStrokerDbContext`, config (`spacestrokersettings.json`→`spacestrokersettings.json`, `ConnectionStrings:SpaceStroker`→`:SpaceStroker`, CORS `app.spacestroker.com`→`app.spacestroker.com`), DB rename via connection string (`spacestroker→spacestroker`, `spacestroker_messaging→spacestroker_messaging`; no new migration — zero SpaceStroker schema objects), docker-compose/scripts, the `monkify-meta/deploy` GCP/Terraform stack + deploy tools (`SpaceStroker.Deploy`/`SpaceStroker.DbConsole`→`SpaceStroker.*`) with the **domain `spacestroker.com → spacestroker.com`** (code-only; real apply is an ops step), a **full KB rename** (living + historical specs, guarding tooling + the two rebrand specs' from→to tokens), and the 6 `// Mirrors backend SpaceStroker.*` comments in `monkify-front` → `SpaceStroker.*`. Clean break, no behavior change; repo folders + `monkify-*` tooling stay. No new integration test / `features/` doc. | Ready |
 | `specs/refund-safeguards.md` | **Full-stack:** make `NeedsRefunding` a real, self-clearing bet lifecycle + recover stuck money. (1) A **12h Hangfire sweep** (`PendingRefundSweepJob`) publishes `RefundInvalidBetEvent` for every `NeedsRefunding` bet. (2) `RefundInvalidBetConsumer` now sets `Bet.Status = Refunded` on any **successful** refund (all refunds, the 3 inline triggers included → they end `Refunded` not `Made`); failure leaves it `NeedsRefunding` to retry next sweep. (3) New operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by indexed `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded` (double-pay) + free bets, no game-state restriction, idempotent; money moves via the sweep (single executor, ~≤12h). **No schema/migration.** New admin panel in `AdminPage`/`GameTypeManager`. | Shipped |
 | `features/refund-safeguards.md` | Distilled: `NeedsRefunding`/`Refunded` become a real self-clearing bet lifecycle. A 12h Hangfire sweep (`PendingRefundSweepJob`, cron `0 */12 * * *`) publishes a `RefundInvalidBetEvent` for every `NeedsRefunding` bet; `RefundInvalidBetConsumer` sets `Refunded` on any successful refund (all paths incl. the 3 inline triggers) and leaves `NeedsRefunding` to retry on failure. Operator-admin `POST /admin/bets/refund { paymentSignature }` marks a bet (found by `ExternalTransactionReference`, operator-scoped) `NeedsRefunding` — blocks `Rewarded`/`Refunded`+free, any game state, idempotent; money moves via the sweep. No schema/migration. | Shipped |
-| `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` (created at implement time) with account **bio** (≤160 chars), ready-to-paste **tweet copy** (≥3 pre-launch teasers, a ≥5-tweet launch-day thread, ≥5 first-week posts), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities, reply/quote tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; grounded in the live LP (token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam) with **no-financial-promise / no-fake-metrics** guardrails. No code; **no integration test / `features/` doc** (content-only). | Ready |
+| `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` — account **bio** (143 chars), ready-to-paste **tweet copy** (4 pre-launch teasers, a 6-tweet launch-day thread, 6 first-week posts incl. an Edson lore thread), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities + spoofing warning, reply-first tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam, **no-financial-promise / no-fake-metrics** guardrails. No code; **no integration test / `features/` doc** (content-only). | Shipped |
+| `features/app-design-refinement.md` | **Frontend-only (app):** distilled — ported the LP arcade design system into `monkify-front`: unified OKLCH tokens (3 drifting blues → one cyan accent; `--color-blue-vivid` kept = cyan hex; operator `--color-secondary` preserved), `arcade.css` material classes (**plain CSS, not `@layer components`** — Vue CLI css-loader gotcha), 2 fonts (PS2P + VT323), `.btn-arcade` buttons, frosted always-visible header + `SPACE STROKER` wordmark, **neutral brushed-metal lobby cards** (amber hover, clip-path kept), drifting randomized nebula (`NebulaField.vue`), game screen inherits only. No backend/DB/test. | Shipped |
+| `specs/app-design-refinement.md` | **Frontend-only (app):** port the `monkify-lp` arcade design system into the game app `monkify-front` to close the LP↔app quality gap — **chrome overhaul, in-play game screen NOT restructured** (inherits tokens/fonts/buttons only). Translate the LP's OKLCH `@theme` tokens into `colors.css`+`tailwind.config.js` (collapse the 3 drifting blues `#3668d4`/`#5b7fcc`/README + stray `#00b7ff` to one system), re-implement the LP material classes (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/`.pixel-notch`/glows) in a v3 `@layer components`, collapse to **2 fonts** (Press Start 2P + VT323; drop Pixelify Sans **+ Silkscreen** + Courier New), `.btn-arcade` buttons (kill `bg-blue-500`/undefined `.title`), frosted **always-visible** header + coin glow, re-tokenized reactive background + LP richness, LP-quality lobby (keep clip-path cards), re-skinned shared surfaces. **Preserves** the operator-themable `--color-secondary` hook. No backend/DB/test. **Shipped** — see `features/app-design-refinement.md`. | Shipped |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -162,22 +164,47 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight (spec created):_ **Twitter/X launch marketing campaign** — `feature/twitter-marketing-campaign`
-  (**`monkify-meta` only**), **spec created 2026-07-21**. **Minor change (marketing content).** A **$0-budget,
-  fully organic** Twitter/X launch campaign for **@SpaceStroker** to announce the **2026-07-23** crypto launch to
-  Solana players. Deliverable = new **`monkify-meta/marketing/twitter-launch-campaign.md`** (written at implement
-  time) with five sections: account **bio** (≤160 chars), ready-to-paste **tweet copy** (≥3 pre-launch teasers
-  T-2/T-1, a ≥5-tweet **launch-day thread** T-0, ≥5 first-week posts T+1…T+7), a **relative-day posting
-  schedule** (survives a launch slip), an **organic growth playbook** (cold-start seeding, named Solana
-  communities/hubs, reply/quote-tweet strategy, hashtags, best post times, free KOL outreach + a precedent scan
-  of comparable Solana app launches), and **per-tweet media direction** reusing existing Edson/arcade assets
-  (`monkify-lp/src/assets`). English-only; **link-in-bio + first-reply** with a flagged **`[PLAY_URL]`**
-  placeholder (app domain undecided); grounded in the live LP (`index.astro`, `GameModes.vue`) — token-free
-  USDC/Solana, provably-fair, instant payouts, "No token. Yet." + anti-scam — under **no-financial-promise /
-  no-fabricated-metrics** guardrails. Content-only ⇒ **no backend/front change, no integration test, no
-  dedicated `features/` doc** (Minor change); the implement step has **nothing to deploy** (verify via a content
-  self-audit). Spec `specs/twitter-marketing-campaign.md`; Trello #76
+- _Last shipped:_ **Twitter/X launch marketing campaign** — `feature/twitter-marketing-campaign`
+  (**`monkify-meta` only**; no backend/front), **shipped 2026-07-21**. **Minor change (marketing content).** A
+  **$0-budget, fully organic** Twitter/X launch campaign for **@SpaceStroker** to announce the **2026-07-23**
+  crypto launch to Solana players. Deliverable = **`monkify-meta/marketing/twitter-launch-campaign.md`** with
+  account **bio** (143 chars), ready-to-paste **tweet copy** — **4** pre-launch teasers (a gm-native, degen-voiced
+  opener), a **6-tweet launch-day thread**, and **6** first-week posts incl. a 6-tweet Edson lore thread — a
+  **relative-day posting schedule** (T-2…T+7, survives a launch slip), a **$0 organic growth playbook**
+  (cold-start seeding, real Solana hubs with an impersonator/spoofing warning, a **reply-first** strategy since
+  replies outweigh likes in X's 2026 feed, 1–2 hashtags, best post times, free KOL outreach, and a precedent scan
+  of comparable Solana launches — Moonbet/transparency, referral loops, memecoin community launches), a
+  **media-direction index** reusing existing Edson/arcade assets, and **guardrails + a pre-post self-audit**.
+  English-only; **link-in-bio + first-reply** with a flagged **`[PLAY_URL]`** (app domain undecided); grounded in
+  the live LP — token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam — under **no-financial-promise
+  / no-fabricated-metrics** guardrails. Content-only ⇒ **no code, no integration test, no dedicated `features/`
+  doc** (Minor change), nothing to deploy; verified via a content self-audit (bio ≤160, every tweet ≤280,
+  banned-term scan clean, all referenced assets exist). Spec `specs/twitter-marketing-campaign.md`; Trello #76
   ([gApr5z7v](https://trello.com/c/gApr5z7v)). Telegram is the sibling card #77.
+- _Last shipped:_ **APP (front) design refinement** — `feature/app-design-refinement`
+  (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-21**. **Frontend-only, app-only.**
+  Ported the LP's arcade design system into the game app to close the LP↔app visual gap — a chrome
+  overhaul (tokens/fonts/buttons/header/background/lobby/shared UI) with the **in-play game screen NOT
+  restructured** (it inherits the token/font/button restyle only). Unified OKLCH tokens in
+  `colors.css` (the 3 drifting blues `#3668d4`/`#5b7fcc`/`rgba(91,127,204)` + stray `#00b7ff` collapsed
+  to **one cyan accent**; `--color-blue-vivid` kept as a hex alias = the cyan `#47deee` so existing
+  Tailwind opacity markup still builds; operator `--color-secondary` preserved), new
+  `src/assets/styles/arcade.css` material layer (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/
+  glows/`.title`) — **plain CSS, deliberately not `@layer components`** because Vue CLI's css-loader
+  builds each `@import`'d file standalone (a bare `@layer components` there has no matching
+  `@tailwind components` and fails). 2-font system (Press Start 2P + VT323; dropped Pixelify Sans +
+  Silkscreen + Courier New), `.btn-arcade` buttons (killed `bg-blue-500` + the undefined `.title`), a
+  frosted **always-visible** header with the `SPACE STROKER` wordmark + coin glow, **neutral
+  brushed-metal lobby cards** (amber on hover, clip-path kept — the interim bright-cyan frame was
+  dropped in QA), and a **drifting, randomized nebula** (`NebulaField.vue`) synced to the reactive
+  background (opacity 0.05–0.18, freezes under reduced motion); re-skinned toast/loaders/customization
+  modal (→ `.arcade-panel`)/wallet, plus a `GameMonkey` placement fix (stopped reserving the chat
+  panel's full column). **In-app QA decisions** (flexibility note): LP dot-grid pruned (moirés vs the
+  starfield); "GAME SELECTION" header keeps a cyan glow; admin/dev-only pages keep Courier New.
+  Frontend-only ⇒ **no unit/integration test, no game-flow change** (DoD = `yarn lint` + `yarn build` +
+  live browser QA, 0 console errors). A matching `SPACE STROKER` wordmark tweak shipped **separately**
+  to `monkify-lp` `master` (`ba7c203`). Front `1a426af`. See `features/app-design-refinement.md`; spec
+  `specs/app-design-refinement.md`; Trello #79 ([R2x70aWY](https://trello.com/c/R2x70aWY)).
 - _Last shipped:_ **Backend + infra renamed to "Space Stroker"** (follow-up to #74) —
   `feature/rebrand-space-stroker-backend` (`monkify-backend` + `monkify-front` + `monkify-meta` →
   `main`), **shipped 2026-07-21**. **Minor change (rename refactor).** Completed the Space Stroker

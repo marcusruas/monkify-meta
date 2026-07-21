@@ -1,6 +1,6 @@
 # Space Stroker — "Twitter/X launch marketing campaign" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-21, `feature/twitter-marketing-campaign` → `main`) — refined via Trello card
 > [Create twitter marketing campaign](https://trello.com/c/gApr5z7v/76-create-twitter-marketing-campaign) (2026-07-21).
 > Repos affected: **`monkify-meta` only** (this is a non-code content deliverable; no `monkify-backend` / `monkify-front` change).
 >
