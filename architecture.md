@@ -143,7 +143,7 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the game, then publishes `RunGameEvent`. Refunds bets if a lottery lacks players. |
 | `RunGameEvent` | `BetPlacedConsumer` | `RunGameConsumer` | Marks game `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next game, publishes `RewardGameEvent`. |
 | `RewardGameEvent` | `RunGameConsumer` | `RewardGameConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
-| `RefundInvalidBetEvent` (carries `BetId`) | `RegisterBetHandler`, `BetPlacedConsumer`, `GameTypeDeactivatedConsumer` | `RefundInvalidBetConsumer` | Refunds an invalid/rejected bet — crypto via `ISolanaService.RefundTokens`, regulated via the operator wallet adapter. Skipped for free bets (`Value == 0`). |
+| `RefundInvalidBetEvent` (carries `BetId`) | `RegisterBetHandler`, `BetPlacedConsumer`, `GameTypeDeactivatedConsumer`, `PendingRefundSweepJob` (12h sweep of `NeedsRefunding`) | `RefundInvalidBetConsumer` | Refunds an invalid/rejected/flagged bet — crypto via `ISolanaService.RefundTokens`, regulated via the operator wallet adapter. Clears the bet to `Refunded` on success (any path); skipped for free bets (`Value == 0`). See `features/refund-safeguards.md`. |
 | `GameParametersCreatedEvent` | `CreateGameTypeHandler` | `GameParametersCreatedConsumer` | Opens the first game for a newly created operator game type (idempotent). |
 | `GameTypeDeactivatedEvent` | `DeactivateGameTypeHandler` | `GameTypeDeactivatedConsumer` | Cancels `WaitingBets` games of a deactivated type (refunds paid bets, skips free). |
 | `BetNotificationEvent` | `GameService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
@@ -186,6 +186,10 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - **Game chat purge:** daily recurring job `game-chat-purge` runs `ChatMessagePurgeJob`, deleting
   `GameChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (default 7). See
   `features/game-chat.md`.
+- **Pending-refund sweep:** 12-hourly recurring job `pending-refund-sweep` (cron `0 */12 * * *`) runs
+  `PendingRefundSweepJob`, publishing a `RefundInvalidBetEvent` for every bet in `NeedsRefunding` so the
+  refund consumer pays it back and clears it to `Refunded` (failures retry next run). See
+  `features/refund-safeguards.md`.
 
 ## 8. Blockchain & payments
 

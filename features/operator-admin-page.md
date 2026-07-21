@@ -35,6 +35,11 @@ deactivate the old one and create a new row. A dev-only header shortcut mints an
   never sees or mutates another operator's types.
 - **Operations:** **Create**, **List** (active types only), **Deactivate** (`Active = false`). **No
   edit** and **no hard delete** (historical `Game`/`Bet` rows FK to the type row).
+- **Refund a bet:** `POST /admin/bets/refund { paymentSignature }` marks a single bet (located by its
+  `ExternalTransactionReference`, **operator-scoped**) as `NeedsRefunding`; the 12h pending-refund
+  sweep does the actual refund. Blocks already-`Rewarded`/`Refunded` bets and free bets; unknown or
+  cross-operator signatures return a vague "No bet found for that signature." Frontend: a **"Refund a
+  Bet"** tab in the admin portal. See `features/refund-safeguards.md`.
 - **`AllowFreeBet` is never exposed** — operator-created types always have `AllowFreeBet = false`.
   **`OperatorId` is forced from the token**, never client-settable.
 - **Flat `GameParameters`:** one row per type, created once and never mutated (config-wise). The
