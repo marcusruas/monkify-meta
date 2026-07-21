@@ -1,12 +1,12 @@
-# Monkify — "Rebranding (new name): Monkify → ChimpOut, Session → Game" — Implementation Spec
+# Monkify — "Rebranding (new name): Monkify → SpaceStroker, Session → Game" — Implementation Spec
 
-> **Status: Shipped (2026-07-16)** — `feature/rebrand-chimpout` merged to `main` (lp: `master`) in all repos. Refined via Trello card
+> **Status: Shipped (2026-07-16)** — `feature/rebrand-spacestroker` merged to `main` (lp: `master`) in all repos. Refined via Trello card
 > [Rebranding (new name)](https://trello.com/c/UBbiaz0d/49-rebranding-new-name) (2026-07-16).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Apply a company rebrand across the whole product by renaming two tokens **deeply**
 > (code identifiers, DB schema, SignalR, routes, config, and docs): the brand proper noun
-> **`Monkify` → `ChimpOut`**, and the domain term **`Session` → `Game`**. This is a rename
+> **`Monkify` → `SpaceStroker`**, and the domain term **`Session` → `Game`**. This is a rename
 > refactor, not a behaviour change — the game plays identically afterward; only names change.
 
 ---
@@ -17,13 +17,13 @@ Two global, mechanical renames applied everywhere:
 
 | Rename | Rule | Notes |
 | --- | --- | --- |
-| **`Monkify` → `ChimpOut`** | Replace the literal brand token `Monkify`/`monkify`/`MONKIFY` (case-preserving) everywhere it is the **brand proper noun**. | The **"infinite monkey" theme stays** — the monkey character/imagery and the common noun **"monkey"** are untouched. Only the token `Monkify` changes. |
+| **`Monkify` → `SpaceStroker`** | Replace the literal brand token `Monkify`/`monkify`/`MONKIFY` (case-preserving) everywhere it is the **brand proper noun**. | The **"infinite monkey" theme stays** — the monkey character/imagery and the common noun **"monkey"** are untouched. Only the token `Monkify` changes. |
 | **`Session` → `Game`** | Pure mechanical: every `Session` token → `Game` across the whole `Session*` family (entities, DTOs, services, consumers, controllers, hub, routes, DB, config section, frontend types/composables). | A **`Game` = one live round**; its definition = **`GameParameters`**. |
 
-Case mapping (apply consistently): `Monkify`→`ChimpOut`, `monkify`→`chimpout`, `MONKIFY`→`CHIMPOUT`;
+Case mapping (apply consistently): `Monkify`→`SpaceStroker`, `monkify`→`spacestroker`, `MONKIFY`→`SPACESTROKER`;
 `Session`→`Game`, `session`→`game`, `Sessions`→`Games`, `sessions`→`games`.
 
-**This is a "clean break":** no `/monkify`→`/chimpout` redirects, no dual SignalR channels, no
+**This is a "clean break":** no `/monkify`→`/spacestroker` redirects, no dual SignalR channels, no
 accepting old identifiers. The DB is rebuilt via a greenfield rename migration (no data preserved).
 
 ### Corrections to the refined card (found during code exploration)
@@ -45,17 +45,17 @@ The refined card listed a few touchpoints that do not exist as assumed; the spec
 
 From `monkify-meta/constraints.md` (full list there):
 
-- **Branch-per-repo (worktree-first):** `feature/rebrand-chimpout` in each affected git repo; the
+- **Branch-per-repo (worktree-first):** `feature/rebrand-spacestroker` in each affected git repo; the
   shared checkout stays on `main` (lp on `master`). Work lives in
-  `.worktrees/rebrand-chimpout/<repo>`. Push after branch work.
+  `.worktrees/rebrand-spacestroker/<repo>`. Push after branch work.
 - **Unit tests:** update the affected tests in `Monkify.Tests` and keep them green; **report changed
   tests** at the end of implementation. This is a **rebrand/refactor, not a new feature**, so **no new
   happy-path integration test is required** — but the existing `Monkify.Tests.Integration`
   (Testcontainers) suite must be renamed to the new identifiers and stay green.
-- **EF mapping:** inline in `ChimpOutDbContext.OnModelCreating` (renamed from `MonkifyDbContext`); no
+- **EF mapping:** inline in `SpaceStrokerDbContext.OnModelCreating` (renamed from `MonkifyDbContext`); no
   `IEntityTypeConfiguration`.
 - **Migrations:** new rename migration under `Monkify.Infrastructure/Migrations/`; applied **only** by
-  `ChimpOut.Consumers` at startup. Regenerate the snapshot with `dotnet ef` — never hand-edit it.
+  `SpaceStroker.Consumers` at startup. Regenerate the snapshot with `dotnet ef` — never hand-edit it.
 - **Secrets/config:** mock-only values in committed files; never surface real secrets.
 - **Operator messaging:** vague errors only; never reveal contract status. (Only the brand word in
   copy changes; keep messages vague.)
@@ -71,7 +71,7 @@ From `monkify-meta/constraints.md` (full list there):
 | # | Decision |
 | --- | --- |
 | 1 | Rename depth = **deep/everything** in code + DB + SignalR + routes + config + docs. Not copy-only. |
-| 2 | `Monkify → ChimpOut` = **brand proper noun only**; keep the monkey character/imagery and the common noun "monkey". |
+| 2 | `Monkify → SpaceStroker` = **brand proper noun only**; keep the monkey character/imagery and the common noun "monkey". |
 | 3 | `Session → Game` = **pure mechanical** across the whole `Session*` family. A `Game` is one round; `GameParameters` is its definition. |
 | 4 | Repos in scope: `monkify-backend`, `monkify-front`, `monkify-meta`, `monkify-lp` — **contents-only** (folder/remote names unchanged). |
 | 5 | **Product-only** — internal tooling (MonkAIfy board, `monkify-*` skills, workspace automation) is untouched. |
@@ -88,10 +88,10 @@ From `monkify-meta/constraints.md` (full list there):
 
 | From | To |
 | --- | --- |
-| `Monkify.Api` / `Monkify.Consumers` / `Monkify.Domain` / `Monkify.Infrastructure` / `Monkify.Common` / `Monkify.Tests` / `Monkify.Tests.Integration` | `ChimpOut.*` (assembly, root namespace, `.csproj`, folder under `src/`, `Monkify.sln` → `ChimpOut.sln`) |
-| `MonkifyDbContext` / `MonkifyDbContextModelSnapshot` | `ChimpOutDbContext` / `ChimpOutDbContextModelSnapshot` |
-| `MonkifyTyper` (and any `Monkify*` identifier) | `ChimpOutTyper` / `ChimpOut*` |
-| namespace `Monkify.Domain.Sessions` | `ChimpOut.Domain.Games` |
+| `Monkify.Api` / `Monkify.Consumers` / `Monkify.Domain` / `Monkify.Infrastructure` / `Monkify.Common` / `Monkify.Tests` / `Monkify.Tests.Integration` | `SpaceStroker.*` (assembly, root namespace, `.csproj`, folder under `src/`, `Monkify.sln` → `SpaceStroker.sln`) |
+| `MonkifyDbContext` / `MonkifyDbContextModelSnapshot` | `SpaceStrokerDbContext` / `SpaceStrokerDbContextModelSnapshot` |
+| `MonkifyTyper` (and any `Monkify*` identifier) | `SpaceStrokerTyper` / `SpaceStroker*` |
+| namespace `Monkify.Domain.Sessions` | `SpaceStroker.Domain.Games` |
 | `Session` (round entity) | `Game` |
 | `SessionParameters` | `GameParameters` |
 | `SessionStatus`, `SessionStatusLog`, `SessionCharacterType` | `GameStatus`, `GameStatusLog`, `GameCharacterType` |
@@ -112,27 +112,27 @@ From `monkify-meta/constraints.md` (full list there):
 | --- | --- | --- |
 | DbSet/table | `Sessions`, `SessionStatusLogs`, `SessionBets`, `SessionParameters`, `SessionChatMessages` | `Games`, `GameStatusLogs`, `GameBets`, `GameParameters`, `GameChatMessages` |
 | FK column | `SessionId` | `GameId` |
-| Config file | `monkifysettings.json` (source at `Monkify.Common/`) | `chimpoutsettings.json` (+ every `AddJsonFile("monkifysettings.json")` call site) |
-| Config key | `ConnectionStrings:Monkify` (read at `Consumers/Program.cs:38`, `Infrastructure/DependencyInjection.cs:45,132`) | `ConnectionStrings:ChimpOut` (update all 3 `GetConnectionString("Monkify")` call sites) |
+| Config file | `monkifysettings.json` (source at `Monkify.Common/`) | `spacestrokersettings.json` (+ every `AddJsonFile("monkifysettings.json")` call site) |
+| Config key | `ConnectionStrings:Monkify` (read at `Consumers/Program.cs:38`, `Infrastructure/DependencyInjection.cs:45,132`) | `ConnectionStrings:SpaceStroker` (update all 3 `GetConnectionString("Monkify")` call sites) |
 | Config section | `GeneralSettings:Sessions` + keys `TimeUntilSessionStarts`, `DelayBetweenSessions`, `ActiveSessionsEndpoint`(`"SessionReceived"`), `SessionStatusEndpoint`, `SessionBetsEndpoint`, `SessionTerminalEndpoint`, `SessionSpeedEndpoint`, `SessionChatEndpoint`; `Workers:CreateSessionsInterval`, `Workers:RewardSessionsInterval` | `GeneralSettings:Games` + `TimeUntilGameStarts`, `DelayBetweenGames`, `ActiveGamesEndpoint`(`"GameReceived"`), `GameStatusEndpoint`, … ; `Workers:CreateGamesInterval`, `RewardGamesInterval`. The `{0}/Status`, `{0}/Bets`, `{0}/Terminal`, `{0}/DisplaySpeed`, `{0}/ChatMessage` **templates are unchanged** (only the C# var feeding `{0}` is `game.Id`). |
 | SignalR hub map | `MapHub<ActiveSessionsHub>("/Hubs/Sessions")` (`Api/Program.cs:141`) | `MapHub<ActiveGamesHub>("/Hubs/Games")` |
 | API routes | `[Route("sessions")]` + `active-types`, `{sessionTypeId}`, `{parametersId}/stats`, `{id}/verification`, `{id}/bets`; admin `session-types`, `session-types/{id}/deactivate` | `[Route("games")]` + same sub-paths (`{sessionTypeId}`→`{gameTypeId}`); admin `game-types`, `game-types/{id}/deactivate` |
 | `.resx` keys | `SessionNotValidForBets`, `SessionWithNoBets`, `SessionWithoutWinners` (+ update `.Designer` refs & call sites) | `GameNotValidForBets`, `GameWithNoBets`, `GameWithoutWinners` |
 | `.resx` values | 8 messages containing "session" (see §6.5) | user-visible "session" → "game" (the type) / "round" (a single run), keeping the messages vague |
-| Brand mock values | `SupportEmail: "monkify@gmail.com"` | `chimpout@gmail.com` (pure brand copy). Infra values `Database=monkify`, RabbitMQ `edson:monkifyedson270799` are **optional infra renames — only if kept in sync with `docker-compose.yml` + `scripts/`** (else the local stack breaks); default: leave the infra identifiers, rename only brand copy. |
+| Brand mock values | `SupportEmail: "monkify@gmail.com"` | `spacestroker@gmail.com` (pure brand copy). Infra values `Database=monkify`, RabbitMQ `edson:monkifyedson270799` are **optional infra renames — only if kept in sync with `docker-compose.yml` + `scripts/`** (else the local stack breaks); default: leave the infra identifiers, rename only brand copy. |
 
 ### 4.3 Frontend identifiers / keys
 
 | Kind | From | To |
 | --- | --- | --- |
-| package/name | `package.json` `"name": "Monkify"` | `"ChimpOut"` |
-| titles | `<title>Monkify</title>` (index.html), `Monkify — Embed Example`, `Monkify — Provably Fair Verifier`, `MONKIFY` (verify.html:87) | `ChimpOut …` / `CHIMPOUT` |
-| storage keys | `monkify.clientSeed`, `monkify.clientSeed.nonce`, `monkify.adminToken`, `monkify.launchToken`, `monkify.autoLaunch`, `monkify.audio` | `chimpout.*` |
-| toast classes | `monkify-toast`, `monkify-toast__body` (`main.ts:48-49`, + CSS) | `chimpout-toast`, `chimpout-toast__body` |
-| postMessage | `EMBED_SOURCE='monkify'` (`utils/embed.ts`), `WALLET_BRIDGE_SOURCE='monkify-wallet'` (`utils/walletBridge.ts`), `window.open(url,'monkify-wallet',…)` (`useEmbeddedWallet.ts:31`) | `'chimpout'`, `'chimpout-wallet'` (keep the window name === bridge source) |
+| package/name | `package.json` `"name": "Monkify"` | `"SpaceStroker"` |
+| titles | `<title>Monkify</title>` (index.html), `Monkify — Embed Example`, `Monkify — Provably Fair Verifier`, `MONKIFY` (verify.html:87) | `SpaceStroker …` / `SPACESTROKER` |
+| storage keys | `monkify.clientSeed`, `monkify.clientSeed.nonce`, `monkify.adminToken`, `monkify.launchToken`, `monkify.autoLaunch`, `monkify.audio` | `space-stroker.*` |
+| toast classes | `monkify-toast`, `monkify-toast__body` (`main.ts:48-49`, + CSS) | `spacestroker-toast`, `spacestroker-toast__body` |
+| postMessage | `EMBED_SOURCE='monkify'` (`utils/embed.ts`), `WALLET_BRIDGE_SOURCE='monkify-wallet'` (`utils/walletBridge.ts`), `window.open(url,'monkify-wallet',…)` (`useEmbeddedWallet.ts:31`) | `'space-stroker'`, `'space-stroker-wallet'` (keep the window name === bridge source) |
 | env var | `VUE_APP_NEW_SESSION_DELAY` (used `GameConsole.vue:26`) | `VUE_APP_NEW_GAME_DELAY` |
 | composables/types/pages | `useSession.ts`, `useSessionChat.ts`, `types/session.ts`, `SessionSelectPage.vue`, admin `SessionTypeForm/List/Manager.vue`, and `session`-named vars in `Game*` components | `useGame.ts`, `useGameChat.ts`, `types/game.ts`, `GameSelectPage.vue`, `GameTypeForm/List/Manager.vue`, `game` vars |
-| routes | `/monkify/game`, `/monkify/game/sessions`, `/monkify/game/play`, `/monkify/admin`, `/monkify/wallet-bridge`, hashes `/monkify/game#launch_token=`, `/monkify/admin#admin_token=` | `/chimpout/…` (see §8 route/name collision resolution) |
+| routes | `/monkify/game`, `/monkify/game/sessions`, `/monkify/game/play`, `/monkify/admin`, `/monkify/wallet-bridge`, hashes `/monkify/game#launch_token=`, `/monkify/admin#admin_token=` | `/space-stroker/…` (see §8 route/name collision resolution) |
 
 ### 4.4 Frontend `Game*` component shell — keep names
 
@@ -150,9 +150,9 @@ become `game` next to an existing `game`.
 Do renames **top-down** so the compiler/tests guide you:
 
 1. **Backend**
-   1. Rename project folders/`.csproj`/`.sln` and root namespaces `Monkify.* → ChimpOut.*` (IDE/solution-wide). Build.
+   1. Rename project folders/`.csproj`/`.sln` and root namespaces `Monkify.* → SpaceStroker.*` (IDE/solution-wide). Build.
    2. Rename `MonkifyDbContext`/snapshot/`MonkifyTyper` and the whole `Session* → Game*` family (types, files, folders). Build.
-   3. Config: rename `monkifysettings.json` → `chimpoutsettings.json`, the `AddJsonFile` call sites, `ConnectionStrings:Monkify` key (+3 call sites), and the `GeneralSettings:Sessions`→`Games` section (+ its POCO `SessionSettings`→`GameSettings`).
+   3. Config: rename `monkifysettings.json` → `spacestrokersettings.json`, the `AddJsonFile` call sites, `ConnectionStrings:Monkify` key (+3 call sites), and the `GeneralSettings:Sessions`→`Games` section (+ its POCO `SessionSettings`→`GameSettings`).
    4. DB: rename DbSets (→ table renames) + FK `SessionId`→`GameId`; add the rename migration; regenerate the snapshot.
    5. SignalR hub + map path; controller routes; `.resx` keys + values; then fix unit + integration tests.
    6. Grep gate (§10): zero `Monkify`/`Session` identifiers remain in `src/` (see exceptions).
@@ -177,7 +177,7 @@ identically; only their type/route/channel/config names change per §4. Specific
 - **6.3 Migration** — greenfield rename migration renames tables `Sessions→Games`,
   `SessionStatusLogs→GameStatusLogs`, `SessionBets→GameBets`, `SessionParameters→GameParameters`,
   `SessionChatMessages→GameChatMessages`, and FK `SessionId→GameId`. Applied only by
-  `ChimpOut.Consumers` at startup. Local/dev DBs recreate cleanly (no data preserved).
+  `SpaceStroker.Consumers` at startup. Local/dev DBs recreate cleanly (no data preserved).
 - **6.4 Seed data** — `DefaultGameParameters` (was `DefaultSessionParameters`) keeps its `Game(...)`
   factory and the seeded default types; only the type name changes.
 - **6.5 `.resx` copy** (`ErrorMessages.resx`) — rewrite these 8 values so no user-visible "session"
@@ -195,8 +195,8 @@ identically; only their type/route/channel/config names change per §4. Specific
 `INDEX.md`, `architecture.md`, `glossary.md`, `constraints.md`, `conventions/backend.md`,
 `conventions/frontend.md`, and every `features/*.md`: apply both renames to **prose and code-identifier
 references** so the KB reflects the new reality (e.g. `SessionService`→`GameService`,
-`Monkify.Domain`→`ChimpOut.Domain`, "a session"→"a game/round"). `glossary.md` holds the canonical
-term definitions — update the `Session`/`Monkify` entries and add `Game`/`ChimpOut`.
+`Monkify.Domain`→`SpaceStroker.Domain`, "a session"→"a game/round"). `glossary.md` holds the canonical
+term definitions — update the `Session`/`Monkify` entries and add `Game`/`SpaceStroker`.
 
 ### 7.2 Historical `specs/*.md` — full rename, tooling-guarded
 Apply the same global find/replace to the ~26 spec files so identifiers match the renamed code
@@ -205,7 +205,7 @@ mechanical; the high-density files to budget for are `specs/operator-admin-page.
 `specs/lottery-pot-stacking.md`, `specs/session-type-stats.md` (→ `game-type-stats.md`),
 `specs/payment-methods-refactor.md`, `specs/provably-fair.md`, `specs/session-chat.md`
 (→ `game-chat.md`). Rename the **file names** that contain `session` too, and fix INDEX links.
-> This spec file itself (`specs/rebrand-chimpout.md`) intentionally **keeps** the old `Monkify`/
+> This spec file itself (`specs/rebrand-spacestroker.md`) intentionally **keeps** the old `Monkify`/
 > `Session` tokens where it documents the *from →* side of the mapping — do not blind-replace inside it.
 
 ### 7.3 TOOLING — MUST NOT rename (guard every find/replace)
@@ -228,14 +228,14 @@ containing `trello.com/b/Yi42y6Xy` or a `.git` clone URL, then eyeball the diff.
 
 Concrete answers to the two card wrinkles:
 
-- **URL de-dup.** `/monkify/game` is the product **area** (brand) → `/chimpout/game`. Mechanically
-  renaming the lobby segment `/monkify/game/sessions` would yield the ugly `/chimpout/game/games`.
-  **Resolution:** lobby at **`/chimpout/game`** (redirect base) and round at
-  **`/chimpout/game/play`**; drop the `/sessions` sub-segment. Update the `/`→`/chimpout/game`
-  redirect and the hash-entry paths (`/chimpout/game#launch_token=`, `/chimpout/admin#admin_token=`).
+- **URL de-dup.** `/monkify/game` is the product **area** (brand) → `/space-stroker/game`. Mechanically
+  renaming the lobby segment `/monkify/game/sessions` would yield the ugly `/space-stroker/game/games`.
+  **Resolution:** lobby at **`/space-stroker/game`** (redirect base) and round at
+  **`/space-stroker/game/play`**; drop the `/sessions` sub-segment. Update the `/`→`/space-stroker/game`
+  redirect and the hash-entry paths (`/space-stroker/game#launch_token=`, `/space-stroker/admin#admin_token=`).
 - **Route `name` collision.** `routes.ts` currently has `name: 'Session'` (lobby) and `name: 'Game'`
   (play). Under `Session→Game` both want `Game`. **Resolution:** lobby route `name: 'GameLobby'`
-  (path `/chimpout/game`), play route keeps `name: 'Game'` (path `/chimpout/game/play`). Update every
+  (path `/space-stroker/game`), play route keeps `name: 'Game'` (path `/space-stroker/game/play`). Update every
   `router.push({ name: 'Session' })` call site accordingly.
 
 ---
@@ -245,13 +245,13 @@ Concrete answers to the two card wrinkles:
 ### 9.1 monkify-front
 Frontend-only mechanical rename per §4.3/§4.4/§8. `EMBED_SOURCE`/`WALLET_BRIDGE_SOURCE` change is a
 **breaking change to the embed + wallet-bridge contract** (a `<iframe>` casino host listening for
-`source:'monkify'` and the wallet-bridge popup name must both move to `'chimpout'` together) — this is
+`source:'monkify'` and the wallet-bridge popup name must both move to `'space-stroker'` together) — this is
 accepted under the clean-break decision; update `EMBEDDING.md` + `public/embed-example.html` to match.
 
 ### 9.2 monkify-lp (Astro + Vue)
 12 brand occurrences in 4 files: `src/pages/index.astro`, `src/layouts/Layout.astro`,
 `src/components/Footer.vue`, `src/components/SpaceRoadmap.vue`. Rename the brand **name**
-(`MONKIFY`/`Monkify` → `CHIMPOUT`/`ChimpOut`; title "MONKIFY — The space chimp coin", footer
+(`MONKIFY`/`Monkify` → `SPACESTROKER`/`SpaceStroker`; title "MONKIFY — The space chimp coin", footer
 copyright, "What is MONKIFY?"/hero copy). `package.json` `"name": "monkify-lp"` is the repo-folder
 name → **leave** (contents-only). Coin art `monk-coin*.png` is monkey imagery → **keep**.
 
@@ -262,7 +262,7 @@ name → **leave** (contents-only). Coin art `monk-coin*.png` is monkey imagery 
   LP never advertises an unminted symbol.)
 - **`app.monkify.net` domain (×3 hrefs):** the production domain is an **ops/DNS task** (like the repo
   rename, out of scope). Leave the real href `https://app.monkify.net` so links stay live, until a
-  real ChimpOut domain exists. Do **not** point them at a dead placeholder.
+  real SpaceStroker domain exists. Do **not** point them at a dead placeholder.
 
 ---
 
@@ -272,13 +272,13 @@ After each repo's rename, these must hold (the definition of done for the mechan
 
 - **Backend:** `rg -n "Monkify" src/` returns **nothing** except the renamed folder is gone; `rg -n "\bSession"`
   in `src/` returns nothing (identifiers). Exceptions: none expected — the backend has no tooling
-  strings. `dotnet build` clean; `ChimpOut.Consumers` boots and migrates a fresh DB; both test suites green.
+  strings. `dotnet build` clean; `SpaceStroker.Consumers` boots and migrates a fresh DB; both test suites green.
 - **Frontend:** `rg -in "monkify" src/ public/` returns **nothing**; `rg -n "useSession|ActiveSessionDto|/monkify/"` returns nothing. `yarn build` + `yarn lint` clean.
 - **monkify-meta:** `rg -n "Monkify|Session" -g '!skills/**' -g '!AGENTS.md'` (then manually clear the
   `trello.com/b/Yi42y6Xy` and `.git` URL lines) returns **nothing** in living docs + specs prose;
   the tooling paths (§7.3) still read `monkify`.
 - **monkify-lp:** `rg -n "Monkify|monkify" src/` returns only the deferred `$MONKIFY` ticker and
-  `app.monkify.net` hrefs (§9.3) — everything else reads ChimpOut.
+  `app.monkify.net` hrefs (§9.3) — everything else reads SpaceStroker.
 
 ---
 
@@ -291,19 +291,19 @@ After each repo's rename, these must hold (the definition of done for the mechan
 
 | # | Target | Change |
 | --- | --- | --- |
-| 1 | `src/Monkify.sln` + 7 `Monkify.*.csproj` + project folders | Rename to `ChimpOut.*` (folders, assembly, root namespace) |
-| 2 | `Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs` | → `ChimpOutDbContext`; rename DbSets (`Sessions→Games`, `SessionBets→GameBets`, `SessionStatusLogs→GameStatusLogs`, `SessionParameters→GameParameters`, `SessionChatMessages→GameChatMessages`); update `OnModelCreating` `Entity<>` generics |
-| 3 | `Monkify.Domain/Sessions/**` (entities, VOs, services) | Rename folder → `Games/`; `Session*`→`Game*` types; `MonkifyTyper`→`ChimpOutTyper` |
+| 1 | `src/Monkify.sln` + 7 `Monkify.*.csproj` + project folders | Rename to `SpaceStroker.*` (folders, assembly, root namespace) |
+| 2 | `Monkify.Infrastructure/Data/Context/MonkifyDbContext.cs` | → `SpaceStrokerDbContext`; rename DbSets (`Sessions→Games`, `SessionBets→GameBets`, `SessionStatusLogs→GameStatusLogs`, `SessionParameters→GameParameters`, `SessionChatMessages→GameChatMessages`); update `OnModelCreating` `Entity<>` generics |
+| 3 | `Monkify.Domain/Sessions/**` (entities, VOs, services) | Rename folder → `Games/`; `Session*`→`Game*` types; `MonkifyTyper`→`SpaceStrokerTyper` |
 | 4 | `Monkify.Infrastructure/Consumers/{RunSession,RewardSession,SessionParametersCreated,SessionTypeDeactivated}/**` | Rename folders + `*Consumer`/`*Event` classes to `*Game*` |
 | 5 | `Monkify.Infrastructure/Contracts/{Sessions,Admin}/**` | Rename DTO/event files + types per §4.1 |
 | 6 | `Monkify.Infrastructure/Handlers/{Admin,Sessions}/**` | Rename handler folders/types per §4.1 |
 | 7 | `Monkify.Infrastructure/Services/Sessions/**`, `Hubs/ActiveSessionsHub.cs` | → `Services/Games/**` (`GameService`, `GameStatsService`, `GameTypeStats`); `ActiveGamesHub` (`JoinGame`/`LeaveGame`) |
 | 8 | `Monkify.Api/Controllers/SessionsController.cs`, `Api/Program.cs` | → `GamesController` `[Route("games")]`; `MapHub<ActiveGamesHub>("/Hubs/Games")` |
-| 9 | `Monkify.Consumers/DefaultSessionParameters.cs`, `Consumers/Program.cs`, `Infrastructure/DependencyInjection.cs` | → `DefaultGameParameters`; `GetConnectionString("Monkify")`→`"ChimpOut"` (3 sites) |
-| 10 | `Monkify.Common/monkifysettings.json` (+ `AddJsonFile` sites) | Rename file → `chimpoutsettings.json`; `ConnectionStrings:Monkify`→`ChimpOut`; `GeneralSettings:Sessions`→`Games` (+ keys); `SupportEmail` brand |
+| 9 | `Monkify.Consumers/DefaultSessionParameters.cs`, `Consumers/Program.cs`, `Infrastructure/DependencyInjection.cs` | → `DefaultGameParameters`; `GetConnectionString("Monkify")`→`"SpaceStroker"` (3 sites) |
+| 10 | `Monkify.Common/monkifysettings.json` (+ `AddJsonFile` sites) | Rename file → `spacestrokersettings.json`; `ConnectionStrings:Monkify`→`SpaceStroker`; `GeneralSettings:Sessions`→`Games` (+ keys); `SupportEmail` brand |
 | 11 | `Monkify.Domain/Configs/Entities/SessionSettings.cs` | → `GameSettings` (POCO bound to `GeneralSettings:Games`) |
 | 12 | `Monkify.Common/Resources/ErrorMessages.resx` (+ `.Designer.cs`) | Rewrite 8 "session" values → game/round; rename 3 `Session*` keys (§6.5) |
-| 13 | `Monkify.Infrastructure/Migrations/` + `MonkifyDbContextModelSnapshot.cs` | Add rename migration; regenerate snapshot (`→ ChimpOutDbContextModelSnapshot`) |
+| 13 | `Monkify.Infrastructure/Migrations/` + `MonkifyDbContextModelSnapshot.cs` | Add rename migration; regenerate snapshot (`→ SpaceStrokerDbContextModelSnapshot`) |
 | 14 | `Monkify.Tests/**`, `Monkify.Tests.Integration/**` | Rename all `Session*`/`Monkify*` test types/files; keep green (§12) |
 | 15 | `docker-compose.yml`, `scripts/*.bat` | Update only if infra identifiers (DB/broker names) are renamed — keep in sync or leave (§4.2) |
 
@@ -316,10 +316,10 @@ After each repo's rename, these must hold (the definition of done for the mechan
 | 3 | `src/pages/SessionSelectPage.vue` | → `GameSelectPage.vue` |
 | 4 | `src/components/admin/SessionType{Form,List,Manager}.vue` | → `GameType{Form,List,Manager}.vue` |
 | 5 | `src/components/game/**`, `GameHeader.vue`, pages | `session`→`game` vars/imports only; component names stay (§4.4) |
-| 6 | `src/routes.ts` | `/monkify/…`→`/chimpout/…`; de-dup lobby/round paths + route names (§8) |
-| 7 | `src/utils/embed.ts`, `utils/walletBridge.ts`, `hooks/useEmbeddedWallet.ts` | `'monkify'`/`'monkify-wallet'`→`'chimpout'`/`'chimpout-wallet'` |
-| 8 | `src/hooks/useClientSeed.ts`, `utils/adminToken.ts`, `utils/launchToken.ts`, `components/GameHeader.vue` | storage keys `monkify.*`→`chimpout.*` |
-| 9 | `src/main.ts` (+ CSS) | toast classes `monkify-toast*`→`chimpout-toast*` |
+| 6 | `src/routes.ts` | `/monkify/…`→`/space-stroker/…`; de-dup lobby/round paths + route names (§8) |
+| 7 | `src/utils/embed.ts`, `utils/walletBridge.ts`, `hooks/useEmbeddedWallet.ts` | `'monkify'`/`'monkify-wallet'`→`'space-stroker'`/`'space-stroker-wallet'` |
+| 8 | `src/hooks/useClientSeed.ts`, `utils/adminToken.ts`, `utils/launchToken.ts`, `components/GameHeader.vue` | storage keys `monkify.*`→`space-stroker.*` |
+| 9 | `src/main.ts` (+ CSS) | toast classes `monkify-toast*`→`spacestroker-toast*` |
 | 10 | `package.json`, `public/index.html`, `public/embed-example.html`, `public/verify.html`, `EMBEDDING.md`, `.env.example` | brand titles/name/`MONKIFY`; `VUE_APP_NEW_SESSION_DELAY`→`VUE_APP_NEW_GAME_DELAY` |
 
 ### 11.3 Meta (`monkify-meta`)
@@ -328,13 +328,13 @@ After each repo's rename, these must hold (the definition of done for the mechan
 | --- | --- | --- |
 | 1 | `INDEX.md`, `architecture.md`, `glossary.md`, `constraints.md`, `conventions/**`, `features/**` | Full rename (prose + identifiers); tooling-guarded (§7.3) |
 | 2 | `specs/**` | Full rename incl. `session`-named files; fix INDEX links; guard this spec's from→ tokens (§7.2) |
-| 3 | `specs/rebrand-chimpout.md`, `INDEX.md` "in flight" | This spec + INDEX row/flight entry (this run) |
+| 3 | `specs/rebrand-spacestroker.md`, `INDEX.md` "in flight" | This spec + INDEX row/flight entry (this run) |
 
 ### 11.4 Landing page (`monkify-lp`)
 
 | # | Target | Change |
 | --- | --- | --- |
-| 1 | `src/pages/index.astro`, `layouts/Layout.astro`, `components/Footer.vue`, `components/SpaceRoadmap.vue` | Brand name → ChimpOut; **keep** `$MONKIFY` ticker + `app.monkify.net` (§9.3) |
+| 1 | `src/pages/index.astro`, `layouts/Layout.astro`, `components/Footer.vue`, `components/SpaceRoadmap.vue` | Brand name → SpaceStroker; **keep** `$MONKIFY` ticker + `app.monkify.net` (§9.3) |
 
 ---
 
@@ -359,25 +359,25 @@ at the end of implementation** per constraints §3.
 From the Trello **Acceptance Criteria** checklist (the 11 deep-rename items added 2026-07-16; the 8
 older "copy-only" items are from an abandoned refinement and are **not** part of this spec):
 
-1. Given the four .NET projects are built, when assemblies/namespaces are inspected, then root namespaces are `ChimpOut.*` and no `Monkify` identifier remains in `monkify-backend` code, config, or file names.
+1. Given the four .NET projects are built, when assemblies/namespaces are inspected, then root namespaces are `SpaceStroker.*` and no `Monkify` identifier remains in `monkify-backend` code, config, or file names.
 2. Given the domain model, when types are inspected, then the round entity is `Game` and the whole former `Session*` family is `Game*` (`GameParameters`, `GameStatus`, `GameType`, `GameStatusLog`, `GameCharacterType`, `GameChatMessage`, `GameSettings`, `GameService`, `GamesController`, `ActiveGamesHub`) with no `Session` identifier left.
 3. Given a clean DB, when the Consumers host starts, then it applies a new EF rename migration, the schema uses `Game*` names (`Games`, `GameParameters`, `GameStatusLogs`, `GameBets`, `GameChatMessages`; FK `GameId`), and the app boots + migrates without error.
 4. Given the API, when routes are called, then `/games/{id}/bets`, `/games/{parametersId}/stats`, `/games/{id}/verification` respond and no `/sessions*` route exists (clean break).
 5. Given a live round, when a client subscribes over SignalR, then the hub is `ActiveGamesHub` at `/Hubs/Games` and channels are `{gameId}/Terminal|Bets|ChatMessage`; the old `ActiveSessionsHub`/`/Hubs/Sessions` no longer exists.
-6. Given the frontend, when any page renders, then no user-visible text or `<title>` reads "Monkify" (reads "ChimpOut"), routes are `/chimpout/...`, storage keys are `chimpout.*`, and postMessage envelopes use `source:'chimpout'` / `'chimpout-wallet'`.
+6. Given the frontend, when any page renders, then no user-visible text or `<title>` reads "Monkify" (reads "SpaceStroker"), routes are `/space-stroker/...`, storage keys are `space-stroker.*`, and postMessage envelopes use `source:'space-stroker'` / `'space-stroker-wallet'`.
 7. Given the game screen after the rename, when a round plays end-to-end (bet → run → reward) on the local stack, then behaviour is identical to before (names only).
-8. Given the "infinite monkey" theme, when UI/imagery/copy are reviewed, then the monkey character/imagery and the common noun "monkey" are unchanged — only "Monkify" became "ChimpOut".
-9. Given `monkify-meta`, when docs are read, then product-brand prose reads "ChimpOut" and product terminology reads "Game", while the `skills/monkify-*` identifiers, the "MonkAIfy" board references, `AGENTS.md` clone URLs, and repo-folder names are unchanged.
-10. Given `monkify-lp`, when reviewed, then visible brand strings read "ChimpOut".
+8. Given the "infinite monkey" theme, when UI/imagery/copy are reviewed, then the monkey character/imagery and the common noun "monkey" are unchanged — only "Monkify" became "SpaceStroker".
+9. Given `monkify-meta`, when docs are read, then product-brand prose reads "SpaceStroker" and product terminology reads "Game", while the `skills/monkify-*` identifiers, the "MonkAIfy" board references, `AGENTS.md` clone URLs, and repo-folder names are unchanged.
+10. Given `monkify-lp`, when reviewed, then visible brand strings read "SpaceStroker".
 11. Given the full `Monkify.Tests` + `Monkify.Tests.Integration` suites, when run after the rename, then every test is updated to the new identifiers and both suites are green, with changed tests reported (no NEW integration test required).
 
 ---
 
 ## 14. Manual QA
 
-1. `scripts/setup_local_environment.bat` → fresh stack; confirm `ChimpOut.Consumers` migrates a clean DB (tables `Games`, `GameBets`, …).
-2. Open the SPA at `/chimpout/game` → lobby lists game types; open a game → `/chimpout/game/play`; place a bet, watch the typer run over SignalR (`/Hubs/Games`), and confirm a reward pays out.
-3. Confirm tab title, chat, stats, provably-fair verifier (`verify.html`), and admin portal (`/chimpout/admin`) all read "ChimpOut"/"Game" with the monkey character still present.
+1. `scripts/setup_local_environment.bat` → fresh stack; confirm `SpaceStroker.Consumers` migrates a clean DB (tables `Games`, `GameBets`, …).
+2. Open the SPA at `/space-stroker/game` → lobby lists game types; open a game → `/space-stroker/game/play`; place a bet, watch the typer run over SignalR (`/Hubs/Games`), and confirm a reward pays out.
+3. Confirm tab title, chat, stats, provably-fair verifier (`verify.html`), and admin portal (`/space-stroker/admin`) all read "SpaceStroker"/"Game" with the monkey character still present.
 4. Grep gates in §10 return clean.
 
 ---
@@ -385,8 +385,8 @@ older "copy-only" items are from an abandoned refinement and are **not** part of
 ## 15. Trello / pipeline
 
 - **Source card:** [Rebranding (new name) #49](https://trello.com/c/UBbiaz0d) — list **Specs created**; the **Implementation** section on the card lists the worktree, branch, and spec.
-- **Next:** `/monkify-implement-feature Rebranding (new name)` to build it; then `/monkify-ship-feature Rebranding (new name)` to sync the KB and merge `feature/rebrand-chimpout` → `main` (lp → `master`).
-- **Cleanup owed (from refinement):** delete the 8 stale copy-only acceptance-criteria items on the card, and the abandoned `feature/rebranding-chimpout` branches on origin (backend/front/meta/lp).
+- **Next:** `/monkify-implement-feature Rebranding (new name)` to build it; then `/monkify-ship-feature Rebranding (new name)` to sync the KB and merge `feature/rebrand-spacestroker` → `main` (lp → `master`).
+- **Cleanup owed (from refinement):** delete the 8 stale copy-only acceptance-criteria items on the card, and the abandoned `feature/rebranding-spacestroker` branches on origin (backend/front/meta/lp).
 
 ---
 

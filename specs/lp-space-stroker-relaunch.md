@@ -15,7 +15,7 @@
 ## 1. Summary
 
 The app + knowledge base already shipped the **Monkify → SpaceStroker / Session → Game** rebrand
-(#49, `feature/rebrand-chimpout`, merged). That rebrand **deferred all LP token/domain work** (its
+(#49, `feature/rebrand-spacestroker`, merged). That rebrand **deferred all LP token/domain work** (its
 §9.3): the LP still advertises a `$MONKIFY` memecoin — hero "Buy $MONKIFY", a full Tokenomics
 section, `$MONKIFY`-holder-gated roadmap perks. This card finishes the LP for launch.
 
@@ -24,7 +24,7 @@ payouts, auto-refund of bad bets — **no house coin to buy**. So the LP must:
 
 | Area | Before (memecoin LP) | After (this card) |
 | --- | --- | --- |
-| Brand | `MONKIFY` wordmark, "$MONKIFY", "the MONKIFY coin" | **CHIMP**`OUT` wordmark ("OUT" orange), no "Monkify/$MONKIFY" anywhere |
+| Brand | `MONKIFY` wordmark, "$MONKIFY", "the MONKIFY coin" | **SPACE**`STROKER` wordmark ("OUT" orange), no "Monkify/$MONKIFY" anywhere |
 | Stake currency | "Drop your $MONKIFY on the pick" | **USDC** |
 | Tokenomics section | Pie chart, ticker `$MONKIFY`, supply, trading-tax, "Buy $MONKIFY" CTA | **Removed** → a short honest **"no token (yet)"** note (a token may come later; ticker/date TBD, never "$MONKIFY") |
 | Roadmap | `✅ $MONKIFY live`, "Holder lounge", "Holders get jackpot tickets" | Feature milestones; token perks reframed as **future / earned by playing** ("early players get first dibs") |
@@ -60,7 +60,7 @@ From `monkify-meta/constraints.md` (full list there). LP-relevant subset:
 
 | # | Decision |
 | --- | --- |
-| 1 | **Rebrand every user-visible "Monkify / MONKIFY / $MONKIFY" → SpaceStroker.** Wordmark = **CHIMP**`OUT` with "OUT" in primary orange (`#ffa214`), mirroring the old MONKI`FY` split. |
+| 1 | **Rebrand every user-visible "Monkify / MONKIFY / $MONKIFY" → SpaceStroker.** Wordmark = **SPACE**`STROKER` with "OUT" in primary orange (`#ffa214`), mirroring the old MONKI`FY` split. |
 | 2 | **Launch model = real crypto, no house coin.** Stake is **USDC**; replace all `$MONKIFY` currency references with USDC. |
 | 3 | Keep the genuine, already-true trust points: **provably-fair** per-round seed, **instant on-chain (Solana) payouts**, **auto-refund** of invalid/bad bets. |
 | 4 | **Tokenomics section removed** → replaced by a short, honest **"no token (yet)"** note: nothing to buy right now; a token is **planned for later** (ticker/date TBD; **never reuse "$MONKIFY"**, never a fake CA). |
@@ -99,10 +99,10 @@ This card was refined against the **arcade-overhaul LP redesign**, which — at 
 whole thing (overhaul + SpaceStroker + token-free) onto `master` **once, at ship time** — so `master`
 never receives a half-branded intermediate.
 
-> ⚠️ **Landmine — do not delete this branch.** `specs/rebrand-chimpout.md` §15 lists a cleanup to
+> ⚠️ **Landmine — do not delete this branch.** `specs/rebrand-spacestroker.md` §15 lists a cleanup to
 > "delete the abandoned `feature/rebranding-spacestroker` branches". That is now **superseded** — this
 > branch is the **active** branch for card #51 (it carries the LP overhaul + this launch pass). The
-> shipped rebrand went out on the differently-named `feature/rebrand-chimpout` (already merged); do
+> shipped rebrand went out on the differently-named `feature/rebrand-spacestroker` (already merged); do
 > **not** confuse the two, and do **not** delete `feature/rebranding-spacestroker` until this card ships.
 
 ---
@@ -118,7 +118,7 @@ of the spec template are **N/A** for this card.
 ## 6. Landing-page changes (the actual work — `monkify-lp`)
 
 Base = reconciled overhaul (`755102c`). **Already done by the `#49` merge (do not redo):** the
-`Header.vue` wordmark (`CHIMP·OUT`, `Header.vue:60`) and the `Layout.astro` `<title>` prefix
+`Header.vue` wordmark (`SPACE·STROKER`, `Header.vue:60`) and the `Layout.astro` `<title>` prefix
 (`SPACESTROKER …`, `Layout.astro:7`). Everything below is the remaining card #51 work. Line numbers are
 against `755102c`.
 
@@ -130,7 +130,7 @@ against `755102c`.
 | `:68` `steps[]` "Ante up" | "Drop your **$MONKIFY** on the pick…" | "Drop your **USDC** on the pick…" |
 | `:72–76` `dist[]` | tokenomics distribution array | **Delete** (only used by the removed Tokenomics block). |
 | `:136` coin `alt` | `Edson, the MONKIFY space chimp coin` | Reframe: `Edson, the SpaceStroker space chimp` (arcade credit / brand emblem — **no "coin"/"MONKIFY"**). |
-| `:141–143` hero wordmark | `MONKI<span class="text-primary …">FY</span>` | `CHIMP<span class="text-primary text-glow-primary">OUT</span>` (mirror the split; "OUT" orange). |
+| `:141–143` hero wordmark | `MONKI<span class="text-primary …">FY</span>` | `SPACE<span class="text-primary text-glow-primary">STROKER</span>` (mirror the split; "OUT" orange). |
 | `:154`, `:210` primary "Play now" | `href="https://app.monkify.net"` | `href={PLAY_URL}` — a single `const PLAY_URL = "https://PLACEHOLDER-app-url/space-stroker/game"` in the frontmatter with a **`// TODO(ship): real SpaceStroker app URL — domain undecided`** comment (AC5, AC11). |
 | `:155` hero secondary | `<SecondaryButton asLink href="#tokenomics">Buy $MONKIFY</SecondaryButton>` | Community CTA: `<SecondaryButton asLink href="#community">Join the troop</SecondaryButton>` (may become a direct Discord link once real; AC5). |
 | `:159–161` hero chips | `NOW PLAYING` · `ON SOLANA` | `REAL STAKES` · `ON SOLANA` · `PROVABLY FAIR` (keep arcade tone; reuse `chip`/`chip--cyan`). |
@@ -142,7 +142,7 @@ against `755102c`.
 
 | Loc | Now | Change |
 | --- | --- | --- |
-| `:60` logo | `CHIMP…OUT` | **Already SpaceStroker** (from #49) — leave. |
+| `:60` logo | `SPACE…STROKER` | **Already SpaceStroker** (from #49) — leave. |
 | `:69` desktop nav | `<a href="#tokenomics" …>Tokenomics</a>` | Relabel **"Token"**, point at `#token` (the note): `href="#token"` + `smoothScroll(e,'#token')`. |
 | `:73–76` desktop CTA | `<PrimaryButton asLink href="#about" small>Buy</PrimaryButton>` | **Remove** the "Buy" button (AC6). |
 | `:106` mobile nav | `…href="#tokenomics"…>Tokenomics</a>` | Same as `:69` → "Token" / `#token`. |
@@ -169,7 +169,7 @@ reframe token perks as future/earned:
 
 | Loc | Now | Change |
 | --- | --- | --- |
-| `:7` wordmark | `MONKI<span class="text-primary">FY</span>` | `CHIMP<span class="text-primary">OUT</span>`. |
+| `:7` wordmark | `MONKI<span class="text-primary">FY</span>` | `SPACE<span class="text-primary">STROKER</span>`. |
 | `:10` copyright | `© 2025 MONKIFY — BET ON THE MONKEY` | `© 2026 SPACESTROKER — BET ON THE MONKEY` (rebrand; year bumped to 2026). |
 
 ### 6.5 `src/layouts/Layout.astro`
@@ -329,7 +329,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 - **Next:** `/monkify-implement-feature Revisar landing page…` to build it on this branch; then
   `/monkify-ship-feature Revisar landing page…` — which lands the whole branch (overhaul + SpaceStroker +
   token-free) onto `master` in **one coherent merge**, so `master` never gets a half-branded LP.
-- **Relationship to #49:** this card finishes `specs/rebrand-chimpout.md` §9.3's **deferred** LP work
+- **Relationship to #49:** this card finishes `specs/rebrand-spacestroker.md` §9.3's **deferred** LP work
   ($MONKIFY ticker, tokenomics, domain) on the overhaul redesign. Its "delete the abandoned
   `feature/rebranding-spacestroker` branch" cleanup note is **superseded** (see §4).
 

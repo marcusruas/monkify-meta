@@ -15,7 +15,7 @@ of the arcade-overhaul redesign.
 
 ## Core rules (current LP content)
 
-- **Brand:** every user-visible surface reads **SpaceStroker** — wordmark **CHIMP·OUT** ("OUT" in primary
+- **Brand:** every user-visible surface reads **SpaceStroker** — wordmark **SPACE·STROKER** ("OUT" in primary
   orange `#ffa214`), `<title>`/meta, header, footer. No "Monkify"/"MONKIFY"/"$MONKIFY" anywhere.
 - **USDC is the stake** wherever money is named; no token is offered as currency.
 - **No token to buy.** The old Tokenomics section is gone, replaced by a short honest **"No token.
@@ -38,9 +38,9 @@ of the arcade-overhaul redesign.
 
 - `src/pages/index.astro` — hero (wordmark, `PLAY_URL`, trust chips, coin `alt`), how-it-works (USDC
   steps, 3-point trust line), the `#token` "no token (yet)" note, `#community` + team.
-- `src/components/Header.vue` — CHIMP·OUT wordmark, "Token" nav → `#token`, no "Buy" (desktop + mobile).
+- `src/components/Header.vue` — SPACE·STROKER wordmark, "Token" nav → `#token`, no "Buy" (desktop + mobile).
 - `src/components/SpaceRoadmap.vue` — 4 phases; de-tokenized perks + future-token tease.
-- `src/components/Footer.vue` — CHIMP·OUT + "© 2026 SPACESTROKER".
+- `src/components/Footer.vue` — SPACE·STROKER + "© 2026 SPACESTROKER".
 - `src/layouts/Layout.astro` — token-free `<title>`/description; scroll-reveal + `prefers-reduced-motion` script.
 - `src/styles/global.css` — Tailwind v4 `@theme` tokens (orange `#ffa214`, cyan/magenta, Press Start 2P + VT323, arcade-panel/scanlines).
 

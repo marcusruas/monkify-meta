@@ -33,7 +33,7 @@ USDC messaging, the three trust points, and the ship placeholders documented in
   Bolso's painted `part1–6` slides — **restyled, not rebuilt**.
 - **`#token` "No token. Yet."** is a two-column card (heading + body left; "$SPACESTROKER is not us"
   anti-scam warning + "Join the troop" CTA right); the token-free copy is unchanged in meaning.
-- **Header:** coin icon + CHIMP·OUT wordmark, nav **Modes / Story / Roadmap / Troop**, and a **PLAY
+- **Header:** coin icon + SPACE·STROKER wordmark, nav **Modes / Story / Roadmap / Troop**, and a **PLAY
   NOW** button → `PLAY_URL`. The nav intentionally drops the standalone "Token"/"About" slots; those
   sections stay scroll-reachable (a redesign choice, not a regression of the `#token` note).
 - **Footer** shows the **"BET ON THE MONKEY"** tagline beside the wordmark.
@@ -42,7 +42,7 @@ USDC messaging, the three trust points, and the ship placeholders documented in
 - **Richer per-section space art:** slowly-drifting sprites (planets / black hole / satellites /
   asteroids / comets, from the existing `src/assets/elements/*` set) sit behind every section, not just
   the hero. **No** wins/pot ticker or fabricated live-activity numbers appears anywhere.
-- **Preserved / must not regress:** the CHIMP·OUT brand (no user-visible "Monkify"/"$MONKIFY"),
+- **Preserved / must not regress:** the SPACE·STROKER brand (no user-visible "Monkify"/"$MONKIFY"),
   token-free USDC + the anti-scam line, the three trust points, and the `PLAY_URL` + social `#`
   placeholders (still carrying `// TODO(ship)`; the app **domain** and social URLs are unfilled).
 - Every new animation honors `prefers-reduced-motion`, and every adopted section holds on portrait +

@@ -36,7 +36,7 @@ source — every adopted piece is re-implemented in the real Astro/Vue component
 | 5 | **Story** (`#story`) | already a CRT "EDSON.LOG" carousel (typed caption, `CH n/6`, PREV/NEXT + dots, painted slides) | **restyle** the existing terminal to the mock's colors/borders/backgrounds/fonts. Keep painted `part1–6` slides + the typed text + `CH n/6` + PREV/NEXT + dots. *(Restyle, not a rebuild — see §6.5.)* |
 | 6 | **Per-section space art** | `SpaceBackground` drifting sprites in the **hero only**; other sections are flat | richer **per-section** drifting art (planets / black hole / satellites / asteroids / comets) from the repo's existing sprite set. |
 | 7 | **`#token`** "No token. Yet." | single centered arcade-panel | **two-column card**: heading + body left; "$SPACESTROKER is not us" warning + "Join the troop" CTA right. Copy unchanged in meaning. |
-| 8 | **Header** | wordmark + nav `About/Story/Token/Roadmap/Community`, no coin, no CTA | **coin icon** beside the CHIMP·OUT wordmark, nav `Modes / Story / Roadmap / Troop`, a **PLAY NOW** button → `PLAY_URL`. |
+| 8 | **Header** | wordmark + nav `About/Story/Token/Roadmap/Community`, no coin, no CTA | **coin icon** beside the SPACE·STROKER wordmark, nav `Modes / Story / Roadmap / Troop`, a **PLAY NOW** button → `PLAY_URL`. |
 | 9 | **Footer** | wordmark + tiny `© 2026 … — BET ON THE MONKEY` microcopy | promote **"BET ON THE MONKEY"** to a visible tagline beside the wordmark. |
 | 10 | **Roadmap** (`#roadmap`) | star-map + phase-detail card with emoji items **and a per-phase perk box** | **keep** the star-map + phase titles; **simplify** the 4 items/phase to short no-emoji lines; **remove** the per-phase perk/perkDesc box. |
 
@@ -51,7 +51,7 @@ source — every adopted piece is re-implemented in the real Astro/Vue component
 
 ### Preserve (must not regress)
 
-- SpaceStroker brand + **CHIMP·OUT** wordmark ("OUT" orange); no "Monkify"/"$MONKIFY" anywhere.
+- SpaceStroker brand + **SPACE·STROKER** wordmark ("OUT" orange); no "Monkify"/"$MONKIFY" anywhere.
 - Token-free / **USDC** messaging + the "$SPACESTROKER for sale today is not us" anti-scam line.
 - All three trust points (provably-fair seed, instant on-chain Solana payouts, auto-refund).
 - `PLAY_URL` (`https://PLACEHOLDER-app-url/space-stroker/game`) + social `#` links keep their
@@ -101,9 +101,9 @@ From `monkify-meta/constraints.md` (full list there). LP-relevant subset:
 | 7 | **Story (`#story`) restyle, not rebuild.** The current `StoryCarousel.vue` **already is** the EDSON.LOG CRT terminal (typed caption, `CH n/6`, ▶ PLAYING, PREV/NEXT + dot indicators, letterboxed painted slides). Adopt only the mock's **visual refinements** (colors/borders/backgrounds/font styling) on top of it, within the `@theme` palette. Keep Bolso's painted `part1–6` (+ `mobile1–6`) slides as the scene art. |
 | 8 | **Richer per-section space art.** Extend space-art presence beyond the hero: drifting planets / black hole / satellites / asteroids / comets from the existing `src/assets/elements/*` sprite set, placed **behind** section content (`pointer-events:none`, low opacity, `z` behind), varied per section. Reduced-motion freezes the drift. |
 | 9 | **`#token` → two-column card.** Left: "STRAIGHT TALK" chip + "No token. Yet." heading + the two body paragraphs. Right: the "$SPACESTROKER … not us" anti-scam warning box + the "Join the troop" secondary CTA. **Copy unchanged in meaning.** Stacks on mobile. |
-| 10 | **Header → coin + restructured nav + PLAY NOW.** Coin icon (`monk-coin.png`) beside the CHIMP·OUT wordmark; nav = **Modes / Story / Roadmap / Troop** → `#modes` / `#story` / `#roadmap` / `#community`; a **PLAY NOW** button → `PLAY_URL`. Desktop + mobile kept in sync. |
+| 10 | **Header → coin + restructured nav + PLAY NOW.** Coin icon (`monk-coin.png`) beside the SPACE·STROKER wordmark; nav = **Modes / Story / Roadmap / Troop** → `#modes` / `#story` / `#roadmap` / `#community`; a **PLAY NOW** button → `PLAY_URL`. Desktop + mobile kept in sync. |
 | 11 | **Nav simplification is intentional.** The new nav drops the standalone **"Token"** and **"About"/"Community"** labels (→ "Modes"/"Troop"). `#about` (how-it-works) and `#token` (the honest note) **stay in the page** and reachable by scroll — they just lose a dedicated nav slot. This is a deliberate redesign choice from the card, not a regression of the shipped `#token` note. |
-| 12 | **Footer tagline.** Promote **"BET ON THE MONKEY"** from the tiny copyright microcopy to a visible tagline beside/under the CHIMP·OUT wordmark. Keep the `© 2026 SPACESTROKER` line. |
+| 12 | **Footer tagline.** Promote **"BET ON THE MONKEY"** from the tiny copyright microcopy to a visible tagline beside/under the SPACE·STROKER wordmark. Keep the `© 2026 SPACESTROKER` line. |
 | 13 | **Roadmap.** Keep `SpaceRoadmap.vue`'s star-map (planet nodes, `traceline`, glow/selection, phase **titles**). Rewrite each phase's 4 `items` as short **no-emoji** lines; **remove** the per-phase perk box (both the render block and the `perk`/`perkDesc` data). The "token maybe later" beat is preserved by the `#token` section, so dropping the phase-4 perk loses nothing globally. |
 | 14 | **No palette drift.** All new styling uses the existing `@theme` tokens + `global.css` component classes. No new colors/fonts. |
 | 15 | **Responsive + reduced-motion parity** on every adopted section (portrait + landscape phones). |
@@ -158,7 +158,7 @@ The page section order becomes: **hero → `#about` (how-it-works) → `#modes` 
 
 | Loc | Now | Change |
 | --- | --- | --- |
-| `:104–161` **HERO** | single centered `max-w-3xl` stack: coin, `CHIMP·OUT`, "Bet on the monkey", one-line body, CTAs, 3 chips; `SpaceBackground` behind; corner HUD | **Rebuild as a two-column layout** (`lg:grid-cols-2`, stacks on mobile). **Left column:** wordmark `CHIMP·OUT`, the `Bet on the monkey` tagline, the **punchier body** (Decision 3), the chips row, and the CTAs (`Play now` → `PLAY_URL`, `Join the troop` → `#community`) **+ the new LIVE typing pill** (§6.8). **Right column:** the big glowing coin (`monk-coin-main.png`, `coin-float`, keep the radial glow) **+** the mascot chimp `edson.png` **+** a drifting `comet.gif` (§6.7). Keep `SpaceBackground client:only` behind; keep the corner arcade HUD (adjust positions so it doesn't collide with the two columns). |
+| `:104–161` **HERO** | single centered `max-w-3xl` stack: coin, `SPACE·STROKER`, "Bet on the monkey", one-line body, CTAs, 3 chips; `SpaceBackground` behind; corner HUD | **Rebuild as a two-column layout** (`lg:grid-cols-2`, stacks on mobile). **Left column:** wordmark `SPACE·STROKER`, the `Bet on the monkey` tagline, the **punchier body** (Decision 3), the chips row, and the CTAs (`Play now` → `PLAY_URL`, `Join the troop` → `#community`) **+ the new LIVE typing pill** (§6.8). **Right column:** the big glowing coin (`monk-coin-main.png`, `coin-float`, keep the radial glow) **+** the mascot chimp `edson.png` **+** a drifting `comet.gif` (§6.7). Keep `SpaceBackground client:only` behind; keep the corner arcade HUD (adjust positions so it doesn't collide with the two columns). |
 | `:65–69` `steps[]` | 3 steps (Pick your play / Ante up / Edson types) rendered as a vertical `<ol>` in one panel | **Keep the data**; render as **3 horizontal step cards** in `#about` (§ below). |
 | `:163–217` **`#about`** (2-col how-it-works \| GameModes) | left = heading + intro + `HOW TO PLAY` step `<ol>` + trust line + Play now; right = `<GameModes client:load />` | **Restructure to a single-column how-it-works:** heading + intro, then a **3-up grid of step cards** (`01/02/03` via `step-num`, `s.title` + `s.body`, stack 1-col on mobile), then a **full-width FAIR PLAY bar** (§ below). **Remove the `GameModes` column** from this section (it moves to `#modes`). Keep the intro copy + an optional `Play now`. |
 | FAIR PLAY bar | the trust `<div>` at `:196–207` lives inside the left column | Promote to a **full-width bar** below the step cards: an `arcade-panel`/accent strip labelled **FAIR PLAY**, stating **provably-fair** + **instant on-chain (Solana) payouts** + **auto-refund** (reuse the existing trust copy; AC3). |
@@ -173,7 +173,7 @@ The page section order becomes: **hero → `#about` (how-it-works) → `#modes` 
 
 | Loc | Now | Change |
 | --- | --- | --- |
-| `:58–60` logo | `<h2>CHIMP<span class="text-primary">OUT</span></h2>` only | Add a **coin icon** (`monk-coin.png`, small, `pixelated`, ~`h-6/h-7`) to the left of the wordmark, inside the same home link. |
+| `:58–60` logo | `<h2>SPACE<span class="text-primary">STROKER</span></h2>` only | Add a **coin icon** (`monk-coin.png`, small, `pixelated`, ~`h-6/h-7`) to the left of the wordmark, inside the same home link. |
 | `:62–72` desktop nav | `About` `#about` · `Story` `#story` · `Token` `#token` · `Roadmap` `#roadmap` · `Community` `#community` | Replace with **`Modes` `#modes` · `Story` `#story` · `Roadmap` `#roadmap` · `Troop` `#community`** (drop the `Token` + `About` items; `#token`/`#about` stay scroll-reachable). |
 | `:62–72` desktop CTA | none | Add a **PLAY NOW** button (`btn-arcade--primary btn-arcade--sm`, or `PrimaryButton small`) linking to `PLAY_URL` — pass the URL in as a prop or import the same const (keep the single-source `// TODO(ship)` placeholder). |
 | `:95–107` mobile menu | same 5 items, no CTA | Mirror the desktop nav (**Modes/Story/Roadmap/Troop**) + a **PLAY NOW** entry. |
@@ -185,7 +185,7 @@ The page section order becomes: **hero → `#about` (how-it-works) → `#modes` 
 
 | Loc | Now | Change |
 | --- | --- | --- |
-| `:4–12` | wordmark `CHIMP·OUT` + one microcopy line `© 2026 SPACESTROKER — BET ON THE MONKEY` | Add a visible **"BET ON THE MONKEY"** tagline beside/under the wordmark (e.g. a `font-display` primary-accent line) so it reads as a tagline, not fine print (AC9). Keep a `© 2026 SPACESTROKER` line. |
+| `:4–12` | wordmark `SPACE·STROKER` + one microcopy line `© 2026 SPACESTROKER — BET ON THE MONKEY` | Add a visible **"BET ON THE MONKEY"** tagline beside/under the wordmark (e.g. a `font-display` primary-accent line) so it reads as a tagline, not fine print (AC9). Keep a `© 2026 SPACESTROKER` line. |
 
 ### 6.4 `src/components/GameModes.vue` → image-forward `#modes` panel
 
@@ -370,13 +370,13 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
    asteroids / comets) is present, and **no** scrolling wins/pot ticker appears anywhere.
 7. **`#token` two-column (desktop)** — a two-column card (heading + body left; "$SPACESTROKER is not us"
    warning + Join-the-troop CTA right) with the token-free copy unchanged in meaning.
-8. **Header** — a coin icon beside the CHIMP·OUT wordmark, nav Modes / Story / Roadmap / Troop, and a
+8. **Header** — a coin icon beside the SPACE·STROKER wordmark, nav Modes / Story / Roadmap / Troop, and a
    PLAY NOW button linking to `PLAY_URL`.
-9. **Footer** — includes the "BET ON THE MONKEY" tagline alongside the CHIMP·OUT wordmark.
+9. **Footer** — includes the "BET ON THE MONKEY" tagline alongside the SPACE·STROKER wordmark.
 10. **Roadmap** — the detail panel shows short no-emoji bullet items with no per-phase perk box, while the
     star-map planets / traceline and the phase titles are unchanged.
 11. **Brand** — the built site shows no user-visible "Monkify" / "$MONKIFY"; the brand reads SpaceStroker /
-    CHIMP·OUT throughout.
+    SPACE·STROKER throughout.
 12. **Placeholders preserved** — `PLAY_URL` and the social links remain the flagged placeholders
     (PLACEHOLDER app URL and `#`) carrying `// TODO(ship)`.
 13. **Responsive** — in portrait and landscape, each adopted section stays responsive and usable
