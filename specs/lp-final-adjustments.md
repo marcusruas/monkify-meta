@@ -1,6 +1,11 @@
 # Space Stroker — "LP final adjustments" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/lp-final-adjustments` (`monkify-lp` → `master` `ecd675b`;
+> `monkify-meta` → `main`) on 2026-07-22. Distilled summary: `../features/lp-final-adjustments.md`.
+> Post-ship note: the final mode blurbs are shorter than §6.1's originals (adopted Vitor's newer app
+> copy mid-implementation) — §6.1 below reflects **what shipped**.
+>
+> _Originally:_ **Ready for implementation** — refined via Trello card
 > [LP final adjustments (#78)](https://trello.com/c/3dPBofpy/78-lp-final-adjustments) (2026-07-21).
 > Repos affected: **`monkify-lp`** (primary, branch **`master`**) and this doc in **`monkify-meta`**.
 > **Not** affected: `monkify-front`, `monkify-backend`.
@@ -151,9 +156,15 @@ import spaceJackpotGif  from "../assets/cards/spacejackpot.gif"; // new
 
 | key | `name` | `tag` (replace) | `blurb` (final, §4-corrected) | `gif` |
 | --- | --- | --- | --- | --- |
-| `races` | `"COSMIC SPRINT"` | `"6 CHARS · A–Z + 0–9"` (was `"6 LETTERS · 6 NUMBERS"`, line ~29) | "Call your 6-character run and ape in. Edson jackhammers the keys till a sequence hits — first to print scoops the whole bag. Connect wallet, send it. Min 2 degens." | `asset(cosmicSprintGif)` |
-| `beast` | `"BEAST MODE"` | `"BET ON THE BEAST"` (keep) | "No typing, pure ape energy. Back 1 of 8 runners and the first one Edson spells out moons the entire pot. Connect wallet. Min 2." | `asset(beastGif)` (unchanged) |
-| `lottery` | `"SPACE JACKPOT"` | `"DAILY DRAW · 24H"` (was `"EVERY 4H · DAILY DRAW"`, line ~52) | "Grab a ticket, the house seeds the pot, and it fattens all day till the daily draw drops. One degen apes off with the jackpot. Connect wallet. Min 2." | `asset(spaceJackpotGif)` |
+| `races` | `"COSMIC SPRINT"` | `"6 CHARS · A–Z + 0–9"` (was `"6 LETTERS · 6 NUMBERS"`) | "Call a 6-character run and ape in – first sequence Edson prints bags the pot." | `asset(cosmicSprintGif)` |
+| `beast` | `"BEAST MODE"` | `"BET ON THE BEAST"` (keep) | "Back 1 of 8 beasts – the first one Edson spells out moons the whole pot. No typing." | `asset(beastGif)` (unchanged) |
+| `lottery` | `"SPACE JACKPOT"` | `"DAILY DRAW · 24H"` (was `"EVERY 4H · DAILY DRAW"`) | "Grab a ticket, the pot fattens all day, one degen bags the daily jackpot." | `asset(spaceJackpotGif)` |
+
+> **Shipped copy** (shorter than the originals above — adopted Vitor's newer, tighter app copy; same
+> facts). All three blurbs use one uniform size; scene art fills the square frame edge-to-edge
+> (`object-cover`, Space Jackpot `object-top`), Beast character stays contained/bottom-anchored.
+> First-frame posters (`cosmicsprint-poster.png`, `spacejackpot-poster.png`) were generated so the
+> rest-state matches Beast's poster pattern.
 
 - **Remove** the two `// TODO(art): placeholder — reuses the beast GIF …` comments (lines ~33–34 and
   ~56–57) — the real dedicated art now exists, so AC #5's "flagged pending" note no longer applies;

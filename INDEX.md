@@ -144,7 +144,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/app-design-refinement.md` | **Frontend-only (app):** distilled — ported the LP arcade design system into `monkify-front`: unified OKLCH tokens (3 drifting blues → one cyan accent; `--color-blue-vivid` kept = cyan hex; operator `--color-secondary` preserved), `arcade.css` material classes (**plain CSS, not `@layer components`** — Vue CLI css-loader gotcha), 2 fonts (PS2P + VT323), `.btn-arcade` buttons, frosted always-visible header + `SPACE STROKER` wordmark, **neutral brushed-metal lobby cards** (amber hover, clip-path kept), drifting randomized nebula (`NebulaField.vue`), game screen inherits only. No backend/DB/test. | Shipped |
 | `specs/app-design-refinement.md` | **Frontend-only (app):** port the `monkify-lp` arcade design system into the game app `monkify-front` to close the LP↔app quality gap — **chrome overhaul, in-play game screen NOT restructured** (inherits tokens/fonts/buttons only). Translate the LP's OKLCH `@theme` tokens into `colors.css`+`tailwind.config.js` (collapse the 3 drifting blues `#3668d4`/`#5b7fcc`/README + stray `#00b7ff` to one system), re-implement the LP material classes (`.arcade-panel`/`.btn-arcade`/`.chip`/`.crt-screen`/`.pixel-notch`/glows) in a v3 `@layer components`, collapse to **2 fonts** (Press Start 2P + VT323; drop Pixelify Sans **+ Silkscreen** + Courier New), `.btn-arcade` buttons (kill `bg-blue-500`/undefined `.title`), frosted **always-visible** header + coin glow, re-tokenized reactive background + LP richness, LP-quality lobby (keep clip-path cards), re-skinned shared surfaces. **Preserves** the operator-themable `--color-secondary` hook. No backend/DB/test. **Shipped** — see `features/app-design-refinement.md`. | Shipped |
 | `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` — account **bio** (143 chars), ready-to-paste **tweet copy** (4 pre-launch teasers, a 6-tweet launch-day thread, 6 first-week posts incl. an Edson lore thread), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities + spoofing warning, reply-first tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam, **no-financial-promise / no-fake-metrics** guardrails. Sibling of Telegram #77. No code; **no integration test / `features/` doc** (content-only). | Shipped |
-| `specs/lp-final-adjustments.md` | **Frontend-only (LP), `monkify-lp` (`master`) + `monkify-meta`:** final pre-launch honesty/polish pass on the Space Stroker LP. Correct the 3 factually-wrong `GameModes.vue` mode texts vs the seeded **Main** types (Sprint = one 6-char **alphanumeric** race, not "6 letters · 6 numbers"; Derby = back 1 of **8** runners, not the invented "rabbit/monkey/jaguar/falcon"; Millions = **once-a-day/24h** lottery, not "every 4h") — **gated on Vitor's final copy**; keep QUICK RACES + LOTTERIES GIFs flagged `TODO(art)` (reuse `beastmode.gif`, art pending Vitor); **remove** the `#token` "TBD coin" `TODO(art)`/placeholder markers (visual is final); Header logo `href="#"`→`#hero`; **inventory** PLAY_URL + Twitter/Telegram/Discord as `TODO(ship)` (domain/socials undecided); audit roadmap HI-SCORE/phases read as goals not live metrics; audit no image hits `/placeholder.png` (unreachable). No backend/front/DB/test. | Ready |
+| `features/lp-final-adjustments.md` | **Frontend-only (LP):** distilled — the Space Stroker LP's 3 mode cards now match the seeded **Main** types (**Cosmic Sprint** = 6-char alphanumeric race; **Beast Mode** = back 1 of 8 beasts; **Space Jackpot** = daily/24h lottery), each with its own animated GIF + first-frame poster (scene art `object-cover`, Space Jackpot `object-top`); real launch/social links (`app.spacestroker.com`, X, Telegram; **Discord removed**), LP `site` = `spacestroker.com`; `#token` "TBD coin" final (markers gone); roadmap reads as goals; no `/placeholder.png` fallback. No backend/DB/test. | Shipped |
+| `specs/lp-final-adjustments.md` | **Frontend-only (LP), `monkify-lp` (`master`) + `monkify-meta`:** final pre-launch honesty/polish pass on the Space Stroker LP. Correct the 3 factually-wrong `GameModes.vue` mode texts vs the seeded **Main** types (Sprint = one 6-char **alphanumeric** race, not "6 letters · 6 numbers"; Derby = back 1 of **8** runners, not the invented "rabbit/monkey/jaguar/falcon"; Millions = **once-a-day/24h** lottery, not "every 4h"); rename to **Cosmic Sprint / Beast Mode / Space Jackpot**, wire new `cosmicsprint.gif` + `spacejackpot.gif` (+ posters, uniform square `object-cover` frames); **remove** the `#token` "TBD coin" markers (visual final); Header logo `href="#"`→`#hero`; **fill** PLAY_URL (`app.spacestroker.com`) + X/Telegram, **remove Discord**, `site`=`spacestroker.com`; audit roadmap HI-SCORE as goals + `/placeholder.png` unreachable. No backend/front/DB/test. | Shipped |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -166,20 +167,24 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _Spec created (in flight):_ **LP final adjustments** — `feature/lp-final-adjustments`
-  (**`monkify-lp`** on `master` + **`monkify-meta`**; **no backend/front**). **Frontend-only, LP-only.**
-  Final pre-launch honesty/polish pass on the Space Stroker landing page: correct the 3 factually-wrong
-  `GameModes.vue` mode texts vs the real seeded **Main** production types (Sprint = one 6-char
-  alphanumeric race; Derby = back 1 of 8 runners `ZEPHYR…NOVA05`; Millions = once-a-day/24h lottery) —
-  **the copy edit is gated on Vitor's final names/tags/blurbs**; keep QUICK RACES + LOTTERIES GIFs
-  flagged `TODO(art)` (reuse `beastmode.gif`, dedicated art pending Vitor); remove the `#token` dimmed-
-  coin "TBD" `TODO(art)`/placeholder markers (visual kept as final); Header logo `href="#"`→`#hero`;
-  inventory PLAY_URL + Twitter/Telegram/Discord as flagged `TODO(ship)` (domain + socials still
-  undecided); audit the roadmap HI-SCORE banner + phases read as labelled goals (not live metrics) with
-  phase-1 "all 3 modes live" retained; audit no rendered image hits the (unreachable) `/placeholder.png`
-  fallback. DoD = `npm run build` clean + 0-console-error browser QA + no user-visible `Monkify`/
-  `$MONKIFY`. No backend/DB/test. Spec `specs/lp-final-adjustments.md`; Trello #78
-  ([3dPBofpy](https://trello.com/c/3dPBofpy)).
+- _Last shipped:_ **LP final adjustments** — `feature/lp-final-adjustments`
+  (**`monkify-lp`** → `master` + **`monkify-meta`** → `main`; **no backend/front**), **shipped
+  2026-07-22**. **Frontend-only, LP-only pre-launch polish.** The Space Stroker LP's 3 mode cards now
+  match the seeded **Main** production types with factually-correct copy and final art: **Cosmic
+  Sprint** (6-char alphanumeric race, tag `6 CHARS · A–Z + 0–9`), **Beast Mode** (back **1 of 8**
+  beasts — no invented animal list), **Space Jackpot** (**daily/24h** lottery, tag `DAILY DRAW · 24H`).
+  The 3 old factual errors ("6 letters · 6 numbers", "rabbit/monkey/jaguar/falcon", "every 4h") are
+  gone. New animated GIFs `cosmicsprint.gif` + `spacejackpot.gif` with auto-generated first-frame
+  posters (Beast keeps `beastmode.gif`); uniform square art frames — scene art `object-cover` (Space
+  Jackpot `object-top` so the head isn't cropped), transparent Beast character contained/bottom-anchored.
+  Launch/social links filled (no more `TODO(ship)`): `PLAY_URL = app.spacestroker.com/space-stroker/game`,
+  X `x.com/SpaceStroker`, Telegram `t.me/spacestroker`, **Discord removed** (socials grid → 2-up), Astro
+  `site = spacestroker.com`; Header logo `href="#"`→`#hero`; `#token` dimmed-coin "TBD" markers removed
+  (visual kept final); roadmap HI-SCORE/phases confirmed goal-framed (no change); `/placeholder.png`
+  fallback confirmed unreachable (no change). Frontend-only ⇒ **no unit/integration test** (LP has no
+  suite); verified `npm run build` clean + browser QA (0 console errors, all art 200) + brand sweep
+  clean. LP `ecd675b`. See `features/lp-final-adjustments.md`; spec `specs/lp-final-adjustments.md`;
+  Trello #78 ([3dPBofpy](https://trello.com/c/3dPBofpy)).
 - _Last shipped:_ **Twitter/X launch marketing campaign** — `feature/twitter-marketing-campaign`
   (**`monkify-meta` only**; no backend/front), **shipped 2026-07-21**. **Minor change (marketing content).** A
   **$0-budget, fully organic** Twitter/X launch campaign for **@SpaceStroker** to announce the **2026-07-23**
