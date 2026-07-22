@@ -20,17 +20,21 @@ and inputs that are **gated on Vitor**.
 
 | Area | What happens this pass | Gate |
 | --- | --- | --- |
-| **Mode copy** (`GameModes.vue`) | Replace the 3 factually-wrong mode texts with Vitor's final copy, validated against the real Main types | ⛔ **Blocks on Vitor's copy** (§4) |
-| **Mode GIFs** (`GameModes.vue`) | Keep QUICK RACES + LOTTERIES flagged `TODO(art)` (reuse `beastmode.gif`); Beast keeps its own | ⛔ art pending Vitor |
+| **Mode copy** (`GameModes.vue`) | Rename to **Cosmic Sprint / Beast Mode / Space Jackpot** and apply Vitor's final blurbs (§6.1) — **two blurbs corrected** to kill the factual errors they still carried | ✅ **RESOLVED** (copy provided 2026-07-21; §4) |
+| **Mode GIFs** (`GameModes.vue`) | Wire the two **new** GIFs — `cosmicsprint.gif` (Sprint) + `spacejackpot.gif` (Space Jackpot); Beast keeps `beastmode.gif` | ✅ **RESOLVED** (art provided; saved to `src/assets/cards/`) |
 | **`#token` art** (`index.astro`) | Remove the `TODO(art)` / "placeholder" markers — the dimmed-coin "TBD" visual is **final** | ✅ now |
 | **Header logo** (`Header.vue`) | `href="#"` → real home/top anchor (`#hero`) | ✅ now |
-| **PLAY_URL + socials** (`index.astro`, `Header.vue`) | **Inventory** all placeholders; keep each an obvious `TODO(ship)` | ✅ now (fill at ship) |
+| **PLAY_URL + socials** (`index.astro`, `Header.vue`) | **Fill** the real URLs (app + X + Telegram), **remove Discord**; LP self-domain noted (§6.6) | ✅ **RESOLVED** (URLs provided 2026-07-21) |
 | **Roadmap HI-SCORE + phases** (`SpaceRoadmap.vue`) | Audit copy reads as labelled **goals/targets**, never live metrics; retain phase-1 "all 3 modes live" | ✅ now (audit) |
 | **Image audit** (site-wide) | Confirm every rendered image is final art; nothing reaches the `/placeholder.png` fallback | ✅ now (audit) |
 | **Brand** | No user-visible `Monkify` / `$MONKIFY`; brand stays **Space Stroker** | ✅ now (verify) |
 
 No backend, no DB, no migration, no SignalR, no tests (LP has no suite). DoD = `npm run build` clean +
 browser QA with 0 console errors + brand sweep clean.
+
+> **All 4 gates were resolved by Vitor on 2026-07-21** (mode copy + names, both new GIFs, real app/LP
+> domains + socials). The only judgement applied: **two of the supplied blurbs were corrected** because
+> they still carried the exact factual errors this card exists to fix — see §4 and §6.1.
 
 ---
 
@@ -70,23 +74,39 @@ From `monkify-meta/constraints.md` (full list there):
 
 ---
 
-## 4. Blocking input from Vitor (gate on the mode-copy edit)
+## 4. Resolved gate inputs (Vitor, 2026-07-21)
 
-**The `GameModes.vue` text edit (AC #1–#3) is gated on Vitor supplying the final mode copy** (names /
-tags / blurbs for all 3 modes). This is a hard product decision on the card, not an implementation
-detail.
+All four gates are **resolved**. Recorded here verbatim + the two corrections applied.
 
-- `monkify-implement-feature` **must confirm the copy is in hand** before editing `GameModes.vue`. If
-  the copy has not been delivered, **stop and ask the user** (per `INDEX.md` → "Implementing from a
-  spec", treat as a blocker) — either wait for Vitor's copy, or get explicit approval to proceed with
-  interim **factually-correct** copy that satisfies §5.
-- Whatever copy arrives, the implementer **must verify it reintroduces none of the 3 factual errors**
-  in §5 before shipping (that verification is AC #4).
-- The **art gate** (new Races + Lottery GIFs, decision #4) is independent: the copy can land and ship
-  while those two GIFs remain flagged placeholders. Do **not** block the copy edit on the art.
+**Mode names (final):** QUICK RACES → **Cosmic Sprint**; **Beast Mode** (unchanged); LOTTERIES →
+**Space Jackpot**.
 
-Everything in §6.2–§6.6 (token markers, header logo, URL inventory, roadmap audit, image audit) is
-**not** gated and can proceed immediately.
+**Mode blurbs — as supplied, with two factual corrections.** Vitor supplied the blurbs via the game
+app's Game Selection screen. Two of them **still carried the exact factual errors this card exists to
+fix**, so they are corrected here (voice preserved). AC #4 requires the shipped copy reintroduce none
+of the §5 errors, so the raw strings **must not** be pasted as-is:
+
+| Mode | Supplied blurb | Issue | **Corrected blurb (use this)** |
+| --- | --- | --- | --- |
+| Cosmic Sprint | "Call your **6-letter** run and ape in. Edson jackhammers the keys till a sequence hits — first to print scoops the whole bag. Connect wallet, send it. Min 2 degens." | "6-letter" ⇒ Sprint is **6-character alphanumeric** (A–Z + 0–9), not letters-only (AC #1) | "Call your **6-character** run and ape in. Edson jackhammers the keys till a sequence hits — first to print scoops the whole bag. Connect wallet, send it. Min 2 degens." |
+| Beast Mode | "No typing, pure ape energy. **Back a beast — rabbit, monkey, jaguar, falcon —** and the first one Edson spells out moons the entire pot. Connect wallet. Min 2." | The 4-animal list is **invented**; really **back 1 of 8** preset runners (`ZEPHYR…NOVA05`, not animals) (AC #2) | "No typing, pure ape energy. **Back 1 of 8 runners** and the first one Edson spells out moons the entire pot. Connect wallet. Min 2." |
+| Space Jackpot | "Grab a ticket, the house seeds the pot, and it fattens all day till the daily draw drops. One degen apes off with the jackpot. Connect wallet. Min 2." | **None** — "daily draw / all day" matches the 24h Millions lottery (AC #3) | *(use as-is)* |
+
+> The corrected Cosmic Sprint / Beast Mode wording is **pending Vitor's final sign-off** (he may prefer
+> his own phrasing) — but it may **not** ship with "6-letter" or the "rabbit/monkey/jaguar/falcon" list.
+> ⚠️ Note: the app screenshot also shows a **"LOTTERY 1 HOUR"** badge on Space Jackpot — that is the app
+> (out of scope) and is itself wrong vs the 24h Main lottery; do **not** copy a "1 hour" claim to the LP.
+
+**GIFs (provided, saved):** `src/assets/cards/cosmicsprint.gif` (sunglasses-typing, 1320×1270) →
+**Cosmic Sprint**; `src/assets/cards/spacejackpot.gif` (coin-pile, 840×1200) → **Space Jackpot**; Beast
+keeps `beastmode.gif`. All three are animated (NETSCAPE loop). See §6.1 for wiring + posters.
+
+**URLs (provided → fill now, no longer `TODO(ship)`):** see §6.6. `PLAY_URL =
+https://app.spacestroker.com/space-stroker/game`; LP self-domain `https://spacestroker.com`; X
+`https://x.com/SpaceStroker`; Telegram `https://t.me/spacestroker`; **Discord removed**.
+
+Everything in §6.2–§6.6 (token markers, header logo, URLs, roadmap audit, image audit) can proceed
+immediately alongside the mode edit.
 
 ---
 
@@ -114,28 +134,39 @@ Vitor's final copy decides the surface wording — but the copy must not **contr
 
 ## 6. Frontend behaviour (all in `monkify-lp/src`)
 
-### 6.1 `components/GameModes.vue` — mode copy (⛔ gated, §4) + GIF flags
+### 6.1 `components/GameModes.vue` — final mode copy + new GIFs (§4 resolved)
 
-The three modes are a `Mode[]` literal (`modes`, lines ~25–60). Apply Vitor's final copy to the
-`name` / `tag` / `blurb` fields, replacing the three wrong strings:
+The three modes are a `Mode[]` literal (`modes`, lines ~25–60). Apply the **final** names, tags, blurbs,
+and GIFs below.
 
-- **`races`** — `tag: "6 LETTERS · 6 NUMBERS"` (line ~29) → Vitor's tag describing **one** 6-character
-  alphanumeric race (no letters/numbers split). Blurb (line ~30) already says "6-character run" — keep
-  consistent.
-- **`beast`** — `blurb` containing `"rabbit, monkey, jaguar, falcon"` (line ~42) → Vitor's blurb
-  reflecting **backing 1 of the 8 preset runners** (no invented animals). `tag: "BET ON THE BEAST"`
-  may stay.
-- **`lottery`** — `tag: "EVERY 4H · DAILY DRAW"` (line ~52) **and** blurb `"A draw every 4 hours,
-  plus one fat daily."` (line ~54) → Vitor's copy stating a **once-a-day (24h)** draw with an
-  all-day-growing pot.
+**New GIF imports (top of `<script setup>`, replacing the `beastGif`-reuse for two modes):**
 
-**GIF flags (keep — decision #4):** `races.gif` and `lottery.gif` both `= asset(beastGif)` with an
-existing `// TODO(art): placeholder — reuses the beast GIF …` comment (lines ~33–34 and ~56–57).
-**Leave those comments in place** so the reuse stays documented (AC #5). Beast's `beastGif` stays. Do
-**not** remove or "silently upgrade" the flags.
+```ts
+import cosmicSprintGif from "../assets/cards/cosmicsprint.gif"; // new
+import spaceJackpotGif  from "../assets/cards/spacejackpot.gif"; // new
+// beastGif import stays (Beast Mode keeps it)
+```
 
-**Preserve** the reduced-motion GIF-swap logic (`reduceMotion`, the `activeKey` poster→GIF swap at the
-`<img :src>` around line ~183) untouched — copy edits only.
+**Mode `name` / `tag` / `blurb` / `gif` (final):**
+
+| key | `name` | `tag` (replace) | `blurb` (final, §4-corrected) | `gif` |
+| --- | --- | --- | --- | --- |
+| `races` | `"COSMIC SPRINT"` | `"6 CHARS · A–Z + 0–9"` (was `"6 LETTERS · 6 NUMBERS"`, line ~29) | "Call your 6-character run and ape in. Edson jackhammers the keys till a sequence hits — first to print scoops the whole bag. Connect wallet, send it. Min 2 degens." | `asset(cosmicSprintGif)` |
+| `beast` | `"BEAST MODE"` | `"BET ON THE BEAST"` (keep) | "No typing, pure ape energy. Back 1 of 8 runners and the first one Edson spells out moons the entire pot. Connect wallet. Min 2." | `asset(beastGif)` (unchanged) |
+| `lottery` | `"SPACE JACKPOT"` | `"DAILY DRAW · 24H"` (was `"EVERY 4H · DAILY DRAW"`, line ~52) | "Grab a ticket, the house seeds the pot, and it fattens all day till the daily draw drops. One degen apes off with the jackpot. Connect wallet. Min 2." | `asset(spaceJackpotGif)` |
+
+- **Remove** the two `// TODO(art): placeholder — reuses the beast GIF …` comments (lines ~33–34 and
+  ~56–57) — the real dedicated art now exists, so AC #5's "flagged pending" note no longer applies;
+  they are wired to real clips instead.
+- **Posters (static `img`, shown when the card is not active).** Beast uses `beastmode-poster.png`. For
+  the two new modes, the current `img` is `cardA` (`a.png`) / `cardC` (`c.png`). To avoid a
+  poster→GIF art mismatch, generate a **first-frame poster** for each new clip
+  (`cosmicsprint-poster.png`, `spacejackpot-poster.png`, e.g. `ffmpeg -i x.gif -frames:v 1 x-poster.png`)
+  and set `img` to it. Acceptable fallback if a poster can't be produced: keep `a.png` / `c.png` as the
+  static posters. Do **not** set `img` to the GIF itself (it would defeat the reduced-motion static state).
+- **Preserve** the reduced-motion GIF-swap logic (`reduceMotion`, the `activeKey` poster→GIF swap at the
+  `<img :src>` around line ~183) untouched.
+- The two new GIFs are large-ish (325 KB / 610 KB); optionally optimise (e.g. `gifsicle -O3`) — not required.
 
 ### 6.2 `pages/index.astro` — `#token` markers (✅ now)
 
@@ -154,9 +185,9 @@ keep the visual:
   smooth-scrolls to `#hero` on click, but the bare `href="#"` is a dead fallback. Change
   `href="#"` → `href="#hero"` so it is a real home/top anchor even without JS (AC #10). The inline
   `@click` still works.
-- `PLAY_URL` (line ~7) is a **duplicate** of `index.astro`'s. Keep it flagged `TODO(ship)` (see §6.6).
-  Deduping the two into one shared source is **optional / low priority** — if not done, both copies
-  must carry the `TODO(ship)` comment and the identical placeholder value.
+- `PLAY_URL` (line ~7) is a **duplicate** of `index.astro`'s. **Fill both** with the real app URL
+  `https://app.spacestroker.com/space-stroker/game` (§6.6) and drop the `TODO(ship)` comment. Deduping
+  the two into one shared source is **optional / low priority**; if not done, keep both values identical.
 - Nav label **"Community"** (line ~14) — leave as-is (decision #6).
 
 ### 6.4 `components/SpaceRoadmap.vue` — HI-SCORE + phase audit (✅ now)
@@ -184,20 +215,30 @@ entry has `rarity ≥ 1` and a real imported asset), so the pool is **never empt
 the fallback is dead-defensive code. (Do **not** rely on shipping a `/placeholder.png` asset; verify
 via browser QA that no background image 404s — AC #11.)
 
-### 6.6 Placeholder URL inventory (✅ now — flag, don't fill)
+### 6.6 URLs — fill the real values (✅ resolved 2026-07-21)
 
-Deliverable of AC #6: every unresolved link stays an obvious `TODO(ship)` placeholder **and** its
-locations are inventoried here.
+The app domain and socials are decided, so this pass **fills** them (a scope change from the card's
+original "defer to ship" — authorised by Vitor). Drop the `TODO(ship)` comments as each is filled.
 
-| Placeholder | Value (keep) | Location(s) | Flag |
+| Link | Final value | Location(s) | Action |
 | --- | --- | --- | --- |
-| App URL | `https://PLACEHOLDER-app-url/space-stroker/game` | `pages/index.astro` `PLAY_URL` (line ~83; used at hero CTA ~171 and about CTA ~293) **and** `components/Header.vue` `PLAY_URL` (line ~7; nav + mobile CTA) | `TODO(ship)` — real route is `/space-stroker/game`, domain undecided |
-| Twitter/X | `href="#"` | `pages/index.astro` `socials[0]` (line ~89), rendered in `#community` (~420–435) | `TODO(ship)` |
-| Telegram | `href="#"` | `pages/index.astro` `socials[1]` (line ~95) | `TODO(ship)` |
-| Discord | `href="#"` | `pages/index.astro` `socials[2]` (line ~101) | `TODO(ship)` |
+| App URL (`PLAY_URL`) | `https://app.spacestroker.com/space-stroker/game` | `pages/index.astro` `PLAY_URL` (line ~83; hero CTA ~171, about CTA ~293) **and** `components/Header.vue` `PLAY_URL` (line ~7; nav + mobile CTA) | Replace the placeholder in **both**; remove `TODO(ship)` (lines ~82, ~7) |
+| Twitter/X | `https://x.com/SpaceStroker` | `pages/index.astro` `socials[0]` (line ~89) | Set `href`; remove `TODO(ship)` (line ~85) |
+| Telegram | `https://t.me/spacestroker` | `pages/index.astro` `socials[1]` (line ~95) | Set `href` |
+| Discord | — **remove** | `pages/index.astro` `socials[2]` (line ~101) | **Delete** the Discord entry from the `socials` array |
 
-Each already carries a `TODO(ship)` comment (`index.astro` lines ~82 and ~85; `Header.vue` line ~6).
-**Verify** those comments remain and the values stay placeholders. Do **not** invent real URLs.
+**Discord removal — layout:** the socials grid renders `sm:grid-cols-3` (`index.astro` ~419). With two
+join slots left, either switch that grid to `sm:grid-cols-2` (recommended — balanced) or leave
+`grid-cols-3` (two cards + a gap). Pick the one that looks right in browser QA; no dead Discord slot.
+
+**LP self-domain `https://spacestroker.com`:** this is the LP's own production URL. It is **not** a
+current on-page placeholder — check `layouts/Layout.astro` (and any `<head>` meta / `astro.config`
+`site`) for an `og:url` / canonical / `site:` value and set it to `https://spacestroker.com` if a
+placeholder or missing value is found. If nothing references a self-URL, this is a no-op — do **not**
+invent new meta tags for this card.
+
+> The keystore/secret rule still applies — these are public marketing URLs, not credentials. No real
+> secrets are introduced.
 
 > Note: the hero arcade HUD "`HI-SCORE 999999`" / "`● ONLINE`" (`index.astro` lines ~138–139) is
 > decorative arcade-cabinet flavor (a fake high score / cabinet light), not a data or live-activity
@@ -216,12 +257,15 @@ cards (`a`, `c`, `beastmode-poster`, `beastmode.gif`), `elements/*` (space backg
 
 ## 7. Out of scope
 
-- Filling the **real app domain** (`PLAY_URL`) and the **3 social URLs** — deferred to **ship** (`TODO(ship)`).
-- **Producing** the new QUICK RACES + LOTTERIES GIF art — pending from Vitor.
-- **Authoring** the final mode copy — supplied by Vitor (this card only applies + validates it).
-- `monkify-front` (game app) and `monkify-backend` — untouched.
+- `monkify-front` (game app) and `monkify-backend` — untouched. (Note: the app's own Game Selection
+  copy still carries the "rabbit/monkey/jaguar/falcon" + "LOTTERY 1 HOUR" errors — that is an **app**
+  fix, a separate card, not this pass.)
 - The forward-looking token/airdrop **roadmap phases 2–5** — they are the future plan, not this pass.
 - Stale LP `PRODUCT.md` / `CLAUDE.md` cleanup — out of scope (prior known follow-up).
+- A **Discord** community link — explicitly dropped for now (Vitor); may return later.
+
+> Previously deferred, now **in scope** (gates resolved 2026-07-21): the real app/social URLs (§6.6),
+> the two new mode GIFs (§6.1), and the final mode copy/names (§4) — no longer "pending Vitor".
 
 ---
 
@@ -231,11 +275,15 @@ cards (`a`, `c`, `beastmode-poster`, `beastmode.gif`), `elements/*` (space backg
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/components/GameModes.vue` | ⛔ Apply Vitor's final `name`/`tag`/`blurb` for all 3 modes, killing the 3 factual errors (§6.1); keep the two `TODO(art)` GIF-reuse comments; preserve reduced-motion swap |
-| 2 | `src/pages/index.astro` | Remove `#token` "placeholder — TODO art" markers (lines ~380, ~382), keep the visual; verify `PLAY_URL` + socials stay `TODO(ship)` placeholders (§6.2, §6.6) |
-| 3 | `src/components/Header.vue` | Logo `href="#"` → `href="#hero"` (§6.3); keep `PLAY_URL` flagged; nav "Community" unchanged |
-| 4 | `src/components/SpaceRoadmap.vue` | Audit HI-SCORE banner + phase copy read as goals/targets; retain phase-1 "all 3 modes live"; change only if an ambiguity is found (§6.4) |
-| 5 | `src/components/SpaceBackground.vue` | Audit only — document `/placeholder.png` fallback is unreachable; no change expected (§6.5) |
+| 1 | `src/components/GameModes.vue` | Final names (Cosmic Sprint / Beast Mode / Space Jackpot), corrected tags + blurbs (§6.1), import + wire `cosmicsprint.gif`/`spacejackpot.gif`, remove the two `TODO(art)` comments; preserve reduced-motion swap |
+| 2 | `src/assets/cards/cosmicsprint.gif` | **New asset** (Cosmic Sprint clip) — already saved to the worktree |
+| 3 | `src/assets/cards/spacejackpot.gif` | **New asset** (Space Jackpot clip) — already saved to the worktree |
+| 4 | `src/assets/cards/cosmicsprint-poster.png`, `spacejackpot-poster.png` | **New (optional)** first-frame posters (§6.1); else reuse `a.png`/`c.png` |
+| 5 | `src/pages/index.astro` | Remove `#token` "placeholder — TODO art" markers (lines ~380, ~382), keep the visual; fill `PLAY_URL` (app URL) + X/Telegram `href`s, **delete Discord** + adjust the socials grid (§6.2, §6.6) |
+| 6 | `src/components/Header.vue` | Logo `href="#"` → `href="#hero"` (§6.3); fill `PLAY_URL`; nav "Community" unchanged |
+| 7 | `src/components/SpaceRoadmap.vue` | Audit HI-SCORE banner + phase copy read as goals/targets; retain phase-1 "all 3 modes live"; change only if an ambiguity is found (§6.4) |
+| 8 | `src/components/SpaceBackground.vue` | Audit only — document `/placeholder.png` fallback is unreachable; no change expected (§6.5) |
+| 9 | `src/layouts/Layout.astro` / `astro.config.*` (if a self-URL placeholder exists) | Set `og:url`/canonical/`site` to `https://spacestroker.com` **only if** a placeholder/missing value is found (§6.6) |
 
 > `src/constants/space-elements.ts` is **read** for the §6.5 audit, not edited.
 
@@ -330,3 +378,4 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist:
 | Date | Change |
 | --- | --- |
 | 2026-07-21 | Initial spec from refined card #78 (LP-only pass; mode-copy gated on Vitor's copy). |
+| 2026-07-21 | **All 4 gates resolved by Vitor.** Names → Cosmic Sprint / Beast Mode / Space Jackpot; blurbs supplied (Cosmic Sprint + Beast Mode **corrected** to kill the "6-letter" / "rabbit-monkey-jaguar-falcon" errors); two new GIFs (`cosmicsprint.gif`, `spacejackpot.gif`) saved + wired; URLs filled (`app.spacestroker.com/space-stroker/game`, X, Telegram) + **Discord removed**; LP self-domain `spacestroker.com` noted for meta. §1/§4/§6.1/§6.3/§6.6/§7/§8 updated. |
