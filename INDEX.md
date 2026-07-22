@@ -146,6 +146,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` — account **bio** (143 chars), ready-to-paste **tweet copy** (4 pre-launch teasers, a 6-tweet launch-day thread, 6 first-week posts incl. an Edson lore thread), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities + spoofing warning, reply-first tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam, **no-financial-promise / no-fake-metrics** guardrails. Sibling of Telegram #77. No code; **no integration test / `features/` doc** (content-only). | Shipped |
 | `features/lp-final-adjustments.md` | **Frontend-only (LP):** distilled — the Space Stroker LP's 3 mode cards now match the seeded **Main** types (**Cosmic Sprint** = 6-char alphanumeric race; **Beast Mode** = back 1 of 8 beasts; **Space Jackpot** = daily/24h lottery), each with its own animated GIF + first-frame poster (scene art `object-cover`, Space Jackpot `object-top`); real launch/social links (`app.spacestroker.com`, X, Telegram; **Discord removed**), LP `site` = `spacestroker.com`; `#token` "TBD coin" final (markers gone); roadmap reads as goals; no `/placeholder.png` fallback. No backend/DB/test. | Shipped |
 | `specs/lp-final-adjustments.md` | **Frontend-only (LP), `monkify-lp` (`master`) + `monkify-meta`:** final pre-launch honesty/polish pass on the Space Stroker LP. Correct the 3 factually-wrong `GameModes.vue` mode texts vs the seeded **Main** types (Sprint = one 6-char **alphanumeric** race, not "6 letters · 6 numbers"; Derby = back 1 of **8** runners, not the invented "rabbit/monkey/jaguar/falcon"; Millions = **once-a-day/24h** lottery, not "every 4h"); rename to **Cosmic Sprint / Beast Mode / Space Jackpot**, wire new `cosmicsprint.gif` + `spacejackpot.gif` (+ posters, uniform square `object-cover` frames); **remove** the `#token` "TBD coin" markers (visual final); Header logo `href="#"`→`#hero`; **fill** PLAY_URL (`app.spacestroker.com`) + X/Telegram, **remove Discord**, `site`=`spacestroker.com`; audit roadmap HI-SCORE as goals + `/placeholder.png` unreachable. No backend/front/DB/test. | Shipped |
+| `specs/provably-fair-final.md` | **Full-stack:** finish provably fair — put verification **in the app** and make the endpoint cheap. New lazy **`FAIR`** tab in `GameSidePanel` (mobile: inside the `CHAT·STATS` segment; **hidden when embedded**), **locked until `Ended`**: two **instant** browser checks (commitment `SHA256(serverSeed)==hash` + own bet seed `HMAC(clientSeed, nonce)`) and an **opt-in** `RECOMPUTE OUTCOME` in a **cancellable Web Worker** with progress, plus **COPY VERIFICATION JSON** and **rollover retention** of the last ended round; **`public/verify.html` deleted** (3-way algorithm duplication → 2). Backend: persist **`Game.CharactersTyped` (`int?`)** at run end so `winnerDecidedByFallback` is **derived, never replayed** (the handler's full ≤5M-character replay is deleted), and **cache** the payload (`GameVerification:{gameId}`, 12h) — written only at a **final** status, with the operator check kept **before** the cache read. Reach = current round only; no round history, no tokenless verification. | Ready |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -167,6 +168,28 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
+- _In flight (spec created 2026-07-22):_ **Provably fair final** — `feature/provably-fair-final`
+  (**`monkify-backend`** + **`monkify-front`** + **`monkify-meta`**), worktrees at
+  `.worktrees/provably-fair-final/<repo>`. **Level: Feature.** Closes the loop on provably fair:
+  verification moves **into the app** and the endpoint becomes cheap. **Frontend:** a new lazy
+  **`FAIR`** tab in `GameSidePanel` next to `CHAT`·`STATS` (mobile: inside the `CHAT·STATS` segment;
+  **hidden when embedded**), **locked until the round `Ended`**, then two **instant** in-browser checks
+  — the commitment (`SHA256(UTF8(serverSeed)) == serverSeedHash`) and the player's own bet seed
+  (`HMAC-SHA256(clientSeed, nonce)` matched against `orderedBetSeeds`; spectators/rotated seeds get an
+  **informational** row, never a failure) — plus an **opt-in** `RECOMPUTE OUTCOME` that replays the
+  stream in a **cancellable Web Worker** (first worker in the repo) with progress sized by the new
+  `charactersTyped`, a **COPY VERIFICATION JSON** button, and **rollover retention** so a slow
+  recompute survives the next round starting. **`public/verify.html` is deleted** (the 3-way
+  byte-identical algorithm duplication collapses to 2); the game terminal is unchanged.
+  **Backend:** persist **`Game.CharactersTyped` (`int?`)** in `UpdateGameStatus` (same `SaveChanges` as
+  `WinningChoice`; `RunGameConsumer` unchanged) so `winnerDecidedByFallback` is **derived**
+  (`CharactersTyped >= MaxCharacters`, `null` for legacy rows) and the handler's full ≤**5,000,000**-character
+  replay is **deleted**; cache the payload via `ICacheService` (`GameVerification:{gameId}`, 12h) —
+  written only once the round is **final** (`RewardForWinnersCompleted`/`ErrorWhenProcessingRewards`,
+  because the DTO carries `Status`), with the **operator check kept before the cache read** (the key is
+  per-game). One nullable column + migration `GameCharactersTyped`; no config. Reach is the **current
+  round only** — no round history, no tokenless/public verification. Spec
+  `specs/provably-fair-final.md`; Trello #82 ([RcJrKixz](https://trello.com/c/RcJrKixz)).
 - _Last shipped:_ **LP final adjustments** — `feature/lp-final-adjustments`
   (**`monkify-lp`** → `master` + **`monkify-meta`** → `main`; **no backend/front**), **shipped
   2026-07-22**. **Frontend-only, LP-only pre-launch polish.** The Space Stroker LP's 3 mode cards now
