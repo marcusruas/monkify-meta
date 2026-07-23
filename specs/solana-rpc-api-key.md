@@ -1,6 +1,12 @@
 # SpaceStroker — "Call Solana RPC With API Key" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-07-23** via `feature/solana-rpc-api-key`
+> (`monkify-backend` + `monkify-meta`; **no `monkify-front`**). 413 unit tests green (18 added/changed
+> in `SolanaServiceTests` + new `SolanaRpcClientProviderTests`); integration suite 40 green and
+> **unchanged** (Minor change — no new integration test, no dedicated `features/` doc). Distilled into
+> `architecture.md` → Solana section; `INDEX.md` "last shipped". Trello #62 ([h0bO1Adv](https://trello.com/c/h0bO1Adv)).
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [Call Solana RPC With API Key](https://trello.com/c/h0bO1Adv) (2026-07-23).
 > Repos affected: `monkify-backend` and this doc + the deploy stack in `monkify-meta`
 > (**no `monkify-front`**).

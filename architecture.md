@@ -206,8 +206,24 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - `Solnet` (`Solnet.Rpc`, `Solnet.Programs`, `Solnet.Wallet`) talks to a Solana cluster.
 - `ISolanaService` / `SolanaService` validate bet payment signatures, transfer SPL tokens for
   rewards, and refund invalid bets **for `SolanaToken` games**, taking a `SolanaTokenDescriptor` per
-  call (owner account built per call from the game's token; global `ClusterUrl` only). They write no
-  ledger rows — the payment strategy does.
+  call (owner account built per call from the game's token). They write no ledger rows — the payment
+  strategy does.
+- **RPC endpoints (one global primary + optional fallback).** The RPC clients are owned by
+  `ISolanaRpcClientProvider` / `SolanaRpcClientProvider` (a DI singleton), **not** built per operator:
+  a **primary** `IRpcClient` from `GeneralSettings.Token.ClusterUrl` and, when a **distinct**
+  `GeneralSettings.Token.FallbackClusterUrl` is set, a **fallback** `IRpcClient`. `IRpcClient` still
+  resolves (it aliases the primary). Every RPC call in `SolanaService` runs through one
+  `ExecuteRpcAsync` helper: a per-operation Polly retry policy (exponential backoff + jitter, treating
+  HTTP 429/5xx/transport faults as retryable — counts in `GeneralSettings.Polly`) against the primary,
+  then **exactly one** unretried attempt against the fallback if the primary's retries are exhausted,
+  logged at Error. All four ops (`getLatestBlockhash`, `getTokenAccountsByOwner`, `sendTransaction`,
+  `getTransaction`) fail over; re-submitting the already-signed `sendTransaction` bytes is safe (the
+  cluster de-duplicates the identical signature). Both endpoints failing preserves today's behaviour
+  (`OperatorWalletError.Unavailable` → `NeedsRefunding` → the 12h refund sweep). A blank or
+  primary-equal `FallbackClusterUrl` disables failover. **`ClusterUrl` may carry the RPC provider's
+  api-key in its query string, so it is a secret** — committed config keeps the keyless public devnet
+  URL, deployed environments inject the real (e.g. Helius) URL via Secret Manager, and the provider
+  **masks endpoints to scheme+host** before they reach any log. See `specs/solana-rpc-api-key.md`.
 - **Standard payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
   **debit** runs synchronously in `SpaceStroker.Api` at bet time; **credit** and **refund** run in
