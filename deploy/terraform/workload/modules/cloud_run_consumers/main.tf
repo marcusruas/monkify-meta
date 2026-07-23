@@ -17,9 +17,13 @@ resource "google_cloud_run_v2_service" "consumers" {
       max_instance_count = var.consumer_count
     }
 
+    # Direct VPC egress: attach the instance straight to the subnet (no connector).
     vpc_access {
-      connector = var.vpc_connector_id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = var.network_id
+        subnetwork = var.subnet_id
+      }
     }
 
     containers {

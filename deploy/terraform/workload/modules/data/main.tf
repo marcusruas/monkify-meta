@@ -14,6 +14,10 @@ resource "google_sql_database_instance" "postgres" {
   deletion_protection = var.enable_deletion_protection
 
   settings {
+    # ENTERPRISE (not ENTERPRISE_PLUS) is required to use shared-core / custom machine tiers such as
+    # db-custom-2-7680 and db-f1-micro. New POSTGRES_16 instances otherwise default to ENTERPRISE_PLUS,
+    # which only accepts db-perf-optimized-N-* tiers and rejects our custom tier at create time.
+    edition           = "ENTERPRISE"
     tier              = var.db_tier
     availability_type = var.db_availability_type
     disk_autoresize   = true

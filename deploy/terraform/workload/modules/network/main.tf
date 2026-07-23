@@ -17,14 +17,14 @@ resource "google_compute_subnetwork" "subnet" {
   private_ip_google_access = true
 }
 
-# Serverless VPC Access connector — Cloud Run egress into the private VPC.
-resource "google_vpc_access_connector" "connector" {
-  name          = "${var.name_prefix}-vpcconn"
-  project       = var.project_id
-  region        = var.region
-  network       = google_compute_network.vpc.name
-  ip_cidr_range = var.connector_cidr
-}
+# Cloud Run reaches the private VPC via DIRECT VPC EGRESS (the Cloud Run v2 service attaches a
+# network interface straight to the subnet below — see the cloud_run_* modules), NOT a Serverless
+# VPC Access connector. The connector was removed: its Google-managed e2-micro VMs repeatedly failed
+# to get healthy ("Error 13: VPC Access connector failed to get healthy") on this project even with
+# open quota, non-overlapping CIDRs, and the documented health-probe firewall rules in place. Direct
+# VPC egress has no connector VMs, no health-check machinery, and is Google's recommended approach.
+# It needs no extra firewall rules: Cloud Run's own health checks are internal, and egress to the
+# private data tier rides the Private Service Access peering (default-allowed egress).
 
 # Cloud NAT for private-instance egress.
 resource "google_compute_router" "router" {

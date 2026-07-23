@@ -203,8 +203,23 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
 
         Console.WriteLine();
         Console.WriteLine($"State bucket gs://{_naming.StateBucket} not found — bootstrapping the persistent layer.");
-        ProcessRunner.RunOrThrow("terraform", "init -reconfigure -backend=false", dir, TfEnv());
-        ProcessRunner.RunOrThrow("terraform", $"apply -auto-approve -var-file=\"{tfvars}\"", dir, TfEnv());
+
+        // Chicken-and-egg: this layer CREATES the gcs state bucket, so it can't use it as the backend
+        // yet. Terraform 1.13 refuses `apply` while a `backend "gcs" {}` block is declared-but-
+        // uninitialized (init -backend=false is not enough — apply still demands backend init). So we
+        // drop a temporary override that swaps the backend to LOCAL for the bootstrap apply, then
+        // remove it and migrate the local state into the freshly created gcs bucket.
+        var bootstrapOverride = Path.Combine(dir, "zzz_bootstrap_override.tf");
+        File.WriteAllText(bootstrapOverride, "terraform {\n  backend \"local\" {}\n}\n");
+        try
+        {
+            ProcessRunner.RunOrThrow("terraform", "init -reconfigure", dir, TfEnv());
+            ProcessRunner.RunOrThrow("terraform", $"apply -auto-approve -var-file=\"{tfvars}\"", dir, TfEnv());
+        }
+        finally
+        {
+            File.Delete(bootstrapOverride);
+        }
         ProcessRunner.RunOrThrow("terraform",
             $"init -migrate-state -force-copy -backend-config=\"bucket={_naming.StateBucket}\" -backend-config=\"prefix=persistent\"",
             dir, TfEnv());

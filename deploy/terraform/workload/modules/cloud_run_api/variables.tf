@@ -19,8 +19,14 @@ variable "service_account_email" {
   type = string
 }
 
-variable "vpc_connector_id" {
-  type = string
+variable "network_id" {
+  type        = string
+  description = "VPC network self-link for Direct VPC egress."
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "Subnet self-link the Cloud Run instances attach to (Direct VPC egress)."
 }
 
 variable "min_instances" {

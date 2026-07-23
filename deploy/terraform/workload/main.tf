@@ -103,7 +103,8 @@ module "cloud_run_consumers" {
   name_prefix           = local.name_prefix
   image                 = var.consumers_image
   service_account_email = module.iam.consumers_sa_email
-  vpc_connector_id      = module.network.connector_id
+  network_id            = module.network.network_id
+  subnet_id             = module.network.subnet_id
   consumer_count        = var.consumer_count
   plain_env             = local.plain_env
   secret_env            = local.secret_env
@@ -118,7 +119,8 @@ module "cloud_run_api" {
   name_prefix           = local.name_prefix
   image                 = var.api_image
   service_account_email = module.iam.api_sa_email
-  vpc_connector_id      = module.network.connector_id
+  network_id            = module.network.network_id
+  subnet_id             = module.network.subnet_id
   min_instances         = var.api_min_instances
   max_instances         = var.api_max_instances
   plain_env             = local.plain_env

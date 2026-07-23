@@ -22,7 +22,7 @@ catch (Exception ex)
     return 1;
 }
 
-var instanceConnectionName = $"{cfg.ProjectId}:{cfg.Region}:spacestroker-pg";
+var instanceConnectionName = $"{cfg.ProjectId}:{cfg.Region}:{cfg.InstanceName}";
 Console.WriteLine($"Starting Cloud SQL Auth Proxy for {instanceConnectionName} on 127.0.0.1:{opts.LocalPort}…");
 
 Process? proxy = null;
@@ -204,6 +204,7 @@ sealed class Config
 {
     public string ProjectId { get; init; } = "";
     public string Region { get; init; } = "";
+    public string InstanceName { get; init; } = "";
     public string Database { get; init; } = "";
     public string Username { get; init; } = "";
     public string Password { get; init; } = "";
@@ -229,14 +230,38 @@ sealed class Config
         var connString = secrets.GetProperty(connKey).GetString()
             ?? throw new InvalidOperationException($"secrets.{connKey} is empty.");
 
+        // The Cloud SQL instance name is environment-scoped (development and production share one GCP
+        // project), so it MUST carry the env code + optional dbInstanceSuffix — exactly as the deploy
+        // tool's EnvNaming builds it. Hardcoding "spacestroker-pg" only ever hit the (nonexistent)
+        // un-prefixed instance and never the real spacestroker-dev-pg / spacestroker-prod-pg.
+        var envCode = ToEnvCode(opts.Environment);
+        var suffix = gcp.TryGetProperty("dbInstanceSuffix", out var sfx) ? sfx.GetString() ?? "" : "";
+        var instanceName = $"spacestroker-{envCode}-pg" + (string.IsNullOrEmpty(suffix) ? "" : $"-{suffix}");
+
         var csb = new NpgsqlConnectionStringBuilder(connString);
         return new Config
         {
             ProjectId = gcp.GetProperty("projectId").GetString() ?? "",
             Region = gcp.TryGetProperty("region", out var r) ? r.GetString() ?? "us-central1" : "us-central1",
+            InstanceName = instanceName,
             Database = db,
             Username = csb.Username ?? "",
             Password = csb.Password ?? "",
+        };
+    }
+
+    /// <summary>development -> dev, production -> prod, staging -> stg; else the first 4 alphanumerics
+    /// (kept in lockstep with SpaceStroker.Deploy's EnvNaming.ToEnvCode).</summary>
+    private static string ToEnvCode(string environment)
+    {
+        var env = (environment ?? "").Trim().ToLowerInvariant();
+        return env switch
+        {
+            "development" => "dev",
+            "production" => "prod",
+            "staging" => "stg",
+            "" => throw new InvalidOperationException("--env is empty — it selects the Cloud SQL instance."),
+            _ => new string(env.Where(char.IsLetterOrDigit).Take(4).ToArray()),
         };
     }
 

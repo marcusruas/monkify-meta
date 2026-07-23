@@ -1,4 +1,4 @@
 output "secret_ids" {
-  description = "Map of secret_id -> Secret Manager resource id."
-  value       = { for id, s in google_secret_manager_secret.secret : id => s.id }
+  description = "The set of Secret Manager secret ids this module grants accessor IAM on (created by the deploy tool)."
+  value       = var.secret_ids
 }
