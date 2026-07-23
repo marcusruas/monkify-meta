@@ -238,7 +238,12 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   the set of bet choices and the character pool, then emits characters one at a time. When the rolling
   window equals a bet's choice, that choice wins (`HasWinners`, `FirstChoiceTyped`). The scheme is
   **provably fair**: the commitment is published before betting closes and the raw seed revealed after
-  the round via `GET /games/{id}/verification`. See `features/provably-fair.md`.
+  the round via `GET /games/{id}/verification`. That endpoint is deliberately cheap — it never replays
+  the character stream (`winnerDecidedByFallback` is derived from the persisted `Game.CharactersTyped`)
+  and caches a round's payload once rewards are settled (`GameVerification:{gameId}`, 12h, immutable so
+  never invalidated), with the operator-ownership check kept **before** the cache read. Players verify
+  in the app via the `FAIR` side-panel tab (Web Worker replay) or offline via `public/verify.html`. See
+  `features/provably-fair.md` and `features/provably-fair-final.md`.
 - Wall-clock pacing is time-budget driven (`GameSettings` targets in `spacestrokersettings.json`):
   `SpaceStrokerTyper` schedules ms-per-character from mode mean/p95 bounds and search-space horizon;
   Stopwatch delays keep duration hardware- and load-stable. Large configs may hit
