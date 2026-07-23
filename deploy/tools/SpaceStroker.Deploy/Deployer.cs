@@ -89,15 +89,25 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
     }
 
     /// <summary>
-    /// Development (and any other non-production environment) tears down EVERYTHING; production keeps
-    /// today's behaviour — workload only, domain + state bucket preserved.
+    /// Every environment tears down the WORKLOAD layer only by default; the persistent layer (DNS
+    /// zone + state bucket) is preserved so the domain delegation and Terraform state survive a
+    /// park-and-redeploy — the persistent layer costs almost nothing to keep. Pass
+    /// <paramref name="purge"/> (CLI `--purge`, non-production only) to ALSO destroy the persistent
+    /// layer and sweep secrets — a full, irreversible wipe.
     /// </summary>
-    public void Teardown()
+    public void Teardown(bool purge = false)
     {
-        if (IsProduction)
+        if (!purge)
+        {
             TeardownWorkloadOnly();
-        else
-            TeardownTotal();
+            return;
+        }
+
+        if (IsProduction)
+            throw new DeployException(
+                "--purge is blocked for production: its DNS zone + state bucket are permanent. " +
+                "Plain `teardown` removes the production workload only.");
+        TeardownTotal();
     }
 
     // --- Steps -------------------------------------------------------------------
@@ -183,8 +193,8 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
 
     /// <summary>
     /// Guarantees the persistent layer (state bucket + DNS zone) exists before any workload work.
-    /// After a TOTAL teardown both are gone, so this re-bootstraps them: apply with LOCAL state (the
-    /// gcs backend cannot be used until the bucket exists), then migrate the state into it.
+    /// After a `--purge` teardown both are gone, so this re-bootstraps them: apply with LOCAL state
+    /// (the gcs backend cannot be used until the bucket exists), then migrate the state into it.
     /// </summary>
     public void EnsurePersistentLayer()
     {
@@ -243,7 +253,8 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
     internal static bool IsApexZone(string dnsDomain) =>
         dnsDomain.Trim().TrimEnd('.').Split('.', StringSplitOptions.RemoveEmptyEntries).Length <= 2;
 
-    /// <summary>Production teardown: destroy the workload layer; domain + state bucket survive.</summary>
+    /// <summary>Default teardown (all environments): destroy the workload layer; the persistent layer
+    /// (DNS zone + domain + state bucket) survives so a later `deploy` recreates + re-attaches.</summary>
     private void TeardownWorkloadOnly()
     {
         Console.WriteLine();
@@ -253,13 +264,17 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
 
         _naming.Validate();
         DestroyWorkload();
-        Console.WriteLine("Workload destroyed. Domain/DNS preserved. Re-run `deploy` to recreate + re-attach.");
+        Console.WriteLine();
+        Console.WriteLine("Workload destroyed. DNS zone + state bucket preserved — re-run `deploy` to recreate + re-attach.");
+        Console.WriteLine("!! Cloud SQL instance names stay reserved ~7 days — to redeploy sooner, bump");
+        Console.WriteLine($"!! gcp.dbInstanceSuffix in secrets.{_s.Environment}.json (e.g. \"2\").");
     }
 
     /// <summary>
-    /// Non-production teardown: destroy EVERYTHING Terraform created for this environment — the
-    /// workload layer AND the persistent layer (DNS zone + state bucket) — then sweep orphan secrets
-    /// and the locally generated files. Only the registrar's domain registration survives.
+    /// Opt-in FULL wipe (CLI `--purge`, non-production only): destroy EVERYTHING Terraform created for
+    /// this environment — the workload layer AND the persistent layer (DNS zone + state bucket) — then
+    /// sweep orphan secrets and the locally generated files. Only the registrar's domain registration
+    /// survives. The default `teardown` (no `--purge`) keeps the persistent layer.
     /// </summary>
     private void TeardownTotal()
     {

@@ -204,19 +204,32 @@ Now, and only now, delegate the sub-domain:
 
 ---
 
-## When you want to tear it all down
+## When you want to tear it down
 
-Development teardown removes **everything** (including the database and all its data) and leaves only
-your GoDaddy domain registration:
+By default, teardown destroys the **workload** — Cloud SQL (and all its data), Redis, Cloud Run, the
+load balancer, etc. — but **keeps the DNS zone and the Terraform state bucket** (they cost about
+$0.20/month, so it's not worth destroying them). This is the cheap way to "park" the environment
+between test sessions: tear down, and later `deploy` recreates everything and re-attaches to the same
+domain delegation.
 
 ```bash
 cd monkify-meta/deploy/tools/SpaceStroker.Deploy
 dotnet run -- teardown --env development
 ```
 
-It asks you to type `development` to confirm. Afterwards: remove the now-dead `dev` NS records at
-GoDaddy, and if you redeploy within ~7 days bump `dbInstanceSuffix` in the secrets file (GCP holds
-the old database name for a week).
+It asks you to type `development` to confirm. Because the DNS zone is kept, your GoDaddy nameserver
+delegation stays valid — no need to touch GoDaddy. If you redeploy within ~7 days, bump
+`dbInstanceSuffix` in the secrets file (GCP holds the old database name for a week).
+
+**Full wipe (rare):** if you want to destroy *everything*, including the DNS zone and state bucket,
+add `--purge`:
+
+```bash
+dotnet run -- teardown --env development --purge
+```
+
+After a `--purge`, remove the now-dead `dev` NS records at GoDaddy; a later `deploy` recreates the
+zone with **different** nameservers. (`--purge` is blocked for production.)
 
 ---
 

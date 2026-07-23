@@ -3,11 +3,12 @@ using SpaceStroker.Deploy;
 // spacestroker-deploy — manual GCP deploy driver for SpaceStroker (Terraform + Cloud Run + static sites).
 // Usage:
 //   spacestroker-deploy deploy [api|consumers|front|lp]   deploy one component (or all if omitted)
-//   spacestroker-deploy teardown                          production: workload only (keeps the domain)
-//                                                         non-production: TOTAL (also DNS zone + state bucket)
+//   spacestroker-deploy teardown [--purge]                workload only (keeps DNS zone + state bucket);
+//                                                         --purge (non-production) also wipes the persistent layer
 //   spacestroker-deploy validate                          print every derived GCP id and check its length cap
 // Options:
 //   --env <name>          environment (default: production) → secrets.<name>.json
+//   --purge               teardown only: ALSO destroy the DNS zone + state bucket (non-production)
 //   --secrets <path>      explicit secrets file path
 //   --workspace <path>    workspace root (else auto-detected)
 
@@ -38,7 +39,7 @@ try
             deployer.DeployComponent(opts.Component!);
             break;
         case "teardown":
-            deployer.Teardown();
+            deployer.Teardown(opts.Purge);
             break;
         case "validate":
             deployer.ValidateNaming();
@@ -63,6 +64,7 @@ file sealed class CliOptions
     public string Environment { get; private set; } = "production";
     public string? SecretsPath { get; private set; }
     public string? WorkspaceRoot { get; private set; }
+    public bool Purge { get; private set; }
     public bool ShowHelp { get; private set; }
 
     private static readonly HashSet<string> Components = ["api", "consumers", "front", "lp"];
@@ -91,6 +93,7 @@ file sealed class CliOptions
                 case "--env": o.Environment = Next(args, ref i); break;
                 case "--secrets": o.SecretsPath = Next(args, ref i); break;
                 case "--workspace": o.WorkspaceRoot = Next(args, ref i); break;
+                case "--purge": o.Purge = true; break;
                 case "-h" or "--help": o.ShowHelp = true; break;
                 default: throw new DeployException($"Unknown argument: {args[i]}");
             }
@@ -98,6 +101,9 @@ file sealed class CliOptions
 
         if (o.Command is not ("deploy" or "teardown" or "validate"))
             throw new DeployException($"Unknown command '{o.Command}'. Use 'deploy', 'teardown' or 'validate'.");
+
+        if (o.Purge && o.Command != "teardown")
+            throw new DeployException("--purge is only valid with the 'teardown' command.");
 
         return o;
     }
@@ -116,15 +122,17 @@ file sealed class CliOptions
 
             Usage:
               spacestroker-deploy deploy [api|consumers|front|lp]  deploy one component (or all if omitted)
-              spacestroker-deploy teardown                         destroy this environment:
-                                                                     --env production  workload only (keeps
-                                                                                       the domain + state bucket)
-                                                                     other envs        TOTAL — also destroys the
-                                                                                       DNS zone + state bucket
+              spacestroker-deploy teardown [--purge]               destroy the WORKLOAD layer (Cloud SQL,
+                                                                   Redis, Cloud Run, LB, …); the DNS zone +
+                                                                   state bucket are ALWAYS preserved.
+                                                                     --purge  (non-production only) ALSO
+                                                                              destroy the DNS zone + state
+                                                                              bucket + sweep secrets
               spacestroker-deploy validate                        print every derived GCP id + its length cap
 
             Options:
               --env <name>        environment (default: production) → secrets.<name>.json
+              --purge             teardown only: also destroy the DNS zone + state bucket (non-production)
               --secrets <path>    explicit secrets file path
               --workspace <path>  workspace root (else auto-detected)
 

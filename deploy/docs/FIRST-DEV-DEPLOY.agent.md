@@ -137,20 +137,29 @@ TF_DATA_DIR=.terraform-dev terraform output      # api_uri, lb_ip, redis_host, b
   `gcloud compute ssl-certificates list --project <PROJECT>`.
 - Then `https://app.dev.spacestroker.com` serves the app.
 
-## Teardown (destructive; non-prod = TOTAL)
+## Teardown (destructive)
 ```bash
-dotnet run -- teardown --env development     # type "development" to confirm
+dotnet run -- teardown --env development             # workload only; DNS zone + state bucket KEPT
+dotnet run -- teardown --env development --purge      # full wipe: ALSO DNS zone + state bucket + secrets
 ```
-Destroys workload + persistent (DNS zone + state bucket) + sweeps env secrets + cleans local
-artifacts; only the GoDaddy domain registration survives. Then remove the dead `dev` NS records at
-GoDaddy. Redeploy within ~7 days ⇒ bump `gcp.dbInstanceSuffix` (e.g. `"2"`) — Cloud SQL name
-reservation.
+Default `teardown` (every environment) destroys the WORKLOAD only — Cloud SQL (+ data), Redis, Cloud
+Run, LB, registry — and PRESERVES the persistent layer (DNS zone + state bucket), so the GoDaddy
+delegation stays valid and a later `deploy` re-attaches. Type "development" to confirm. Redeploy
+within ~7 days ⇒ bump `gcp.dbInstanceSuffix` (e.g. `"2"`) — Cloud SQL name reservation.
+
+`--purge` (non-production only; blocked for production) additionally destroys the DNS zone + state
+bucket, sweeps env secrets, and cleans local artifacts — only the GoDaddy domain registration
+survives; then remove the dead `dev` NS records at GoDaddy (a later `deploy` recreates the zone with
+DIFFERENT nameservers).
 
 ## Failure/branch reference
 - `deploy` throws non-zero → tool aborts; state is preserved; safe to re-run after fixing cause.
-- Cloud Run revision unhealthy at Phase 4 → almost always a bad DB host / password mismatch in the
-  connection strings, or Consumers can't reach Cloud SQL over the VPC connector. Check Cloud Run logs
-  before re-applying.
+- Cloud Run revision unhealthy at Phase 4 → almost always a bad DB host, or the `:SpaceStroker` and
+  `:Messaging` connection strings carrying DIFFERENT passwords (both DBs share the one `spacestroker_app`
+  user, so the passwords MUST match — a mismatch yields `28P01 password authentication failed` and the
+  consumers container aborts the startup probe). Cloud Run mounts secrets at `version=latest`, so after
+  fixing a secret, delete the failed service + `terraform state rm` it and re-deploy (SyncSecrets pushes
+  the new version before the fresh create). Check Cloud Run logs before re-applying.
 - `terraform output` empty after a FAILED apply → query resources directly
   (`terraform state show module.data.google_sql_database_instance.postgres`) or via `gcloud describe`.
 - Do not author `gcp.stateBucket` (SecretsFile rejects it) and do not rename the DNS zone away from

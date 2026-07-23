@@ -1,14 +1,17 @@
 # ---------------------------------------------------------------------------
 # PERSISTENT layer — the Cloud DNS zone + the remote-state bucket.
 #
-# PRODUCTION (protect_persistent = true): these SURVIVE `teardown`. The deploy
-# tool destroys the WORKLOAD layer only, and both resources carry prevent_destroy
-# as a second safety net, so the domain/DNS + state live on.
+# These ALWAYS survive a plain `teardown` (every environment) — the deploy tool
+# destroys the WORKLOAD layer only by default and keeps DNS + state.
 #
-# DEVELOPMENT / other non-production (protect_persistent = false): `teardown` is
-# TOTAL — it destroys this layer too, so nothing Terraform created survives except
-# the registrar's domain registration. Those variants are created WITHOUT
-# prevent_destroy and with force_destroy = true.
+# PRODUCTION (protect_persistent = true): can NEVER be destroyed by the tool —
+# `--purge` is blocked for production, and both resources also carry prevent_destroy
+# as a second safety net, so the domain/DNS + state live on permanently.
+#
+# DEVELOPMENT / other non-production (protect_persistent = false): destroyed ONLY by
+# an explicit `teardown --purge`, after which nothing Terraform created survives
+# except the registrar's domain registration. Those variants are created WITHOUT
+# prevent_destroy and with force_destroy = true so `--purge` can remove them.
 #
 # Why two resources per thing instead of one conditional: lifecycle.prevent_destroy
 # only accepts a literal (it cannot reference a variable), so the protected and

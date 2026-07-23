@@ -6,8 +6,9 @@
 #   dns_zone_name      spacestroker-<envCode>-zone
 #   state_bucket_name  spacestroker-tfstate-<envCode>-<projectId>      (must match the tool's derivation)
 #
-# protect_persistent = true  -> production: teardown keeps this layer (the domain survives).
-# protect_persistent = false -> development: teardown destroys this layer too (TOTAL teardown).
+# A plain `teardown` keeps this layer for EVERY environment. This flag only gates the `--purge` wipe:
+# protect_persistent = true  -> production: `--purge` is blocked; this layer can never be destroyed.
+# protect_persistent = false -> development: `teardown --purge` may destroy this layer.
 project_id         = "your-gcp-project-id"
 region             = "us-central1"
 dns_zone_name      = "spacestroker-prod-zone"

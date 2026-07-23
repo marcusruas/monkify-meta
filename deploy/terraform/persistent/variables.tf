@@ -37,10 +37,12 @@ variable "state_bucket_name" {
 variable "protect_persistent" {
   type        = bool
   description = <<-EOT
+    A plain `teardown` keeps the DNS zone + state bucket for EVERY environment; this flag only gates
+    the explicit `--purge` wipe.
     true  -> production: the DNS zone + state bucket carry prevent_destroy and force_destroy = false,
-             so `terraform destroy` refuses and `teardown` keeps the domain.
+             and `--purge` is blocked, so they can never be destroyed by the tool.
     false -> development / other non-production: the same resources are created WITHOUT
-             prevent_destroy and with force_destroy = true, so a TOTAL teardown can remove them.
+             prevent_destroy and with force_destroy = true, so a `teardown --purge` can remove them.
     No default on purpose — every tfvars file must state which it is.
   EOT
 }

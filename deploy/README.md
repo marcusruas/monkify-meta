@@ -120,24 +120,26 @@ or in Terraform state), writes the non-secret Terraform variables to `production
 builds each static site (baking the `frontBuild` `VUE_APP_*` values) and syncs it to its GCS bucket +
 invalidates the CDN. **Consumers is released before the API** (it owns EF migrations/seeding).
 
-## Teardown — two behaviours, chosen by the environment
+## Teardown — workload-only by default, `--purge` for a full wipe
 
 ```bash
 cd deploy/tools/SpaceStroker.Deploy
-dotnet run -- teardown --env production    # workload only — keeps the domain
-dotnet run -- teardown --env development   # TOTAL — nothing Terraform created survives
+dotnet run -- teardown --env development            # workload only — keeps the DNS zone + state bucket
+dotnet run -- teardown --env development --purge     # full wipe — ALSO destroys the DNS zone + state bucket
 ```
 
-Both re-type the environment name to confirm, and both override Cloud SQL deletion-protection so the
-destroy can proceed.
+Every teardown re-types the environment name to confirm and overrides Cloud SQL deletion-protection so
+the destroy can proceed.
 
-**`--env production` — "drop everything, keep the domain."** Destroys the **workload layer only**
-(Cloud Run, Cloud SQL + **all its data**, Memorystore, LB, Cloud Armor, VPC/NAT/connector, Artifact
-Registry, buckets/CDN). The **persistent layer** (Cloud DNS zone + state bucket) is preserved, so
-re-running `deploy` recreates the workload and re-attaches to the same domains + managed certs.
+**Default (no `--purge`, every environment) — "drop the workload, keep the domain."** Destroys the
+**workload layer only** (Cloud Run, Cloud SQL + **all its data**, Memorystore, LB, Cloud Armor,
+VPC/NAT, Artifact Registry, buckets/CDN). The **persistent layer** (Cloud DNS zone + state bucket) is
+preserved — it costs ~$0.20/month — so re-running `deploy` recreates the workload and re-attaches to
+the same domains + managed certs, and the GoDaddy delegation stays valid. This is the cheap way to park
+an environment between test sessions.
 
-**Any other environment — TOTAL teardown.** After it finishes, **nothing Terraform created for that
-environment remains in the project**; the only surviving asset is the **GoDaddy registration of
+**`--purge` (non-production only) — TOTAL wipe.** After it finishes, **nothing Terraform created for
+that environment remains in the project**; the only surviving asset is the **GoDaddy registration of
 spacestroker.com**. In order:
 
 1. **Workload layer** destroyed (as above). If this fails part-way the run stops here — the persistent
@@ -152,23 +154,25 @@ spacestroker.com**. In order:
 4. **Locally generated files** removed — `<environment>.tfvars.json`, both layers' `.terraform-<envCode>/`
    and the migrated local state. **Never** `secrets.<env>.json` or `*.tfvars` — those are yours.
 
-Two guardrails make this safe to have in the same tool as production:
+Two guardrails make `--purge` safe to have in the same tool as production:
 
-- **Production is hard-blocked** from the total path — `--env production` can only ever do the
-  workload-only teardown.
+- **Production is hard-blocked** from `--purge` — `--env production` can only ever do the workload-only
+  teardown, so its domain + state bucket are permanent.
 - **The registrable apex is refused.** A zone whose `dnsDomain` has two or fewer labels
   (`spacestroker.com.`) is the domain itself and is never destroyed; only sub-zones such as
   `dev.spacestroker.com.` may be. A mis-set or copy-pasted secrets file therefore aborts before
   anything is destroyed.
 
-Afterwards:
+After a `--purge`:
 
 - The **NS delegation at GoDaddy** for the destroyed zone now points nowhere — remove it. A later
   `deploy` recreates the zone with **different** nameservers and prints them.
-- **Cloud SQL instance names stay reserved for ~7 days.** To redeploy inside that window, bump
-  `gcp.dbInstanceSuffix` in `secrets.<env>.json` (e.g. `"2"`) — the tool tells you this on the way out.
 - `deploy --env <env>` afterwards re-bootstraps the persistent layer automatically; you never need to
   run raw Terraform to recover.
+
+After **any** teardown, **Cloud SQL instance names stay reserved for ~7 days.** To redeploy inside that
+window, bump `gcp.dbInstanceSuffix` in `secrets.<env>.json` (e.g. `"2"`) — the tool tells you this on
+the way out.
 
 > **Migrating an environment deployed before env-scoping:** its resources carry the old un-prefixed
 > names, so tear it down with the **old** tool first, delete the old `spacestroker-tfstate-<projectId>`
