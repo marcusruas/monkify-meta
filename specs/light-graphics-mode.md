@@ -2,8 +2,8 @@
 
 > **Status: Ready for implementation** — refined via Trello card
 > [game is super laggy when hardware acceleration is off in chrome](https://trello.com/c/wsiDoPfK) (#83, 2026-07-22).
-> Repos affected: `monkify-front`, `monkify-lp` (branch `master`), and this doc in `monkify-meta`.
-> **`monkify-backend` is not affected.**
+> Repos affected: `monkify-front`, and this doc in `monkify-meta`.
+> **`monkify-backend` and `monkify-lp` are not affected** — this ticket is app-only (see §9).
 >
 > **Purpose:** when Chrome runs without hardware acceleration (software rasterization), Space Stroker
 > is close to unplayable — the CPU has to composite blurred blend-mode surfaces, dozens of moving
@@ -21,7 +21,11 @@ Two independent changes, shipped together:
 | # | Change | Applies to | User-visible when |
 | --- | --- | --- | --- |
 | A | **Delete `NebulaField.vue`** and every reference to it | `monkify-front` | Always — for everyone, in both modes |
-| B | **Light graphics mode** — automatic, no UI | `monkify-front` + `monkify-lp` | Only when detection says the renderer is weak, or on mobile |
+| B | **Light graphics mode** — automatic, no UI | `monkify-front` | Only when detection says the renderer is weak, or on mobile |
+
+**App-only.** The landing page (`monkify-lp`) is **out of scope** for this ticket — it is a separate
+repo on `master` with its own (CSS-animation-driven, no rAF) background. If the LP needs the same
+treatment later it gets its own card; §9 records what a future LP pass would cover.
 
 **Mode matrix:**
 
@@ -47,14 +51,12 @@ change ⇒ per `constraints.md` §3 there is **no integration test** and no `Spa
 
 From `monkify-meta/constraints.md` (full list there):
 
-- **Worktree-per-repo:** `feature/light-graphics-mode` in `monkify-front`, `monkify-lp` and
-  `monkify-meta`, each in its own worktree under `.worktrees/light-graphics-mode/<repo>`. The shared
-  checkouts stay on `main` / `master` and are never switched.
-- **`monkify-lp`'s default branch is `master`,** not `main` — its worktree was created off
-  `origin/master`.
-- **Unit tests:** N/A — no backend change. Neither frontend repo has a test suite.
+- **Worktree-per-repo:** `feature/light-graphics-mode` in `monkify-front` and `monkify-meta`, each in
+  its own worktree under `.worktrees/light-graphics-mode/<repo>`. The shared checkouts stay on `main`
+  and are never switched.
+- **Unit tests:** N/A — no backend change. `monkify-front` has no test suite.
 - **Integration test:** **not required** (`constraints.md` §3 — bug fix / QOL, no game-flow change).
-- **EF / migrations / secrets:** N/A — nothing outside the two frontends is touched.
+- **EF / migrations / secrets:** N/A — nothing outside `monkify-front` is touched.
 - **Normal mode must look unchanged** apart from the nebula being gone. This is a performance fix,
   not a redesign; no palette, layout or copy drift.
 - **No user-facing setting.** Do not add a toggle, a settings row, a query param, or any persisted
@@ -74,8 +76,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 6 | Light mode removes: all `backdrop-filter` / `filter: blur()`; the infinite CSS animations (`bar-scan`, `pulse`, `blink`, `crt-flicker`, `wobble`, LP `drift-*` / `coinFloat` / `marquee` / `sectionBgScroll`); `mix-blend-mode` overlays; multi-layer `box-shadow` / `text-shadow` glows. |
 | 7 | Light mode **keeps the background drifting**, heavily reduced: element cap ~8, frame target ~15 FPS, no scrolling `background-position`, `TorpedoSpawner` disabled. It is deliberately **not** frozen. |
 | 8 | The animated mascot (`GameMonkey`) and the LP mode GIFs **stay animated** in light mode. |
-| 9 | Scope is **all surfaces**: game screen, lobby, admin/dev pages, and the landing page. |
-| 10 | The LP gets the same automatic treatment and, like the app, **no UI control**. |
+| 9 | Scope is **all app surfaces**: game screen, lobby, admin/dev pages. |
+| 10 | **The landing page (`monkify-lp`) is out of scope** — this ticket touches the app only. |
 | 11 | Embedded (iframe) contexts run the same detection. The postMessage embed contract is unchanged — **no new events**. |
 | 12 | `.section-vignette` **stays** — reviewed and confirmed free (one static linear gradient, no blur/blend/animation). With the nebula gone it is the only thing framing the screen edges. |
 | 13 | An **efficiency audit** of the remaining animation loops is in scope, provided it does not change how normal mode looks. |
@@ -233,41 +235,7 @@ a silently non-matching override is the most likely bug in this change.
 
 `.section-vignette` is **not** overridden (decision #12).
 
-### 7.6 Frontend behaviour — `monkify-lp`
-
-The LP has no rAF loop; its background is CSS-animation driven, which is cheaper but still costly in
-software because of per-element `hue-rotate` filters and two continuously animated
-`background-position` layers.
-
-- **Detection:** port the same logic. Options, in order of preference:
-  1. A tiny inline script in `src/layouts/Layout.astro` that runs the same renderer probe and stamps
-     `document.documentElement.classList.add('light-graphics')` before paint — no framework needed,
-     no flash of the heavy version.
-  2. A shared `.ts` helper imported by that script if the logic grows.
-  The FPS fallback may be kept, but it must not delay first paint.
-  **Mobile is always light** — the LP check reuses the same `(max-width: 1023px)` media query
-  (`matchMedia`), matching the app's breakpoint.
-- **Reuse the existing reduced-motion block.** `src/styles/global.css:637-670` already disables
-  exactly the right set: `.marquee__track`, `.coin-float`, `.hero-ship`, `.blink`, `.drift-float-a/b`,
-  `.drift-spin`, `.drift-comet`, `.section-backdrop`. Extend that selector list so the same rules
-  apply under `:root.light-graphics` (either duplicate the block or hoist the shared declarations to
-  a selector list covering both). This is the cheapest correct implementation — do not re-derive it.
-- **`SpaceBackground.vue`** — under light mode: cap the elements (≤ 8, and pass a smaller
-  `initialElements`), lengthen the spawn interval, drop the per-element `hue-rotate-[…]` colour
-  classes (`getRandomColorClass`, `SpaceBackground.vue:31-41,82-86`), and stop the
-  `moveRight` background scroll (`.image-animation`, `SpaceBackground.vue:179-204`).
-- **`.section-backdrop`** (`global.css:449-463`) — freeze `sectionBgScroll` (already covered by the
-  reduced-motion block above) and drop `will-change: background-position`.
-- **`.nebula-field` / `.nebula-field--tinted`** (`global.css:483-519`) — **keep the gradients**; drop
-  the `filter: hue-rotate(...) saturate(...)` under light mode. The per-section tint is lost, which is
-  an accepted trade. **Do not delete these classes** — they are unrelated to the app's deleted
-  `NebulaField.vue`.
-- **`index.astro:459` `.hero-comet`** — `animation: none` (already handled at `:469` for reduced
-  motion; extend the same way).
-- **No UI control.** LP mode GIFs (`cosmicsprint.gif`, `beastmode.gif`, `spacejackpot.gif`) keep
-  animating (decision #8).
-
-### 7.7 Efficiency audit (in scope, normal mode must not change)
+### 7.6 Efficiency audit (in scope, normal mode must not change)
 
 Findings from code exploration; fix what profiling confirms:
 
@@ -285,9 +253,8 @@ Findings from code exploration; fix what profiling confirms:
 4. **`GameBackground.vue:130-191` / `NebulaField`'s former loop** — two independent rAF loops each
    doing their own frame throttling. With the nebula deleted only one remains; no consolidation
    needed.
-5. **`SpaceBackground.vue` (LP)** — `getRandomElement` rebuilds the whole rarity-weighted pool on
-   every spawn (`:43-58`); hoist it to a module-level constant. Same pattern exists in the app's
-   `GameBackground.vue:61-68`.
+5. **`GameBackground.vue:61-68`** — `getRandomElement` rebuilds the whole rarity-weighted pool on
+   every spawn; hoist it to a module-level constant (recomputed only if `availableElements` changes).
 
 Anything that would alter normal mode's appearance is out of bounds — if a "fix" changes the look,
 skip it and note why.
@@ -315,14 +282,21 @@ flowchart TD
 
 ## 9. Out of scope
 
+- **The landing page (`monkify-lp`)** — entirely out of scope; **not touched**. For a future LP card,
+  the groundwork found during this exploration: the LP is CSS-animation driven (no rAF) and its cost
+  is concentrated in per-element `hue-rotate` filters in `SpaceBackground.vue:31-41,82-86`, two
+  continuously animated `background-position` layers (`.image-animation` `moveRight` and
+  `.section-backdrop` `sectionBgScroll`, `global.css:449-463`), and the `filter` on
+  `.nebula-field` / `.nebula-field--tinted` (`global.css:483-519` — **static CSS classes, unrelated to
+  the app's deleted `NebulaField.vue`**). Its existing `prefers-reduced-motion` block
+  (`global.css:637-670`) already disables the right animation set and would be the cheapest hook.
 - **Terminal / typer rendering** — `GameTerminal.vue` and the per-character DOM churn in
   `useGame.ts`. Not touched.
 - Any backend, DB, SignalR or game-flow change.
-- The animated mascot and the LP mode GIFs (kept animated in light mode).
+- The animated mascot (kept animated in light mode).
 - Redesigning normal mode — it must look unchanged apart from the deleted nebula.
 - Any user-facing setting, toggle, URL param or persisted preference.
 - A server-side or per-operator performance setting.
-- Deleting the LP's unrelated `.nebula-field` CSS classes.
 
 ---
 
@@ -349,14 +323,9 @@ flowchart TD
 | 11 | `src/components/game/GameMonkey.vue` | Drop the infinite `wobble` wrapper animation under light mode (mascot art still animates) |
 | 12 | `src/components/background/TorpedoSpawner.vue` | `blast` keyframe `right` → `transform: translateX()` (benefits both modes) |
 
-### 10.3 Frontend (`monkify-lp`, branch `master`)
+### 10.3 Landing page (`monkify-lp`)
 
-| # | File | Change |
-| --- | --- | --- |
-| 1 | `src/layouts/Layout.astro` | Inline pre-paint script: mobile media query + WebGL renderer probe (+ optional FPS fallback) → adds `light-graphics` to `<html>` |
-| 2 | `src/styles/global.css` | Extend the reduced-motion block (`:637-670`) to also match `:root.light-graphics`; drop `filter` on `.nebula-field*`; drop `will-change` on `.section-backdrop` |
-| 3 | `src/components/SpaceBackground.vue` | Light-mode: element cap ≤ 8, longer spawn interval, no `hue-rotate` colour classes, frozen `moveRight` scroll; hoist the rarity pool out of `getRandomElement` |
-| 4 | `src/pages/index.astro` | `.hero-comet` animation off under light mode (mirror the existing reduced-motion rule at `:469`) |
+**None** — repo not touched (out of scope, §9).
 
 ### 10.4 Meta (`monkify-meta`)
 
@@ -371,8 +340,7 @@ flowchart TD
 
 **None.** `monkify-backend` is untouched, so `SpaceStroker.Tests` needs no change and — per
 `constraints.md` §3 — **no integration test is required** (bug fix / QOL, no game-flow change).
-Neither `monkify-front` nor `monkify-lp` has a test suite; verification is the build + lint + the
-manual QA in §13.
+`monkify-front` has no test suite; verification is the build + lint + the manual QA in §13.
 
 ---
 
@@ -397,12 +365,11 @@ prefixed `[REVISED]`).
    then a short (~2 s) rAF FPS sample decides the mode — sustained low FPS engages light mode, a
    healthy sample leaves normal mode active.
 6. Given detection is inconclusive on both signals, when the app boots, then normal mode is used.
-7. Given any surface of the app or the LP, when the player looks for a graphics/performance setting,
-   then none exists — the customization modal is unchanged, nothing is written to or read from
-   `localStorage`, and the mode comes from detection alone on every load.
-8. Given a viewport below the `lg` breakpoint (1024px, portrait or landscape phone), when the app or
-   the LP loads, then light mode is active unconditionally regardless of what detection would have
-   returned.
+7. Given any surface of the app, when the player looks for a graphics/performance setting, then none
+   exists — the customization modal is unchanged, nothing is written to or read from `localStorage`,
+   and the mode comes from detection alone on every load.
+8. Given a viewport below the `lg` breakpoint (1024px, portrait or landscape phone), when the app
+   loads, then light mode is active unconditionally regardless of what detection would have returned.
 9. Given a desktop viewport, when the window is resized or a phone rotated across the `lg` breakpoint
    mid-game, then the mode follows the breakpoint (below `lg` always light, above `lg` back to the
    detection verdict) without remounting the terminal, dropping the SignalR connection, or restarting
@@ -416,11 +383,9 @@ prefixed `[REVISED]`).
 12. Given light mode is active, when the lobby and game screen render, then the infinite CSS
     animations (`bar-scan`, `pulse`, `blink`, `crt-flicker`, `wobble`), `mix-blend-mode` overlays, and
     multi-layer `box-shadow` / `text-shadow` glows are replaced by static styling.
-13. Given light mode is active, when the game screen and the LP render, then the animated mascot and
-    the LP mode GIFs still animate.
-14. Given hardware acceleration is off, when the landing page loads, then the same detection engages
-    its reduced-cost branch (no blur, no infinite animations, cheaper `SpaceBackground`) with no
-    toggle UI shown.
+13. Given light mode is active, when the game screen renders, then the animated mascot still animates.
+14. Given this ticket, when `monkify-lp` is inspected, then it has **no** changes — the landing page
+    is out of scope and its branch/worktree were removed.
 15. Given the game is embedded in an operator iframe on a software-rendering browser, when it loads,
     then light mode engages automatically and the existing postMessage embed contract is unchanged
     (no new or missing events).
@@ -431,15 +396,13 @@ prefixed `[REVISED]`).
     `visibilitychange` pause/resume still works with no runaway or double-scheduled rAF loop.
 18. Given `prefers-reduced-motion` is set, when the app renders in either mode, then motion is at
     least as reduced as it is today and never more animated than before this change.
-19. Given hardware acceleration is ON and no mobile viewport, when the app and LP render, then normal
-    mode is used and the accelerated visuals are unchanged from today apart from the removed nebula
-    layer.
+19. Given hardware acceleration is ON and no mobile viewport, when the app renders, then normal mode
+    is used and the accelerated visuals are unchanged from today apart from the removed nebula layer.
 20. Given the animation loops are profiled, when avoidable per-frame work is found (rebuilt style
     objects, reactive-array churn, redundant re-renders), then it is removed with no visible change to
     normal mode.
-21. Given the change is complete, when `yarn lint` and `yarn build` run in `monkify-front` and
-    `npm run build` runs in `monkify-lp`, then all pass and browser QA in both modes shows 0 console
-    errors.
+21. Given the change is complete, when `yarn lint` and `yarn build` run in `monkify-front`, then both
+    pass and browser QA in both modes shows 0 console errors.
 
 ---
 
@@ -459,13 +422,12 @@ available"** (requires a browser restart). Verify the verdict in DevTools with
    accel **ON**: `light-graphics` must still be present (decision #5).
 4. **Breakpoint crossing** — with a game running, drag the window across 1024px. Mode flips; terminal
    keeps its content, chat stays connected, audio does not restart.
-5. **LP** — load the landing page with accel off: no blur, marquee/coin/ship/drift animations frozen,
-   background scroll stopped, mode GIFs still playing.
+5. **LP** — not applicable; the landing page is out of scope and must show no diff.
 6. **Embedded** — open `public/embed-example.html` with accel off: light mode engages; the parent
    still receives `ready` / `game-started` / `bet-placed` and no new event types.
 7. **Reduced motion** — enable `prefers-reduced-motion` in DevTools rendering options; confirm nothing
    animates more than before, in either mode.
-8. **Builds** — `yarn lint && yarn build` (front), `npm run build` (LP).
+8. **Builds** — `yarn lint && yarn build` in `monkify-front`.
 
 ---
 
@@ -474,10 +436,10 @@ available"** (requires a browser restart). Verify the verdict in DevTools with
 - **Source card:** [#83 — game is super laggy when hardware acceleration is off in chrome](https://trello.com/c/wsiDoPfK)
   — list **Specs created**; the **Implementation** section on the card carries branch, worktree and
   spec path.
-- **Worktrees:** `.worktrees/light-graphics-mode/{monkify-front,monkify-lp,monkify-meta}`; branch
-  `feature/light-graphics-mode` in all three (LP's is off `origin/master`).
+- **Worktrees:** `.worktrees/light-graphics-mode/{monkify-front,monkify-meta}`; branch
+  `feature/light-graphics-mode` in both, merging into **`main`**.
 - **Next:** `/monkify-implement-feature` to build it, then `/monkify-ship-feature` to sync the KB and
-  merge. Note for ship: the LP merges into **`master`**, the other two into **`main`**.
+  merge.
 
 ---
 
@@ -486,3 +448,4 @@ available"** (requires a browser restart). Verify the verdict in DevTools with
 | Date | Change |
 | --- | --- |
 | 2026-07-22 | Initial spec from refined card #83, incorporating the same-session revisions (nebula deleted permanently, no picker, mobile always light) and a live perf check confirming the nebula as the dominant cost |
+| 2026-07-22 | **Scope corrected to app-only** — `monkify-lp` removed from the spec (its branch + worktree deleted). The LP's findings are preserved in §9 for a future card. Affected repos are now `monkify-front` + `monkify-meta`. |
