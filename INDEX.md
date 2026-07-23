@@ -146,6 +146,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/twitter-marketing-campaign.md` | **Marketing content (Minor change), `monkify-meta` only:** a **$0-budget organic Twitter/X launch campaign** for **@SpaceStroker** ahead of the **2026-07-23** crypto launch. Deliverable `marketing/twitter-launch-campaign.md` — account **bio** (143 chars), ready-to-paste **tweet copy** (4 pre-launch teasers, a 6-tweet launch-day thread, 6 first-week posts incl. an Edson lore thread), a **relative-day schedule** (T-2…T+7), an **organic growth playbook** (cold-start seeding, named Solana communities + spoofing warning, reply-first tactics, hashtags, post times, free KOL outreach + a precedent scan), and **per-tweet media direction** reusing existing Edson/arcade assets. English-only; **link-in-bio + first-reply** with a `[PLAY_URL]` placeholder; token-free USDC/Solana, provably-fair, "No token. Yet." + anti-scam, **no-financial-promise / no-fake-metrics** guardrails. Sibling of Telegram #77. No code; **no integration test / `features/` doc** (content-only). | Shipped |
 | `features/lp-final-adjustments.md` | **Frontend-only (LP):** distilled — the Space Stroker LP's 3 mode cards now match the seeded **Main** types (**Cosmic Sprint** = 6-char alphanumeric race; **Beast Mode** = back 1 of 8 beasts; **Space Jackpot** = daily/24h lottery), each with its own animated GIF + first-frame poster (scene art `object-cover`, Space Jackpot `object-top`); real launch/social links (`app.spacestroker.com`, X, Telegram; **Discord removed**), LP `site` = `spacestroker.com`; `#token` "TBD coin" final (markers gone); roadmap reads as goals; no `/placeholder.png` fallback. No backend/DB/test. | Shipped |
 | `specs/lp-final-adjustments.md` | **Frontend-only (LP), `monkify-lp` (`master`) + `monkify-meta`:** final pre-launch honesty/polish pass on the Space Stroker LP. Correct the 3 factually-wrong `GameModes.vue` mode texts vs the seeded **Main** types (Sprint = one 6-char **alphanumeric** race, not "6 letters · 6 numbers"; Derby = back 1 of **8** runners, not the invented "rabbit/monkey/jaguar/falcon"; Millions = **once-a-day/24h** lottery, not "every 4h"); rename to **Cosmic Sprint / Beast Mode / Space Jackpot**, wire new `cosmicsprint.gif` + `spacejackpot.gif` (+ posters, uniform square `object-cover` frames); **remove** the `#token` "TBD coin" markers (visual final); Header logo `href="#"`→`#hero`; **fill** PLAY_URL (`app.spacestroker.com`) + X/Telegram, **remove Discord**, `site`=`spacestroker.com`; audit roadmap HI-SCORE as goals + `/placeholder.png` unreachable. No backend/front/DB/test. | Shipped |
+| `features/light-graphics-mode.md` | **Frontend-only (app):** distilled — automatic **light graphics mode** for CPU-rasterized browsers (Chrome with hardware acceleration off) + the permanent deletion of `NebulaField.vue`. Verdict per load, **no UI/persistence**: mobile (`< lg`) ⇒ always light → WebGL unmasked-renderer probe → ~2s rAF sample (<25 FPS) → inconclusive ⇒ normal; published as `html.light-graphics`. Light mode drops all blur/`backdrop-filter`, infinite animations, blend overlays and glows; background **keeps drifting** at 8 elements / 24 FPS / frozen scroll, torpedoes off. Mascot stays animated; `.section-vignette` kept. Normal mode unchanged. | Shipped |
 | `specs/light-graphics-mode.md` | **Frontend-only (app), `monkify-front` only — LP explicitly out of scope:** fix the near-unplayable frame rate when Chrome's **hardware acceleration is off**. (A) **Delete `NebulaField.vue`** outright — 5 clouds of 40–82vw radial gradient carrying `blur(24–54px)` **and** `mix-blend-mode: screen`, restyled every rAF tick; confirmed live as the dominant cost. (B) A **light graphics mode** with **no UI whatsoever** — resolved by **mobile short-circuit** (`< lg`/1024px ⇒ always light) → **WebGL unmasked-renderer probe** (SwiftShader/llvmpipe/software ANGLE) → **~2s rAF FPS sample**; both inconclusive ⇒ normal. New `usePerfMode` composable + a `html.light-graphics` root class; strips all `backdrop-filter`/`blur()`, the infinite animations (`bar-scan`/`pulse`/`blink`/`crt-flicker`/`wobble`, LP `drift-*`/`coinFloat`/`marquee`/`sectionBgScroll`), `mix-blend-mode` overlays and multi-layer glows; background **keeps drifting, heavily reduced** (cap 8, ~15 FPS, no bg scroll, torpedoes off). Mascot stays animated; `.section-vignette` stays (confirmed free). Includes an rAF efficiency audit (per-frame style-object rebuilds, `right`→`transform` on the torpedo blast). **`monkify-lp` is out of scope** (its findings are parked in the spec's §9 for a future card). **No backend/DB/unit/integration test** (bug fix / QOL). | Ready |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
@@ -168,9 +169,9 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- _In flight:_ **Light graphics mode (software-rendering performance)** —
+- _Last shipped:_ **Light graphics mode (software-rendering performance)** —
   `feature/light-graphics-mode` (**`monkify-front`** → `main` + **`monkify-meta`** → `main`; **no
-  backend, no LP**), **spec created 2026-07-22**. **App-only frontend bug fix /
+  backend, no LP**), **shipped 2026-07-22**. **App-only frontend bug fix /
   QOL.** With Chrome's hardware acceleration off (software rasterization) the game is close to
   unplayable. Two changes: **(A)** `NebulaField.vue` is **deleted permanently** — 5 clouds, each a
   40–82vw radial gradient carrying **both** `filter: blur(24–54px)` and `mix-blend-mode: screen`,
@@ -193,10 +194,12 @@ see "Skills — ensure installed" in `AGENTS.md`.
   `GameBackground`, hoisting the rarity pool, and `right`→`transform: translateX()` on the torpedo
   `blast` keyframe, which helps both modes). **The landing page (`monkify-lp`) is explicitly out of
   scope** — its perf findings are parked in the spec's §9 for a future card. Target ~30 FPS with no
-  input lag; normal mode otherwise unchanged.
+  input lag; normal mode otherwise unchanged (its 30 FPS background cap is pre-existing).
+  **Shipped deviation:** the light-mode frame target is **24 FPS**, not the drafted ~15 — raised in
+  live QA since the element cap + frozen scroll already carry the savings.
   Frontend-only ⇒ **no unit test, no integration test** (`constraints.md` §3 — bug fix / QOL);
-  DoD = `yarn lint` + `yarn build` + live browser QA with acceleration actually
-  disabled. Worktrees `.worktrees/light-graphics-mode/{monkify-front,monkify-meta}`. Spec
+  verified with `yarn lint` + `yarn build` clean + live browser QA with acceleration actually
+  disabled. Front `52fc9f1`. See `features/light-graphics-mode.md`; spec
   `specs/light-graphics-mode.md`; Trello #83 ([wsiDoPfK](https://trello.com/c/wsiDoPfK)).
 - _Last shipped:_ **LP final adjustments** — `feature/lp-final-adjustments`
   (**`monkify-lp`** → `master` + **`monkify-meta`** → `main`; **no backend/front**), **shipped

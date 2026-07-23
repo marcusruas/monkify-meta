@@ -1,6 +1,12 @@
 # Space Stroker — "Light graphics mode (software-rendering performance)" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped 2026-07-22** — merged to `main` via `feature/light-graphics-mode`
+> (`monkify-front` `52fc9f1`). Distilled summary: `../features/light-graphics-mode.md`.
+> **Shipped deviation:** the light-mode frame target is **24 FPS**, not the ~15 FPS drafted in §7.4 —
+> raised during live QA because the element cap and the frozen background scroll already carry the
+> savings. Everything else shipped as written.
+>
+> Refined via Trello card
 > [game is super laggy when hardware acceleration is off in chrome](https://trello.com/c/wsiDoPfK) (#83, 2026-07-22).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`.
 > **`monkify-backend` and `monkify-lp` are not affected** — this ticket is app-only (see §9).
