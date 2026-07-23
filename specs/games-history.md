@@ -1,8 +1,13 @@
 # SpaceStroker — "Games history" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Games history](https://trello.com/c/mg3naq8d/84-games-history) (2026-07-23).
+> **Status: Shipped** — merged via `feature/games-history` on 2026-07-23. Distilled into
+> `features/games-history.md`; this spec stays the authoritative deep-design archive.
+> Refined via Trello card [Games history](https://trello.com/c/mg3naq8d/84-games-history) (2026-07-23).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+>
+> **Post-ship note:** shipped with an added **`BetCount`** row field (total bets in the round, free
+> bets included) beyond the spec's original row list; the frontend route prefix is the live
+> `/space-stroker/*` (the `/monkify/*` in older drafts predates the rebrand).
 >
 > **Purpose:** Give a player a way to look back at rounds they've played. Provably-fair verification
 > (shipped 2026-07-23, `feature/provably-fair-final`) only covers the **current** round in the live
