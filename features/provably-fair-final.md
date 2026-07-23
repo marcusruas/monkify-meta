@@ -87,9 +87,11 @@ is cheap enough to open freely.
 
 **Reach (deliberate limits)**
 
-- **Current round only.** There is no round history, no game-id lookup, and no tokenless/public
-  verification — the endpoint stays launch-token + operator scoped. A player can verify the rounds they
-  played through; re-checking an older round needs a follow-up card.
+- **In-app FAIR tab covers the current round only** — no game-id lookup and no tokenless/public
+  verification; the endpoint stays launch-token + operator scoped. **Re-checking older rounds now
+  ships** via the **Games History** page (`features/games-history.md`): its per-row Verify button
+  fetches this same `GET /games/{id}/verification` payload for any completed round and hands it to the
+  offline `public/verify.html` (link-out only — no in-app replay on the history page).
 
 ## Key code touchpoints
 

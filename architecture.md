@@ -77,7 +77,10 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `GetActiveGameForParameter`, `GetGameTypeStats`, `Operators/GetOperatorById`). Read handlers
   may also be backed by dedicated services — e.g. `GET /games/{parametersId}/stats` aggregates
   per-game-type all-time stats on demand via `IGameStatsService` (Redis-cached, no new table).
-  See `features/game-type-stats.md`.
+  See `features/game-type-stats.md`. `GET /games/{parametersId}/history` (paginated completed-round
+  history for one game type) works the same way via `IGameHistoryService` — the public page is
+  Redis-cached 5 min per operator+type+page+size and the caller's own-bet columns are joined live.
+  See `features/games-history.md`.
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
@@ -338,13 +341,21 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
   `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:
   `GET /games/active-types`, `GET /games/{id}`, `POST /games/{id}/bets`, `GET /operators/{id}`,
-  `GET /players/preferences`, `PATCH /players/preferences`, `GET /fx/rates`.
-- **Player customization:** gear icon in `GameHeader.vue` opens `PlayerCustomizationModal.vue` (display
-  name + preferred currency dropdown, both for **all** operators). `useDisplayCurrency` loads FX rates +
-  prefs on app mount and converts USD amounts client-side; the preferred currency affects **`Standard`
-  games only** — `SolanaToken` games always render token-native. The gear is gated on operator
-  context derived from the launch token (survives an operatorId reset on a hard reload). See
-  `features/player-customization-modal.md` + `features/payment-methods.md`.
+  `GET /players/preferences`, `PATCH /players/preferences`, `GET /fx/rates`,
+  `GET /games/{parametersId}/stats`, `GET /games/{parametersId}/history`, `GET /games/{id}/verification`.
+- **Player customization:** a **menu button** in `GameHeader.vue` (gated on operator context derived
+  from the launch token, surviving an operatorId reset on a hard reload) holds **Settings** (opens
+  `PlayerCustomizationModal.vue` — display name + preferred currency dropdown, both for **all**
+  operators), **History** (the Games History page), and the dev-only **Admin** shortcut; audio
+  (mute/volume) and the wallet cluster stay directly on the header. `useDisplayCurrency` loads FX rates
+  + prefs on app mount and converts USD amounts client-side; the preferred currency affects **`Standard`
+  games only** — `SolanaToken` games always render token-native. See
+  `features/player-customization-modal.md`, `features/games-history.md`, + `features/payment-methods.md`.
+- **Games history:** `GameHistoryPage.vue` at `/space-stroker/game/history` (route `GameHistory`,
+  reached from the header menu) browses one game type's completed rounds via
+  `GET /games/{parametersId}/history` — paginated, "mine only" toggle, per-row Verify link-out to
+  `public/verify.html`. `App.vue` boots operator context (token + display prefs) for this route like
+  the lobby/game. See `features/games-history.md`.
 - **Wallet UX is per-game:** the header wallet cluster (`WalletButtons` + `TokenBalance`) shows only
   when the current game's `paymentMethod === SolanaToken` (using the game's `tokenSymbol` /
   `tokenMintAddress`), never for `Standard` or on the games list — driven by the game, not an
