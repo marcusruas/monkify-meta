@@ -2,6 +2,11 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/provably-fair.md`
 > (merged via `feature/provably-fair` on 2026-07-10).
+>
+> **Superseded in part by `provably-fair-final.md` (2026-07-23)** — verification now runs **in the app**
+> (the `FAIR` side-panel tab), the endpoint no longer replays the stream, and the "in-terminal recompute
+> intentionally dropped" decision below is reversed. The commit-reveal scheme, keystream RNG and client
+> seed/nonce derivation are untouched.
 
 ## What it does
 
@@ -40,11 +45,13 @@ independently reproducible.
   confirms their `Bet.Seed == HMAC(theirClientSeed, nonce)` — proof their entropy was used unmodified.
 - **Verification surface.** `GET /games/{id}/verification` (operator-scoped, reveal-gated) returns
   `serverSeedHash`, the ordered bet seeds/choices/nonces, `characterPool`, `queueLength`,
-  `maxCharacters`, and — once Ended — `serverSeed` + `winningChoice` + `winnerDecidedByFallback`. The
-  raw `clientSeed` is never returned. `ActiveGameDto` also carries `serverSeedHash` for the in-game
-  commitment line. Verification runs in the **backend endpoint** and a **standalone offline
-  `public/verify.html`** — the in-terminal "Verify this round" recompute was intentionally dropped; the
-  game terminal only **displays** the commitment (during betting) and the revealed seed (after Ended).
+  `maxCharacters`, and — once Ended — `serverSeed` + `winningChoice` + `winnerDecidedByFallback`
+  (plus `charactersTyped`, added by `provably-fair-final.md`). The raw `clientSeed` is never returned.
+  `ActiveGameDto` also carries `serverSeedHash` for the in-game commitment line. Players verify in the
+  **`FAIR` side-panel tab** (instant commitment + own-seed checks, opt-in Web Worker recompute) or in
+  the **standalone offline `public/verify.html`**; the game **terminal** still only *displays* the
+  commitment (during betting) and the revealed seed (after Ended) — that part was never re-added. See
+  `provably-fair-final.md`.
 - **Storage / migration (greenfield).** `Game.Seed` (`int?`) is removed; `Game.ServerSeed` +
   `Game.ServerSeedHash` (64) and `Bet.Nonce` are added; `Bet.Seed` widened `40 → 64`. Historical
   rows are not back-fillable (old int seeds cannot reproduce the HMAC stream) — acceptable (no prod
@@ -78,4 +85,6 @@ independently reproducible.
   (auto-fetched on Ended); `src/components/header/PlayerCustomizationModal.vue` — client-seed controls.
 - `src/services/mainService.ts` (`getGameVerification`), `src/types/index.ts`
   (`BodyGameBet.nonce`, `GameInstance.serverSeedHash`, `GameVerification`).
-- `public/verify.html` — standalone offline verifier.
+- `public/verify.html` — standalone offline verifier (kept; linked from the FAIR tab).
+- `src/components/game/GameFairPanel.vue` + `src/workers/verifyRound.worker.ts` — the in-app verifier
+  (added by `provably-fair-final.md`).

@@ -1,7 +1,19 @@
 # Space Stroker — "Provably Fair Final" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Provably fair final](https://trello.com/c/RcJrKixz) (2026-07-22).
+> **Status: Shipped 2026-07-23** — merged via `feature/provably-fair-final` (monkify-backend,
+> monkify-front, monkify-meta). Distilled in `../features/provably-fair-final.md`.
+>
+> **Two decisions below did NOT ship as written:**
+> 1. **`public/verify.html` was kept, not deleted.** The in-app panel runs code we ship; the standalone
+>    file is the "don't trust us" path a player saves and runs offline. It gained a character-count
+>    cross-check and a last-1,000-character download, and the FAIR tab links it with instructions. The
+>    3-way algorithm duplication therefore **remains** — keep `ProvablyFair.cs`,
+>    `src/utils/provablyFair.ts` and `public/verify.html` byte-identical.
+> 2. **The worker is instantiated as a CLASSIC worker**, not `{ type: 'module' }` (§ frontend): the
+>    module form loaded the chunk and died silently before `onmessage`. Worker payloads must also be
+>    plain objects — Vue reactive Proxies fail structured clone.
+>
+> Refined via Trello card [Provably fair final](https://trello.com/c/RcJrKixz) (2026-07-22).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Close the loop on the shipped provably-fair feature. Today a player *can* verify a

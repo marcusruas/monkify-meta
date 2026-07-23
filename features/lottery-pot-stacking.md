@@ -57,9 +57,13 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
 - **Player visibility.** The active-game DTO carries `CarriedExtra`; the `> POT:` line seeds from
   `LotteryPot + CarriedExtra + Σ live bets`, so the growing jackpot is visible before, during, and
   after a round (settlement math is unchanged — display only).
-- **Testable in dev.** A seeded, dev-only 1-minute **preset** lottery `6L Minute Menagerie` (Standard,
-  Letters, length 6, 8 animals, base pot 4, min 2, free bets on) lets the stack be exercised roughly
-  every minute — a preset lottery is the only shape that can produce the no-winner jackpot.
+- **Testable in dev.** ⚠️ **No longer seeded (2026-07-23).** The dev-only 1-minute preset lottery
+  `6L Minute Menagerie` lived in `GenerateDefaultParameters()`, which the dev operator stopped seeding
+  when it moved to the production catalogue (see `games.md`). The seeded dev lottery is now
+  **Space Jackpot** — a **24h, non-preset** draw, so it neither rolls every minute nor can produce the
+  preset no-winner carry. Exercising pot stacking locally now means creating a 1-minute preset lottery
+  by hand (admin `POST /admin/game-types`, or re-adding the `PresetLottery` factory call); the
+  `PresetLottery` helper is still there. Unit + integration coverage of the carry is unaffected.
 
 ## Key code touchpoints
 

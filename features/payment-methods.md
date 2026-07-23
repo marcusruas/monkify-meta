@@ -157,9 +157,13 @@ Every operator-level `isCryptoOperator` / `isRegulatedOperator` / `paymentModel`
   GUID (`GeneralSettings.OperatorWallets`, `Provider = "mock"`) → **Standard available**, and **one
   seeded `OperatorToken`** built from `GeneralSettings.Token` with its private key **encrypted** via
   `ISecretProtector` → **SolanaToken available**.
-- **Default game types:** all of `GenerateDefaultParameters()` are **Standard**; a separate
-  `GenerateCryptoDefaultParameters(operatorTokenId)` adds **three** SolanaToken defaults — **6L Solana
-  Sprint**, **6N Token Tumble**, **6X Crypto Clash** — referencing the seeded token.
+- **Default game types (changed 2026-07-23):** the dev operator now seeds the **production trio**
+  (`GenerateMainDefaultParameters` — Cosmic Sprint / Beast Mode / Space Jackpot), all **SolanaToken**
+  against the seeded dev token, with `AllowFreeBet` left on. `GenerateDefaultParameters()` (Standard)
+  and `GenerateCryptoDefaultParameters()` (**6L Solana Sprint**, **6N Token Tumble**, **6X Crypto
+  Clash**) are **no longer seeded** — they are test fixtures only. Standard settlement stays fully
+  reachable in dev (the mock wallet map is still provisioned, and the seed falls back to `Standard`
+  when no dev token is registered), but the seeded catalogue is crypto. See `games.md`.
 - `DevController` resolves the single dev operator; the dev launch token carries `sub = dev-player` so
   Standard identity works, and SolanaToken games still get their wallet from wallet-connect.
 - **Config:** `GeneralSettings.SecretProtection.Key` (mock passphrase) added to `spacestrokersettings.json`;

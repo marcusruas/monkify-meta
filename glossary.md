@@ -76,11 +76,17 @@
 - **Provably-fair verification** — reproducing a round's outcome from published inputs. Exposed by the
   reveal-gated `GET /games/{id}/verification` (operator-scoped): pre-Ended returns `serverSeedHash` +
   ordered bet seeds/choices/nonces + `characterPool`/`queueLength`/`maxCharacters`; post-Ended adds
-  `serverSeed` + `winningChoice` + `winnerDecidedByFallback` (the raw `clientSeed` is never returned).
-  Anyone replays the HMAC keystream to reproduce the winner; a standalone offline `public/verify.html`
-  does it without contacting SpaceStroker. There is **no in-terminal recompute** — the game terminal only
-  displays the commitment (during betting) and the revealed seed (after Ended). See
-  `features/provably-fair.md`.
+  `serverSeed` + `winningChoice` + `winnerDecidedByFallback` + `charactersTyped` (the raw `clientSeed`
+  is never returned). Anyone replays the HMAC keystream to reproduce the winner. Players do it in the
+  **`FAIR` side-panel tab** (instant commitment + own-bet-seed checks, opt-in Web Worker recompute,
+  hidden when embedded, locked until the round ends) or in the standalone offline `public/verify.html`,
+  which contacts nothing. There is still **no in-terminal recompute** — the game terminal only displays
+  the commitment (during betting) and the revealed seed (after Ended). The endpoint never replays the
+  stream and caches settled rounds. See `features/provably-fair.md` and `features/provably-fair-final.md`.
+- **CharactersTyped** — how many characters a run actually produced, persisted on `Game` in the same
+  `SaveChanges` as the winner. `winnerDecidedByFallback` is **derived** from it
+  (`CharactersTyped >= MaxCharacters`) instead of replayed; `null` means **unknown**, never `false`. Also
+  sizes the FAIR panel's opt-in recompute. See `features/provably-fair-final.md`.
 - **Characters Away / near-miss** — a player-facing, display-only reveal: while a round runs, a
   bottom-docked terminal row per **own** bet choice shows how close the monkey has come to typing it
   (`> N AWAY!`, `away = L − k` where `k` = longest stream-suffix that is a prefix of the choice — a

@@ -58,7 +58,8 @@ anonymous Main token** via a new production-enabled endpoint and uses it. All Ma
 
 - `SpaceStroker.Consumers/Program.cs` — `CreateDefaultOperatorAsync` (seeds Main in all envs, DEV
   non-prod-gated), `EnsureMainOperator`, `EnsureMainOperatorToken`; `CreateDefaultGameParametersAsync`
-  (Main branch seeds the 3 SolanaToken types).
+  (Main branch seeds the 3 SolanaToken types — and **since 2026-07-23 the DEV branch seeds the same
+  three**, against the dev token with free bets left on; see `games.md`).
 - `SpaceStroker.Consumers/DefaultGameParameters.cs` — `GenerateMainDefaultParameters(operatorTokenId)`
   (+ `MainBase`/`MainRace`/`MainPreset`/`MainLottery`).
 - `SpaceStroker.Api/Controllers/LaunchController.cs` — `POST /launch-token/default` (anonymous, Main-only).

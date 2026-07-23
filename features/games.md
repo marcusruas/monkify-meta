@@ -73,22 +73,29 @@ A type's mode is derived from **which optional fields are set** — there is no 
 These are independent flags, so combinations are technically possible (e.g. preset + lottery); the
 seeded defaults don't combine them. The reward pot differs only for lottery (it adds `LotteryPot`).
 
-### Seeded default games (non-production)
+### Seeded default games — dev seeds the SAME catalogue production runs (since 2026-07-23)
 
-`DefaultGameParameters.GenerateDefaultParameters()` seeds these on startup (all: min 2 players,
-1-token entry, duplicates allowed). In dev they are owned by the seeded
-"DEV Cassino" operator (see `operators.md`); see `constraints.md`/`architecture.md` for the
-production caveat.
+`CreateDefaultGameParametersAsync` seeds **`DefaultGameParameters.GenerateMainDefaultParameters()`**
+for **both** the "DEV Cassino" operator (non-production only) and **Main** (all environments), so what
+is exercised locally is what ships:
 
+| Name          | Charset | Len | Mode                                                                                 |
+| ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
+| Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
+| Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) |
+| Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
-| Name                 | Charset | Len | Mode                                                                                    |
-| -------------------- | ------- | --- | --------------------------------------------------------------------------------------- |
-| 6L Lexicon Lightning | Letters | 6   | Free-type race                                                                          |
-| 6N Digit Derby       | Number  | 6   | Free-type race                                                                          |
-| 6L Savanna Stakes    | Letters | 6   | Preset race (8 animals: rabbit, monkey, donkey, pigeon, cougar, falcon, turtle, jaguar) |
-| 6L Menagerie Mayhem  | Letters | 6   | Preset race (same 8 animals)                                                            |
-| 6L Quarter Quill Pot | Letters | 6   | Lottery (pot 4, draw every 4h)                                                          |
-| 8L Octave Overnight Jackpot | Letters | 8   | Lottery (pot 4, draw daily ~23h59m)                                              |
+All: min 2 players, stake 2, duplicates allowed, `PaymentMethod.SolanaToken` backed by that operator's
+registered token. Two things differ for the dev copies, both because they must: they point at the
+**DEV operator's own token**, and **`AllowFreeBet` stays `true`** so the free-bet path is testable
+without a funded wallet (Main has free bets **off**). If no dev token is registered they fall back to
+`Standard` so the local stack still has games.
+
+> **`GenerateDefaultParameters()` / `GenerateCryptoDefaultParameters()` are no longer seeded.** The old
+> broad dev catalogue (Letters/Number/NumbersAndLetters races, preset races, 4h + 24h lotteries at
+> lengths 6 and 8, plus three crypto types) survives **only as test fixtures** — `ProductionGameTests`
+> picks a game from it by name and the integration harness seeds all of them. Do not trim those lists
+> to match dev, and do not expect those game names to exist in a running stack.
 
 
 ---

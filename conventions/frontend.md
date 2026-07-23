@@ -54,6 +54,16 @@
   `tokenMintAddress` and posts the returned signature + wallet; Standard posts `{ amount, choice, seed }`
   with no wallet/signature (identity via the launch token `sub`). The `Bet.PaymentSignature` field is
   gone — the reference is carried as `ExternalTransactionReference` server-side.
+- **Web Workers** (`src/workers/`, first introduced by the FAIR panel's outcome replay): instantiate as
+  a **classic** worker — `new Worker(new URL('@/workers/x.worker.ts', import.meta.url))` **without**
+  `{ type: 'module' }`. Webpack emits the chunk as a plain IIFE bundle; asking for a module worker made
+  the browser load the chunk (HTTP 200) and then die silently before `onmessage` ever ran. Always wire
+  `onerror` as well as `onmessage` — a worker that fails to load must say so, not sit at 0% forever.
+  **Anything sent through `postMessage` must be a plain object:** structured clone rejects Vue reactive
+  Proxies with `DataCloneError: [object Array] could not be cloned`, so hold worker payloads in a
+  `shallowRef` and/or send `toRaw(...)` with copied arrays. Cancel by `terminate()` rather than a
+  cancel message (a message can be missed between ticks), and always terminate on unmount. Keep the
+  algorithm in `src/utils/` and **import** it from the worker so the bundle carries one copy.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
 - **Design system (required):** **always build new UI with the existing frontend design system** —
