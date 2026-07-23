@@ -15,6 +15,8 @@ locals {
     "GeneralSettings-LaunchTokens-MainSigningPrivateKeyPem",
     "GeneralSettings-SecretProtection-Key",
     "GeneralSettings-Fx-ApiKey",
+    # The RPC endpoint carries the provider's api-key in its query string, so the whole URL is a secret.
+    "GeneralSettings-Token-ClusterUrl",
   ]
 
   secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
@@ -29,6 +31,7 @@ locals {
     "GeneralSettings__LaunchTokens__MainSigningPrivateKeyPem" = "GeneralSettings-LaunchTokens-MainSigningPrivateKeyPem"
     "GeneralSettings__SecretProtection__Key"                  = "GeneralSettings-SecretProtection-Key"
     "GeneralSettings__Fx__ApiKey"                             = "GeneralSettings-Fx-ApiKey"
+    "GeneralSettings__Token__ClusterUrl"                      = "GeneralSettings-Token-ClusterUrl"
   }
 
   secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }

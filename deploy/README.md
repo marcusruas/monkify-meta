@@ -193,9 +193,18 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 | Where | Keys |
 | --- | --- |
 | **`gcp`** | `projectId`, `region`, `dnsZoneName`, `dnsDomain`, `domains.{api,app,lp,lpWww}`, `consumerCount`, `apiMinInstances`, `apiMaxInstances`, `enableDeletionProtection`, `dbInstanceSuffix` (optional) — **no `stateBucket`**, it is derived |
-| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Token:TokenOwnerPrivateKey`, `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`, `GeneralSettings:Fx:ApiKey` |
-| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Token:{ClusterUrl(mainnet),MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:LaunchTokens:MainOperatorPublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
+| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Token:TokenOwnerPrivateKey`, `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`, `GeneralSettings:Fx:ApiKey`, **`GeneralSettings:Token:ClusterUrl`** (#62 — the Solana RPC endpoint is a secret because the provider's api-key rides in its query string) |
+| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Token:{FallbackClusterUrl(public mainnet),MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:LaunchTokens:MainOperatorPublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
 | **`frontBuild`** (baked into the SPA) | `VUE_APP_API_BASE_URL`, `VUE_APP_WEBSOCKET_BASE_URL`, `VUE_APP_SOLANA_NETWORK=mainnet-beta`, `VUE_APP_USDC_TOKEN_ADDRESS`, `VUE_APP_GAME_TOKEN_ADDRESS`, `VUE_APP_ALLOW_FREE_BETS=false`, `VUE_APP_DEV_LAUNCH=false` |
+
+> **Migrating an existing `secrets.<env>.json` for #62 (Helius RPC).** `GeneralSettings:Token:ClusterUrl`
+> **moved from `appConfig` to `secrets`** — `appConfig` entries become *plaintext* Cloud Run env vars, and
+> the endpoint now carries an api-key. In your local file: move that key into the `secrets` block and set
+> it to your Helius URL (`https://mainnet.helius-rpc.com/?api-key=…`, or `devnet.helius-rpc.com` for the
+> development environment), then add `"GeneralSettings:Token:FallbackClusterUrl": "https://api.mainnet-beta.solana.com/"`
+> to `appConfig` (public, keyless — it is the endpoint the backend falls back to after the primary's
+> retries are exhausted; leave it blank to disable failover). Re-run the secret sync so the new Secret
+> Manager entry exists before the next apply.
 
 > The game-DB user needs **CREATE DATABASE** (or pre-create `spacestroker_messaging`) so the MassTransit
 > Postgres transport can provision its DB at Consumers startup (#64). Both DBs are declared in the

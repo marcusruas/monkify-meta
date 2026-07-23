@@ -388,7 +388,7 @@ null-check, warning, and error message):
 | Call site | Change |
 | --- | --- |
 | `GetLatestBlockhashForTokenTransfer` (`:67`) | wrap in `ExecuteRpcAsync("getLatestBlockhash", …)`; predicate `x is null \|\| !x.WasSuccessful \|\| string.IsNullOrWhiteSpace(x.Result?.Value?.Blockhash)` |
-| `TransferTokens` (`:146`) | wrap `GetTokenAccountsByOwnerAsync`; predicate `x is null \|\| !x.WasSuccessful \|\| x.Result?.Value is null \|\| !x.Result.Value.Any()` — note this folds the existing "no token account" check into the retry/fallback decision, which is intended (a throttled response and an empty result are indistinguishable to the caller today) |
+| `TransferTokens` (`:146`) | wrap `GetTokenAccountsByOwnerAsync`; predicate `x is null \|\| !x.WasSuccessful` — **transport failures only.** An empty account list is a *successful* response describing a business fact, so it is **not** retried and the existing empty-list check at `:148-152` stays exactly where it is (see §15, 2026-07-23) |
 | `TransferTokens` (`:162`) | wrap `SendTransactionAsync`; predicate `x is null \|\| !x.WasSuccessful \|\| string.IsNullOrWhiteSpace(x.Result)` |
 | `ValidateBetPayment` (`:174`) | wrap `GetTransactionAsync`; predicate `x is null \|\| !x.WasSuccessful` |
 
@@ -601,4 +601,5 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist:
 
 | Date | Change |
 | --- | --- |
+| 2026-07-23 | **Implementation deviation (§6.5):** the `getTokenAccountsByOwner` retry predicate is **transport-only** (`x is null \|\| !x.WasSuccessful`). The spec originally folded the "wallet has no token account" check into it; an empty list is a *successful* RPC response describing a business fact, and retrying it would spend four extra calls (plus a fallback) on every payout to a wallet that legitimately has no ATA. The existing empty-list check stays where it was, and a unit test now pins "not retried". |
 | 2026-07-23 | Initial spec from the refined card (#62) + code exploration. Two findings recorded that the card did not have: `ClusterUrl` must move from the deploy tool's `appConfig` to `secrets` (plus two hard-coded Terraform lists), and the card's "keyed DI" note is replaced by `ISolanaRpcClientProvider` (§3 decision 14). |
