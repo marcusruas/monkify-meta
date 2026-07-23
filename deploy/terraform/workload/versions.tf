@@ -8,8 +8,11 @@ terraform {
     }
   }
 
-  # Remote state in the versioned state bucket (persistent layer), under the workload prefix.
-  #   terraform init -backend-config="bucket=<state_bucket>" -backend-config="prefix=workload"
+  # Remote state in this ENVIRONMENT's versioned state bucket (created by the persistent layer),
+  # under the workload prefix. The bucket differs per environment, so always init with -reconfigure
+  # and a per-environment TF_DATA_DIR:
+  #   TF_DATA_DIR=.terraform-<envCode> terraform init -reconfigure \
+  #     -backend-config="bucket=spacestroker-tfstate-<envCode>-<projectId>" -backend-config="prefix=workload"
   backend "gcs" {}
 }
 

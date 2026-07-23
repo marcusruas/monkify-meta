@@ -3,7 +3,9 @@
 # Redis 7. No public IPs — reachable only over the VPC / private services peering.
 
 resource "google_sql_database_instance" "postgres" {
-  name             = "${var.name_prefix}-pg"
+  # GCP reserves a deleted instance name for ~7 days, so a same-week redeploy of a torn-down
+  # environment needs a new name — that is what db_instance_suffix is for.
+  name             = "${var.name_prefix}-pg${var.db_instance_suffix == "" ? "" : "-${var.db_instance_suffix}"}"
   project          = var.project_id
   region           = var.region
   database_version = "POSTGRES_16"

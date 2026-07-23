@@ -8,8 +8,13 @@ variable "region" {
 }
 
 variable "name_prefix" {
-  type    = string
-  default = "spacestroker"
+  type        = string
+  description = <<-EOT
+    Environment-scoped prefix for every project-global resource, always supplied by the deploy tool as
+    spacestroker-<envCode> (spacestroker-dev, spacestroker-prod). Development and production share one
+    GCP project, so this is what keeps them from colliding. The default is a bare fallback only.
+  EOT
+  default     = "spacestroker"
 }
 
 variable "labels" {
@@ -49,6 +54,16 @@ variable "enable_deletion_protection" {
   type        = bool
   description = "Cloud SQL deletion protection. teardown sets this false."
   default     = true
+}
+
+variable "db_instance_suffix" {
+  type        = string
+  description = <<-EOT
+    Optional suffix for the Cloud SQL instance name. GCP reserves a deleted instance name for ~7 days,
+    so redeploying an environment inside that window needs a new name — bump gcp.dbInstanceSuffix in
+    secrets.<env>.json (e.g. "2") instead of waiting.
+  EOT
+  default     = ""
 }
 
 variable "db_tier" {

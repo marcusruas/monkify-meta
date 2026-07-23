@@ -1,46 +1,54 @@
-# Placeholders only. The deploy tool generates production.auto.tfvars.json from
-# secrets.<env>.json (non-secret values here; db_app_password comes from secrets).
-project_id = "your-gcp-project-id"
-region     = "us-central1"
+# Placeholders only. The deploy tool generates <environment>.tfvars.json from secrets.<env>.json and
+# passes it with -var-file (deliberately NOT *.auto.tfvars.json: Terraform auto-loads every such file
+# in the directory, so two environments' files would both load and one would silently win).
+#
+# Every project-global name is ENVIRONMENT-SCOPED via name_prefix = spacestroker-<envCode>, because
+# development and production share one GCP project. This example shows production.
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+name_prefix = "spacestroker-prod"
 
-# Images are set per-deploy by the tool (…/api:<tag>, …/consumers:<tag>).
-api_image       = "us-central1-docker.pkg.dev/your-gcp-project-id/spacestroker/api:latest"
-consumers_image = "us-central1-docker.pkg.dev/your-gcp-project-id/spacestroker/consumers:latest"
+# Images are set per-deploy by the tool (…/<name_prefix>/api:<tag>, …/<name_prefix>/consumers:<tag>).
+api_image       = "us-central1-docker.pkg.dev/your-gcp-project-id/spacestroker-prod/api:latest"
+consumers_image = "us-central1-docker.pkg.dev/your-gcp-project-id/spacestroker-prod/consumers:latest"
 
 api_min_instances = 1
 api_max_instances = 10
 consumer_count    = 1
 
 enable_deletion_protection = true
-db_tier                    = "db-custom-2-7680"
-max_connections            = 200
-db_app_user                = "spacestroker_app"
-db_app_password            = "REPLACE_ME_from_secrets_file"
+# Bump when redeploying within ~7 days of destroying an instance (GCP reserves the name).
+db_instance_suffix = ""
+db_tier            = "db-custom-2-7680"
+max_connections    = 200
+db_app_user        = "spacestroker_app"
+db_app_password    = "REPLACE_ME_from_secrets_file"
 
 redis_tier           = "BASIC"
 redis_memory_size_gb = 1
 
-front_bucket_name = "spacestroker-front-your-gcp-project-id"
-lp_bucket_name    = "spacestroker-lp-your-gcp-project-id"
+front_bucket_name = "spacestroker-prod-front-your-gcp-project-id"
+lp_bucket_name    = "spacestroker-prod-lp-your-gcp-project-id"
 bucket_location   = "US"
 
-dns_zone_name = "spacestroker-zone"
+dns_zone_name = "spacestroker-prod-zone"
 domain_api    = "api.spacestroker.com"
 domain_app    = "app.spacestroker.com"
 domain_lp     = "spacestroker.com"
 domain_lp_www = "www.spacestroker.com"
 
 plain_env = {
-  "GeneralSettings__Token__ClusterUrl"                = "https://api.mainnet-beta.solana.com/"
-  "GeneralSettings__Token__MintAddress"               = "REPLACE_ME"
-  "GeneralSettings__Token__SenderAccount"             = "REPLACE_ME"
-  "GeneralSettings__Token__TokenOwnerPublicKey"       = "REPLACE_ME"
-  "GeneralSettings__Token__Decimals"                  = "6"
+  "GeneralSettings__Token__ClusterUrl"                      = "https://api.mainnet-beta.solana.com/"
+  "GeneralSettings__Token__MintAddress"                     = "REPLACE_ME"
+  "GeneralSettings__Token__SenderAccount"                   = "REPLACE_ME"
+  "GeneralSettings__Token__TokenOwnerPublicKey"             = "REPLACE_ME"
+  "GeneralSettings__Token__Decimals"                        = "6"
   "GeneralSettings__LaunchTokens__MainOperatorPublicKeyPem" = "REPLACE_ME_PEM"
-  "GeneralSettings__Cors__AllowedOrigins__0"          = "https://app.spacestroker.com"
+  "GeneralSettings__Cors__AllowedOrigins__0"                = "https://app.spacestroker.com"
 }
 
 labels = {
-  app        = "spacestroker"
-  managed_by = "terraform"
+  app         = "spacestroker"
+  managed_by  = "terraform"
+  environment = "production"
 }

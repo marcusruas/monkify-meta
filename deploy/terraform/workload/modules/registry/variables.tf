@@ -8,8 +8,7 @@ variable "region" {
 
 variable "repository_id" {
   type        = string
-  description = "Artifact Registry repository id (e.g. spacestroker)."
-  default     = "spacestroker"
+  description = "Artifact Registry repository id — always the env-scoped name_prefix (e.g. spacestroker-dev)."
 }
 
 variable "labels" {

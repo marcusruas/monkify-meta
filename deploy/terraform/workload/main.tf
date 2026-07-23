@@ -1,10 +1,13 @@
 locals {
+  # Environment-scoped: spacestroker-dev / spacestroker-prod, supplied by the deploy tool.
+  # Development and production share one GCP project, so every project-global name carries it.
   name_prefix = var.name_prefix
 
   # Secret Manager secret ids (sanitized — no colons). The deploy tool syncs each
   # secret's value from secrets.<env>.json as a new version; Terraform only creates
   # the containers, so no secret material lands in state or the repo.
-  secret_ids = toset([
+  # Ids are project-global, so they are env-prefixed like everything else.
+  base_secret_ids = [
     "ConnectionStrings-SpaceStroker",
     "ConnectionStrings-Messaging",
     "ConnectionStrings-Redis",
@@ -12,11 +15,14 @@ locals {
     "GeneralSettings-LaunchTokens-MainSigningPrivateKeyPem",
     "GeneralSettings-SecretProtection-Key",
     "GeneralSettings-Fx-ApiKey",
-  ])
+  ]
+
+  secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
 
   # ASP.NET env var name (double-underscore) -> Secret Manager secret id.
-  secret_env = {
-    "ConnectionStrings__SpaceStroker"                             = "ConnectionStrings-SpaceStroker"
+  # The env var NAMES are app config and never change; only the ids they point at are env-scoped.
+  base_secret_env = {
+    "ConnectionStrings__SpaceStroker"                         = "ConnectionStrings-SpaceStroker"
     "ConnectionStrings__Messaging"                            = "ConnectionStrings-Messaging"
     "ConnectionStrings__Redis"                                = "ConnectionStrings-Redis"
     "GeneralSettings__Token__TokenOwnerPrivateKey"            = "GeneralSettings-Token-TokenOwnerPrivateKey"
@@ -25,6 +31,10 @@ locals {
     "GeneralSettings__Fx__ApiKey"                             = "GeneralSettings-Fx-ApiKey"
   }
 
+  secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }
+
+  # Both hosts run the Production ASP.NET environment in Cloud Run even for the DEVELOPMENT GCP
+  # environment — it is a deployed environment, not a developer machine. Override via appConfig.
   plain_env = merge({ ASPNETCORE_ENVIRONMENT = "Production" }, var.plain_env)
 }
 
@@ -36,10 +46,12 @@ module "network" {
 }
 
 module "registry" {
-  source     = "./modules/registry"
-  project_id = var.project_id
-  region     = var.region
-  labels     = var.labels
+  source = "./modules/registry"
+  # One repo per environment, so a development teardown deletes its own images only.
+  repository_id = local.name_prefix
+  project_id    = var.project_id
+  region        = var.region
+  labels        = var.labels
 }
 
 module "iam" {
@@ -56,6 +68,7 @@ module "data" {
   network_id                 = module.network.network_id
   private_vpc_connection_id  = module.network.private_vpc_connection_id
   enable_deletion_protection = var.enable_deletion_protection
+  db_instance_suffix         = var.db_instance_suffix
   db_tier                    = var.db_tier
   max_connections            = var.max_connections
   db_app_user                = var.db_app_user

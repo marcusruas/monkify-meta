@@ -26,6 +26,12 @@ variable "enable_deletion_protection" {
   default     = true
 }
 
+variable "db_instance_suffix" {
+  type        = string
+  description = "Optional Cloud SQL instance-name suffix (GCP reserves a deleted instance name ~7 days)."
+  default     = ""
+}
+
 variable "db_tier" {
   type    = string
   default = "db-custom-2-7680"

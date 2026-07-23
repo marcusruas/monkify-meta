@@ -27,6 +27,20 @@ public sealed class SecretsFile
         if (string.IsNullOrWhiteSpace(parsed.Gcp.ProjectId) || parsed.Gcp.ProjectId.StartsWith("your-"))
             throw new DeployException($"{path}: gcp.projectId is still a placeholder — fill in the real project id.");
 
+        if (string.IsNullOrWhiteSpace(parsed.Environment))
+            throw new DeployException($"{path}: 'environment' is required — it drives every resource name.");
+
+        // The state bucket is DERIVED (spacestroker-tfstate-<envCode>-<projectId>) so a development
+        // teardown can delete its own bucket without ever touching production state. An authored value
+        // would silently disagree with the backend config the tool passes to terraform init.
+        if (!string.IsNullOrWhiteSpace(parsed.Gcp.StateBucket))
+            throw new DeployException(
+                $"{path}: 'gcp.stateBucket' is no longer authored — it is derived as " +
+                "spacestroker-tfstate-<envCode>-<projectId>. Remove the field.");
+
+        // Fails fast on a bad 'environment' before anything else reads it.
+        EnvNaming.ToEnvCode(parsed.Environment);
+
         return parsed;
     }
 
@@ -42,6 +56,7 @@ public sealed class GcpSection
 {
     [JsonPropertyName("projectId")] public string ProjectId { get; set; } = "";
     [JsonPropertyName("region")] public string Region { get; set; } = "us-central1";
+    /// <summary>Legacy field — kept only so an old secrets file parses and trips the "remove it" error.</summary>
     [JsonPropertyName("stateBucket")] public string StateBucket { get; set; } = "";
     [JsonPropertyName("dnsZoneName")] public string DnsZoneName { get; set; } = "";
     [JsonPropertyName("dnsDomain")] public string DnsDomain { get; set; } = "";
@@ -50,6 +65,13 @@ public sealed class GcpSection
     [JsonPropertyName("apiMinInstances")] public int ApiMinInstances { get; set; } = 1;
     [JsonPropertyName("apiMaxInstances")] public int ApiMaxInstances { get; set; } = 10;
     [JsonPropertyName("enableDeletionProtection")] public bool EnableDeletionProtection { get; set; } = true;
+
+    /// <summary>
+    /// Optional suffix for the Cloud SQL instance name. GCP reserves a deleted instance name for ~7
+    /// days, so redeploying an environment inside that window needs a new name — bump this (e.g. "2")
+    /// instead of waiting.
+    /// </summary>
+    [JsonPropertyName("dbInstanceSuffix")] public string DbInstanceSuffix { get; set; } = "";
 }
 
 public sealed class Domains

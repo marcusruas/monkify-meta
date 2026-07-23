@@ -2,12 +2,14 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/terraform-gcp-deploy.md`
 > (merged via `feature/terraform-gcp-deploy` on 2026-07-17).
+> Extended by `../specs/terraform-development-deploy.md` (2026-07-23): **environment scoping** so
+> development and production coexist in one GCP project, and a **total development teardown**.
 
 ## What it does
 
-Provides the production **GCP** deployment for all of SpaceStroker as Infrastructure-as-Code plus two local
+Provides the **GCP** deployment for all of SpaceStroker as Infrastructure-as-Code plus two local
 **C# console tools**, all under `monkify-meta/deploy/`, driven by a single **unversioned local
-`secrets.<env>.json`**. It also makes the two backend hosts **Cloud-Run-ready** (health probes, forwarded
+`secrets.<env>.json`** per environment (`development`, `production`). It also makes the two backend hosts **Cloud-Run-ready** (health probes, forwarded
 headers, config-driven CORS) without changing any game behaviour. It is an **ops/infra** capability, not a
 player-facing feature; the real `terraform apply` is an operator step (needs a registered domain + real
 Solana/Fx secrets).
@@ -44,18 +46,52 @@ Solana/Fx secrets).
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.
 
-### Two-layer split (teardown keeps the domain)
-- **Persistent layer** — Cloud DNS zone + domain + remote-state bucket, guarded with `prevent_destroy`;
-  teardown never touches it.
-- **Workload layer** — everything else; `teardown` runs `terraform destroy` on this layer only (typed
-  confirmation, warns about irreversible Cloud SQL data loss, overrides deletion-protection). Re-running
-  `deploy` recreates the workload and re-attaches to the preserved DNS + managed certs.
+### Environment scoping (one GCP project, many environments)
+- `environment` in `secrets.<env>.json` yields an **env code** (`development → dev`, `production → prod`,
+  `staging → stg`, else the first 4 alphanumerics) and **every project-global id carries it**:
+  `name_prefix = spacestroker-<envCode>` for Cloud Run, service accounts, VPC/connector/NAT, Cloud SQL,
+  Memorystore, Artifact Registry, Secret Manager ids, the site buckets, LB/Armor/cert/IP and the DNS
+  zone. Development and production share one GCP project, so this is what stops them colliding.
+- The code is short by necessity: `spacestroker-development-consumers` (34) breaks the service-account
+  cap of 30 and `spacestroker-development-vpcconn` (32) breaks the VPC-connector cap of 25.
+- **One state bucket per environment** — `spacestroker-tfstate-<envCode>-<projectId>` (derived by the
+  tool, **not** authored in `secrets.<env>.json`), prefixes `persistent`/`workload`, with a per-env
+  `TF_DATA_DIR=.terraform-<envCode>` and `init -reconfigure`. **One data tier per environment** too
+  (`spacestroker-dev-pg` + `-redis`), so a dev teardown can never reach production data.
+- The tool **validates every derived id against its GCP cap before invoking Terraform**
+  (`spacestroker-deploy validate` prints them all); the emitted vars file is `<environment>.tfvars.json`
+  — deliberately not `*.auto.tfvars.json`, which Terraform would auto-load for every environment.
+
+### Two-layer split — two teardown behaviours
+- **Persistent layer** — Cloud DNS zone + remote-state bucket. `protect_persistent = true` (production)
+  creates them with `prevent_destroy` + `force_destroy = false`, so teardown never touches them;
+  `protect_persistent = false` (development) creates the *ephemeral* variants without `prevent_destroy`
+  and with `force_destroy = true`. They are **separate resources with mutually exclusive counts**
+  because `lifecycle.prevent_destroy` only accepts a literal.
+- **Workload layer** — everything else; destroyed in both modes (typed confirmation, warns about
+  irreversible Cloud SQL data loss, overrides deletion-protection).
+- **`teardown --env production`** = workload only; re-running `deploy` re-attaches to the preserved DNS
+  + managed certs.
+- **`teardown --env <non-production>`** = **TOTAL**: workload → persistent (state migrated to a local
+  backend first, since the bucket holds its own state) → sweep of leftover `spacestroker-<envCode>-*`
+  Secret Manager secrets → removal of the locally generated files (`<env>.tfvars.json`,
+  `.terraform-<envCode>/`, local state; never `secrets.<env>.json` or `*.tfvars`). Nothing
+  Terraform-created survives — only the registrar (GoDaddy) domain registration. Guardrails: production
+  is hard-blocked from this path, and a zone whose `dnsDomain` is the registrable apex
+  (`spacestroker.com.`) is refused — only sub-zones like `dev.spacestroker.com.` may be destroyed.
+- **`deploy` auto re-bootstraps** a missing persistent layer (local state → apply → migrate into the new
+  bucket) and prints the new nameservers to set at GoDaddy, so a total teardown is round-trippable
+  without raw Terraform. The tool never calls a registrar API; a dead NS delegation is only warned about.
+  Cloud SQL reserves a deleted instance name for ~7 days — `gcp.dbInstanceSuffix` exists for redeploys
+  inside that window.
 
 ### Console tools (`deploy/tools/`, standalone .NET 8, no reference to the backend solution)
-- **`spacestroker-deploy`** — `deploy [api|consumers|front|lp]` (or all) + `teardown`. Reads
-  `secrets.<env>.json`, syncs secrets → Secret Manager (values via stdin), emits `production.auto.tfvars.json`,
+- **`spacestroker-deploy`** — `deploy [api|consumers|front|lp]` (or all) + `teardown` + `validate`. Reads
+  `secrets.<env>.json`, validates every derived id, ensures/bootstraps the persistent layer, syncs secrets
+  → Secret Manager (values via a temp file, ids env-prefixed), emits `<environment>.tfvars.json`,
   builds/pushes images, `terraform apply`s, then builds the static sites (baking the `frontBuild` `VUE_APP_*`
-  values) + syncs to GCS + invalidates the CDN. Never prints a secret value.
+  values) + syncs to GCS + invalidates the CDN. Never prints a secret value. `EnvNaming` is the single
+  source of truth for names; `ProcessRunner` can capture stdout and set `TF_DATA_DIR` per invocation.
 - **`spacestroker-db`** — read-write REPL over the game or messaging DB via the Cloud SQL Auth Proxy + IAM;
   `SELECT`/`WITH`/`SHOW`/`EXPLAIN` run immediately, `INSERT`/`UPDATE`/`DELETE`/DDL require typing `YES`.
 
@@ -68,7 +104,8 @@ Solana/Fx secrets).
 
 - **Deploy IaC + tools:** `monkify-meta/deploy/` — `terraform/persistent/`, `terraform/workload/` (root +
   `modules/{network,data,registry,iam,secrets,cloud_run_api,cloud_run_consumers,static_site,edge}`),
-  `tools/SpaceStroker.Deploy/`, `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `README.md`.
+  `tools/SpaceStroker.Deploy/` (`EnvNaming.cs`, `Deployer.cs`, `ProcessRunner.cs`, `SecretsFile.cs`,
+  `Program.cs`), `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `.gitignore`, `README.md`.
 - **Backend readiness:** `monkify-backend/src/SpaceStroker.Common/Cors/CorsOriginResolver.cs`,
   `SpaceStroker.Domain/Configs/Entities/CorsSettings.cs`, `SpaceStroker.Api/Program.cs` (forwarded headers + CORS),
   `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + Main-operator seed URLs), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).

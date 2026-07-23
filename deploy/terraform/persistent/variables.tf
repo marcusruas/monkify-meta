@@ -26,7 +26,23 @@ variable "dns_domain" {
 
 variable "state_bucket_name" {
   type        = string
-  description = "Globally-unique GCS bucket name that stores Terraform remote state for both layers."
+  description = <<-EOT
+    Globally-unique GCS bucket holding this ENVIRONMENT's remote state for both layers
+    (prefixes persistent/ and workload/). Must match what the deploy tool derives:
+    spacestroker-<envCode>-... -> "spacestroker-tfstate-<envCode>-<projectId>".
+    One bucket per environment is mandatory: a total teardown deletes its own bucket.
+  EOT
+}
+
+variable "protect_persistent" {
+  type        = bool
+  description = <<-EOT
+    true  -> production: the DNS zone + state bucket carry prevent_destroy and force_destroy = false,
+             so `terraform destroy` refuses and `teardown` keeps the domain.
+    false -> development / other non-production: the same resources are created WITHOUT
+             prevent_destroy and with force_destroy = true, so a TOTAL teardown can remove them.
+    No default on purpose — every tfvars file must state which it is.
+  EOT
 }
 
 variable "labels" {

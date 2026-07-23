@@ -3,7 +3,9 @@ using SpaceStroker.Deploy;
 // spacestroker-deploy — manual GCP deploy driver for SpaceStroker (Terraform + Cloud Run + static sites).
 // Usage:
 //   spacestroker-deploy deploy [api|consumers|front|lp]   deploy one component (or all if omitted)
-//   spacestroker-deploy teardown                          destroy the workload layer (keeps the domain)
+//   spacestroker-deploy teardown                          production: workload only (keeps the domain)
+//                                                         non-production: TOTAL (also DNS zone + state bucket)
+//   spacestroker-deploy validate                          print every derived GCP id and check its length cap
 // Options:
 //   --env <name>          environment (default: production) → secrets.<name>.json
 //   --secrets <path>      explicit secrets file path
@@ -30,12 +32,16 @@ try
             deployer.DeployAll();
             break;
         case "deploy":
+            deployer.PreFlight();
             deployer.SyncSecrets();
             deployer.EmitTfvars();
             deployer.DeployComponent(opts.Component!);
             break;
         case "teardown":
             deployer.Teardown();
+            break;
+        case "validate":
+            deployer.ValidateNaming();
             break;
         default:
             CliOptions.PrintUsage();
@@ -90,8 +96,8 @@ file sealed class CliOptions
             }
         }
 
-        if (o.Command is not ("deploy" or "teardown"))
-            throw new DeployException($"Unknown command '{o.Command}'. Use 'deploy' or 'teardown'.");
+        if (o.Command is not ("deploy" or "teardown" or "validate"))
+            throw new DeployException($"Unknown command '{o.Command}'. Use 'deploy', 'teardown' or 'validate'.");
 
         return o;
     }
@@ -110,7 +116,12 @@ file sealed class CliOptions
 
             Usage:
               spacestroker-deploy deploy [api|consumers|front|lp]  deploy one component (or all if omitted)
-              spacestroker-deploy teardown                         destroy the workload layer (keeps the domain)
+              spacestroker-deploy teardown                         destroy this environment:
+                                                                     --env production  workload only (keeps
+                                                                                       the domain + state bucket)
+                                                                     other envs        TOTAL — also destroys the
+                                                                                       DNS zone + state bucket
+              spacestroker-deploy validate                        print every derived GCP id + its length cap
 
             Options:
               --env <name>        environment (default: production) → secrets.<name>.json

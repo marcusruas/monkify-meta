@@ -8,11 +8,15 @@ terraform {
     }
   }
 
-  # Remote state for the PERSISTENT layer lives in the state bucket this layer creates.
+  # Remote state for the PERSISTENT layer lives in the PER-ENVIRONMENT state bucket this layer
+  # creates: spacestroker-tfstate-<envCode>-<projectId>, prefix "persistent".
   # Bootstrap (chicken-and-egg): the very first run uses local state
-  #   terraform init -backend=false      # then: terraform apply -var-file=production.tfvars
+  #   TF_DATA_DIR=.terraform-<envCode> terraform init -reconfigure -backend=false
+  #   TF_DATA_DIR=.terraform-<envCode> terraform apply -var-file=<environment>.tfvars
   # to create the bucket, then migrate:
-  #   terraform init -migrate-state -backend-config="bucket=<state_bucket>" -backend-config="prefix=persistent"
+  #   TF_DATA_DIR=.terraform-<envCode> terraform init -migrate-state -force-copy \
+  #     -backend-config="bucket=<state_bucket>" -backend-config="prefix=persistent"
+  # `spacestroker-deploy deploy` now does all of this automatically when the bucket is missing.
   backend "gcs" {}
 }
 
