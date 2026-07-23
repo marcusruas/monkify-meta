@@ -1,9 +1,25 @@
 # SpaceStroker — "Terraform development deploy" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/terraform-development-deploy` on **2026-07-23**
+> (`monkify-meta` only). Refined + specced from Trello card
 > [Terraform development deploy #85](https://trello.com/c/fHU4Dpis) (2026-07-23).
 > Repos affected: **`monkify-meta` only** (`deploy/` + knowledge base). No `monkify-backend`,
 > no `monkify-front`, no `monkify-lp` change.
+>
+> **Post-ship notes — what shipped differs from this spec in two small ways:**
+> 1. **§11 verification is executable, not just documented.** The id-cap check landed as a first-class
+>    `spacestroker-deploy validate [--env <env>]` command that prints every derived id with PASS/FAIL,
+>    and `Validate()` also enforces the GCP **charset** rules (not only lengths). A
+>    `gcp.dnsZoneName` **drift warning** (non-fatal) was added on top of the spec.
+> 2. **Local cleanup is slightly wider than §7.5 step 8.** `CleanLocalArtifacts()` also removes the
+>    **legacy** `production.auto.tfvars.json` and any old shared `.terraform/` dir, since an
+>    environment deployed by the previous tool leaves both behind and Terraform would auto-load the
+>    former. `secrets.<env>.json` and `*.tfvars` are still never touched.
+>
+> **Not executed at ship time:** the real GCP round-trip in §13 (tear down the pre-rename dev env →
+> deploy fresh → teardown → redeploy) remains an **operator step**. The change is verified by
+> `dotnet build`, `terraform validate`/`fmt`, the `validate` command, and dry runs of the teardown
+> guards — no `terraform apply`/`destroy` has run against the dev project.
 >
 > **Purpose:** make a **development** teardown wipe the environment completely — after
 > `spacestroker-deploy teardown --env development`, nothing Terraform created remains in GCP; the
@@ -549,3 +565,4 @@ The code lands without a real `apply`; this is the round-trip the operator runs 
 | Date | Change |
 | --- | --- |
 | 2026-07-23 | Initial spec from refined card #85 (+ in-chat refinement). Adds the env-scoping half after discovering dev and prod share one GCP project; documents three code-exploration findings: `prevent_destroy` cannot be variable-driven (§6.1), `*.auto.tfvars.json` cross-env contamination (§7.3), Cloud SQL 7-day name reservation (§4.4), plus `ProcessRunner` having no output capture (§7.2). |
+| 2026-07-23 | **Shipped** (`feature/terraform-development-deploy` → `main`, `monkify-meta`). Status banner + post-ship notes added: `validate` became a real command with charset checks and a zone-name drift warning; local cleanup also removes the legacy `production.auto.tfvars.json` and shared `.terraform/`. The §13 GCP round-trip is still an operator step. |

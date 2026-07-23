@@ -150,7 +150,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/light-graphics-mode.md` | **Frontend-only (app):** distilled — automatic **light graphics mode** for CPU-rasterized browsers (Chrome with hardware acceleration off) + the permanent deletion of `NebulaField.vue`. Verdict per load, **no UI/persistence**: mobile (`< lg`) ⇒ always light → WebGL unmasked-renderer probe → ~2s rAF sample (<25 FPS) → inconclusive ⇒ normal; published as `html.light-graphics`. Light mode drops all blur/`backdrop-filter`, infinite animations, blend overlays and glows; background **keeps drifting** at 8 elements / 24 FPS / frozen scroll, torpedoes off. Mascot stays animated; `.section-vignette` kept. Normal mode unchanged. | Shipped |
 | `specs/light-graphics-mode.md` | **Frontend-only (app), `monkify-front` only — LP explicitly out of scope:** fix the near-unplayable frame rate when Chrome's **hardware acceleration is off**. (A) **Delete `NebulaField.vue`** outright — 5 clouds of 40–82vw radial gradient carrying `blur(24–54px)` **and** `mix-blend-mode: screen`, restyled every rAF tick; confirmed live as the dominant cost. (B) A **light graphics mode** with **no UI whatsoever** — resolved by **mobile short-circuit** (`< lg`/1024px ⇒ always light) → **WebGL unmasked-renderer probe** (SwiftShader/llvmpipe/software ANGLE) → **~2s rAF FPS sample**; both inconclusive ⇒ normal. New `usePerfMode` composable + a `html.light-graphics` root class; strips all `backdrop-filter`/`blur()`, the infinite animations (`bar-scan`/`pulse`/`blink`/`crt-flicker`/`wobble`, LP `drift-*`/`coinFloat`/`marquee`/`sectionBgScroll`), `mix-blend-mode` overlays and multi-layer glows; background **keeps drifting, heavily reduced** (cap 8, ~15 FPS, no bg scroll, torpedoes off). Mascot stays animated; `.section-vignette` stays (confirmed free). Includes an rAF efficiency audit (per-frame style-object rebuilds, `right`→`transform` on the torpedo blast). **`monkify-lp` is out of scope** (its findings are parked in the spec's §9 for a future card). **No backend/DB/unit/integration test** (bug fix / QOL). | Ready |
 | `specs/provably-fair-final.md` | **Full-stack:** finish provably fair — put verification **in the app** and make the endpoint cheap. New lazy **`FAIR`** tab in `GameSidePanel` (mobile: inside the `CHAT·STATS` segment; **hidden when embedded**), **locked until `Ended`**: two **instant** browser checks (commitment `SHA256(serverSeed)==hash` + own bet seed `HMAC(clientSeed, nonce)`) and an **opt-in** `RECOMPUTE OUTCOME` in a **cancellable Web Worker** with progress, plus **COPY VERIFICATION JSON** and **rollover retention** of the last ended round; **`public/verify.html` kept** (the spec said delete; 3-way duplication remains). Backend: persist **`Game.CharactersTyped` (`int?`)** at run end so `winnerDecidedByFallback` is **derived, never replayed** (the handler's full ≤5M-character replay is deleted), and **cache** the payload (`GameVerification:{gameId}`, 12h) — written only at a **final** status, with the operator check kept **before** the cache read. Reach = current round only; no round history, no tokenless verification. | Shipped |
-| `specs/terraform-development-deploy.md` | **Infra/DevOps (Minor change), `monkify-meta` only:** make a **development** teardown wipe everything — after `teardown --env development` nothing Terraform created remains in GCP, only the **GoDaddy registration of `spacestroker.com`**. Because dev and prod share **one GCP project**, this first makes the stack **environment-scoped**: `name_prefix = spacestroker-<envCode>` derived from `secrets.<env>.json` → `environment` (`development→dev`; the full word breaks the SA 30-char and VPC-connector 25-char caps), per-env **state bucket** (`spacestroker-tfstate-<envCode>-<projectId>`), per-env **Cloud SQL + Memorystore**, per-env **Secret Manager ids / Artifact Registry repo / GCS buckets**, per-env `<env>.tfvars.json` (the `.auto.` name is dropped — it cross-contaminates envs) and `TF_DATA_DIR`, plus **fail-fast id-cap validation** (`validate` command). Teardown then destroys workload → persistent (zone + state bucket, via a **local state migration**; `prevent_destroy` can't be variable-driven ⇒ protected/ephemeral resource pairs on `protect_persistent`) → orphan-secret sweep → local generated-file cleanup, guarded by **hard-block on production** + **refuse the registrable apex zone**; GoDaddy is only warned about, never called. `deploy --env development` **auto re-bootstraps** the persistent layer. No backend/front change ⇒ **no unit/integration test**. | Ready |
+| `specs/terraform-development-deploy.md` | **Infra/DevOps (Minor change), `monkify-meta` only:** make a **development** teardown wipe everything — after `teardown --env development` nothing Terraform created remains in GCP, only the **GoDaddy registration of `spacestroker.com`**. Because dev and prod share **one GCP project**, this first makes the stack **environment-scoped**: `name_prefix = spacestroker-<envCode>` derived from `secrets.<env>.json` → `environment` (`development→dev`; the full word breaks the SA 30-char and VPC-connector 25-char caps), per-env **state bucket** (`spacestroker-tfstate-<envCode>-<projectId>`), per-env **Cloud SQL + Memorystore**, per-env **Secret Manager ids / Artifact Registry repo / GCS buckets**, per-env `<env>.tfvars.json` (the `.auto.` name is dropped — it cross-contaminates envs) and `TF_DATA_DIR`, plus **fail-fast id-cap validation** (`validate` command). Teardown then destroys workload → persistent (zone + state bucket, via a **local state migration**; `prevent_destroy` can't be variable-driven ⇒ protected/ephemeral resource pairs on `protect_persistent`) → orphan-secret sweep → local generated-file cleanup, guarded by **hard-block on production** + **refuse the registrable apex zone**; GoDaddy is only warned about, never called. `deploy --env development` **auto re-bootstraps** the persistent layer. No backend/front change ⇒ **no unit/integration test**. | Shipped |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -172,18 +172,50 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **Terraform development deploy** — spec `specs/terraform-development-deploy.md`,
-  branch `feature/terraform-development-deploy` in **`monkify-meta`** (worktree
-  `.worktrees/terraform-development-deploy/monkify-meta`; **no backend/front branch — meta-only**),
-  Trello #85 ([fHU4Dpis](https://trello.com/c/fHU4Dpis)) — list **Specs created**.
-  **Level: Minor change** (deploy tooling only ⇒ no integration test, no new `features/` doc).
-  Makes `spacestroker-deploy teardown --env development` destroy **everything** — nothing
-  Terraform-created survives in GCP, only the GoDaddy registration of `spacestroker.com` — and, as
-  the prerequisite for doing that safely in a project **shared with production**, makes the whole
-  stack **environment-scoped** (`spacestroker-<envCode>-*`, per-env state bucket / data tier /
-  secret ids / registry / buckets, per-env tfvars + `TF_DATA_DIR`, fail-fast id-cap validation).
-  Adds the auto re-bootstrap that makes a total teardown round-trippable. Production keeps today's
-  keep-the-domain teardown.
+- _(none)_
+
+- _Last shipped:_ **Terraform development deploy** — `feature/terraform-development-deploy`
+  (**`monkify-meta` only**; no backend/front/lp change), **shipped 2026-07-23**.
+  **Level: Minor change** (deploy tooling ⇒ **no integration test, no dedicated `features/` doc** —
+  `features/terraform-gcp-deploy.md` was extended instead). Two halves, the first a prerequisite for
+  the second. **(A) Environment scoping:** development and production share **one GCP project**, and
+  the stack had no per-env naming at all (`name_prefix` defaulted to `spacestroker`, the state bucket
+  was keyed off the project id, the state prefix was the literal `workload`) — so the two would have
+  collided on every resource name **and** on the same state object. Now a new
+  `deploy/tools/SpaceStroker.Deploy/EnvNaming.cs` derives an **env code** from `secrets.<env>.json` →
+  `environment` (`development→dev`, `production→prod`, `staging→stg`, else the first 4 alphanumerics)
+  and owns **every** derived id: `name_prefix = spacestroker-<envCode>` across Cloud Run, service
+  accounts, VPC/connector/NAT, Cloud SQL + Memorystore (**one instance set per environment**),
+  Artifact Registry, **Secret Manager ids**, the site buckets, LB/Armor/cert/IP and the DNS zone, plus
+  a **per-env state bucket** `spacestroker-tfstate-<envCode>-<projectId>`, a per-env
+  `TF_DATA_DIR=.terraform-<envCode>` with `init -reconfigure`, and a per-env `<environment>.tfvars.json`
+  (**deliberately not `*.auto.tfvars.json`** — Terraform auto-loads every such file, so two
+  environments' vars would both load). The short code is forced by GCP caps:
+  `spacestroker-development-consumers` = 34 > the service-account limit of 30 and
+  `spacestroker-development-vpcconn` = 32 > the VPC-connector limit of 25 (`spacestroker-dev-vpcconn`
+  = 24, one char of headroom) — so the tool **validates every derived id's length and charset before
+  invoking Terraform**, exposed as `spacestroker-deploy validate`. **(B) Total development teardown:**
+  `teardown` dispatches on the environment — **production keeps** today's workload-only behaviour
+  (domain + state bucket preserved), **any other environment destroys everything Terraform created**:
+  workload → persistent (the state bucket holds its own state, so it is **migrated to a local backend
+  first**, then zone + bucket are destroyed together) → a sweep of leftover `spacestroker-<envCode>-*`
+  **Secret Manager** secrets → removal of the generated local files (`<env>.tfvars.json`,
+  `.terraform-<envCode>/`, local state, and the legacy `production.auto.tfvars.json`; **never**
+  `secrets.<env>.json` or `*.tfvars`). Afterwards only the **GoDaddy registration of
+  `spacestroker.com`** remains. Two guardrails: production is **hard-blocked** from the total path, and
+  a zone whose `dnsDomain` is the **registrable apex** (`spacestroker.com.`) is refused — only
+  sub-zones like `dev.spacestroker.com.` may be destroyed. `deploy` **auto re-bootstraps** a missing
+  persistent layer (local state → apply → migrate) and prints the new nameservers, so a total teardown
+  is round-trippable without raw Terraform; the tool never calls a registrar API (a dead NS delegation
+  is only warned about). Terraform-side: `protect_persistent` is realized as **mutually exclusive
+  protected/ephemeral resource pairs** with coalescing outputs, because `lifecycle.prevent_destroy`
+  only accepts a literal; `ProcessRunner` gained `Capture()` + per-invocation env vars; Cloud SQL gained
+  an optional `db_instance_suffix` (GCP reserves a deleted instance name ~**7 days**). Verified with
+  `dotnet build`, `terraform validate`/`fmt`, `validate` (19 ids PASS), a forced cap failure, and dry
+  runs of both teardown paths + the apex guard — **the real GCP round-trip (spec §13) is still an
+  operator step**, and the pre-rename dev environment must be torn down under the old names before
+  deploying fresh. Meta `21d7d88`. See `features/terraform-gcp-deploy.md`; spec
+  `specs/terraform-development-deploy.md`; Trello #85 ([fHU4Dpis](https://trello.com/c/fHU4Dpis)).
 
 - _Last shipped:_ **Provably fair final** — `feature/provably-fair-final`
   (**`monkify-backend`** + **`monkify-front`** + **`monkify-meta`**), **shipped 2026-07-23**.
