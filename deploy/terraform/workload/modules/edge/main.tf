@@ -30,16 +30,25 @@ resource "google_compute_security_policy" "armor" {
     description = "Per-IP rate limit."
   }
 
-  # OWASP preconfigured WAF rules — block obvious SQLi / XSS.
+  # OWASP preconfigured WAF rules (SQLi / XSS) — tuned to the LEAST-aggressive sensitivity and run in
+  # PREVIEW (log-only, NOT enforcing). SpaceStroker's API legitimately carries base58/base64 Solana
+  # signatures, wallet addresses, and hex seeds in normal request bodies (e.g. POST /games/{id}/bets,
+  # launch-token, …). The preconfigured SQLi/XSS signatures false-positive on those and return 403 —
+  # even at sensitivity 1 — which blocks real play; because the 403 is emitted by Cloud Armor before
+  # the app runs, it also carries no CORS headers, so browsers report it as a CORS error.
+  # Preview keeps the rule EVALUATING + LOGGING (see log_config on the api backend below) so genuine
+  # attacks stay visible. Only re-enable enforcement (preview = false) after tuning `opt_out_rule_ids`
+  # for the specific signatures those logs show, so legitimate crypto payloads are not caught.
   rule {
     action   = "deny(403)"
     priority = 900
+    preview  = true
     match {
       expr {
-        expression = "evaluatePreconfiguredExpr('sqli-v33-stable') || evaluatePreconfiguredExpr('xss-v33-stable')"
+        expression = "evaluatePreconfiguredWaf('sqli-v33-stable', {'sensitivity': 1}) || evaluatePreconfiguredWaf('xss-v33-stable', {'sensitivity': 1})"
       }
     }
-    description = "OWASP SQLi/XSS."
+    description = "OWASP SQLi/XSS (preview / log-only — see comment)."
   }
 
   # Default allow (required lowest-priority rule).
@@ -76,6 +85,13 @@ resource "google_compute_backend_service" "api" {
 
   backend {
     group = google_compute_region_network_endpoint_group.api_neg.id
+  }
+
+  # Log LB + Cloud Armor decisions (including PREVIEW matches from the WAF rule above) so WAF
+  # false-positives and real attacks are both visible in Cloud Logging.
+  log_config {
+    enable      = true
+    sample_rate = 1.0
   }
 }
 
