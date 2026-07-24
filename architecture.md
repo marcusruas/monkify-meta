@@ -343,9 +343,19 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   - `utils/` — `operatorRoute.ts` (GUID validation, path-based operator id for the interceptor).
   - `pages/` — `GameSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing (param-free; operator from the token `iss`):** `/space-stroker/game/games` → game select;
-  `/space-stroker/game/play` → live game; `/space-stroker/game` → dev launch landing (gated by `VUE_APP_DEV_LAUNCH`;
-  production redirects to `/error`); missing/undecodable token or `/` → `/error`.
+- **Routing (param-free; operator from the token `iss`):** `/` redirects to `/space-stroker/game` → game
+  select (`GameLobby`, the token-less entry point — its boot auto-mints a Main token, and an
+  `#admin_token=<jwt>` fragment here hands off to the admin portal instead);
+  `/space-stroker/game/play` → live game; `/space-stroker/game/history` + `/space-stroker/game/stats` →
+  the header-menu pages; `/space-stroker/admin` → operator portal; `/space-stroker/wallet-bridge` → the
+  same-origin wallet popup; `/space-stroker/background` → the backdrop-only page; `/error`. Operator
+  context (token + display prefs) is booted **only** for `GameLobby`/`Game`/`GameHistory`/`GameStats`
+  (`App.vue`) — the other routes carry none, so they cannot dead-end on `/error`.
+- **Chromeless routes:** routes flagged `meta: { chromeless: true }` in `routes.ts` render without
+  `GameHeader` — the wallet-bridge popup (whose header `RouterLink` would navigate the popup away) and
+  `/space-stroker/background`, a chrome-free URL that shows **only** the animated backdrop (both
+  `GameBackground` layers + `.section-vignette`, all global in `App.vue`) for embedding/screen-recording;
+  its page component is intentionally empty. See `specs/background-page.md`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
   `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:
