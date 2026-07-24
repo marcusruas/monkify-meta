@@ -1,6 +1,8 @@
 # SpaceStroker — "Standardize Scrollbars" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-24) — merged via `feature/standardize-scrollbars` into `main`
+> (`monkify-front`), `master` (`monkify-lp`), and `main` (`monkify-meta`). Distilled summary:
+> `../features/standardize-scrollbars.md`. Refined via Trello card
 > [standardize scroll, chat container has default browser scroll](https://trello.com/c/cGrBi584/91-standardize-scroll-chat-container-has-default-browser-scroll) (2026-07-24).
 > Repos affected: `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`. **Backend not affected.**
 >
