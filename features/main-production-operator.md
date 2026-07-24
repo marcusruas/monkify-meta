@@ -28,11 +28,16 @@ anonymous Main token** via a new production-enabled endpoint and uses it. All Ma
   the dev operator seeding).
 - **Main's token + game types.** Main is pre-provisioned with **one** registered `OperatorToken`
   built from `GeneralSettings.Token` (private key encrypted at rest via `ISecretProtector`), and
-  **exactly three active `SolanaToken`** default game types — `6X Main Sprint` (free-type race),
-  `6X Main Derby` (preset "horse race", back 1 of 8 six-char alphanumeric runners), and `6X Main
-  Millions` (24h lottery, base pot 4). All are **6-char alphanumeric** (`NumbersAndLetters`), with
-  **free bets OFF**, `RequiredAmount = 1`, `MinimumNumberOfPlayers = 2`, duplicates allowed. Betting
-  therefore requires a connected wallet + on-chain signature; amounts are token-native.
+  **exactly three active `SolanaToken`** default game types — **`Cosmic Sprint`** (free-type race),
+  **`Beast Mode`** (preset "beast race", back 1 of 8 runners), and **`Space Jackpot`** (24h lottery,
+  **base pot 5**). All are **6-letter** (`GameCharacterType.Letters`), `MinimumNumberOfPlayers = 2`,
+  duplicates allowed. **Per-type bet price (`RequiredAmount`, Trello #88, 2026-07-24): Cosmic
+  Sprint = 1, Beast Mode = 1, Space Jackpot = 2** (previously all inherited the `Base` default of 2).
+  Free bets are seeded `AllowFreeBet = !IsProduction()` (OFF in prod, ON in dev/local — see
+  `main-only-player-entry.md`). Betting requires a connected wallet + on-chain signature; amounts are
+  token-native. Prices are **seed constants** (`DefaultGameParameters.GenerateMainDefaultParameters`);
+  a price change reaches an existing DB only by a **teardown + reseed** (no reconciliation, no
+  migration). See `fix-pricing.md`.
 - **Anonymous default-operator mint.** **`POST /launch-token/default`** (in `LaunchController`, **not**
   under `/dev`, available in **all** environments incl. production, and **not** token-guarded — its
   route is outside the launch-token middleware's protected prefixes) mints an **anonymous** (empty
