@@ -1,8 +1,14 @@
 # SpaceStroker — "Improve Solana Wallet Connection & RPC Calls" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-07-24) — merged via `feature/solana-connection-rpc` into `main`
+> (`monkify-backend` + `monkify-front` + `monkify-meta`). Distilled: `../features/solana-connection-rpc.md`.
+> Refined via Trello card
 > [improve solana wallet connection and RPC calls](https://trello.com/c/7Fm2RhGB) (2026-07-23).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+>
+> **Post-ship note:** the send's `preflightCommitment` is pinned to `'confirmed'` (matching the
+> `'confirmed'` blockhash) — without it `sendRawTransaction` preflight defaults to `'finalized'` and
+> rejects the just-fetched blockhash with "Blockhash not found" (found during QA).
 >
 > **Level: Feature** — a new backend endpoint (`POST /rpc` proxy) plus a substantive frontend
 > connection/transfer rework. Per `constraints.md` this ships with a **mandatory happy-path backend

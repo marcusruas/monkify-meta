@@ -266,3 +266,10 @@
 - **CorsOriginResolver / GeneralSettings:Cors** — config-driven browser CORS allow-list read by both hosts
   (`GeneralSettings:Cors:AllowedOrigins`, default `https://app.spacestroker.com`, prod-overridable via env).
   Replaced the hardcoded origin.
+- **`/rpc` proxy (RPC failover)** — a frontend-facing `POST /rpc` JSON-RPC passthrough (`RpcController`,
+  `SpaceStroker.Api`) that the SPA fails over to **only after a public-RPC HTTP 429**. Forwards a strict
+  7-method allowlist to the key-bearing `Token.ClusterUrl` and returns the response verbatim; gated by an
+  env-independent Origin allowlist + method allowlist + per-IP rate limit, **not** launch-token gated.
+  Distinct from the backend's own Solnet payout RPC clients (`ISolanaRpcClientProvider`). Frontend
+  `useConnection.withFailover` sticks to it for a cooldown, then drifts back to public;
+  `confirmTransaction` always stays on the public connection. See `features/solana-connection-rpc.md`.
