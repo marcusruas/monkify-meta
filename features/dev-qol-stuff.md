@@ -2,6 +2,11 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/dev-qol-stuff.md`
 > (merged via `feature/dev-qol-stuff` on 2026-06-30).
+>
+> ⚠️ **The dev launch picker is gone (`features/main-only-player-entry.md`, 2026-07-24).** The
+> `DevLandingPage` "Crypto/Regulated" buttons and the `VUE_APP_DEV_LAUNCH` flag are retired;
+> `/space-stroker/game` now always lands a **player** in the Main lobby. `POST /dev/launch-token` remains
+> (non-prod) but mints a **Main** token. The Testcontainers integration-test guidance below still applies.
 
 ## What it does
 

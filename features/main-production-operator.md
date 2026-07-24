@@ -2,6 +2,12 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/main-production-operator.md`
 > (merged via `feature/main-production-operator` on 2026-07-15).
+>
+> ⚠️ **Superseded in part by `features/main-only-player-entry.md` (2026-07-24).** DEV Cassino is **no
+> longer seeded in any environment** (this doc's "non-prod also seeds DEV Cassino" is obsolete) — **Main
+> is now the only operator everywhere**. The dev-launch picker is retired: `/space-stroker/game` always
+> lands a **player** in the lobby (auto-mint Main) in every env. Main's default types allow free bets
+> **outside production**.
 
 ## What it does
 
