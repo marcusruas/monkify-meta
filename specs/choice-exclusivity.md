@@ -1,6 +1,7 @@
 # SpaceStroker — "Choice Exclusivity" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/choice-exclusivity` on 2026-07-24. Distilled summary:
+> `../features/choice-exclusivity.md`. Refined via Trello card
 > [Choice exclusivity](https://trello.com/c/6OZSbfSE/86-choice-exclusivity) (2026-07-24).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >

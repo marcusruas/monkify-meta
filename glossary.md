@@ -195,6 +195,15 @@
   KycRequired | Blocked | Other`); a timeout/error is **fail-closed** (rejected, no settlement). Skipped
   for anonymous free bets. Log-only, no DB row. See `features/rg-pre-bet-hook.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
+- **Choice exclusivity / `ExclusiveChoice`** — in **free-text** game types (empty `PresetChoices`),
+  each typed sequence is exclusive to the **first** player who bets it in a round; a different player
+  taking the same normalized choice is rejected (`ErrorMessages.ChoiceAlreadyTaken`) and **auto-refunded**
+  for a paid `SolanaToken` bet (reject-only for Standard/free). Enforced by a cross-player check in
+  `RegisterBetHandler.ValidateBetParameters` **and** a DB unique index `(GameId, ExclusiveChoice)` —
+  `Bet.ExclusiveChoice` is the normalized choice for free-text bets, `NULL` for preset bets (NULLs
+  distinct ⇒ preset games still share choices). Same-player repeats still hit the `DuplicateBet` path.
+  Consequence: a free-text winning sequence maps to exactly one bet ⇒ **winner-takes-all** (no
+  reward-math change). See `features/choice-exclusivity.md`.
 - **LotteryParameters** — config for lottery-style games (`Frequency`, base `LotteryPot`); scheduled
   via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the game as
   **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
