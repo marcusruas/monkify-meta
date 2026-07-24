@@ -29,9 +29,16 @@ thrill layer — even a loss shows how close you got. It is on for every game ty
 - **Win reveal.** When the round ends, the winning word — **if the player bet it** — is typed out the
   rest of the way to the full word (`away = 0`) at ~80 ms/char and then held. Non-winning rows freeze
   where they were. This sells the illusion the monkey finished typing the winner.
-- **Always visible, bottom-docked.** The rows and the `> POT:` line live in a sticky, transparent dock
-  at the bottom of the terminal so the auto-scrolling stream never hides them. Present for every game
-  type (races, presets, lottery) and all bet paths (crypto, regulated, free).
+- **Always visible, bottom-docked.** The rows and the `> POT:` line live in a sticky, **opaque** dock
+  at the bottom of the terminal so the auto-scrolling stream never hides them. The dock is filled
+  **near-black** (`#050505` — matched to the desktop cabinet screen, sampled ~`#040404`; a scoped
+  `.mobile-terminal .near-miss-dock` override keeps the mobile CRT tone `#0b0d18`) with a `box-shadow`
+  that paints over the scroll container's `py-6` (24px) bottom padding and over-covers the left/right
+  edges, so no stream characters bleed through behind, below, or beside the rows (a sticky element
+  can't sit below its content box, and `box-shadow` doesn't add a scrollbar the way negative margins
+  would). Present for every game type (races, presets, lottery) and all bet paths (crypto, regulated,
+  free). *(Bug fix #90 — the dock was originally `background: transparent`, which let the stream show
+  through; see `../specs/near-miss-dock-bg.md`.)*
 - **In-game pot.** `> POT:` shows the pot **while the round runs** = Σ of the game's bet amounts
   (+ the lottery base pot for lottery), formatted with the existing currency logic (USDC for crypto,
   the player's display currency for regulated). Free bets (amount 0) contribute nothing. (This overlaps

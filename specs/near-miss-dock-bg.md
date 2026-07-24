@@ -1,9 +1,9 @@
 # SpaceStroker — "Near-miss dock opaque background" Fix — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/near-miss-dock-bg` on 2026-07-24. Refined via Trello card
 > [fix the "x away" thing at the bottom. the overlay has bg transparent](https://trello.com/c/h2CVRNby) (2026-07-24).
 > Repos affected: `monkify-front` (the only code change) and this doc in `monkify-meta`.
-> **No `monkify-backend` change.**
+> **No `monkify-backend` change.** Shipped behaviour distilled in `../features/characters-away.md`.
 >
 > **Purpose:** Make the bottom-docked near-miss (`> N AWAY!`) overlay in the game terminal opaque so
 > the auto-scrolling character stream stops bleeding through behind it ("letters on top of letters").
