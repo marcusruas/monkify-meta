@@ -343,19 +343,31 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   - `utils/` — `operatorRoute.ts` (GUID validation, path-based operator id for the interceptor).
   - `pages/` — `GameSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing (param-free; operator from the token `iss`):** `/space-stroker/game/games` → game select;
-  `/space-stroker/game/play` → live game; `/space-stroker/game` → dev launch landing (gated by `VUE_APP_DEV_LAUNCH`;
-  production redirects to `/error`); missing/undecodable token or `/` → `/error`.
+- **Routing (param-free; operator from the token `iss`):** `/` redirects to `/space-stroker/game` → game
+  select (`GameLobby`, the token-less entry point — its boot auto-mints a Main token, and an
+  `#admin_token=<jwt>` fragment here hands off to the admin portal instead);
+  `/space-stroker/game/play` → live game; `/space-stroker/game/history` + `/space-stroker/game/stats` →
+  the header-menu pages; `/space-stroker/admin` → operator portal; `/space-stroker/wallet-bridge` → the
+  same-origin wallet popup; `/space-stroker/background` → the backdrop-only page; `/error`. Operator
+  context (token + display prefs) is booted **only** for `GameLobby`/`Game`/`GameHistory`/`GameStats`
+  (`App.vue`) — the other routes carry none, so they cannot dead-end on `/error`.
+- **Chromeless routes:** routes flagged `meta: { chromeless: true }` in `routes.ts` render without
+  `GameHeader` — the wallet-bridge popup (whose header `RouterLink` would navigate the popup away) and
+  `/space-stroker/background`, a chrome-free URL that shows **only** the animated backdrop (both
+  `GameBackground` layers + `.section-vignette`, all global in `App.vue`) for embedding/screen-recording;
+  its page component is intentionally empty. See `specs/background-page.md`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
   `VUE_APP_API_BASE_URL` and attaches **`X-Launch-Token`** (captured from the launch URL fragment by
   `useLaunch`, persisted per-tab in `sessionStorage`); any `401` routes to `/error`. Endpoints:
   `GET /games/active-types`, `GET /games/{id}`, `POST /games/{id}/bets`, `GET /operators/{id}`,
   `GET /players/preferences`, `PATCH /players/preferences`, `GET /fx/rates`,
-  `GET /games/{parametersId}/stats`, `GET /games/{parametersId}/history`, `GET /games/{id}/verification`.
+  `GET /games/stats` (operator-wide global stats), `GET /games/{parametersId}/stats`,
+  `GET /games/{parametersId}/history`, `GET /games/{id}/verification`.
 - **Player customization:** a **menu button** in `GameHeader.vue` (gated on operator context derived
   from the launch token, surviving an operatorId reset on a hard reload) holds **Settings** (opens
   `PlayerCustomizationModal.vue` — display name + preferred currency dropdown, both for **all**
-  operators), **History** (the Games History page), and the dev-only **Admin** shortcut; audio
+  operators), **Stats** (the Stats page), **Fair** (the fairness modal), **History** (the Games History
+  page), and the dev-only **Admin** shortcut (Stats + Fair are hidden when embedded); audio
   (mute/volume) and the wallet cluster stay directly on the header. `useDisplayCurrency` loads FX rates
   + prefs on app mount and converts USD amounts client-side; the preferred currency affects **`Standard`
   games only** — `SolanaToken` games always render token-native. See
@@ -372,9 +384,11 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 - **Real-time:** `useGame` opens two SignalR hubs (`Games`, `RecentBets`) at
   `VUE_APP_WEBSOCKET_BASE_URL`, joins the game group, and renders the streamed terminal output,
   speed, status, incoming bets, and **game chat** (`GameChatPanel` + `useGameChat` on
-  `{gameId}/ChatMessage`). See `features/game-chat.md`. On `/game`, chat and per-game-type
-  **stats** share one right-docked, collapsible panel with **CHAT** / **STATS** tabs (`GameSidePanel`);
-  the stats tab lazily fetches `GET /games/{parametersId}/stats` on first open. See
+  `{gameId}/ChatMessage`). See `features/game-chat.md`. On `/game` the right-docked, collapsible cabinet
+  (`GameSidePanel`) is now **chat-only** — the STATS and FAIR tabs moved to the header menu
+  (`fair-stats-menu`). Per-game-type **stats** render on the dedicated **Stats page**
+  (`GameStatsPage.vue`, `/space-stroker/game/stats`): a global section via `GET /games/stats` plus a
+  per-type section via `GET /games/{parametersId}/stats`. See `features/fair-stats-menu.md` +
   `features/game-type-stats.md`.
 - **Bet flow:** `useGame.bet()` branches on `selectedGame.paymentMethod`. **`Standard`** posts
   `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**

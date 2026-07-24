@@ -64,9 +64,11 @@ covers the current round). See `features/provably-fair-final.md`.
   `public/verify.html`. There is no in-app FAIR panel or in-browser replay on the history page (the live
   FAIR tab keeps that); zero new verification logic.
 - **Header menu.** The old header settings gear is folded into a **menu button** (gated by operator
-  context) holding **Settings** (the customization modal), **History**, and the dev-only **Admin**
-  shortcut. Audio (mute/volume) and the wallet cluster stay directly on the header. The menu opens on
-  click and closes on an item click or an outside click (no hover).
+  context) holding **Settings** (the customization modal) and **History** (+ the dev-only **Admin**
+  shortcut). Audio (mute/volume) and the wallet cluster stay directly on the header. The menu opens on
+  click and closes on an item click or an outside click (no hover). (`fair-stats-menu` later added
+  **Stats** and **Fair** rows to this same menu — order **Settings · Stats · Fair · History** — both
+  hidden when embedded; see `features/fair-stats-menu.md`.)
 - **Empty state.** A type with zero completed rounds shows "No rounds yet".
 
 ## Key code touchpoints

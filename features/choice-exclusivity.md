@@ -16,8 +16,10 @@ winning sequence now maps to exactly one bet, free-text rounds are effectively *
 - **Scope — free-text only.** Exclusivity applies when `GameParameters.PresetChoices` is empty
   (race **or** lottery). Preset game types keep shared choices (that's the point of a preset list).
 - **First persisted bet reserves the choice**, per game round; choices free up on the next round
-  (new `Game`). Reservation is keyed on the **normalized** choice (`Bet.Choice` is trimmed-lowercase,
-  so `ABC` == `abc` == `" abcdef "`).
+  (new `Game`). Reservation is keyed on the choice (`Bet.Choice` is **trimmed**, case-preserved, so
+  `" abcdef "` == `abcdef`). Casing is **not** folded: uppercase is rejected as `InvalidCharacters`
+  before reservation (the game alphabets are lowercase-only), so a reserved choice is always
+  lowercase. See `specs/bet-choice-casing.md`.
 - **A different player taking a taken free-text choice is rejected** with a specific message,
   `ErrorMessages.ChoiceAlreadyTaken` ("This sequence has already been taken by another player. Pick a
   different one."). For a paid **`SolanaToken`** bet — where the on-chain debit happens *before*

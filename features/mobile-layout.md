@@ -24,12 +24,13 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
 - **Lobby cards condense.** The grid is already 1-column below `md`; on phones the card's long
   description clamps to one line (`max-lg:`) so the art, game name, price, lottery badge, and
   `PRESS TO START` stay the focus.
-- **The game screen is a `GAME | CHAT·STATS` segmented view.** Below `lg`, `GamePage` replaces the
+- **The game screen is a `GAME | CHAT` segmented view.** Below `lg`, `GamePage` replaces the
   desktop three-sibling row with a segmented control (`GameMobileTabs`). The two views are **absolutely
   stacked**; only the active one is visible + interactive (the hidden one is
   `invisible pointer-events-none z-0`) and the tab bar sits above both (`z-20`), so a hidden view can
   never intercept taps meant for the other view or the tabs. Both views stay mounted, so chat keeps its
-  live SignalR subscription and stats keeps its lazy fetch.
+  live SignalR subscription. (Originally `GAME | CHAT·STATS`; `fair-stats-menu` moved Stats to the
+  header-menu Stats page, so the segment and the mobile side panel are now chat-only.)
 - **GAME view = full-width fluid terminal + compact bet panel.** On mobile the terminal skips its
   desktop JS height-driven width and its fixed-aspect cabinet background in favour of a full-width
   metal-bezel CRT panel (`.mobile-terminal`); it still shows game/bet/frequency, `> POT:`, bets,
@@ -38,11 +39,11 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
   keyboard — `inputmode="numeric"` for number games — or a themed preset keypad) and a single
   `PLACE BET` action (the lever). **There is no amount field — the ticket price is fixed at
   `requiredAmount`.**
-- **CHAT·STATS view = full-width chat + stats.** The desktop absolute cabinet (dock rail / docked /
-  maximized) is not used on mobile; `GameSidePanel` renders the chat and stats bodies full-width with
-  simple `CHAT | STATS` sub-tabs. An **unread dot** shows on the CHAT·STATS tab when a chat message
-  arrives while the player is on GAME (`useChatUnread` — `GameChatPanel` bumps it when it isn't visible;
-  it clears when the segment is opened).
+- **CHAT view = full-width chat.** The desktop absolute cabinet (dock rail / docked / maximized) is not
+  used on mobile; `GameSidePanel` renders the chat body full-width (the `CHAT | STATS` sub-tabs were
+  removed by `fair-stats-menu` — Stats moved to the header-menu Stats page). An **unread dot** shows on
+  the CHAT tab when a chat message arrives while the player is on GAME (`useChatUnread` — `GameChatPanel`
+  bumps it when it isn't visible; it clears when the segment is opened).
 - **Monkey hidden on phones** (already `hidden lg:block`) — the terminal carries all game feedback.
 - **Customization modal is mobile-friendly** — it scrolls (`max-h-[90dvh] overflow-y-auto`) and the
   provably-fair client-seed row wraps on narrow widths. The standalone `public/verify.html` was already

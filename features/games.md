@@ -54,7 +54,10 @@ The fields on `GameParameters` define how a type behaves:
 | `NumbersAndLetters = 3` | `abcdefghijklmnopqrstuvwxyz0123456789` |
 
 
-> Choices are normalized to **trimmed lowercase** (`Bet.Choice` setter), so the pool is lowercase.
+> Choices are **trimmed** (`Bet.Choice` setter) but **case-preserved** — the alphabets above are
+> lowercase-only, so a choice containing uppercase (or any out-of-alphabet character) is **rejected**
+> as `InvalidCharacters`, not silently lowercased. The pool is lowercase because non-lowercase input
+> is refused at validation. See `specs/bet-choice-casing.md`.
 
 ---
 
@@ -312,7 +315,9 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 2. `UnacceptedDuplicateCharacters` — duplicates present when `AcceptDuplicatedCharacters == false`.
 3. `InvalidAmount` — paid: `bet.Amount != RequiredAmount`; free (`isFreeBet`): `bet.Amount != 0`.
 4. `InvalidChoice` — presets exist and the choice isn't one of them.
-5. `InvalidCharacters` — choice contains characters outside `AllowedCharacters`.
+5. `InvalidCharacters` — choice contains characters outside `AllowedCharacters` (the alphabets are
+   lowercase-only, so **uppercase letters**, **internal spaces**, and **symbols** all land here;
+   leading/trailing whitespace is trimmed first and does not).
 6. otherwise `Valid`.
 
 **Other guards in `RegisterBetHandler`:**
