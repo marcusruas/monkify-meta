@@ -200,16 +200,34 @@ const lotteryBase = gameData.isLottery
 currentPot.value = lotteryBase + totalBetsAmount;
 ```
 
-Everything else in the pot pipeline is unchanged and already correct: the `/Bets` handler increments
-`currentPot` per new bet (`useGame.ts:318`), `updateNewGame` resets to `0` then reseeds via `getBets`
-(`useGame.ts:571`), and both `> POT:` template lines render `formatAmount(currentPot)`
-(`GameTerminal.vue` pre-run + running/ended). No template or `formatGameAmount` change.
+**File:** `monkify-front/src/hooks/useGame.ts` — **the actual `POT: 0` root cause** (found during
+QA on the running stack). `updateNewGame` is the initial-load path (called from `GamePage.vue`,
+`GameTypes.vue`, and on rollover), and it did:
 
-> **Implementer: reproduce first.** On a freshly-seeded local stack open Space Jackpot with zero
-> bets. If it already shows `POT: 5 USDC`, the live symptom was **seed drift** (the deployed row's
-> `LotteryPot` ≠ 5) and the reseed fixes the data — but still implement §6/§7 so the display is
-> deterministic and regression-proof. If it still shows `0` on a fresh 5-base lottery, §6/§7 is the
-> direct fix; confirm `gameData.isLottery`/`lotteryPot`/`carriedExtra` on the wire.
+```ts
+await getBets(ignoreInitialBets);   // seeds currentPot = lotteryBase + Σ bets  ✅
+...
+currentPot.value = 0;               // ❌ ran AFTER getBets, clobbering the seed to 0
+```
+
+The comment claimed "reseeded by getBets above", but `getBets` runs *before* this line, so the reset
+always won — the lottery base was zeroed on **every load and rollover** (→ `POT: 0` on a fresh Space
+Jackpot). **Fix: delete that `currentPot.value = 0;` line.** `getBets` is the single source of truth
+for `currentPot` (it already sets `0` for a fresh non-lottery race), so the explicit reset is both
+redundant and harmful. This is the change that actually fixes the reported bug; the §6/§7 instance-DTO
+seeding is a correctness/robustness improvement that makes `getBets` authoritative from the instance.
+
+The `/Bets` handler still increments `currentPot` per new bet, and both `> POT:` template lines render
+`formatAmount(currentPot)` (`GameTerminal.vue`). No template or `formatGameAmount` change.
+
+### 7.1 Lottery FREQUENCY display (added during QA)
+
+**File:** `monkify-front/src/components/game/GameTerminal.vue` — `formatLotteryFrequency` split the
+`.NET` TimeSpan string on `:` and read `parseInt(parts[0])` as hours. A 24h (daily) lottery serializes
+**with a day component** as `"1.00:00:00"`, so `parseInt("1.00") === 1` rendered Space Jackpot's daily
+draw as **"1 HOUR"**. Fix: parse the optional `d.` days prefix and fold it into the hour count
+(`hours += days * 24`), so `"1.00:00:00"` → **"24 HOURS"**. Sub-day frequencies (`"04:00:00"`,
+`"00:01:00"`) are unchanged.
 
 ---
 
@@ -255,7 +273,8 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/types/index.ts` | Add `lotteryPot?: number` to `GameInstance`. |
-| 2 | `src/hooks/useGame.ts` | Seed `currentPot` lottery base from the instance (`gameData.isLottery ? (gameData.lotteryPot ?? 0) + (gameData.carriedExtra ?? 0) : 0`), dropping the `selectedGame.lotteryParameters` dependency. |
+| 2 | `src/hooks/useGame.ts` | (a) Seed `currentPot` lottery base from the instance (`gameData.isLottery ? (gameData.lotteryPot ?? 0) + (gameData.carriedExtra ?? 0) : 0`), dropping the `selectedGame.lotteryParameters` dependency. (b) **Delete the `currentPot.value = 0;` line in `updateNewGame`** that ran after `getBets` and clobbered the seed to 0 — the actual `POT: 0` root cause. |
+| 3 | `src/components/game/GameTerminal.vue` | `formatLotteryFrequency`: parse the `d.` days prefix of the TimeSpan string and fold into hours (`hours += days*24`) so a 24h lottery (`"1.00:00:00"`) renders "24 HOURS" not "1 HOUR". |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -296,16 +315,17 @@ From the Trello **Acceptance Criteria** checklist:
 7. Given a lottery round showing its base pot, when a new bet arrives on the `/Bets` stream, then `> POT:` increments live by the bet amount (base still included).
 8. Given a non-lottery race (Cosmic Sprint / Beast Mode), when a player opens the terminal, then `> POT:` reflects `Σ bets` only and is unaffected by this change.
 9. Given the price change is delivered only via seed constants, when the backend starts against an already-seeded database, then it does not mutate existing game-type rows and no EF migration is introduced (application is via the user's teardown + reseed).
+10. Given the daily (24h) Space Jackpot lottery, when a player opens the terminal, then `> FREQUENCY:` shows `24 HOURS`, not `1 HOUR`.
 
 ---
 
 ## 13. Manual QA
 
-1. Fresh local stack (reseed). Open **Space Jackpot** with no bets → terminal reads `> POT: 5 USDC`.
+1. Fresh local stack (reseed). Open **Space Jackpot** with no bets → terminal reads `> POT: 5 USDC` **and** `> FREQUENCY: 24 HOURS`.
 2. Place a paid bet → `> POT:` increments live by the bet amount, base still included.
 3. Open **Cosmic Sprint** / **Beast Mode** → `> BET: 1 USDC`; `> POT:` reads `Σ bets` (0 before bets).
 4. Confirm Space Jackpot `> BET: 2 USDC`.
-5. (Regression) A non-lottery race pot never shows the lottery base.
+5. (Regression) A non-lottery race pot never shows the lottery base; re-select / roll over a lottery and confirm the pot stays at its base (not reset to 0).
 
 ---
 
@@ -323,3 +343,4 @@ From the Trello **Acceptance Criteria** checklist:
 | Date | Change |
 | --- | --- |
 | 2026-07-24 | Initial spec from refined card #88. |
+| 2026-07-24 | QA correction: real `POT: 0` root cause is the `currentPot.value = 0;` reset in `useGame.updateNewGame` running after `getBets` (clobbers the seed on every load/rollover) — delete it. Added lottery FREQUENCY fix (`formatLotteryFrequency` days parsing: 24h → "24 HOURS"). Merged `origin/main` (main-only-player-entry: DEV Cassino removed, so the change now targets Main only). |
