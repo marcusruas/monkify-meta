@@ -1,6 +1,7 @@
 # SpaceStroker — "Fair & Stats to the menu; chat-only side panel" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/fair-stats-menu` on 2026-07-24. Distilled summary:
+> `../features/fair-stats-menu.md`. Refined via Trello card
 > [Set "fair" and "stats" as an session on menu icon](https://trello.com/c/w9jCXK0N/89-set-fair-and-stats-as-an-session-on-menu-icon) (2026-07-24).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
