@@ -164,7 +164,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/near-miss-dock-bg.md` | **Bug fix, `monkify-front` + `monkify-meta` — no backend:** the bottom-docked near-miss (`> N AWAY!`) overlay in `GameTerminal.vue` is `position: sticky; bottom: 0` inside the scrolling terminal but `background: transparent`, so the auto-scrolling stream bleeds through behind the rows ("letters on top of letters"). Fix = give `.near-miss-dock` an **opaque near-black `background: #050505`** (matches the desktop cabinet screen sampled ~`#040404`; a scoped `.mobile-terminal` override keeps `#0b0d18` for the mobile CRT panel) plus a `box-shadow` covering the form's 24px bottom padding gap + left/right sub-pixel edges; keep the 1px green top separator, no gradient. **Frontend-only CSS; no entity/migration/test** (bug fix, not a new feature). Trello #90 ([h2CVRNby](https://trello.com/c/h2CVRNby)). | Shipped |
 | `specs/standardize-scrollbars.md` | **Frontend-only (`monkify-front` + `monkify-lp` + `monkify-meta`), QOL/styling:** replace the raw default OS/browser scrollbars on most scrollable surfaces (reported case: the in-game chat panel) with **one minimal, on-brand scrollbar** applied app-wide as a fallback — thin **8px**, transparent track, subtle neutral thumb `rgba(255,255,255,0.18)`→`0.30` hover, **WebKit** (`*::-webkit-scrollbar*`) **+ Firefox** (`scrollbar-width/color`). Global rule in `monkify-front/src/main.css` and `monkify-lp/src/styles/global.css`; two preserved exceptions in the front — the game terminal keeps its green `.terminal-scroll` (Firefox parity + `border-radius:0` added) and `.side-tabstrip` stays hidden (both win by specificity). No JS/backend/env/token/migration. Not a new feature ⇒ no integration test. Trello #91 ([cGrBi584](https://trello.com/c/cGrBi584)). | Shipped |
 | `features/standardize-scrollbars.md` | Distilled: **one global minimal scrollbar** (thin 8px, transparent track, neutral `rgba(255,255,255,0.18)`→`0.30` hover, WebKit + Firefox) applied app-wide as a `*` fallback in both `monkify-front` (`src/main.css`) and `monkify-lp` (`src/styles/global.css`); two preserved front exceptions — the green game terminal `.terminal-scroll` (Firefox parity + square thumb added; WebKit look unchanged) and the hidden `.side-tabstrip` (scoped, unchanged), both winning by specificity. Frontend/CSS-only; no JS/backend/env/token/migration. | Shipped |
-| `specs/bet-choice-casing.md` | **Bug fix (Minor change), `monkify-backend` + `monkify-front` + `monkify-meta`:** uppercase bets (e.g. `ASDADA`) were silently lowercased by the backend (so they matched + paid) but the frontend sent/tracked/win-recognized the **raw** choice **case-sensitively** vs the lowercase typed stream → near-miss stuck at "N AWAY!" and no win reveal. Fix: frontend normalizes the choice **once** in `useGame.bet()` (`userWord.trim().toLowerCase()`, propagates to POST body + near-miss + win-recognition) and downcases the maska input on entry; backend stops silently lowering (`Bet.Choice` trim-only, drop `RegisterBetHandler` `.ToLower()`) and now **rejects** uppercase / internal-space / symbol as `InvalidCharacters` (preset games → `InvalidChoice`), keeping whitespace trim. No schema/migration; unit tests updated (uppercase → invalid; case/whitespace refund retargeted lowercase) + new FE near-miss casing test; not a new feature ⇒ no integration test. Trello #93 ([7yXgbqcQ](https://trello.com/c/7yXgbqcQ)). | Ready |
+| `specs/bet-choice-casing.md` | **Bug fix (Minor change), `monkify-backend` + `monkify-front` + `monkify-meta`:** uppercase bets (e.g. `ASDADA`) were silently lowercased by the backend (so they matched + paid) but the frontend sent/tracked/win-recognized the **raw** choice **case-sensitively** vs the lowercase typed stream → near-miss stuck at "N AWAY!" and no win reveal. Fix: frontend normalizes the choice **once** in `useGame.bet()` (`userWord.trim().toLowerCase()`, propagates to POST body + near-miss + win-recognition) and downcases the maska input on entry; backend stops silently lowering (`Bet.Choice` trim-only, drop `RegisterBetHandler` `.ToLower()`) and now **rejects** uppercase / internal-space / symbol as `InvalidCharacters` (preset games → `InvalidChoice`), keeping whitespace trim. No schema/migration; unit tests updated (uppercase → invalid; case/whitespace refund retargeted lowercase); FE has no test runner so near-miss casing verified by manual QA; not a new feature ⇒ no integration test. Trello #93 ([7yXgbqcQ](https://trello.com/c/7yXgbqcQ)). | Shipped |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -186,13 +186,16 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **Bet choice casing** (Minor change / bug fix) — spec `specs/bet-choice-casing.md`,
-  branch `feature/bet-choice-casing` in **`monkify-backend`** + **`monkify-front`** + **`monkify-meta`**
-  (worktrees at `.worktrees/bet-choice-casing/<repo>`). Fixes uppercase bets (e.g. `ASDADA`) stuck at
-  "N AWAY!" with no win reveal: frontend normalizes the choice to lowercase at the single capture point
-  (`useGame.bet()`) + downcases input on entry; backend stops silently lowercasing (`Bet.Choice`
-  trim-only, drop handler `.ToLower()`) and now **rejects** uppercase / out-of-alphabet input as
-  `InvalidCharacters`. No migration. Trello #93 ([7yXgbqcQ](https://trello.com/c/7yXgbqcQ)).
+- _None._
+
+- _Last shipped:_ **Bet choice casing** (Minor change / bug fix) — `feature/bet-choice-casing`
+  (**`monkify-backend`** + **`monkify-front`** + **`monkify-meta`** → `main`), **shipped 2026-07-24**.
+  Fixed uppercase bets (e.g. `ASDADA`) stuck at "N AWAY!" with no win reveal: frontend normalizes the
+  choice to lowercase at the single capture point (`useGame.bet()`) + downcases input on entry; backend
+  stops silently lowercasing (`Bet.Choice` trim-only, drop handler `.ToLower()`) and now **rejects**
+  uppercase / out-of-alphabet input as `InvalidCharacters`. No migration; Minor change → no dedicated
+  `features/` doc (distilled into `features/games.md` + `features/choice-exclusivity.md` + `glossary.md`).
+  Spec `specs/bet-choice-casing.md`. Trello #93 ([7yXgbqcQ](https://trello.com/c/7yXgbqcQ)).
 
 - _Last shipped:_ **Standardize scrollbars** (QOL/styling) — `feature/standardize-scrollbars`
   (**`monkify-front`** + **`monkify-lp`** → their default branch + **`monkify-meta`** → `main`),

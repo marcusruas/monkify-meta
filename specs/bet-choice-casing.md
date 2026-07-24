@@ -1,5 +1,9 @@
 # SpaceStroker — "Bet Choice Casing" Fix — Implementation Spec
 
+> **Status: Shipped** — merged to `main` on `feature/bet-choice-casing` (2026-07-24). Distilled into
+> `features/games.md`, `features/choice-exclusivity.md`, and `glossary.md` (Minor change → no dedicated
+> `features/bet-choice-casing.md`). This spec stays as the deep design archive.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [weirdness with capitalized chars](https://trello.com/c/7yXgbqcQ/93-weirdness-with-capitalized-chars) (2026-07-24).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.

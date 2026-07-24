@@ -200,7 +200,8 @@
   taking the same normalized choice is rejected (`ErrorMessages.ChoiceAlreadyTaken`) and **auto-refunded**
   for a paid `SolanaToken` bet (reject-only for Standard/free). Enforced by a cross-player check in
   `RegisterBetHandler.ValidateBetParameters` **and** a DB unique index `(GameId, ExclusiveChoice)` —
-  `Bet.ExclusiveChoice` is the normalized choice for free-text bets, `NULL` for preset bets (NULLs
+  `Bet.ExclusiveChoice` is the **trimmed** choice for free-text bets (casing not folded — uppercase is
+  rejected as `InvalidCharacters`, so a valid choice is already lowercase), `NULL` for preset bets (NULLs
   distinct ⇒ preset games still share choices). Same-player repeats still hit the `DuplicateBet` path.
   Consequence: a free-text winning sequence maps to exactly one bet ⇒ **winner-takes-all** (no
   reward-math change). See `features/choice-exclusivity.md`.
