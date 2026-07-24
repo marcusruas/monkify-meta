@@ -50,13 +50,19 @@ From `monkify-meta/constraints.md` (full list there):
 
 ## 3. Resolved product decisions
 
+> **Implementation note (2026-07-24):** decisions 2 & 4 were revised during the build after inspecting
+> the running app (the original `#0b0d18` was the *mobile* CRT tone, not the desktop cabinet screen).
+> The table below reflects **what shipped**; §7 shows the final CSS.
+
 | # | Decision |
 | --- | --- |
 | 1 | The dock background becomes **fully opaque** — zero see-through is the whole point. |
-| 2 | Exact color = **`#0b0d18`** (the mobile-CRT / terminal screen tone), chosen over pure `#000` so it blends with the cabinet screen's dark-navy tint instead of reading as a mismatched black strip. |
+| 2 | **Desktop** color = **`#050505`** (near-black), matching the actual cabinet-screen tone sampled from `bg.png` at ~`#040404`. The originally-specced `#0b0d18` was the *mobile* CRT tone and read as a mismatched blue box on desktop. |
 | 3 | **Top edge:** keep the existing `border-top: 1px solid rgba(34, 197, 94, 0.3)` hard separator line. **No** gradient fade at the top. |
-| 4 | The `.near-miss-dock` class is shared by the **desktop cabinet** and **mobile CRT** layouts, so the single CSS change fixes both — no per-layout override. |
+| 4 | The `.near-miss-dock` class is shared by desktop + mobile, but the two screens have **different tones**, so a scoped **`.mobile-terminal .near-miss-dock`** override keeps `#0b0d18` on mobile (its CRT panel is genuinely that navy). |
 | 5 | The top-of-run `> POT:` line is **out of scope** (it scrolls with content, is not sticky, and does not bleed). |
+| 6 | **Bottom-edge coverage:** a sticky element can't sit below the scroll container's content box, and the form has `py-6` (24px) bottom padding, so the stream's last lines peeked through in that gap. Covered with a `box-shadow` strip (offset down 24px, same tone) rather than layout changes — box-shadows don't add scrollbars. |
+| 7 | **Side-edge coverage:** the dock's left/right align exactly with the stream (both at content-left), but a 1–2px sub-pixel sliver could show; two extra `box-shadow` copies (offset ±6px) over-cover the sides into the terminal's black padding. |
 
 ---
 
@@ -100,7 +106,7 @@ In `src/components/game/GameTerminal.vue`, the scoped style block, rule `.near-m
 ```
 
 ```css
-/* AFTER */
+/* AFTER (as shipped) */
 .near-miss-dock {
   position: sticky;
   bottom: 0;
@@ -108,19 +114,25 @@ In `src/components/game/GameTerminal.vue`, the scoped style block, rule `.near-m
   padding: 6px 4px 4px;
   max-height: 40%;
   overflow-y: auto;
-  background: #0b0d18;                            /* opaque terminal screen tone — no see-through */
+  background: #050505;              /* near-black — matches the desktop cabinet screen (~#040404) */
+  box-shadow:
+    0 24px 0 6px #050505,           /* covers the form's 24px bottom padding (+6px sides) */
+    -6px 0 0 0 #050505,             /* over-covers the LEFT edge (sub-pixel sliver) */
+    6px 0 0 0 #050505;              /* over-covers the RIGHT edge */
   border-top: 1px solid rgba(34, 197, 94, 0.3);
+}
+/* Mobile keeps its actual CRT-panel tone (#0b0d18) for the fill AND the shadow copies. */
+.mobile-terminal .near-miss-dock {
+  background: #0b0d18;
+  box-shadow:
+    0 24px 0 6px #0b0d18,
+    -6px 0 0 0 #0b0d18,
+    6px 0 0 0 #0b0d18;
 }
 ```
 
-Also update the explanatory comment directly above the rule (currently says *"Transparent so it
-matches the terminal (no dark panel)…"*) so it no longer claims transparency — e.g.:
-
-```css
-/* Docked at the bottom of the scrolling terminal; stays put while the live stream scrolls.
-   Opaque (terminal screen tone) so the auto-scrolling stream can't show through behind the rows;
-   a faint green line separates it from the stream. */
-```
+Also update the explanatory comment directly above the rule (it claimed *"Transparent so it matches
+the terminal…"*) so it describes the opaque near-black fill + the box-shadow edge coverage.
 
 ### 7.2 Stacking / paint order
 
@@ -130,13 +142,18 @@ sufficient to hide the stream — **no `z-index` change is required**. Only if, 
 positioned descendant is still observed peeking through should a defensive `z-index: 1` be added to
 `.near-miss-dock`; otherwise leave stacking untouched.
 
-### 7.3 Coverage details (verify, no extra CSS expected)
+### 7.3 Coverage details (as shipped)
 
 - **Internal scroll:** the dock has `max-height: 40%; overflow-y: auto`. `background` on the dock
-  element already paints the whole padding box, including the internally-scrolling area — no separate
-  fix needed.
-- **Full width:** `.near-miss-dock` is a block-level `<div>` spanning the form's content width, so
-  the opaque background covers edge-to-edge; no stream text peeks at the left/right.
+  element paints the whole padding box, including the internally-scrolling area.
+- **Bottom padding gap:** the form is a scroll container with `py-6` (24px) bottom padding; a sticky
+  element pins at the content-box bottom, leaving that 24px strip where the stream shows through. The
+  `0 24px 0 6px` box-shadow paints it solid (verified live: no bleed below the last row).
+- **Left/right edges:** the dock spans the form's content width (its left/right align with the
+  stream), but the `-6px`/`6px` shadow copies over-cover the sides by 6px into the terminal's black
+  padding to eliminate a sub-pixel sliver seen at the left edge during QA.
+- **Box-shadows don't affect layout**, so none of this adds a horizontal/vertical scrollbar (an
+  earlier negative-margin attempt did, and was rejected).
 
 ### 7.4 Untouched
 
@@ -172,7 +189,7 @@ None.
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/components/game/GameTerminal.vue` | In the scoped `<style scoped>` block, change `.near-miss-dock { background: transparent }` → `background: #0b0d18`; update the preceding comment to say "opaque" instead of "transparent". No other change. |
+| 1 | `src/components/game/GameTerminal.vue` | In the scoped `<style scoped>` block: `.near-miss-dock { background: transparent }` → `background: #050505` + the 3-part `box-shadow` (bottom strip + side over-cover); add a scoped `.mobile-terminal .near-miss-dock` override (`#0b0d18` bg + shadows); update the preceding comment. No other change. |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -180,7 +197,7 @@ None.
 | --- | --- | --- |
 | 1 | `specs/near-miss-dock-bg.md` | This spec. |
 | 2 | `INDEX.md` | Add the spec row (status Ready) + set "Feature currently in flight". |
-| 3 | `features/characters-away.md` | *(At ship time, via `/monkify-ship-feature`.)* Update the "Always visible, bottom-docked" bullet: the dock is now **opaque** (`#0b0d18`), not transparent. |
+| 3 | `features/characters-away.md` | *(At ship time, via `/monkify-ship-feature`.)* Update the "Always visible, bottom-docked" bullet: the dock is now **opaque near-black** (`#050505`; `#0b0d18` on mobile) with a `box-shadow` covering the form's bottom padding + side edges, not transparent. |
 
 ---
 
@@ -197,15 +214,19 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist:
 
 1. Given a running round with the player's own bet(s), When the terminal stream auto-scrolls behind
    the docked `> N AWAY!` rows, Then no stream characters are visible through/behind the dock (fully
-   opaque `#0b0d18`).
+   opaque near-black `#050505` on desktop).
 2. Given the dock is rendered, When compared to the terminal screen, Then its background matches the
-   dark screen tone (`#0b0d18`, not a mismatched pure-black strip) and the 1px green top separator
-   line remains.
+   dark cabinet-screen tone (`#050505` ≈ the sampled `#040404`, not a mismatched navy/blue strip) and
+   the 1px green top separator line remains.
 3. Given many near-miss rows causing the dock to scroll internally (max-height 40%, overflow-y auto),
    When it overflows, Then the opaque background still fully covers the docked area with no
    bleed-through.
 4. Given both the desktop (cabinet) and mobile (CRT) layouts, When a round runs, Then the fix applies
-   in both with no regression to near-miss text, colors, or the win type-out.
+   in both (desktop `#050505`, mobile `#0b0d18`) with no regression to near-miss text, colors, or the
+   win type-out.
+5. Given a running round, When looking at the **bottom and left/right edges** of the dock, Then no
+   stream characters peek below the last row (bottom padding covered) or at the side edges (verified
+   live).
 
 ---
 
@@ -240,3 +261,4 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist:
 | Date | Change |
 | --- | --- |
 | 2026-07-24 | Initial spec from refined card #90 (frontend-only near-miss dock opaque-background bug fix). |
+| 2026-07-24 | Implementation reconciliation: color `#0b0d18` → **`#050505`** (matches sampled cabinet screen `#040404`; `#0b0d18` kept for mobile via a scoped override); added a 3-part **`box-shadow`** to cover the form's 24px bottom padding gap + left/right sub-pixel slivers (negative-margin approach rejected — caused a scrollbar). Verified live in the local stack. |
