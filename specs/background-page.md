@@ -1,5 +1,9 @@
 # Space Stroker — "Background-Only Page" — Implementation Spec
 
+> **Status: Shipped** — merged to `main` on `feature/background-page` (2026-07-24). Distilled into
+> `architecture.md` → frontend "Routing" + "Chromeless routes" (Minor change → no dedicated
+> `features/background-page.md`). This spec stays as the deep design archive.
+>
 > **Status: Ready for implementation** — user request (2026-07-24), not from a Trello card.
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **No backend change.**
 >
