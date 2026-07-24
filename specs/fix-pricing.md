@@ -1,6 +1,6 @@
 # SpaceStroker — "Fix pricing" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/fix-pricing` on 2026-07-24. Refined via Trello card
 > [Fix pricing](https://trello.com/c/IJRNPqAs/88-fix-pricing) (2026-07-24).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
