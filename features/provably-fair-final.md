@@ -18,8 +18,12 @@ is cheap enough to open freely.
 
 **The FAIR panel (frontend)**
 
-- The panel is the **third lazy tab** in `GameSidePanel` (`CHAT` · `STATS` · `FAIR`), and is **hidden
-  when embedded** (`useEmbed()`): regulated casino iframes get no in-frame fairness panel.
+- **Housing (superseded by `fair-stats-menu`).** The panel is no longer a side-panel tab. `GameSidePanel`
+  is now **chat-only**; `GameFairPanel` is rendered inside the header-menu **Fair modal**
+  (`GameFairModal`) — an always-on *how-to-verify* explainer above the same reused panel — and off
+  `/game` it shows a "watch a round to verify it" empty state (no fetch). Still **hidden when embedded**
+  (`useEmbed()`): regulated casino iframes get no in-frame fairness surface. All the panel behaviour
+  below is unchanged. See `features/fair-stats-menu.md`.
 - It is **locked until the round reaches a terminal status**. While the round runs it shows only the
   committed `serverSeedHash` and "verification unlocks when this round ends". The commitment is
   fetched from the verification endpoint (not from `gameInstance`), because the backend commits the

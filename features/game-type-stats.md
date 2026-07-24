@@ -45,9 +45,12 @@ scoped to one game type (`GameParameters`) and aggregated across every round it 
 - **Type recreation resets stats.** The operator admin portal has no in-place edit (deactivate then
   create → a new `GameParameters` Id), so a recreated type starts its stats fresh; historical rounds
   of the old id are not carried over.
-- **UI: one tabbed side panel.** The `/game` screen's right-docked panel now has **CHAT** and **STATS**
-  tabs (`GameSidePanel`). It is collapsible and open by default. Both tab bodies stay mounted so chat
-  keeps its live subscription while Stats is shown; the Stats tab fetches only on its first activation.
+- **UI (superseded by `fair-stats-menu`).** These per-type stats no longer live in a side-panel STATS
+  tab. The tab was pulled out of `GameSidePanel` (now **chat-only**) and this same
+  `GET /games/{parametersId}/stats` read is rendered as the **per-game section of the dedicated Stats
+  page** (`/space-stroker/game/stats`, reached from the header menu) behind a game-type dropdown,
+  alongside a new operator-wide global section. The endpoint, caching, and data shape are unchanged.
+  See `features/fair-stats-menu.md`.
 
 > **Update (in flight, `feature/side-panel-cabinet`).** The side panel was re-housed as a **diegetic
 > arcade-cabinet module** to match the terminal (metal bezel + corner rivets + a recessed CRT screen
