@@ -3,6 +3,13 @@
 > Status: **shipped.** Authoritative spec: `../specs/operator-admin-page.md`
 > (merged via `feature/operator-admin-page` on 2026-07-06).
 >
+> ⚠️ **Access changed by `features/main-only-player-entry.md` (2026-07-24).** The dev header
+> **`DevAdminButton`** and the **`POST /dev/admin-token`** minting endpoint are **removed** — the portal
+> is now reachable **only** by presenting a valid RS256 admin token, captured at
+> `/space-stroker/game#admin_token=<jwt>` and redirected to `/space-stroker/admin`. Only the operator
+> (holding Main's private key) can mint an admin token offline. The `Admin` route/page and admin API are
+> otherwise unchanged.
+>
 > ⚠️ **Extended by `features/payment-methods.md` (2026-07-08).** The portal now also manages **Solana
 > token registration** (`GET/POST /admin/operator-tokens`, `POST …/{id}/deactivate` — register/list/
 > deactivate, no edit; private key encrypted at rest, never returned) and reports **method availability**

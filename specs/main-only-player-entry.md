@@ -1,6 +1,6 @@
 # SpaceStroker — "Main-only operator + player-only entry + token-gated admin" — Implementation Spec
 
-> **Status: Ready** — branch `feature/main-only-player-entry`.
+> **Status: Shipped** (2026-07-24) — merged via `feature/main-only-player-entry` → `main`.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** Consolidate to a **single operator ("Main")** everywhere, make the public entry
