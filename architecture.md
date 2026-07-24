@@ -227,6 +227,15 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   api-key in its query string, so it is a secret** — committed config keeps the keyless public devnet
   URL, deployed environments inject the real (e.g. Helius) URL via Secret Manager, and the provider
   **masks endpoints to scheme+host** before they reach any log. See `specs/solana-rpc-api-key.md`.
+- **Frontend `/rpc` failover proxy (separate from the payout path above).** A thin stateless
+  `POST /rpc` passthrough (`RpcController` on `SpaceStroker.Api`) that the **frontend** fails over to
+  when the public RPC returns **HTTP 429**. It forwards a strict **allowlist of 7 read/send methods**
+  to the same key-bearing `GeneralSettings.Token.ClusterUrl` (reused, no new secret) and returns the
+  provider response verbatim. Gated by an **environment-independent Origin allowlist** (reuses
+  `CorsOriginResolver`, plus localhost) + the **method allowlist** (403 otherwise) + a per-IP
+  `AspNetCoreRateLimit` rule `*:/rpc`; **not** launch-token gated (so the wallet-bridge popup, which
+  carries no token, works). Key never returned/logged (`MaskRpcUrl`). No entity/migration/consumer.
+  This is unrelated to the backend's own payout RPC clients above. See `features/solana-connection-rpc.md`.
 - **Standard payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
   **debit** runs synchronously in `SpaceStroker.Api` at bet time; **credit** and **refund** run in
