@@ -1,9 +1,19 @@
 # SpaceStroker — "In-place mobile wallet connect (single-modal, multi-wallet deeplink)" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged via `feature/mobile-wallet-connect` on 2026-07-25 (distilled in
+> `../features/mobile-wallet-connect.md`). Refined via Trello card
 > [\[FRONT\] Connect wallet doesn't work on mobile](https://trello.com/c/Csb9U6bn) (2026-07-24);
-> **redesigned 2026-07-24** (brainstorm + research pass — see §15). Repos affected: `monkify-front` (all
-> code) and this doc in `monkify-meta`. **No `monkify-backend` change.**
+> **redesigned 2026-07-24**, then adjusted during **device QA (2026-07-25)** — see §15. Repos affected:
+> `monkify-front` (all code) and this doc in `monkify-meta`. **No `monkify-backend` change.**
+>
+> **As-shipped note (read this before §3 decisions 13/14):** two spec-time ideas were **not** shipped —
+> the `intent://` Android redirect (decision 13; it breaks Phantom's response-param append) and the
+> automatic blockhash **re-sign** hop (decision 14). What shipped instead: the Android new tab is
+> **accepted as unavoidable** and made harmless, the modal offers a **connect-method toggle** (in-place
+> deeplink *vs* open-in-wallet-browser) with an **Android new-tab disclaimer**, an **in-app-browser
+> auto-connect**, a **blockhash-expiry clean-retry message**, the **balance/identity read the effective
+> wallet**, and the sign-resume **waits for the live `/Bets` stream** before submitting. See the §15
+> device-QA entry for the full list; the `features/` doc describes current behaviour.
 >
 > **Purpose:** Let a player on **standalone mobile web** connect a Solana wallet **in place** and fund a
 > `SolanaToken` bet without being dumped out of the game into the wallet app's in-app browser. The player
@@ -599,3 +609,4 @@ holding the game's token (see the "Local paid SolanaToken bet" runbook for fundi
 | --- | --- |
 | 2026-07-24 | Initial spec from refined card #92 (Approach A — Phantom + Solflare native deeplink protocols; `signAndSendTransaction`; per-wallet chooser; frontend-only). |
 | 2026-07-24 | **Redesign** (brainstorm + research pass, card #92). Root cause of the reported "connect loop" identified (return params stripped by the router / lost across the Android new tab). Changes: (a) **single "Connect Wallet" button → one wallet-picker modal**; (b) **Tier 1 adds Backpack** (Phantom/Solflare/Backpack share one encrypted-deeplink adapter); (c) **Tier 2** one-tap "open in app" browse links for **Coinbase/Trust/OKX/Bitget** (Glow/Ultimate/Exodus dropped — WalletConnect-only); (d) sign method → **`signAllTransactions` + self-broadcast** (`signAndSendTransaction` is deprecated & dead on devnet); (e) **round-changed guard runs before broadcast** (never spends for a dead round); (f) **`intent://` redirect on Android + self-healing return route** + `main.ts` pre-router param capture to kill the connect loop; (g) **blockhash-staleness re-sign** on slow approvals; (h) **no new npm dep** (base58 inlined). Grounded in a full read of the prior spec + `useConnection`, `useGame.bet`, `GameConsole`, `WalletButtons`, `useEmbeddedWallet`, `walletDeepLink`, and a two-pass wallet-capability research report. |
+| 2026-07-25 | **Device QA + ship** (real Android/Phantom + Solflare, deployed to `app.dev.spacestroker.com`). Implemented the redesign, then adjusted from on-device behaviour — this is the **as-shipped** truth: (1) **connect-loop fix landed differently** — the `main.ts` return stash moved from `sessionStorage` to **`localStorage`** (the missing piece: Android reopens the return in a NEW tab whose `sessionStorage` is empty), and the deeplink `redirect_link` keeps **`?type=`** so the returned tab loads the exact game (replaces the "self-healing route" idea as the primary mechanism). (2) **`intent://` dropped** (decision 13 reversed) — it corrupts Phantom's response-param append and wallets expect `https`; the **Android new tab is accepted as unavoidable** (Phantom's return intent isn't stamped for tab reuse; `window.close()` is blocked on the return tab) and made harmless. (3) **Connect-method toggle added** — *Stay in browser* (deeplink, default) vs *Open in wallet app* (in-app browser) for Tier-1 wallets, plus an **Android new-tab disclaimer**. (4) **In-app-browser auto-connect** — inside a wallet webview (mobile + injected provider) the app auto-selects + connects, so the in-app path spawns connected. (5) **Blockhash staleness → clean-retry message** (not the auto re-sign of decision 14). (6) **Balance + identity read the effective wallet** — `TokenBalance` and `useConnection.getTokenBalance(owner?)` were gating on the desktop adapter only, so a mobile-connected wallet showed no balance. (7) **No-refresh bet** — the sign-resume **waits for the reloaded game view's live `/Bets` stream** before submitting (`waitForRoundLoaded`). (8) **Disconnect** is a deliberate menu (address + explicit Disconnect), not a single tap. (9) `location.replace` for the hop (history hygiene). Merged `feature/mobile-wallet-connect` → `main` (monkify-front + monkify-meta). |
