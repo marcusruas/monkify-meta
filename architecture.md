@@ -178,6 +178,11 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   - `{gameId}/ChatMessage` — per-game chat (`SendChatMessage` on the same hub/group),
   - and `GameReceived` / a recent-bets `…/Bets` channel.
 - JSON uses camelCase. Both the API and Consumers configure SignalR (Consumers emits during runs).
+- **The client hangs up when nobody is watching.** The server keeps no idle policy of its own
+  (`KeepAliveInterval` / `ClientTimeoutInterval` are untouched); instead the SPA proactively closes
+  **both** hubs after an idle period and refuses to reconnect until the player clicks, so abandoned
+  tabs stop pinning Cloud Run instances. See the frontend section below and
+  `specs/idle-websocket-disconnect.md`.
 
 ## 7. Scheduling: Hangfire
 
@@ -390,6 +395,21 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   (`GameStatsPage.vue`, `/space-stroker/game/stats`): a global section via `GET /games/stats` plus a
   per-type section via `GET /games/{parametersId}/stats`. See `features/fair-stats-menu.md` +
   `features/game-type-stats.md`.
+- **Idle disconnect (cost control):** `useIdleDisconnect` (a module singleton armed by `GamePage` on
+  mount, torn down on unmount) watches two independent thresholds — **30 min** with the tab
+  continuously `document.hidden` (`VUE_APP_IDLE_DISCONNECT_HIDDEN_MS`) and **60 min** with zero user
+  input whether visible or not (`VUE_APP_IDLE_DISCONNECT_INACTIVE_MS`); whichever fires first wins,
+  and a visible + interacting tab is never disconnected. Elapsed time is derived from **timestamps**
+  re-evaluated on a 30s tick plus `visibilitychange`/`focus`/`pageshow` — never from a `setTimeout`
+  callback, because background and mobile tabs throttle or freeze timers. On firing, `useGame` runs
+  the existing `disconnectAllPreviousConnections()` teardown on both hubs, sets a flag that gates
+  `initalizeWebsocketConnections`, blocks `bet()` (a stale `gameId` must never be POSTed to), and
+  emits the embedded `idle-disconnected` event. Both hubs also carry `onreconnecting` idle checks so
+  `.withAutomaticReconnect()` cannot revive a frozen tab's dropped socket. Recovery is explicit — a
+  `GameIdleOverlay` **RECONNECT** button calls `resumeFromIdle()`, which re-runs the *full* join path
+  (`updateNewGame(true)`) because the round has rolled over; there is no silent auto-resume. An
+  in-flight mobile wallet hop is exempt from the hidden timer. Only the game **play** page is
+  affected — no other route holds a websocket. See `specs/idle-websocket-disconnect.md`.
 - **Bet flow:** `useGame.bet()` branches on `selectedGame.paymentMethod`. **`Standard`** posts
   `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**
   sends an on-chain SPL token transfer to the game's token via `useConnection.sendToken`, then POSTs

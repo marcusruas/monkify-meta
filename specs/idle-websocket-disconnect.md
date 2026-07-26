@@ -1,6 +1,28 @@
 # SpaceStroker — "Idle websocket disconnect" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` via `feature/idle-websocket-disconnect` on **2026-07-26**
+> (`monkify-front` + `monkify-meta`; `monkify-backend` untouched).
+>
+> **Post-ship notes — three deliberate deviations from the body below:**
+> 1. **§6.4 wallet-hop exemption is injected, not imported.** The spec shows `isWalletHopInFlight()`
+>    called inline in `evaluateIdle()`. Done literally that means calling `useMobileWallet()` from a
+>    bare `setInterval` — but it calls `useWallet()` (needs a component context) and runs `hydrate()`
+>    on every call. `useGame` injects the predicate via `setIdleExempt(() => !!getMobilePendingBet())`
+>    instead. The check still runs inside `evaluateIdle()`; only the wiring differs, and
+>    `useIdleDisconnect` stays free of wallet knowledge.
+> 2. **`onreconnecting` only, not `onclose`.** §6.3/§10.2 list both. `onclose` fires when the
+>    connection is already dead, so stopping there is a no-op — `onreconnecting` is the hook that
+>    actually intercepts `.withAutomaticReconnect()`'s revival.
+> 3. **Only `.env.example` carries the new vars.** `.env.production` and `.env.*.local` are
+>    **gitignored**, absent from the worktree, and `setup_local_environment.bat` regenerates
+>    `.env.production.local` anyway. The code defaults (30/60 min) cover an unset env.
+>
+> **Verification status at ship time:** `yarn lint` clean and `yarn build` green (the build is also
+> the TypeScript check), new code confirmed in the built bundle. `monkify-front` has **no test
+> runner**, and the **§13 manual QA matrix was not executed** — the behaviour had not been run when
+> this merged. Treat §13 as outstanding.
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [Add websocket disconnection when idle](https://trello.com/c/fwdi7Fgh) (#96, 2026-07-25).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **`monkify-backend` is not touched.**
 >

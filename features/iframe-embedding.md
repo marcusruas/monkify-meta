@@ -30,8 +30,14 @@ is the sibling feature [[iframe-crypto-games]].
   stale state.
 - **Parent `postMessage` API — stable envelope `{ source: 'space-stroker', type, payload }`, `targetOrigin '*'`,
   no secrets/tokens in any payload:** events are `ready`, `token-expired`, `game-started`,
-  `bet-placed`, `bet-settled` (carries `won`), `game-ended`, and a one-time `resize` size **hint**
-  (not continuous auto-height).
+  `bet-placed`, `bet-settled` (carries `won`), `game-ended`, `idle-disconnected`, and a one-time
+  `resize` size **hint** (not continuous auto-height).
+- **`idle-disconnected` (`{ gameId }`)** fires when the idle rule closed the frame's realtime
+  connections to save resources — the same rules apply embedded, since a parent casino tab is exactly
+  where tabs get left open. It is **not an error** and needs no action: the frame shows its own
+  in-frame reconnect prompt and stays put. There is deliberately **no matching "resumed" event** —
+  once the player reconnects, the normal `game-started` / `bet-*` / `game-ended` events simply resume.
+  See [[idle-websocket-disconnect]] (`../specs/idle-websocket-disconnect.md`).
 - **`bet-placed` is the embedded player's own bet** (emitted after a successful `applyBet`), a
   balance-refresh hint — not every bet on the `/Bets` stream. **`bet-settled` is bettors-only** (same gate
   as the victory/lose one-shot); spectators get `game-ended` but no `bet-settled`.

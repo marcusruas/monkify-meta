@@ -112,3 +112,13 @@ unchanged.
   in-app browser; `MobileWalletModal` rendered once.
 - `monkify-front/src/pages/GamePage.vue` — a deeplink-return load (params, no `?type=`) routes to the
   pending game instead of the lobby.
+
+## Interaction — idle websocket disconnect
+
+An **in-flight wallet hop is exempt from the idle hidden timer.** The iOS hop is *in place* (the page
+merely goes hidden while the player approves in the wallet app), so without the exemption a hop
+lasting longer than the 30-minute hidden threshold would return to a reconnect overlay with the
+pending transaction stranded behind it. While `getPendingBet()` returns a pending bet the idle
+evaluation skips; because that getter self-expires a stale hop (`STALE_HOP_MS`), the exemption can
+never pin a connection indefinitely. The **inactivity** timer is unaffected. The Android path is a
+fresh page load, so its timers reset naturally. See `../specs/idle-websocket-disconnect.md`.
