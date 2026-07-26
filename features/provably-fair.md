@@ -81,8 +81,12 @@ independently reproducible.
 - `src/utils/provablyFair.ts` — portable verifier core (WebCrypto), mirrors `ProvablyFair.cs`.
 - `src/hooks/useClientSeed.ts` — persistent client seed + nonce; `nextBetSeed()`.
 - `src/hooks/useGame.ts` — `bet()` derives seed+nonce from `useClientSeed`; sends `nonce`.
-- `src/components/game/GameTerminal.vue` — `> SERVER SEED HASH:` (betting) + `> SERVER SEED:` reveal
-  (auto-fetched on Ended); `src/components/header/PlayerCustomizationModal.vue` — client-seed controls.
+- `src/components/game/GameTerminal.vue` — `> SERVER SEED:` reveal only (auto-fetched on Ended). The
+  `> SERVER SEED HASH:` commitment line was **removed from the terminal on 2026-07-25** (it was a
+  64-char hash that wrapped over two lines and crowded the pre-bet view); the commitment is still
+  published on `ActiveGameDto.serverSeedHash` and is shown in the **FAIR** tab
+  (`GameFairPanel.vue` — "Server seed hash (committed)") and in `public/verify.html`.
+  `src/components/header/PlayerCustomizationModal.vue` — client-seed controls.
 - `src/services/mainService.ts` (`getGameVerification`), `src/types/index.ts`
   (`BodyGameBet.nonce`, `GameInstance.serverSeedHash`, `GameVerification`).
 - `public/verify.html` — standalone offline verifier (kept; linked from the FAIR tab).
