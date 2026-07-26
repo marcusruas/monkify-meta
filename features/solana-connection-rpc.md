@@ -1,20 +1,35 @@
 # Feature — Solana connection & RPC failover
 
-> Status: **shipped.** Authoritative spec: `../specs/solana-connection-rpc.md`
-> (merged via `feature/solana-connection-rpc` on 2026-07-24).
+> Status: **shipped**, but the **frontend transport half is SUPERSEDED**. Authoritative spec:
+> `../specs/solana-connection-rpc.md` (merged via `feature/solana-connection-rpc` on 2026-07-24).
+>
+> ⚠️ **`frontend-helius-gateway` (#99, 2026-07-26) replaced the failover model described below.**
+> The `/rpc` proxy is no longer a 429 fallback — it is the browser's **primary and only** Solana
+> transport in any deployed environment, `withFailover` and its cooldown are deleted,
+> `confirmTransaction`'s WebSocket became a `getSignatureStatuses` poll, the method allow-list is
+> **3 methods, not 7**, and balance reads left RPC entirely for `GET /solana/balance`.
+> **Read `frontend-helius-gateway.md` for what runs today.** What remains accurate here: the
+> single-approval `sendToken` rework, the priority fee, exact integer amount math, and the backend
+> proxy's Origin/method/rate gating.
 
 ## What it does
 
-Keeps the game playable under real mainnet traffic. The frontend still talks to the **public** Solana
-RPC by default, but when that endpoint returns **HTTP 429** it transparently retries the same call
-against a thin **backend `POST /rpc` proxy** (which forwards to the paid, key-bearing RPC the backend
-already uses) and sticks to the proxy for a short cooldown before drifting back to public. The same
-change reworks the crypto-bet transfer so a first-time bettor gets **one** wallet approval instead of
-up to three, transfers can carry a **priority fee**, and token amounts use **exact integer math**.
+*(Historical — see the banner above.)* Kept the game playable under real mainnet traffic. The frontend
+talked to the **public** Solana RPC by default, and when that endpoint returned **HTTP 429** it
+transparently retried the same call against a thin **backend `POST /rpc` proxy** (forwarding to the
+paid, key-bearing RPC the backend already uses), sticking to the proxy for a short cooldown before
+drifting back to public. The same change reworked the crypto-bet transfer so a first-time bettor gets
+**one** wallet approval instead of up to three, transfers can carry a **priority fee**, and token
+amounts use **exact integer math** — those three are still current.
 
 ## Core rules
 
-### Frontend transport (`useConnection.ts`)
+### Frontend transport (`useConnection.ts`) — ⚠️ SUPERSEDED by `frontend-helius-gateway.md`
+
+> Every bullet in this subsection describes the **old** model and no longer runs. Today: one
+> connection (the proxy when configured, public otherwise), no failover, no cooldown, and confirmation
+> by polling `getSignatureStatuses` rather than a WebSocket.
+
 - The **primary** connection is the public RPC (`VUE_APP_SOLANA_RPC_URL`, default
   `clusterApiUrl(VUE_APP_SOLANA_NETWORK)`). A custom `fetch` on it throws a typed `RpcRateLimitError`
   on `response.status === 429`.
@@ -55,9 +70,11 @@ up to three, transfers can carry a **priority fee**, and token amounts use **exa
 - `POST /rpc` is a thin JSON-RPC passthrough: **Origin allowlist → parse `method` → method allowlist →
   forward the raw body** to `GeneralSettings.Token.ClusterUrl` via a named `IHttpClientFactory` client
   (`"SolanaRpc"`) → return the provider response **verbatim**.
-- **Method allowlist** (exactly, case-sensitive): `getBalance`, `getTokenAccountsByOwner`,
-  `getTokenAccountBalance`, `getParsedAccountInfo`, `getLatestBlockhash`, `getTransaction`,
-  `sendTransaction`. Anything else → **403** before any forward (never an open relay).
+- **Method allowlist** (exactly, case-sensitive) — ⚠️ **narrowed to 3 by `frontend-helius-gateway`:**
+  `getLatestBlockhash`, `sendTransaction`, `getSignatureStatuses`. (Originally seven; `getBalance`,
+  `getTokenAccountsByOwner`, `getTokenAccountBalance`, `getParsedAccountInfo` and `getTransaction`
+  were removed once their only SPA callers were deleted.) Anything else → **403** before any forward
+  (never an open relay).
 - **Origin allowlist** is enforced **independent of environment** (it does not rely on the browser
   CORS middleware, which allows any origin in Development): the request `Origin` must be in
   `CorsOriginResolver.ResolveAllowedOrigins` or be a `localhost`/`127.0.0.1` origin; a missing `Origin`

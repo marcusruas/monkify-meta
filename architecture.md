@@ -233,14 +233,26 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   URL, deployed environments inject the real (e.g. Helius) URL via Secret Manager, and the provider
   **masks endpoints to scheme+host** before they reach any log. See `specs/solana-rpc-api-key.md`.
 - **Frontend `/rpc` failover proxy (separate from the payout path above).** A thin stateless
-  `POST /rpc` passthrough (`RpcController` on `SpaceStroker.Api`) that the **frontend** fails over to
-  when the public RPC returns **HTTP 429**. It forwards a strict **allowlist of 7 read/send methods**
+  `POST /rpc` passthrough (`RpcController` on `SpaceStroker.Api`) that is the **frontend's primary and
+  only Solana transport** in any deployed environment (`VUE_APP_SOLANA_PROXY_URL`). It forwards a
+  strict **allowlist of 3 methods** — `getLatestBlockhash`, `sendTransaction`, `getSignatureStatuses` —
   to the same key-bearing `GeneralSettings.Token.ClusterUrl` (reused, no new secret) and returns the
-  provider response verbatim. Gated by an **environment-independent Origin allowlist** (reuses
-  `CorsOriginResolver`, plus localhost) + the **method allowlist** (403 otherwise) + a per-IP
-  `AspNetCoreRateLimit` rule `*:/rpc`; **not** launch-token gated (so the wallet-bridge popup, which
-  carries no token, works). Key never returned/logged (`MaskRpcUrl`). No entity/migration/consumer.
-  This is unrelated to the backend's own payout RPC clients above. See `features/solana-connection-rpc.md`.
+  provider response verbatim. Gated by an **environment-independent Origin allowlist**
+  (`OriginAllowList`, reusing `CorsOriginResolver`, plus localhost) + the **method allowlist** (403
+  otherwise) + a per-IP `AspNetCoreRateLimit` rule `*:/rpc`; **not** launch-token gated (so the
+  wallet-bridge popup, which carries no token, works). Key never returned/logged (`MaskRpcUrl`). No
+  entity/migration/consumer. Unrelated to the backend's own payout RPC clients above.
+  *(It began as a 429-only failover behind a public primary — `features/solana-connection-rpc.md`;
+  `frontend-helius-gateway` made it primary because a production browser cannot use the public mainnet
+  endpoint at all.)*
+- **The browser never calls a public Solana RPC in a deployed environment, and never holds the
+  provider key.** Wallet-info reads go to **`GET /solana/balance`** (+ uncached `/solana/balance/live`)
+  on `SpaceStroker.Api` — Redis-cached per `mint+wallet`, restricted to **active registered
+  `OperatorToken` mints**, served through `ISolanaService.GetTokenBalance` (local ATA derivation, one
+  `getTokenAccountBalance`, inheriting the retry + single-fallback + masking above). Confirmation is a
+  **`getSignatureStatuses` poll**, not a WebSocket — a socket cannot be proxied. Locally/on devnet,
+  with no proxy configured, the SPA still uses the public endpoint directly so no key is needed and no
+  provider credits are spent. See `features/frontend-helius-gateway.md`.
 - **Standard payouts** go through `IOperatorWalletService` (a per-operator adapter; only a mock adapter
   ships today), resolved by `IOperatorWalletResolver` from `GeneralSettings.OperatorWallets`. The stake
   **debit** runs synchronously in `SpaceStroker.Api` at bet time; **credit** and **refund** run in

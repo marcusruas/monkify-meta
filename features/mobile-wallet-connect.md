@@ -38,8 +38,10 @@ unchanged.
 - **Signing = `signAllTransactions` + self-broadcast.** The transfer tx is built in-page
   (`buildTransferTransaction`, reusing `sendToken`'s idempotent-ATA + integer-amount + optional
   priority-fee math); the wallet **signs only**; the app broadcasts via
-  `useConnection.broadcastSignedTransaction` (keeps the 429 failover) and confirms on the public
-  connection. `signAndSendTransaction` is **not** used — it is deprecated and fails on devnet.
+  `useConnection.broadcastSignedTransaction` (over the backend `/rpc` transport) and confirms with the
+  `getSignatureStatuses` poll (`confirmSignature`), the same path desktop and the embedded popup use —
+  see [[frontend-helius-gateway]]. `signAndSendTransaction` is **not** used — it is deprecated and
+  fails on devnet.
 - **Round-changed guard runs before broadcast.** On the sign return the app holds the signed-but-unsent
   tx; if the intended round ended/rolled over during the hop it does **not** broadcast, clears the
   pending bet, and shows a plain message ("nothing was charged") — never spends on a dead round.
@@ -92,7 +94,7 @@ unchanged.
 - `monkify-front/src/types/mobileWallet.ts` — **new.** `WalletApp` (`phantom|solflare|backpack`),
   `Tier2Wallet`, `MobileWalletSession`, `MobileConnectAttempt`, `MobilePendingBet`.
 - `monkify-front/src/hooks/useConnection.ts` — `buildTransferTransaction` (unsigned tx + `feePayer`),
-  `broadcastSignedTransaction` (self-broadcast + confirm via failover), `confirmSignatureOnPrimary`;
+  `broadcastSignedTransaction` (self-broadcast), `confirmSignature` (the getSignatureStatuses poll);
   `getTokenBalance(tokenAddress, owner?)` accepts an owner override (the mobile wallet).
 - `monkify-front/src/hooks/useGame.ts` — `bet()` mobile connect/sign branches;
   `handleMobileDeeplinkReturn` (finalize connect / resume sign: `waitForRoundLoaded` → round guard →

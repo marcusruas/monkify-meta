@@ -276,10 +276,23 @@
 - **CorsOriginResolver / GeneralSettings:Cors** — config-driven browser CORS allow-list read by both hosts
   (`GeneralSettings:Cors:AllowedOrigins`, default `https://app.spacestroker.com`, prod-overridable via env).
   Replaced the hardcoded origin.
-- **`/rpc` proxy (RPC failover)** — a frontend-facing `POST /rpc` JSON-RPC passthrough (`RpcController`,
-  `SpaceStroker.Api`) that the SPA fails over to **only after a public-RPC HTTP 429**. Forwards a strict
-  7-method allowlist to the key-bearing `Token.ClusterUrl` and returns the response verbatim; gated by an
-  env-independent Origin allowlist + method allowlist + per-IP rate limit, **not** launch-token gated.
-  Distinct from the backend's own Solnet payout RPC clients (`ISolanaRpcClientProvider`). Frontend
-  `useConnection.withFailover` sticks to it for a cooldown, then drifts back to public;
-  `confirmTransaction` always stays on the public connection. See `features/solana-connection-rpc.md`.
+- **`/rpc` proxy** — a frontend-facing `POST /rpc` JSON-RPC passthrough (`RpcController`,
+  `SpaceStroker.Api`) that is the SPA's **primary and only** Solana transport wherever
+  `VUE_APP_SOLANA_PROXY_URL` is set (every deployed environment); locally/on devnet, unset, the SPA
+  uses the public endpoint directly. Forwards a strict **3-method** allowlist —
+  `getLatestBlockhash`, `sendTransaction`, `getSignatureStatuses` — to the key-bearing
+  `Token.ClusterUrl` and returns the response verbatim; gated by an env-independent Origin allowlist +
+  method allowlist + per-IP rate limit, **not** launch-token gated. Distinct from the backend's own
+  Solnet payout RPC clients (`ISolanaRpcClientProvider`). *It began (#87) as a 429-only failover behind
+  a public primary, with 7 methods and a cooldown; `frontend-helius-gateway` (#99) made it primary and
+  deleted the failover, because a production browser cannot use the public mainnet endpoint at all.*
+  See `features/frontend-helius-gateway.md`.
+- **`GET /solana/balance`** — the frontend-facing SPL balance read (`SolanaController`), so the browser
+  never calls a Solana RPC for a player's balance. Redis-cached per `mint+wallet`; `/solana/balance/live`
+  is the uncached variant (a separate **route**, because the rate limiter cannot budget a query-string
+  value). Restricted to **active registered `OperatorToken` mints**; every rejection returns one vague
+  message. A wallet with no associated token account reads `0`, not an error.
+- **`confirmSignature` (confirmation poll)** — the frontend's bounded `getSignatureStatuses` poll that
+  replaced `Connection.confirmTransaction`. A WebSocket subscription cannot be proxied and the public
+  RPC's socket is unusable on mainnet, so desktop, the embedded popup and the mobile deeplink return
+  all confirm this way. A **timeout is not a failed payment** — the transfer has most likely landed.

@@ -31,7 +31,7 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
 - **Internal handshake envelope `{ source: 'space-stroker-wallet', … }`** (distinct from the parent-facing
   `spacestroker` envelope), strictly **same-origin**: both sides target and verify `window.location.origin` and
   check `event.source` (opener ↔ popup). Messages: `bridge-ready` → `sign-request`
-  `{ receiver, mint, amount, network }` → `sign-result` `{ signature, wallet }` (or `sign-error` /
+  `{ receiver, mint, amount, network, decimals }` → `sign-result` `{ signature, wallet }` (or `sign-error` /
   `cancelled`). Payloads carry **only public data** (mint / receiver / amount / network / signature /
   wallet) — never the launch token or any secret.
 - **Cancel is clean:** closing the popup before it returns a signature (watched via `popup.closed`) aborts
@@ -59,7 +59,7 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
   `openWalletPopup()` (sync, same-origin `/space-stroker/wallet-bridge`), `requestSignatureFromPopup()`
   (handshake + origin/source validation + `popup.closed` cancel watch), `walletPopupBlocked` state.
 - `monkify-front/src/pages/WalletBridgePage.vue` — **new.** The popup page: posts `bridge-ready`, shows the
-  wallet connect UI, on `sign-request` runs `startConnection()` + `sendToken` → posts `sign-result` +
+  wallet connect UI, on `sign-request` runs `sendToken` (with the payload's `decimals`) → posts `sign-result` +
   `window.close()`; generic `sign-error` on reject/fail.
 - `monkify-front/src/utils/walletBridge.ts` — **new.** `WALLET_BRIDGE_SOURCE = 'space-stroker-wallet'`, the
   `WalletBridgeMessage` union, same-origin targeting/validation.
