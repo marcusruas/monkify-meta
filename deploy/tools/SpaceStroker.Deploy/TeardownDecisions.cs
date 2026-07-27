@@ -51,4 +51,56 @@ public static class TeardownDecisions
     public static bool IsZeroCostOnly(IReadOnlyList<string> leftovers) =>
         leftovers.Count > 0 &&
         leftovers.All(a => a.StartsWith(ZeroCostPrefix, StringComparison.Ordinal));
+
+    /// <summary>The exact command that resumes this teardown, plus the raw-Terraform escape hatch.</summary>
+    public static string ResumeHint(string environment, bool purge)
+    {
+        var purgeFlag = purge ? " --purge" : "";
+        return
+            "Resume with:\n" +
+            $"  cd deploy/tools/SpaceStroker.Deploy && dotnet run -- teardown --env {environment}{purgeFlag}\n" +
+            "Escape hatch (raw Terraform, from deploy/terraform/workload):\n" +
+            $"  terraform destroy -auto-approve -var-file=\"{environment}.tfvars.json\"";
+    }
+
+    /// <summary>
+    /// The teardown SUCCEEDED — everything billable is gone — but the zero-cost network resources are
+    /// still held by the Google-managed Direct VPC egress address, which releases asynchronously.
+    /// </summary>
+    public static string ZeroCostWarning(IReadOnlyList<string> leftovers, string environment) =>
+        "Workload destroyed — ALL BILLABLE RESOURCES ARE GONE.\n" +
+        "\n" +
+        $"!! {leftovers.Count} zero-cost resource(s) could not be destroyed yet:\n" +
+        Indent(leftovers) +
+        "!! They are held by the Google-managed Direct VPC egress address\n" +
+        "!! (serverless.googleapis.com/.../addressReservations/serverless-ipv4-*), which releases\n" +
+        "!! ASYNCHRONOUSLY after Cloud Run is deleted. `gcloud compute addresses delete` cannot force it.\n" +
+        "!! Nothing here is billed. Finish the teardown later:\n" +
+        Indent(ResumeHint(environment, purge: false));
+
+    /// <summary>Something that costs money survived every destroy pass — this must fail the run.</summary>
+    public static string BillableLeftoverError(IReadOnlyList<string> leftovers, string environment, bool purge) =>
+        $"Teardown incomplete after {DestroyAttempts} destroy passes — " +
+        $"{leftovers.Count} resource(s) are still in the workload state and still billing:\n" +
+        Indent(leftovers) +
+        "\n" +
+        ResumeHint(environment, purge);
+
+    /// <summary>
+    /// `--purge` is about to destroy the state bucket, which is the only record of these resources.
+    /// Stop instead: an orphaned resource with no state cannot be destroyed by Terraform at all.
+    /// </summary>
+    public static string PurgeBlockedMessage(IReadOnlyList<string> leftovers, string environment) =>
+        $"--purge STOPPED — {leftovers.Count} resource(s) are still in the workload state:\n" +
+        Indent(leftovers) +
+        "Destroying the Terraform state bucket now would ORPHAN them (no state, no way to destroy).\n" +
+        "The DNS zone, the state bucket and the secrets were NOT touched.\n" +
+        "\n" +
+        ResumeHint(environment, purge: true);
+
+    private static string Indent(IReadOnlyList<string> addresses) =>
+        string.Concat(addresses.Select(a => $"!!   {a}\n"));
+
+    private static string Indent(string block) =>
+        string.Concat(block.Split('\n').Select(line => $"!!   {line}\n"));
 }

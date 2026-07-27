@@ -96,4 +96,61 @@ public class TeardownDecisionsTests
         TeardownDecisions.DestroyAttempts.ShouldBe(3);
         TeardownDecisions.DestroyBackoff.ShouldBe([TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(120)]);
     }
+
+    [Fact]
+    public void ResumeHint_IncludesPurgeFlagWhenPurging()
+    {
+        TeardownDecisions.ResumeHint("development", purge: true).ShouldContain("--purge");
+        TeardownDecisions.ResumeHint("development", purge: false).ShouldNotContain("--purge");
+    }
+
+    [Fact]
+    public void ResumeHint_NamesTheEnvironment()
+    {
+        var hint = TeardownDecisions.ResumeHint("development", purge: false);
+
+        hint.ShouldContain("teardown --env development");
+        hint.ShouldContain("terraform destroy");
+        hint.ShouldContain("development.tfvars.json");
+    }
+
+    [Fact]
+    public void ZeroCostWarning_ListsEveryLeftoverAndStatesBillingStopped()
+    {
+        var message = TeardownDecisions.ZeroCostWarning(ZeroCostLeftovers, "development");
+
+        foreach (var address in ZeroCostLeftovers)
+            message.ShouldContain(address);
+
+        message.ShouldContain("ALL BILLABLE RESOURCES ARE GONE");
+        message.ShouldContain("serverless");                    // names WHY they are stuck
+        message.ShouldContain("teardown --env development");
+    }
+
+    [Fact]
+    public void BillableLeftoverError_ListsEveryLeftoverAndResumeHint()
+    {
+        string[] leftovers = [TeardownDecisions.SqlInstanceAddress, "module.data.google_redis_instance.cache"];
+
+        var message = TeardownDecisions.BillableLeftoverError(leftovers, "development", purge: false);
+
+        foreach (var address in leftovers)
+            message.ShouldContain(address);
+
+        message.ShouldContain("still billing");
+        message.ShouldContain("teardown --env development");
+    }
+
+    [Fact]
+    public void PurgeBlockedMessage_ExplainsOrphanRiskAndSaysNothingPersistentWasTouched()
+    {
+        var message = TeardownDecisions.PurgeBlockedMessage(ZeroCostLeftovers, "development");
+
+        foreach (var address in ZeroCostLeftovers)
+            message.ShouldContain(address);
+
+        message.ShouldContain("ORPHAN");
+        message.ShouldContain("NOT touched");
+        message.ShouldContain("--purge");
+    }
 }
