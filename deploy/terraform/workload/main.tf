@@ -130,13 +130,21 @@ module "cloud_run_api" {
 }
 
 module "front_site" {
-  source                  = "./modules/static_site"
-  project_id              = var.project_id
-  name_prefix             = "${local.name_prefix}-front"
-  bucket_name             = var.front_bucket_name
-  location                = var.bucket_location
-  custom_response_headers = ["Content-Security-Policy: frame-ancestors *"]
-  labels                  = var.labels
+  source      = "./modules/static_site"
+  project_id  = var.project_id
+  name_prefix = "${local.name_prefix}-front"
+  bucket_name = var.front_bucket_name
+  location    = var.bucket_location
+  # The CSP reproduces the retired nginx "frame-ancestors *" so regulated operators can still embed.
+  # X-Robots-Tag is what actually de-indexes the app: public/robots.txt stops crawling, but Disallow
+  # alone never REMOVES a URL Google already knows — and blocking the crawl also stops Google ever
+  # reading a noindex meta tag. It covers verify.html and embed-example.html too. The lp bucket
+  # deliberately does NOT get this header — the landing page must stay indexable.
+  custom_response_headers = [
+    "Content-Security-Policy: frame-ancestors *",
+    "X-Robots-Tag: noindex",
+  ]
+  labels = var.labels
 }
 
 module "lp_site" {
