@@ -121,6 +121,36 @@ resource "google_compute_url_map" "lb" {
   path_matcher {
     name            = "app"
     default_service = var.app_backend_bucket_id
+
+    # NOTE: deliberately NO default_custom_error_response_policy here. A path_rule that omits the
+    # policy INHERITS the matcher default, so a matcher-level policy would silently apply to the
+    # asset rule below and defeat the carve-out. Leaving matcher + url_map defaults unset is what
+    # lets the asset rule fall through to the bucket's real 404.
+
+    # Hashed build assets. Longest-path-first matching means these win over "/*" below, and with no
+    # policy anywhere up the chain a missing chunk surfaces as a genuine 404 instead of HTML.
+    path_rule {
+      paths   = ["/js/*", "/css/*", "/img/*", "/media/*"]
+      service = var.app_backend_bucket_id
+    }
+
+    # Everything else is an SPA history route: serve the shell with a 200 so monitors, unfurls and
+    # crawlers see a real page. The bucket 404s (its not_found_page is unset — see static_site), and
+    # this policy rewrites that 404 into /index.html + 200.
+    path_rule {
+      paths   = ["/*"]
+      service = var.app_backend_bucket_id
+
+      custom_error_response_policy {
+        error_response_rule {
+          match_response_codes   = ["404"]
+          path                   = "/index.html"
+          override_response_code = 200
+        }
+        # Must be a BackendBucket; nothing higher in the url_map sets one to inherit.
+        error_service = var.app_backend_bucket_id
+      }
+    }
   }
   path_matcher {
     name            = "lp"

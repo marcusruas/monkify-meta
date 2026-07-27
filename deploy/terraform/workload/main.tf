@@ -145,7 +145,10 @@ module "lp_site" {
   name_prefix = "${local.name_prefix}-lp"
   bucket_name = var.lp_bucket_name
   location    = var.bucket_location
-  labels      = var.labels
+  # The lp is a one-pager with anchor-only nav — a 404 status is correct, so this is a real error
+  # page rather than an SPA fallback. monkify-lp/src/pages/404.astro already builds to dist/404.html.
+  not_found_page = "404.html"
+  labels         = var.labels
 }
 
 module "edge" {

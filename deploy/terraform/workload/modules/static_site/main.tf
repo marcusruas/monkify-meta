@@ -1,6 +1,8 @@
 # Reusable static site: a public GCS website bucket behind a Cloud CDN backend bucket.
-# Used for both the front SPA and the lp landing page. SPA history-mode routing is
-# handled by not_found_page = index.html (unknown paths serve the SPA shell).
+# Used for both the front SPA and the lp landing page. NOTE: GCS serves not_found_page with an
+# HTTP 404 and cannot override that status, so it is only used for real error pages (the lp's
+# 404.html). The SPA's history-mode fallback is handled at the load balancer instead — see
+# modules/edge, which rewrites the bucket's 404 into /index.html with a 200.
 
 resource "google_storage_bucket" "site" {
   name                        = var.bucket_name
@@ -12,7 +14,7 @@ resource "google_storage_bucket" "site" {
 
   website {
     main_page_suffix = "index.html"
-    not_found_page   = "index.html"
+    not_found_page   = var.not_found_page
   }
 }
 
