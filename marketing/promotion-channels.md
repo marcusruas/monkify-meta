@@ -61,8 +61,13 @@ on-chain payouts, no token. That shapes who we fit:
 
 ## 2. Tier 1 — start here this week
 
-Ordered. Fifteen entries, cross-platform. Each is here because it is **high fit**, **demonstrably alive on
+Ordered. Thirteen entries, cross-platform. Each is here because it is **high fit**, **demonstrably alive on
 the date shown**, and **self-promo is `allowed` or at worst `ask an admin`**.
+
+> **Revised 2026-07-27.** Both X Communities were demoted out of Tier 1: `XC-01` because its ranking rested
+> on member count with **no engagement ever measured** (§5.5), and `XC-06` because its own rules **ban
+> self-promotion** outright. What remains is ordered by signals that were actually measured — published
+> promo rules, real post timestamps, and live online counts.
 
 1. **`RD-04` r/gambling** — the single best target found in this pass, and the only place whose rules
    *explicitly permit* what we want to do. Self-promotion is allowed at roughly **1 link per 10
@@ -71,30 +76,29 @@ the date shown**, and **self-promo is `allowed` or at worst `ask an admin`**.
 2. **`RD-03` r/solana** — 519k members and new posts landing within the hour. The largest genuinely-alive
    Solana room found anywhere in this pass. Promo rule is **not published**, so **ask a mod first** — do
    not spend this one on a cold link.
-3. **`XC-01` Solana Meme Coin (X Community)** — 37.6k members, the largest X Community on our axes.
-   **Move:** X Communities let you post *inside* them without the follower problem — this is the fastest
-   route from 38 followers to being seen by a real Solana crowd.
-4. **`X-04` @solanagaming** — Solana's own entertainment account, 134.2k followers, posting within the hour.
+3. **`X-04` @solanagaming** — Solana's own entertainment account, 134.2k followers, posting within the hour.
    The single highest-value **reply** target on X: exactly the audience, and #76 §4.4 is built on replies.
-5. **`DC-09` MonkeDAO** — "Reject Humanity, Return to Monke." 16k members, 8.6% online, Solana's monkey DAO.
+4. **`DC-09` MonkeDAO** — "Reject Humanity, Return to Monke." 16k members, 8.6% online, Solana's monkey DAO.
    The closest thematic match to Edson that exists. **Move:** lore-first, never link-first.
-6. **`X-05` @MonkeDAO** — the same community's 96.7k-follower X account. Reply here and in `X-04` daily.
-7. **`TG-01` Jupiter Exchange (Official Support)** — **10,186 people online** out of 35,934. The liveliest
+5. **`X-05` @MonkeDAO** — the same community's 96.7k-follower X account. Reply here and in `X-04` daily.
+6. **`TG-01` Jupiter Exchange (Official Support)** — **10,186 people online** out of 35,934. The liveliest
    single room found on any platform. It is a *support* channel, so do not pitch: be present, be useful.
-8. **`RD-07` r/SolanaMemeCoins** — 107.8k members, posts landing within the hour, and the memes axis.
+7. **`RD-07` r/SolanaMemeCoins** — 107.8k members, posts landing within the hour, and the memes axis.
    Promo rule not published → **ask first**.
-9. **`XC-06` Gambling Twitter (X Community)** — 6.2k members and the gambling axis without the Solana
-   filter. **Move:** this is where "is it rigged?" arguments happen — provably fair is the whole pitch.
-10. **`KK-01` Trainwreckstv (Kick)** — **600,419 followers**, category *Slots & Casino*. The largest
-    gambling-stream audience verified anywhere in this pass, on the platform that hosts that scene.
-11. **`DC-08` PlaySolana** — 23.1k members, 5.5% online, explicitly a web3-**gaming** community. Our category.
-12. **`KK-06` schneckyirl (Kick)** — 45.8k followers and **actually live in *Slots & Casino* at the moment
+8. **`KK-01` Trainwreckstv (Kick)** — **600,419 followers**, category *Slots & Casino*. The largest
+   gambling-stream audience verified anywhere in this pass, on the platform that hosts that scene.
+9. **`DC-08` PlaySolana** — 23.1k members, 5.5% online, explicitly a web3-**gaming** community. Our category.
+10. **`KK-06` schneckyirl (Kick)** — 45.8k followers and **actually live in *Slots & Casino* at the moment
     of the check**. Small enough that a chat regular gets noticed; the only channel verified mid-stream.
-13. **`DC-04` Solana Mobile Community** — 69k members, 8.6% online. Large *and* alive, which is rare.
-14. **`X-01` @solana** — 4M followers, posts within hours. Not a room you join; a **reply surface**. Its own
+11. **`DC-04` Solana Mobile Community** — 69k members, 8.6% online. Large *and* alive, which is rare.
+12. **`X-01` @solana** — 4M followers, posts within hours. Not a room you join; a **reply surface**. Its own
     bio currently points at a poker tie-in, so betting-adjacent replies are not off-key there.
-15. **`DC-13` Genopets** — small (1,181) but **17.4% online**, the highest engagement ratio measured in this
+13. **`DC-13` Genopets** — small (1,181) but **17.4% online**, the highest engagement ratio measured in this
     pass. Tiny rooms that are this awake are worth more than their member count suggests.
+
+> **The one experiment worth running alongside these:** post once into `XC-01` Solana Meme Coin (§5.5) and
+> **read your own view count**. With almost no followers, a community post may still beat your own timeline
+> in absolute terms — but the surface is unmeasured, so treat it as a test, not a channel.
 
 ---
 
@@ -116,9 +120,12 @@ Good fit but smaller, quieter, stricter, or only partially on-axis. Work these a
   `RD-08` r/web3 (64.1k, banned).
 - **X accounts** — `X-02` @MagicEden (795.9k) · `X-07` @Pumpfun (673.5k, reposting hourly) ·
   `X-03` @JupiterExchange (618k) · `X-06` @staratlas (370.9k, space crypto game). All reply-only.
-- **X Communities** — `XC-08` NFT Community (47k) · `XC-02` SOLANA (24.1k) · `XC-03` Gigachad Solana
-  (15.2k) · `XC-04` WEB3-CRYPTO-AI-POLYMARKET (14.1k — prediction-market crowd, closest neighbours to
-  betting) · `XC-05` Solana meme coins (11.7k) · `XC-07` PLAY SOLANA (2.3k).
+- **X Communities** — ⚠️ **all unmeasured for engagement; read §5.5 before spending time here.**
+  `XC-01` Solana Meme Coin (37.6k — the one experiment worth running) · `XC-02` SOLANA (24.1k, rules
+  invite sharing) · `XC-08` NFT Community (47k) · `XC-03` Gigachad Solana (15.2k) ·
+  `XC-04` WEB3-CRYPTO-AI-POLYMARKET (14.1k — prediction-market crowd, closest neighbours to betting) ·
+  `XC-05` Solana meme coins (11.7k) · `XC-07` PLAY SOLANA (2.3k) ·
+  `XC-06` Gambling Twitter (6.2k — **`banned`, lurk and reply only**).
 - **Kick** — `KK-02` ROSHTEIN (400,244) · `KK-03` Classybeef (222,518) · `KK-04` AyeZee (179,080) ·
   `KK-05` Xposed (178,100). All *Slots & Casino*.
 - **Twitch / YouTube** — `TW-02` Xposed (536.9k, "primarily Casino Games") · `TW-01` ROSHTEIN (1,022,719) ·
@@ -286,18 +293,38 @@ use the X Communities in §5.5; that is the surface where a 38-follower account 
 | `X-06` | @staratlas | [x.com/staratlas](https://x.com/staratlas) | 370.9K followers | newest post 2026-07-22 | crypto, web3 games | unknown — ask first | T2 | A space crypto game "with a real cash economy" — nearest neighbour to our setting *and* our stakes. | — (handle cross-published with `DC-02`) |
 | `X-07` | @Pumpfun | [x.com/Pumpfun](https://x.com/Pumpfun) | 673.5K followers | reposting within ~8h of the check, 2026-07-26 | crypto, memes | unknown — ask first | T2 | The memecoin-launch crowd's front page. Enormous reach, very short attention — a funny reply or nothing. | **`@pumpdotfun` is a 404** (`X-T3-02`) and `t.me/pumpdotfun` is an unrelated channel (`TG-T3-07`). This is the real one |
 
-### 5.5 X — Communities · **worth it, and the best surface for a small account**
+### 5.5 X — Communities · **cheap to try once; do NOT build on this section**
 
-Eight communities cleared verification. Combined with §5.4 this puts X well past its ≥6 minimum.
+Eight communities cleared *identity* verification. Combined with §5.4 this puts X past its ≥6 minimum.
 
-**Why this section matters more than its size suggests:** X Communities are the one place on X where you
-post *into* a room instead of shouting from a timeline, so follower count stops being the bottleneck. With
-@SpaceStroker at 38 followers, this is the fastest honest route to being read by Solana people.
+> ⚠️ **This section is the weakest in the document, and the Size column is the only hard number in it.**
+> Corrected 2026-07-27 after review. **Per-post engagement was never measured** — the original Activity
+> cells said "listed as a live Cryptocurrency community in Communities search", which is a *discovery
+> artifact*, not an activity signal. Every other platform here has a real one (Discord online counts,
+> Reddit post timestamps, Telegram online counts, Kick live status); this section had member count
+> standing in for life, which §1 explicitly says not to do.
+>
+> **Spot-reading the feeds suggests most community posts get ~0 replies and well under 100 views.** That is
+> consistent with how the surface works: a community post is distributed mainly to the community tab, which
+> most members never reopen after joining. **37.6k "members" means 37.6k people who clicked Join once — not
+> 37.6k readers.** Treat every member count below as an upper bound on an audience you have not seen.
+>
+> **What is still true:** posting *into* a community does not require followers, so for an account with
+> almost none it can still beat its own timeline in absolute terms. That makes this section worth **one
+> measured experiment**, not a plan. Post once, read your own view count, and let that decide.
+>
+> **To fix properly:** re-open the ~10 newest posts in each community, record replies/likes/views, and
+> re-tier on that. Until then no entry here should be ranked above a room with a measured pulse (§5.1,
+> §5.3). Both Tier 1 entries were demoted to T2 on 2026-07-27 for exactly this reason.
 
 **A note on discovery, because it is not obvious:** Communities are **not** in X's normal search filters
 (the tabs are Top / Latest / People / Media / Lists, and `&f=community` silently falls back to Top). They
 have their own search at **`x.com/i/communities/suggested?q=<query>`**, which is how these were found. Use
 that URL when re-verifying (§6).
+
+**Rules are readable without joining** — each community's `/about` tab publishes them, and they are worth
+reading *before* you join: all four checked say **"Only members can post"** and **"Anyone can join"**, but
+one of them (`XC-06`) bans self-promotion outright.
 
 Both names #76 §4.3 recommended from memory are settled here: **"Solana Meme Coin" is real and is the
 largest on-axis community found (`XC-01`)**, while **"PLAY SOLANA" is real but small at 2.3k (`XC-07`)** —
@@ -305,12 +332,12 @@ worth including, not worth leading with.
 
 | id | Name | Link | Size | Activity (as of) | Fit | Self-promo | Tier | The move here | Risk / impersonation |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `XC-01` | Solana Meme Coin | [i/communities/1802098831259021568](https://x.com/i/communities/1802098831259021568) | 37.6K members | listed as a live Cryptocurrency community in Communities search, 2026-07-26 | crypto, memes | unknown — ask first | T1 | The largest on-axis X Community found. Read its pinned rules on joining — most communities post them — then lead with Edson lore, not a link. | Generic name; **use this id**, not a name search |
-| `XC-02` | SOLANA | [i/communities/1552308683924725761](https://x.com/i/communities/1552308683924725761) | 24.1K members | listed live in Communities search, 2026-07-26 | crypto | unknown — ask first | T2 | Big and generic. Good for reach once the lore posts are landing elsewhere. | Several communities share this name — **use the id** |
+| `XC-01` | Solana Meme Coin | [i/communities/1802098831259021568](https://x.com/i/communities/1802098831259021568) | 37.6K members | **engagement NOT measured** — identity + rules read from `/about` 2026-07-27; feed spot-reads suggest ~0 replies / <100 views per post | crypto, memes | ask an admin | T2 | The best of a weak section, and the one experiment worth running: post once, then **read your own view count** and decide if the surface is real. Rules are mild — "Be kind · Keep posts on topic · **Explore and share**" — and a rival game project was posting promo + a Telegram link unremoved at check, so promotion survives here in practice. | Generic name; **use this id**, not a name search |
+| `XC-02` | SOLANA | [i/communities/1552308683924725761](https://x.com/i/communities/1552308683924725761) | 24.1K members | **engagement NOT measured** — identity + rules read from `/about` 2026-07-27 | crypto | ask an admin | T2 | Rules invite it: "Keep Tweets on topic (everything SOLANA related) · **Explore and share alpha! We will grow together** · Be kind, invite your friends." Second experiment after `XC-01`, not a parallel one. | Several communities share this name — **use the id** |
 | `XC-03` | Gigachad Solana | [i/communities/1984197052373270989](https://x.com/i/communities/1984197052373270989) | 15.2K members | listed live, category Cryptocurrency, 2026-07-26 | crypto, memes | unknown — ask first | T2 | Meme-forward Solana room. Edson's tone fits here better than in the ecosystem rooms. | — |
-| `XC-04` | WEB3-CRYPTO-AI-POLYMARKET | [i/communities/1702029953380827374](https://x.com/i/communities/1702029953380827374) | 14.1K members | listed live, category Cryptocurrency, 2026-07-26 | crypto, gambling | unknown — ask first | T2 | A **prediction-market** crowd — the closest thing to people who already bet on outcomes. Lead with provably fair. | — |
+| `XC-04` | WEB3-CRYPTO-AI-POLYMARKET | [i/communities/1702029953380827374](https://x.com/i/communities/1702029953380827374) | 14.1K members | **engagement NOT measured** — identity + rule 1 read from `/about` 2026-07-27 | crypto, gambling | unknown — ask first | T2 | A **prediction-market** crowd — the closest thing to people who already bet on outcomes. Lead with provably fair. **Rule 1 is kindness; the rest of the rule list was truncated at read time — read it in full before posting.** | — |
 | `XC-05` | Solana meme coins | [i/communities/1789624195376390148](https://x.com/i/communities/1789624195376390148) | 11.7K members | listed live, category Cryptocurrency, 2026-07-26 | crypto, memes | unknown — ask first | T2 | Near-duplicate name to `XC-01` at a third the size. Post to `XC-01` first. | Name is one space away from `XC-01` — **use the id** |
-| `XC-06` | Gambling Twitter | [i/communities/1686792721069993997](https://x.com/i/communities/1686792721069993997) | 6.2K members | listed live in Communities search, 2026-07-26 | gambling | unknown — ask first | T1 | The gambling axis without the Solana filter — people who bet and argue about whether sites are honest. Provably fair is the entire pitch here. | A **second, unrelated "Gambling Twitter" (110 members)** also exists — use this id |
+| `XC-06` | Gambling Twitter | [i/communities/1686792721069993997](https://x.com/i/communities/1686792721069993997) | 6.2K members | **engagement NOT measured** — identity + rules read from `/about` 2026-07-27 | gambling | **banned** | T2 | **Corrected 2026-07-27 — do NOT post.** Its own description reads *"NO SELF-Promotion. Only Free Content here!"* and **Rule 1 ends "Self-promoters will be banned."** Perfect audience, closed door: **join, lurk and reply only.** Previously listed here as `unknown — ask first` / T1, which would have cost the account. | A **second, unrelated "Gambling Twitter" (110 members)** also exists — use this id |
 | `XC-07` | PLAY SOLANA | [i/communities/1935712827475472788](https://x.com/i/communities/1935712827475472788) | 2.3K members | listed live in Communities search, 2026-07-26 | crypto, web3 games | unknown — ask first | T2 | **The community #76 §4.3 named** — real, on-topic, but an order of magnitude smaller than it implied. Worth a post, not a strategy. | — |
 | `XC-08` | NFT Community | [i/communities/1493414395921248258](https://x.com/i/communities/1493414395921248258) | 47K members | listed live, category Cryptocurrency, 2026-07-26 | crypto | unknown — ask first | T2 | The largest crypto community found on X by members, but off-axis (NFTs, not betting). Reach play only. | Extremely generic name — **use the id** |
 
@@ -403,7 +430,8 @@ is ever revisited, the bar in §6 applies unchanged.
 | **Live / online counts** | **within hours — measured** | The tier calls in this doc are built on these, so this matters most. Re-checking `TG-01` hours after its first reading showed online falling **10,186 → 5,392** (28% → 15%) while its member count stayed *identical* at 35,934; `DC-13` moved 205 → 207 in minutes. **Never compare an online count against one taken at a different time of day.** `DC-10` sat at 0.49% — one swing either way changes its tier. |
 | **Last-post recency** | fast | `TG-T3-01` and `X-T3-01` were both *large* and both silent for a year. Size never told you that. |
 | **Self-promo rule** | medium | Mods rewrite rules after a spam wave. `RD-04` is the one entry whose whole value is its rule — re-read it every time. |
-| **Member / follower counts** | slow | Directional only. Never re-tier on these alone. |
+| **Member / follower counts** | slow | Directional only. **Never re-tier on these alone** — §5.5 did exactly that and had to be corrected: a joined-once member is not a reader. Where a platform gives no engagement signal, say so in the Activity cell rather than substituting size. |
+| **Self-promo rule, where it is gated** | — | Not decay, but a standing hazard: `XC-06` sat at `unknown — ask first` until its `/about` tab was read and turned out to say *"Self-promoters will be banned."* **Read the `/about` or pinned rules before the first post, every time** — for X Communities this is readable without joining. |
 
 **Before every outreach wave, re-check in this order** (fast path — the same routes that built this doc):
 
@@ -500,7 +528,7 @@ Recorded so the next pass can be judged against the same bar.
   | Reddit | `/r/<sub>/about.json`, `/about/rules.json`, `/new.json` — **browser only**, direct fetches are blocked | subscribers + **the mods' own promo rules** + real post recency |
   | Telegram | `t.me/s/<name>` | title + members + often an online count; post feed sometimes withheld |
   | X — accounts | profile URLs render to a logged-out browser | followers + post recency |
-  | X — Communities | **`x.com/i/communities/suggested?q=…`, signed in.** Not reachable from normal search, and not from a logged-out session | names + member counts + community ids |
+  | X — Communities | **`x.com/i/communities/suggested?q=…`, signed in.** Not reachable from normal search, nor from a logged-out session. The `/about` tab (rules + join policy) reads **without** joining | names + member counts + ids + rules — but **no engagement**. The feeds refused to render on re-attempt (X rate-limits after a heavy pass), so per-post replies/views are the one open gap in this document (§5.5) |
   | X — Spaces | **nothing** — X has no Spaces search filter at all (see §5.6) | nothing |
   | Kick | `kick.com/api/v2/channels/<slug>` **from a normal signed-in browser**. Automated fetches and an automated browser both got "Request blocked by security policy" | followers + live status + **category** (`Slots & Casino`) |
   | Twitch | the `/about` tab in a browser | exact follower counts |
@@ -511,4 +539,10 @@ Recorded so the next pass can be judged against the same bar.
   streamers/Spaces ≥8 **met** (12: 6 Kick + 3 Twitch + 3 YouTube, 0 Spaces) ·
   Telegram ≥8 **NOT met** (6 — see §5.2). The one shortfall is stated in its section rather than closed
   with weak entries.
-- **Total:** 55 verified entries in §5 (15 Tier 1, 40 Tier 2) and 26 assessed-and-rejected records in §4.
+- **Total:** 55 verified entries in §5 (13 Tier 1, 42 Tier 2) and 26 assessed-and-rejected records in §4.
+
+### Correction log
+
+| Date | What changed, and why |
+| --- | --- |
+| 2026-07-27 | **§5.5 X Communities corrected after review.** Two faults. **(1)** Engagement was never measured — the Activity cells recorded *"listed as a live community in Communities search"*, a discovery artifact, letting member count stand in for life in the one section where members are cheapest to accumulate. Feed spot-reads suggest ~0 replies and <100 views per post, consistent with community posts being distributed only to a tab most members never reopen. The section is now fenced, both Tier 1 entries demoted to T2, and per-post engagement is named as this document's open gap. **(2)** `XC-06` Gambling Twitter was listed `unknown — ask first` / T1; its `/about` tab says *"NO SELF-Promotion"* and Rule 1 ends *"Self-promoters will be banned."* Now `banned`, lurk-and-reply only. Real rules were also read and recorded for `XC-01`, `XC-02` and `XC-04`. **Lesson, folded into §6:** where a platform exposes no engagement signal, say so — never substitute size; and read the `/about` or pinned rules before the first post, which for X Communities does not require joining. |
