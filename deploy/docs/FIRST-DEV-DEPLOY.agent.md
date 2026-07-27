@@ -152,6 +152,14 @@ bucket, sweeps env secrets, and cleans local artifacts — only the GoDaddy doma
 survives; then remove the dead `dev` NS records at GoDaddy (a later `deploy` recreates the zone with
 DIFFERENT nameservers).
 
+**Teardown is resumable — do NOT reach for raw Terraform.** Re-run
+`dotnet run -- teardown --env development` verbatim; it never re-creates resources (the pre-destroy
+apply is `-target`ed at the SQL instance and skipped when that instance is out of state), and `destroy`
+already retries 3× (60s/120s) on the transient ordering failures. Read the exit code: `0` = done — a
+`module.network.*`-only warning still counts as done, those are free and release asynchronously;
+non-zero = the message names exactly what survived and why. Never destroy the state bucket while
+workload state is non-empty; `--purge` already refuses to.
+
 ## Failure/branch reference
 - `deploy` throws non-zero → tool aborts; state is preserved; safe to re-run after fixing cause.
 - Cloud Run revision unhealthy at Phase 4 → almost always a bad DB host, or the `:SpaceStroker` and

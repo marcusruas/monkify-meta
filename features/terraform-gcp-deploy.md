@@ -4,6 +4,8 @@
 > (merged via `feature/terraform-gcp-deploy` on 2026-07-17).
 > Extended by `../specs/terraform-development-deploy.md` (2026-07-23): **environment scoping** so
 > development and production coexist in one GCP project, and a **total development teardown**.
+> Extended by `../specs/teardown-resume.md` (2026-07-27): teardown is **resumable** — targeted
+> pre-destroy apply, destroy retries, leftover-aware exit codes and a `--purge` stop-guard.
 
 ## What it does
 
@@ -69,7 +71,7 @@ Solana/Fx secrets).
   and with `force_destroy = true`. They are **separate resources with mutually exclusive counts**
   because `lifecycle.prevent_destroy` only accepts a literal.
 - **Workload layer** — everything else; destroyed in both modes (typed confirmation, warns about
-  irreversible Cloud SQL data loss, overrides deletion-protection).
+  irreversible Cloud SQL data loss, clears Cloud SQL deletion-protection).
 - **`teardown --env production`** = workload only; re-running `deploy` re-attaches to the preserved DNS
   + managed certs.
 - **`teardown --env <non-production>`** = **TOTAL**: workload → persistent (state migrated to a local
@@ -84,6 +86,43 @@ Solana/Fx secrets).
   without raw Terraform. The tool never calls a registrar API; a dead NS delegation is only warned about.
   Cloud SQL reserves a deleted instance name for ~7 days — `gcp.dbInstanceSuffix` exists for redeploys
   inside that window.
+
+### Teardown is resumable — re-running it never creates anything
+- **The pre-destroy apply is targeted, and skipped when it has nothing to do.** Clearing Cloud SQL
+  deletion-protection uses
+  `terraform apply -target=module.data.google_sql_database_instance.postgres` — never a full apply.
+  `deletion_protection` there is the **Terraform-level** guard (not
+  `settings.deletion_protection_enabled`), so that apply is a **state-only** write: it creates and
+  mutates nothing in GCP. It runs **only if** the instance is still in state
+  (`terraform state list <addr>` probe); absent ⇒ skipped with a "resuming a partial teardown" line.
+  A **full** apply here is what used to make a failed teardown un-resumable — it rebuilt everything
+  the failed pass had destroyed.
+- **The state probe fails closed.** A non-zero `terraform state list` aborts the run with a
+  `DeployException`; a failed probe is never read as "empty state" (that would skip clearing
+  deletion-protection on an intact stack, or report a teardown that never happened).
+- **`destroy` retries itself** — up to **3 passes**, sleeping **60s** then **120s**, retrying on
+  **any** non-zero exit (no stderr matching: `destroy` is idempotent, `ProcessRunner` doesn't
+  redirect stderr, and GCP's wording drifts). The three known ordering failures — the messaging DB
+  still holding connections, service-networking producers still attached, the subnet still held by
+  the serverless egress address — each clear once the blocking resource is really gone.
+- **What survives in state decides the exit code**, not Terraform's last exit code (a `destroy` can
+  exit non-zero having removed everything that matters):
+  - state empty ⇒ the normal completion messages, **exit 0**;
+  - every leftover under **`module.network.`** (VPC + subnet + PSA range — all zero-cost, held by the
+    Google-managed `serverless.googleapis.com/.../addressReservations/serverless-ipv4-*` reservation
+    that releases **asynchronously** and cannot be forced) ⇒ **exit 0** plus a loud warning naming
+    each address, stating all billable resources are gone, and giving the resume command;
+  - anything else left (Cloud SQL, Redis, Cloud Run, a bucket, the registry, …) ⇒ `DeployException`
+    listing the addresses ⇒ **exit 1**.
+- **`--purge` stops rather than orphan.** If **any** workload state remains after the workload
+  destroy — zero-cost leftovers included — the run stops **before** `DestroyPersistent` /
+  `SweepOrphanSecrets` / `CleanLocalArtifacts` and exits non-zero, leaving the DNS zone, the state
+  bucket and the secrets untouched. The state bucket is the only record of those resources;
+  destroying it would put them beyond Terraform's reach.
+- **Re-running the same `teardown` command is the supported resume path**, and every give-up path
+  prints it (plus a raw `terraform destroy` escape hatch). Known unchanged limitation: after a
+  `--purge` that already destroyed the state bucket, `teardown` still fails at `terraform init` —
+  `EnsurePersistentLayer()` runs on `deploy`, not `teardown`.
 
 ### Console tools (`deploy/tools/`, standalone .NET 8, no reference to the backend solution)
 - **`spacestroker-deploy`** — `deploy [api|consumers|front|lp]` (or all) + `teardown` + `validate`. Reads
@@ -105,7 +144,15 @@ Solana/Fx secrets).
 - **Deploy IaC + tools:** `monkify-meta/deploy/` — `terraform/persistent/`, `terraform/workload/` (root +
   `modules/{network,data,registry,iam,secrets,cloud_run_api,cloud_run_consumers,static_site,edge}`),
   `tools/SpaceStroker.Deploy/` (`EnvNaming.cs`, `Deployer.cs`, `ProcessRunner.cs`, `SecretsFile.cs`,
-  `Program.cs`), `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `.gitignore`, `README.md`.
+  `TeardownDecisions.cs`, `Program.cs`), `tools/SpaceStroker.Deploy.Tests/`,
+  `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `.gitignore`, `README.md`.
+- **Teardown decisions:** `deploy/tools/SpaceStroker.Deploy/TeardownDecisions.cs` — pure, I/O-free
+  (`SqlInstanceAddress`, `ZeroCostPrefix`, `DestroyBackoff`/`DestroyAttempts`, `ParseStateList`,
+  `Contains`, `IsZeroCostOnly`, and the resume-hint / zero-cost / billable-leftover / purge-blocked
+  message builders), wired through `Deployer.DestroyWorkload(bool purge)` + its `RunDestroyWithRetries`
+  and fail-closed `ReadState` helpers. Covered by `deploy/tools/SpaceStroker.Deploy.Tests`
+  (xUnit + Shouldly, 16 tests, registered in `SpaceStroker.DeployTools.sln`) — the only automated
+  tests in the deploy stack; `ProcessRunner` and the real `terraform`/`gcloud` calls stay untested.
 - **Backend readiness:** `monkify-backend/src/SpaceStroker.Common/Cors/CorsOriginResolver.cs`,
   `SpaceStroker.Domain/Configs/Entities/CorsSettings.cs`, `SpaceStroker.Api/Program.cs` (forwarded headers + CORS),
   `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + Main-operator seed URLs), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).

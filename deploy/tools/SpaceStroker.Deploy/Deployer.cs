@@ -263,9 +263,19 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         if (!Confirm()) return;
 
         _naming.Validate();
-        DestroyWorkload();
+        var leftovers = DestroyWorkload(purge: false);
+
         Console.WriteLine();
-        Console.WriteLine("Workload destroyed. DNS zone + state bucket preserved — re-run `deploy` to recreate + re-attach.");
+        if (leftovers.Count == 0)
+        {
+            Console.WriteLine("Workload destroyed. DNS zone + state bucket preserved — re-run `deploy` to recreate + re-attach.");
+        }
+        else
+        {
+            // Billable leftovers already threw inside DestroyWorkload, so this is the zero-cost case.
+            Console.WriteLine(TeardownDecisions.ZeroCostWarning(leftovers, _s.Environment));
+        }
+
         Console.WriteLine("!! Cloud SQL instance names stay reserved ~7 days — to redeploy sooner, bump");
         Console.WriteLine($"!! gcp.dbInstanceSuffix in secrets.{_s.Environment}.json (e.g. \"2\").");
     }
@@ -298,7 +308,13 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         Console.WriteLine("!! Only the registrar (GoDaddy) domain registration survives.");
         if (!Confirm()) return;
 
-        DestroyWorkload();
+        var leftovers = DestroyWorkload(purge: true);
+
+        // The state bucket about to be destroyed is the ONLY record of anything still in state — even
+        // the zero-cost network resources. Destroying it now would orphan them beyond Terraform's reach.
+        if (leftovers.Count > 0)
+            throw new DeployException(TeardownDecisions.PurgeBlockedMessage(leftovers, _s.Environment));
+
         DestroyPersistent();
         SweepOrphanSecrets();
         CleanLocalArtifacts();
@@ -322,14 +338,89 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         return false;
     }
 
-    private void DestroyWorkload()
+    /// <summary>
+    /// Destroys the workload layer and returns whatever is STILL in state (empty == fully destroyed).
+    /// Throws when anything billable survives; a zero-cost network remainder is returned, not thrown,
+    /// because it costs nothing and releases on its own.
+    /// </summary>
+    private IReadOnlyList<string> DestroyWorkload(bool purge)
     {
         EmitTfvars(deletionProtectionOverride: false);
         var wl = _paths.TerraformWorkload;
         TerraformInit(wl, "workload");
-        // Deletion-protection is already false in the emitted tfvars; apply that first so destroy can proceed.
-        ProcessRunner.RunOrThrow("terraform", $"apply -auto-approve -var-file=\"{TfVarsPath(wl)}\"", wl, TfEnv());
-        ProcessRunner.RunOrThrow("terraform", $"destroy -auto-approve -var-file=\"{TfVarsPath(wl)}\"", wl, TfEnv());
+
+        // Clear Cloud SQL deletion-protection WITHOUT converging the stack. A FULL apply here is what
+        // made a partial teardown un-resumable: it re-created everything the failed pass had destroyed
+        // (and then died on an image the same pass had already deleted). The attribute is Terraform's
+        // own guard, so this targeted apply is a state-only write — nothing is created in GCP.
+        if (TeardownDecisions.Contains(ReadState(wl, TeardownDecisions.SqlInstanceAddress),
+                                       TeardownDecisions.SqlInstanceAddress))
+        {
+            ProcessRunner.RunOrThrow("terraform",
+                $"apply -auto-approve -target={TeardownDecisions.SqlInstanceAddress} -var-file=\"{TfVarsPath(wl)}\"",
+                wl, TfEnv());
+        }
+        else
+        {
+            Console.WriteLine($"  {TeardownDecisions.SqlInstanceAddress} is not in state — skipping the " +
+                              "pre-destroy apply (resuming a partial teardown).");
+        }
+
+        RunDestroyWithRetries(wl);
+
+        var leftovers = ReadState(wl);
+        if (leftovers.Count > 0 && !TeardownDecisions.IsZeroCostOnly(leftovers))
+            throw new DeployException(
+                TeardownDecisions.BillableLeftoverError(leftovers, _s.Environment, purge));
+
+        return leftovers;
+    }
+
+    /// <summary>
+    /// Runs `terraform destroy` up to <see cref="TeardownDecisions.DestroyAttempts"/> times. The known
+    /// ordering failures (messaging DB still connected, service-networking producers still attached,
+    /// the subnet still held by the serverless egress address) each clear once the blocking resource is
+    /// really gone, so a blind re-pass beats matching GCP's error text — which we cannot read anyway,
+    /// since ProcessRunner does not redirect stderr.
+    ///
+    /// A still-failing final pass does NOT throw here: a destroy can exit non-zero having removed
+    /// everything that matters. What is left in state decides the outcome, not Terraform's exit code.
+    /// </summary>
+    private void RunDestroyWithRetries(string wl)
+    {
+        for (var attempt = 1; attempt <= TeardownDecisions.DestroyAttempts; attempt++)
+        {
+            var code = ProcessRunner.Run("terraform",
+                $"destroy -auto-approve -var-file=\"{TfVarsPath(wl)}\"", wl, TfEnv());
+            if (code == 0)
+                return;
+            if (attempt == TeardownDecisions.DestroyAttempts)
+                return;
+
+            var wait = TeardownDecisions.DestroyBackoff[attempt - 1];
+            Console.WriteLine();
+            Console.WriteLine($"!! destroy pass {attempt}/{TeardownDecisions.DestroyAttempts} exited {code} — " +
+                              $"waiting {wait.TotalSeconds:0}s and retrying (dependency ordering usually clears).");
+            Thread.Sleep(wait);
+        }
+    }
+
+    /// <summary>
+    /// Reads `terraform state list`, optionally filtered to one address. A non-zero exit ABORTS: a
+    /// failed probe must never be mistaken for "nothing left", which would skip clearing Cloud SQL
+    /// deletion-protection on an intact stack, or report a teardown that never happened.
+    /// An empty but readable state exits 0 with no output — that is the normal post-destroy case.
+    /// </summary>
+    private IReadOnlyList<string> ReadState(string wl, string? address = null)
+    {
+        var args = address is null ? "state list" : $"state list {address}";
+        var (code, stdout) = ProcessRunner.Capture("terraform", args, wl, TfEnv());
+        if (code != 0)
+            throw new DeployException(
+                $"'terraform {args}' exited with code {code} — cannot tell what is still deployed. " +
+                "Check the workload backend/state and re-run; nothing was destroyed by this step.");
+
+        return TeardownDecisions.ParseStateList(stdout);
     }
 
     /// <summary>

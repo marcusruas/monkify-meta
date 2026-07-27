@@ -128,8 +128,11 @@ dotnet run -- teardown --env development            # workload only — keeps th
 dotnet run -- teardown --env development --purge     # full wipe — ALSO destroys the DNS zone + state bucket
 ```
 
-Every teardown re-types the environment name to confirm and overrides Cloud SQL deletion-protection so
-the destroy can proceed.
+Every teardown re-types the environment name to confirm. It then clears Cloud SQL deletion-protection
+with a **targeted** `terraform apply` on the SQL instance alone — never a full-stack apply, and skipped
+entirely when that instance is already gone. `destroy` runs up to **3 passes** (waiting 60s, then 120s)
+because several GCP deletions only become possible once the resource blocking them is really gone.
+This is what makes a teardown **resumable** — see "Resuming a failed teardown" below.
 
 **Default (no `--purge`, every environment) — "drop the workload, keep the domain."** Destroys the
 **workload layer only** (Cloud Run, Cloud SQL + **all its data**, Memorystore, LB, Cloud Armor,
@@ -142,8 +145,11 @@ an environment between test sessions.
 that environment remains in the project**; the only surviving asset is the **GoDaddy registration of
 spacestroker.com**. In order:
 
-1. **Workload layer** destroyed (as above). If this fails part-way the run stops here — the persistent
-   layer is left alone and re-running teardown resumes safely.
+1. **Workload layer** destroyed (as above). If **anything** is still in the workload state afterwards —
+   even the zero-cost network leftovers — the run **stops here with a non-zero exit** and the persistent
+   layer is left completely alone. That is deliberate: the state bucket is the only record of those
+   resources, so destroying it would orphan them beyond Terraform's reach. Re-run the same `--purge`
+   command once they release.
 2. **Persistent layer** destroyed — the Cloud DNS zone *and* the state bucket. The bucket holds the
    very state that describes it, so the tool first migrates that state to a **local** backend
    (`init -migrate-state -force-copy -backend=false`), then destroys both with Terraform (the
@@ -173,6 +179,28 @@ After a `--purge`:
 After **any** teardown, **Cloud SQL instance names stay reserved for ~7 days.** To redeploy inside that
 window, bump `gcp.dbInstanceSuffix` in `secrets.<env>.json` (e.g. `"2"`) — the tool tells you this on
 the way out.
+
+### Resuming a failed teardown
+
+**Re-run the same command.** `teardown` is resumable by design: it never runs a full-stack apply, so a
+second run cannot re-create what the first one destroyed.
+
+```bash
+dotnet run -- teardown --env development          # or --purge, same as the run that failed
+```
+
+The exit code tells you what actually happened:
+
+| Exit | Meaning |
+| --- | --- |
+| `0`, "Workload destroyed." | Nothing is left. Done. |
+| `0`, "ALL BILLABLE RESOURCES ARE GONE" + a warning | Only the VPC / subnet / private-services range survive. They are **free**, and they are held by the Google-managed Direct VPC egress address (`serverless-ipv4-*`), which releases asynchronously — minutes to hours after Cloud Run is deleted. `gcloud compute addresses delete` cannot force it. Re-run later to finish. |
+| non-zero, "still billing" | Something that costs money survived all 3 passes. The message lists exactly what. Fix the cause and re-run. |
+| non-zero, "--purge STOPPED" | Workload state is not empty, so the persistent layer was left alone rather than orphaning those resources. Re-run `--purge` once the workload state clears. |
+| non-zero, "cannot tell what is still deployed" | `terraform state list` itself failed, so the tool refused to guess. Check the workload backend/state; nothing was destroyed by that step. |
+
+Nothing here requires raw Terraform. If you want it anyway, the messages print the exact
+`terraform destroy` command as an escape hatch.
 
 > **Migrating an environment deployed before env-scoping:** its resources carry the old un-prefixed
 > names, so tear it down with the **old** tool first, delete the old `spacestroker-tfstate-<projectId>`
