@@ -30,4 +30,12 @@ resource "google_compute_backend_bucket" "cdn" {
 
   # e.g. the front reproduces the retired nginx "Content-Security-Policy: frame-ancestors *".
   custom_response_headers = var.custom_response_headers
+
+  # Cloud Armor EDGE policy. A backend bucket accepts ONLY an edge policy — the `armor` policy on the
+  # api backend service is a BACKEND policy (rate limiting + preconfigured WAF), and neither of those
+  # rule types exists in the edge tier, so it cannot be reused here. Attaching an edge policy puts
+  # these buckets on the Cloud Armor request path, which is what makes the load balancer log carry the
+  # client's `regionCode`: without it, every static error on app./www. is un-attributable by geography.
+  # Empty string ⇒ no policy (the module stays usable without one).
+  edge_security_policy = var.edge_security_policy_id != "" ? var.edge_security_policy_id : null
 }

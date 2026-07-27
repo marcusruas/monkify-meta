@@ -129,6 +129,45 @@ module "cloud_run_api" {
   depends_on = [module.secrets, module.data, module.cloud_run_consumers]
 }
 
+# Cloud Armor EDGE policy for the two static-site backend buckets (app + lp).
+#
+# Why it exists: OBSERVABILITY, not filtering. The `armor` policy in modules/edge is attached to the
+# api backend service only, so app.spacestroker.com and the landing page sat off the Cloud Armor path
+# entirely — and their load-balancer logs therefore carry no `regionCode`, making every static 404 or
+# error on the app impossible to attribute to a region. Attaching a policy is what populates that
+# field.
+#
+# Why a SEPARATE policy: a backend bucket accepts only an EDGE-tier policy (type CLOUD_ARMOR_EDGE).
+# The existing `armor` policy is a backend-tier policy built on rate_based_ban + preconfigured WAF
+# expressions — neither rule type exists in the edge tier — so it cannot be reused, and pointing
+# `edge_security_policy` at it fails at apply time.
+#
+# It lives here rather than in modules/edge because the buckets are created by modules/static_site,
+# which runs BEFORE modules/edge (edge consumes its backend-bucket ids); defining it there would be a
+# dependency cycle.
+#
+# Behaviour: allow everything. This deliberately changes no traffic decision — it only puts the two
+# buckets on the logging path. Any real filtering (geo blocks, IP deny lists) is a later, separate
+# decision.
+resource "google_compute_security_policy" "static_edge" {
+  name        = "${local.name_prefix}-edge-armor"
+  project     = var.project_id
+  type        = "CLOUD_ARMOR_EDGE"
+  description = "Edge policy for the app + lp backend buckets. Allow-all; exists so LB logs carry regionCode."
+
+  rule {
+    action   = "allow"
+    priority = 2147483647
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+    description = "Default allow."
+  }
+}
+
 module "front_site" {
   source                  = "./modules/static_site"
   project_id              = var.project_id
@@ -136,16 +175,18 @@ module "front_site" {
   bucket_name             = var.front_bucket_name
   location                = var.bucket_location
   custom_response_headers = ["Content-Security-Policy: frame-ancestors *"]
+  edge_security_policy_id = google_compute_security_policy.static_edge.id
   labels                  = var.labels
 }
 
 module "lp_site" {
-  source      = "./modules/static_site"
-  project_id  = var.project_id
-  name_prefix = "${local.name_prefix}-lp"
-  bucket_name = var.lp_bucket_name
-  location    = var.bucket_location
-  labels      = var.labels
+  source                  = "./modules/static_site"
+  project_id              = var.project_id
+  name_prefix             = "${local.name_prefix}-lp"
+  bucket_name             = var.lp_bucket_name
+  location                = var.bucket_location
+  edge_security_policy_id = google_compute_security_policy.static_edge.id
+  labels                  = var.labels
 }
 
 module "edge" {
