@@ -1,6 +1,16 @@
 # Space Stroker — "Promotion channels directory" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped 2026-07-26** — merged to `main` from `feature/promotion-channels` (`monkify-meta` only).
+> Deliverable `marketing/promotion-channels.md` landed with **55 verified entries** and **26
+> assessed-and-rejected** records. Minimums met for Discord (13), X (7 accounts + 8 Communities),
+> Reddit (8) and streamers (12: 6 Kick · 3 Twitch · 3 YouTube); **Telegram shipped short at 6 of 8 and
+> X Spaces at 0**, both stated as explicit shortfalls in-doc per §4.5 rather than padded. Two §4.3
+> assumptions were corrected by the pass: **X Communities are not in normal X search** (they live at
+> `x.com/i/communities/suggested?q=`) and **Kick blocks every automated route** — both are reachable
+> only from a signed-in browser. Reddit needed a browser too (`WebFetch` is domain-blocked). No
+> `features/` doc, by design — the `INDEX.md` row is the KB record.
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [identify crypto groups, communities, places where we can try to promote our app and reach people](https://trello.com/c/L3qmI4qj)
 > (#100, 2026-07-26).
 > Repos affected: **`monkify-meta` only** (non-code content deliverable; no `monkify-backend` /
@@ -424,3 +434,4 @@ No app to run. Verify the deliverable itself:
 | Date | Change |
 | --- | --- |
 | 2026-07-26 | Initial spec from refined card #100 (refinement and spec authored in the same session). |
+| 2026-07-26 | **Shipped.** Implemented as `marketing/promotion-channels.md` (55 entries + 26 rejected) and merged to `main`. §4.2's tooling table proved partly wrong in practice: Reddit needs a browser (`WebFetch` is domain-blocked), X **Communities** have their own search at `x.com/i/communities/suggested?q=` (not X search, and not reachable logged-out), and **Kick blocks both `WebFetch` and an automated browser** — a signed-in session was required for both. §5.2's Telegram minimum and §5.6's Spaces entries shipped short, stated as shortfalls. |
