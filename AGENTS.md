@@ -168,6 +168,25 @@ local Docker stack for the user to test before the card advances.
    end to end and asserts it works 100%**. If the feature introduces a **particularly complex flow**
    (beyond the happy path), that flow **must** get its own integration test too. See
    `constraints.md` → "Integration tests" for the full rule.
+9. **Always explain the trade-offs — the proposed change vs. how it works today — in the required
+   format.** Whenever you ask the user to decide something (approve an implementation, choose between
+   approaches, answer a refinement or design question, accept a plan), you **must** spell out **in
+   detail** the trade-offs of doing it **versus the current functionality**. Never hand the user a
+   bare question or an option list with no consequences attached. For **each** option, first say
+   **what happens today** (the current behavior it replaces or bends, and why it is that way), then
+   give the trade-offs in **exactly this format**:
+
+   ```
+   Benefits: X, Y, Z
+   Issues that this approach brings: A, B, C
+   ```
+
+   Fill both lines with concrete, project-specific items (complexity, blast radius across features,
+   money/payout and refund paths, migrations, performance, ops/test cost, how hard it is to undo) —
+   never generic filler. **Keeping the current behavior is always one of the options** and gets the
+   same two lines. If an option genuinely has no real downside, still write the `Issues` line and say
+   so ("none beyond X"); never drop it. Finish with a **recommendation and the reason for it**.
+   See `constraints.md` → §7 for the full shape.
 
 ## Quick context
 

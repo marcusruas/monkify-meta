@@ -231,6 +231,14 @@ dotnet run -- teardown --env development --purge
 After a `--purge`, remove the now-dead `dev` NS records at GoDaddy; a later `deploy` recreates the
 zone with **different** nameservers. (`--purge` is blocked for production.)
 
+**If a teardown fails part-way, just run it again.** It will not re-create anything — the pre-destroy
+apply is targeted at the Cloud SQL instance and is skipped when that instance is already gone, and
+`destroy` retries 3 times on its own. If it finishes with a warning that only `module.network.*`
+resources survive, that is a **success**: those are free (they're held by a Google-managed address that
+releases on its own schedule), and re-running later tidies them up. Anything that costs money surviving
+makes the command exit non-zero and tells you exactly what is left. See `deploy/README.md` →
+"Resuming a failed teardown".
+
 ---
 
 ## Known gotchas (so they don't surprise you)

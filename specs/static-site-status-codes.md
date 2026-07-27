@@ -1,6 +1,13 @@
 # SpaceStroker — "Static-site HTTP status codes" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (merged 2026-07-27, `feature/static-site-status-codes` → `main` in `monkify-meta`)
+> — but NOT yet applied.** The Terraform is on `main`; no `terraform apply` has run and the config was
+> never `terraform validate`-ed (no terraform binary in the authoring environment). Production still
+> serves the old behaviour until the next `apply` + CDN invalidation, so **acceptance criteria 1-13 in
+> §12 are unverified**. Verify them against the deployed LB after applying, then drop this caveat here,
+> in `INDEX.md`, and in `features/terraform-gcp-deploy.md`.
+>
+> Refined via Trello card
 > [Fix static-site HTTP status codes: SPA deep links return 404, LP's branded 404 page is unreachable](https://trello.com/c/mkogi4tR)
 > (2026-07-27).
 > Repos affected: **`monkify-meta`** only (`deploy/terraform/` + KB). `monkify-backend`,

@@ -7,6 +7,32 @@ about anything the card does not already answer. The point is to surface impact 
 > Read the live `features/` docs in `monkify-meta` for the current truth of each feature. This list
 > is the *prompt* for questions, not a substitute for those docs.
 
+## 0. How to ask every question (mandatory)
+
+No bare questions. **Every** item below, when you turn it into a question for the user, must carry
+the trade-offs of the answers **versus the current functionality** (`AGENTS.md` rule 9 /
+`constraints.md` §7):
+
+- [ ] **Today** — what the system does now in that area, and where it lives (`features/*.md`, spec,
+      code). "Nothing exists yet" is a valid answer, but say it.
+- [ ] **Options** — the realistic answers, always including **keep the current behavior**.
+- [ ] **Per option, in exactly this format** (both lines mandatory):
+
+      ```
+      Benefits: X, Y, Z
+      Issues that this approach brings: A, B, C
+      ```
+
+      Fill them with concrete items — what it solves and for whom, against complexity, blast radius
+      across other features, money/payout/refund paths, migration, performance, ops burden, added
+      test surface (incl. the mandatory integration test if this is a `Feature`), and how hard it is
+      to **undo**.
+- [ ] **Recommendation** — which one you'd pick and why.
+- [ ] Scale the depth to the stake (naming ⇒ a couple of short items per line; money/migrations/
+      shipped behavior ⇒ full treatment). Never drop the `Issues` line — no real downside is written
+      `Issues that this approach brings: none beyond <X>`, not omitted.
+- [ ] The trade-off that drove each answer goes into `## Decisions (from refinement)` on the card.
+
 ## 1. Scope & intent
 
 - [ ] What problem does this card solve, in one sentence? Who is it for (player, operator, ops)?
@@ -68,7 +94,9 @@ For each area: does this card change it, depend on it, or break an assumption it
 
 ## 7. Exit bar
 
-- [ ] Every "how should it behave when…" question has a concrete, agreed answer.
+- [ ] Every "how should it behave when…" question has a concrete, agreed answer — and was asked
+      **with its trade-offs against the current behavior** (§0), with the deciding trade-off recorded
+      in `## Decisions (from refinement)`.
 - [ ] The **Level** (`Feature` / `Minor change`) is agreed with the user and written to `## Level`.
 - [ ] Acceptance criteria are testable (Given / When / Then).
 - [ ] A spec-writer could produce an implementation spec from this card **without** asking anything.
