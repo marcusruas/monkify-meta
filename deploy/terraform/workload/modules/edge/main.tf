@@ -8,8 +8,18 @@ resource "google_compute_security_policy" "armor" {
   project = var.project_id
 
   # Per-IP rate limiting (complements the app's in-process IpRateLimiting).
+  #
+  # THROTTLE, not rate_based_ban. A ban denies EVERY request from the IP for its whole duration, and the
+  # policy is attached to the api backend service only — the backend buckets have none. So a player who
+  # briefly bursts (several tabs, a reload flurry) kept getting 200s for the static assets while every
+  # API call 429'd: the shell rendered, the app looked broken rather than rate-limited, they reloaded,
+  # and each reload RENEWED the ban. That is how a few seconds of excess became a multi-minute lockout
+  # (measured 2026-07-26: 143 API requests, 17 loads across ~5 tabs, then 300 s of denial that kept
+  # re-arming). Throttling denies only the requests ABOVE the rate, so the next interval is served
+  # normally and the lockout cannot outlive its own cause.
+  # See monkify-meta/specs/player-lockouts.md §7.
   rule {
-    action   = "rate_based_ban"
+    action   = "throttle"
     priority = 1000
     match {
       versioned_expr = "SRC_IPS_V1"
@@ -25,9 +35,8 @@ resource "google_compute_security_policy" "armor" {
         count        = var.rate_limit_count
         interval_sec = var.rate_limit_interval_sec
       }
-      ban_duration_sec = 300
     }
-    description = "Per-IP rate limit."
+    description = "Per-IP throttle (excess denied; no ban)."
   }
 
   # OWASP preconfigured WAF rules (SQLi / XSS) — tuned to the LEAST-aggressive sensitivity and run in

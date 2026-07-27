@@ -280,13 +280,32 @@ why static assets kept returning 200 throughout the incident while every API cal
 `ban_duration_sec` is **removed** — it is meaningless without `rate_based_ban` and the provider
 rejects it. The priority-900 OWASP WAF rule (preview) and the default-allow rule are **unchanged**.
 
-### 7.3 ⚠️ `throttle` must be verified with `terraform plan` before merge
+### 7.3 ⚠️ `throttle` cannot be proven before `apply` — what was and was not verified
 
-The provider accepts `action = "throttle"` alongside `rate_limit_options`, but this has never been run
-in this configuration and **there is no terraform binary in the authoring environment**. The operator
-must run `terraform plan` and confirm the rule updates in place. **A plan failure blocks merge** —
-this is acceptance criterion 10, not a nicety. (This is the same caveat `specs/static-site-status-codes.md`
-carries, and that spec's config reached `main` un-validated; do not repeat that.)
+**Terraform 1.13.4 *is* installed locally** — the note carried in `INDEX.md` from #102 ("no terraform
+binary in the authoring environment") is out of date. So this config got further than #102's did:
+
+| Check | Result | What it proves |
+| --- | --- | --- |
+| `terraform fmt -check -recursive` | ✅ clean | Formatting is canonical |
+| `terraform init -backend=false` | ✅ | Providers resolve; **no state, no credentials, no contact with production** |
+| `terraform validate` | ✅ `Success! The configuration is valid.` | The config parses and every attribute **exists** in the provider schema — notably that `rate_limit_options` is still valid with `ban_duration_sec` **removed** |
+
+**But `validate` does NOT check the action enum.** Verified directly on 2026-07-27 by substituting
+`action = "not_a_real_action"`: `terraform validate` reported **`Success!`** just the same. The provider
+carries no client-side validation on that field, so **neither `validate` nor `plan` can reject an
+invalid action** — Cloud Armor rejects it server-side, at **`apply`**.
+
+Consequences, stated plainly so nobody reads a green check as more than it is:
+
+- `throttle` is a **documented Cloud Armor action** for `rate_limit_options` (the counterpart to
+  `rate_based_ban`), which is the basis for choosing it. That is documentation-and-knowledge evidence,
+  **not** tooling evidence.
+- **A successful `terraform plan` is not evidence that this works.** Plan will succeed either way. Do
+  not treat it as the gate — see the amended acceptance criterion 10 in §12.
+- The real gate is a successful **`apply`** followed by the behavioural check in criterion 11. If
+  `apply` rejects the action, the fallback is `rate_based_ban` with `ban_duration_sec` lowered to the
+  shortest the API accepts — worse, but not a blocker for the frontend half of this card.
 
 ### 7.4 ⚠️ Apply ordering — this is the fourth un-applied change
 
@@ -427,10 +446,15 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist.
 9. Given the "before" baseline from criterion 1, when an equivalent session is replayed after the fix,
    then total API requests fall by roughly 35-40% (~143 → ~85-95 for the measured incident shape) and
    the per-load `/players/preferences` average drops from ~2.3 toward 1.3-1.5.
-10. Given the Terraform change to `modules/edge`, when the operator runs `terraform plan`, then it
-    succeeds and shows the priority-1000 rule changing to `action = "throttle"` with
-    `rate_limit_threshold { count = 600, interval_sec = 60 }` and no `ban_duration_sec`. **A plan
-    failure blocks merge.**
+10. **(Amended 2026-07-27 — see §7.3.)** Given the Terraform change to `modules/edge`, when the operator
+    runs `terraform plan`, then it shows the priority-1000 rule changing to `action = "throttle"` with
+    `rate_limit_threshold { count = 600, interval_sec = 60 }` and **no** `ban_duration_sec`.
+    ⚠️ **A passing plan is NOT evidence the action is valid** — `terraform validate` was shown to accept
+    a deliberately bogus action string, so the provider has no client-side enum check and plan cannot
+    reject one either. The criterion is satisfied by the **diff being the intended one**; validity is
+    proven only by a successful `apply` plus criterion 11.
+    *(Locally verified before merge: `fmt -check` clean, `init -backend=false` + `validate` both pass —
+    which confirms the config parses and that dropping `ban_duration_sec` is schema-valid, nothing more.)*
 11. Given the Armor change is applied, when one IP exceeds 600 requests in 60 s, then only the excess is
     denied with 429 and the following interval is served normally — the IP is never banned and no
     blanket denial occurs.
@@ -500,3 +524,4 @@ land all of them.
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #104. Carries the four refinement corrections (§3.1) and the apply-ordering warning (§7.4). |
+| 2026-07-27 | **§7.3 rewritten + criterion 10 amended during implementation.** Terraform 1.13.4 turned out to be installed locally (the INDEX note from #102 was stale), so `fmt`/`init -backend=false`/`validate` all ran and passed. But `validate` was then shown to accept `action = "not_a_real_action"` — the provider has no client-side enum check, so **neither validate nor plan can prove `throttle` is valid**; only `apply` can. Criterion 10 previously implied a passing plan was the gate, which would have passed vacuously. |

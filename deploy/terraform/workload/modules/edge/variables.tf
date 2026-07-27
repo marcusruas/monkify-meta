@@ -46,9 +46,13 @@ variable "domain_lp_www" {
   type = string
 }
 
+# 600/60s, raised from 100/60s. 100 is below what a SINGLE normal player costs once a page load and the
+# TokenBalance poll are counted, so two players sharing one VPN exit or a corporate NAT tripped it with
+# no misbehaviour at all — the key is IP, so an exit address is one bucket. 600 leaves roughly 10 players
+# per shared exit at 60 req/min each. Never overridden in any tfvars: this default IS production.
 variable "rate_limit_count" {
   type    = number
-  default = 100
+  default = 600
 }
 
 variable "rate_limit_interval_sec" {
