@@ -364,13 +364,22 @@ launch. Concrete tactics:
 
 ### 4.4 Where the audience is (verify every group before you engage)
 Solana communities form fast around new projects and Telegram is often their first stop. Show up where they already
-are — **but verify each group/handle first; impersonation and look-alike groups are everywhere:**
-- **Solana degen / meme / gaming community groups** — find active ones via **group-directory / "best Solana Telegram
-  groups" lists** (e.g. catalog sites like cryptotelegramgroups.com / coinspot-style lists) and **TGStat / Telemetr**-
-  style analytics catalogs (search "Solana gaming", "Solana casino", "Solana degen"; confirm each is real + active).
-- **On-chain-gaming & Solana-casino community groups** and their partner/aggregator hubs.
-- Build a short list of **10–20 groups** you're genuinely active in (not spamming) — be a real member, help, joke,
-  and let people find *you*.
+are — **but verify each group/handle first; impersonation and look-alike groups are everywhere.**
+
+**The named groups live in [`marketing/promotion-channels.md`](./promotion-channels.md)** — a live-verified, tiered
+directory built for exactly this section. Don't go directory-hunting; don't rebuild a list here.
+
+- **Telegram entries are §5.2**, with member counts, online counts and a self-promo rule each.
+- Work **§2 (Tier 1)** first — it's cross-platform, so the Telegram rooms are ranked against everything else.
+- Entries carry an `as of` date and decay — **re-verify per §6** before each wave.
+
+Read §5.2's verdict before you spend an evening on this: the research pass found only **6** Telegram rooms worth
+listing (against a target of 8), because large public "Solana communities" turned out to be substantially a
+**coordinated pump funnel** — four separate channels, ~710k subscribers between them, all posting the same token at
+the same hour into the same paid bot. It also found squatted look-alikes (`t.me/solanacasino` is a 9-subscriber
+empty channel) and confirmed that **guessing a project's handle from its brand doesn't work** — `@solana`,
+`@staratlas` and `@magiceden` are all just user contact pages. The one genuinely large live room it did find has
+**10,186 people online**.
 
 ### 4.5 Cross-promotion / partner shoutouts ($0)
 Swap genuine, mutual shoutouts / "friendly project" intros with **other small** Solana project groups (you post about

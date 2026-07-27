@@ -320,13 +320,24 @@ You're starting near zero, so never post into an empty room:
 
 ### 4.3 Where the audience is (verify each handle before engaging)
 Show up where Solana degens and gamers already are. **Verify the exact handle/community URL before you engage —
-crypto is full of look-alike/impersonator accounts** (e.g. capital-I `@SoIanaDegen` vs a real one). Good starting
-points:
-- **X Communities:** "PLAY SOLANA" (gamers/builders/degens) and "Solana Meme Coin" (large degen community).
-- **Ecosystem accounts:** `@solana`, `@solanagaming`, `@SolanaInsiders`, plus reputable Solana-gaming/casino
-  projects and aggregators (search "Solana gaming" / "Solana casino" and confirm they're real + active).
-- **Reddit / Farcaster:** r/solana, r/CryptoGaming; Solana-focused Farcaster channels.
-- Build a private list of **20–30 accounts** (10 big, 20 mid) you reply to daily.
+crypto is full of look-alike/impersonator accounts** (e.g. capital-I `@SoIanaDegen` vs a real one).
+
+**The named targets live in [`marketing/promotion-channels.md`](./promotion-channels.md)** — a live-verified,
+tiered directory built for exactly this section. Don't go hunting; don't rebuild a list here.
+
+- Work **§2 (Tier 1)** top to bottom — it's ordered, and it's cross-platform.
+- **X accounts to reply under are §5.4**; **X Communities to post *into* are §5.5.** With a new account the
+  Communities matter more — they're the one place on X where follower count isn't the bottleneck.
+- **Check the `Self-promo` column before you post anything.** Some rooms ban project links outright.
+- Entries carry an `as of` date and decay — **re-verify per §6** before each wave.
+
+That directory settles the names this section used to recommend from memory. **`@solanagaming`** holds up and is
+now the top X reply target; **"Solana Meme Coin"** is real and the largest on-axis X Community (37.6k). But
+**`@SolanaInsiders`** has been dormant since July 2025, **r/CryptoGaming** is restricted and nearly dead, and
+**"PLAY SOLANA"** is real but only 2.3k members — the first two are in its §4 with the reason.
+
+One gap it flags honestly: **X Spaces hosts have no entries**, because X no longer offers a Spaces search filter
+at all — recurring Spaces only surface by noticing who hosts them. That part of §4.9's hunt is still yours.
 
 ### 4.4 Reply / quote-tweet strategy (your #1 lever)
 On X in 2026, **replies are weighted far more heavily than likes** for reach. So the plan is reply-first:
