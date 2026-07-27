@@ -26,6 +26,15 @@
 5. **A community is replies, not announcements (§4).** Posting is 20% of this. Being *in the chat* — answering,
    joking in Edson's voice, running polls, keeping it warm — is the other 80%.
 
+> **`[PLAY_URL]` must be UTM-tagged — see [`utm-conventions.md`](utm-conventions.md).** For this doc it
+> resolves per placement:
+> - **group description** → `https://app.spacestroker.com/?utm_source=telegram&utm_medium=description&utm_campaign=launch`
+> - **pinned welcome + the PLAY NOW inline button** → `https://app.spacestroker.com/?utm_source=telegram&utm_medium=pinned&utm_campaign=launch`
+> - **any other message** → `https://app.spacestroker.com/?utm_source=telegram&utm_medium=post&utm_campaign=launch`
+>
+> Untagged, Telegram traffic is indistinguishable from X traffic in GA4, and the split between the
+> pin and the ordinary messages — the thing worth knowing — is lost.
+
 > **`[PLAY_URL]`** = your live game link (e.g. `https://<your-domain>/space-stroker/game`). **`[GROUP_URL]`** = this
 > group's public link (e.g. `https://t.me/<your-group>`). Neither is locked yet — replace every placeholder before
 > you post. **`[BOT_TOKEN]`** in §6 is a placeholder too; never paste a real bot token anywhere public.

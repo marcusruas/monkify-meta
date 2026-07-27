@@ -19,6 +19,15 @@
    that as the first reply to carry `[PLAY_URL]`.
 4. **The reply game is the whole game** (§4). Posting is 20% of this; replying to bigger Solana accounts is 80%.
 
+> **`[PLAY_URL]` must be UTM-tagged — see [`utm-conventions.md`](utm-conventions.md).** For this doc it
+> resolves per placement:
+> - **bio link** → `https://app.spacestroker.com/?utm_source=x&utm_medium=bio&utm_campaign=launch`
+> - **first reply on a link tweet** → `https://app.spacestroker.com/?utm_source=x&utm_medium=reply&utm_campaign=launch`
+> - **any other post** → `https://app.spacestroker.com/?utm_source=x&utm_medium=post&utm_campaign=launch`
+>
+> Untagged, every one of these clicks lands in GA4 as the same anonymous `social`/`direct` bucket and
+> the campaign becomes unmeasurable after the fact.
+
 > **`[PLAY_URL]`** = your live game link (e.g. `https://<your-domain>/space-stroker/game`). The domain isn't
 > locked yet — until it is, keep the link in your **bio** only and write "link in bio" in tweets. Replace every
 > `[PLAY_URL]` before you post the ones that use it.
