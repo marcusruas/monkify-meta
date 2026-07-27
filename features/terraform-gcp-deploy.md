@@ -161,20 +161,66 @@ Solana/Fx secrets).
   `mainnet-beta`, `VUE_APP_DEV_LAUNCH=false`, `VUE_APP_ALLOW_FREE_BETS=false`) from `secrets.<env>.json`;
   the committed `.env.example` documents these. `monkify-lp` (Astro static) has no repo change.
 
+### Static-site upload: Cache-Control tiers, asset retention, 24h prune
+- **Three tiers, both sites**, decided per file by `StaticSiteCache.ForPath`: **HTML at any depth** →
+  `no-cache`; **content-hashed assets** (front `js/ css/ img/ media/`, lp `_astro/`) →
+  `public, max-age=31536000, immutable`; **everything else unhashed** (`fonts/`, favicons,
+  `og-image.png`, `robots.txt`, `sitemap*.xml`) → an explicit `public, max-age=3600`. The `.html` test
+  runs **first and at any depth** — Astro emits directory-style pages, so the lp's `/cookies` builds to
+  `cookies/index.html`, which a first-path-segment rule would file as 1h. An unknown file **or
+  directory** falls to 1h: unknown never means immutable.
+- **Each tier is set twice** — at upload (`gsutil -h`) and again by a `setmeta` pass. Both are needed:
+  `rsync` compares size/mtime/checksum, **not metadata**, so an object it skips as unchanged keeps its
+  old header forever. The `setmeta` passes are what repair objects already in the buckets.
+- **Ordering is load-bearing.** Assets upload **before** the HTML that names them, and every
+  upload-time header is at least as conservative as that path's final value (the root pass uploads at
+  `no-cache` even for files that end at 1h), so a window between passes can **under-cache but never
+  over-cache**. A directory containing HTML is skipped by the recursive 1h pass for the same reason.
+- **Hashed assets are retained, not deleted.** The asset passes drop `-d`, so a session still running
+  the previous build can fetch a lazily-loaded chunk — `GameFairPanel.vue`'s provably-fair verify Web
+  Worker is the live case. The root pass keeps `-d`; its single `-x` alternation (gsutil honours only
+  one) shields the asset prefixes **and** `_builds/`, and drops `*.map` so sourcemaps are never uploaded.
+- **Retained assets are pruned automatically after 24h.** Each deploy writes
+  `gs://<bucket>/_builds/<utc-timestamp>.txt` listing what it published; assets no manifest inside the
+  window still names are deleted, along with expired manifests. **Retirement time, not object age, is
+  what is measured** — an image unchanged for eight months has an ancient creation date, so an
+  age-based GCS lifecycle rule would delete it the instant it left a build. That is why manifests exist
+  and why no lifecycle rule was added. The window comes from the **open-tab** horizon, not from
+  `Cache-Control` (HTML revalidates every load): `useIdleDisconnect` abandons idle sessions after
+  30-60 min, so 24h is ~20× that. One constant, `BuildManifest.Retention`.
+- **The prune fails closed.** A non-zero manifest listing, manifest read, or asset listing prints why
+  and deletes nothing; an empty keep-set prunes nothing rather than everything. Deleting the live build
+  because a listing failed would be worse than the bug being fixed. Commands are batched under the
+  Windows 8191-character cap.
+- The `/*` CDN invalidation after upload is unchanged and still best-effort — it is what flushes edge
+  copies cached under the *old* headers on the first deploy that carries this.
+
 ## Key code touchpoints
 
 - **Deploy IaC + tools:** `monkify-meta/deploy/` — `terraform/persistent/`, `terraform/workload/` (root +
   `modules/{network,data,registry,iam,secrets,cloud_run_api,cloud_run_consumers,static_site,edge}`),
   `tools/SpaceStroker.Deploy/` (`EnvNaming.cs`, `Deployer.cs`, `ProcessRunner.cs`, `SecretsFile.cs`,
-  `TeardownDecisions.cs`, `Program.cs`), `tools/SpaceStroker.Deploy.Tests/`,
+  `TeardownDecisions.cs`, `StaticSiteCache.cs`, `BuildManifest.cs`, `Program.cs`),
+  `tools/SpaceStroker.Deploy.Tests/`,
   `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `.gitignore`, `README.md`.
 - **Teardown decisions:** `deploy/tools/SpaceStroker.Deploy/TeardownDecisions.cs` — pure, I/O-free
   (`SqlInstanceAddress`, `ZeroCostPrefix`, `DestroyBackoff`/`DestroyAttempts`, `ParseStateList`,
   `Contains`, `IsZeroCostOnly`, and the resume-hint / zero-cost / billable-leftover / purge-blocked
   message builders), wired through `Deployer.DestroyWorkload(bool purge)` + its `RunDestroyWithRetries`
-  and fail-closed `ReadState` helpers. Covered by `deploy/tools/SpaceStroker.Deploy.Tests`
-  (xUnit + Shouldly, 16 tests, registered in `SpaceStroker.DeployTools.sln`) — the only automated
-  tests in the deploy stack; `ProcessRunner` and the real `terraform`/`gcloud` calls stay untested.
+  and fail-closed `ReadState` helpers.
+- **Static-site upload decisions:** `deploy/tools/SpaceStroker.Deploy/StaticSiteCache.cs` — pure
+  (`StaticSite`, `UploadStep`/`UploadStepKind`, the three `*CacheControl` constants, `SourcemapPattern`,
+  `HashedPrefixes`, `IsExcluded`, `ForPath`, `RootExclusionRegex`, `Plan`) — plus
+  `BuildManifest.cs` for the prune (`Retention`, `NameFor`/`TimestampOf`,
+  `RetainedManifests`/`ExpiredManifests`, `PruneTargets`, `ParseListing`,
+  `Render`/`ParseManifestBodies`, `Batch`). Wired through `Deployer.UploadAndInvalidate(StaticSite, …)`,
+  which reads the dist listing and executes each planned `gsutil` call, and its private
+  `PruneRetainedAssets`.
+- **Deploy-tool tests:** `deploy/tools/SpaceStroker.Deploy.Tests` (xUnit + Shouldly, **76 tests**,
+  registered in `SpaceStroker.DeployTools.sln`) — `TeardownDecisionsTests` (16),
+  `StaticSiteCacheTests` (43), `BuildManifestTests` (18) — the only automated tests in the deploy
+  stack; `ProcessRunner` and the real `terraform`/`gcloud`/`gsutil` calls stay untested, so the upload
+  and prune argument shapes are first exercised for real on the next deploy.
 - **Backend readiness:** `monkify-backend/src/SpaceStroker.Common/Cors/CorsOriginResolver.cs`,
   `SpaceStroker.Domain/Configs/Entities/CorsSettings.cs`, `SpaceStroker.Api/Program.cs` (forwarded headers + CORS),
   `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + Main-operator seed URLs), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).

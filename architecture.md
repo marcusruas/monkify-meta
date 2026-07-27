@@ -466,6 +466,10 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
 - **Static sites:** `monkify-front` and `monkify-lp` are built and served from **GCS website buckets +
   Cloud CDN**; the front carries `Content-Security-Policy: frame-ancestors *` **and `X-Robots-Tag:
   noindex`** as CDN response headers (no nginx in this path). The lp bucket carries neither.
+  Uploads set **`Cache-Control` per file class** — HTML `no-cache`, content-hashed assets
+  `immutable` for a year, everything else an explicit 1h — and **retain** the previous builds' hashed
+  assets (pruned after 24h) so a session running an older build can still fetch a lazily-loaded chunk.
+  See `features/terraform-gcp-deploy.md` → "Static-site upload".
 - **Crawler policy (`specs/robots-txt.md`):** the three public hosts answer deliberately and differently.
   **`app.spacestroker.com`** and **`api.spacestroker.com`** are `Disallow: /` — the SPA is client-rendered
   (a crawler only ever sees an empty shell) and the API serves JSON, while bot traffic on either spends the

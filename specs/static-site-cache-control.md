@@ -1,6 +1,14 @@
 # SpaceStroker — "Set Cache-Control on static-site uploads" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (not yet applied)** — merged to `main` on **2026-07-27** from
+> `feature/static-site-cache-control` (`monkify-meta` only). 76 deploy-tool unit tests green.
+> **No deploy has run**, so production still serves the old headers and still deletes old chunks; the
+> upload/prune argument shapes execute against real GCS for the first time on the next deploy.
+> Distilled into `features/terraform-gcp-deploy.md` → "Static-site upload".
+> **§3 decision 5 was reversed during implementation** — pruning is automatic, not manual; see §6.6
+> and the revision log.
+
+> Refined via Trello card
 > [Set Cache-Control on static-site uploads: stale index.html points at chunks rsync -d already deleted](https://trello.com/c/bSSvCfKF)
 > (2026-07-27).
 > Repos affected: **`monkify-meta` only** — `deploy/tools/SpaceStroker.Deploy`. No backend, no
