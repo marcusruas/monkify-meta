@@ -64,6 +64,26 @@
   `shallowRef` and/or send `toRaw(...)` with copied arrays. Cancel by `terminate()` rather than a
   cancel message (a message can be missed between ticks), and always terminate on unmount. Keep the
   algorithm in `src/utils/` and **import** it from the worker so the bundle carries one copy.
+- **Overlays and the header's containing block (learned the hard way):** `GameHeader.vue`'s root
+  carries `backdrop-blur-md`, and a `backdrop-filter` other than `none` makes an element the
+  **containing block for `position: fixed` descendants** (same as `transform`/`filter`). So a
+  `fixed inset-0` overlay authored **inside the header** resolves against the **64px header box**, not
+  the viewport. Two consequences, and they pull in opposite directions:
+  - **Modals must be teleported out** — `<Teleport to="#app">` (not `body`: `#app` keeps the app's
+    styling/inheritance chain). `GameFairModal.vue` and `PlayerCustomizationModal.vue` both do this.
+    Their `z-[60]` / `z-50` beat `App.vue`'s root `z-10`, so they paint above everything.
+  - **Click-away backdrops must *not* be teleported** — they need to sit above the page but **below
+    their own dropdown**, which is unexpressible once teleported: `App.vue` renders its root as
+    `relative z-10` (its own stacking context), so the header's `z-40` is sealed inside it and a
+    teleported sibling is compared against `10`. At `z ≥ 10` it covers the dropdown and swallows its
+    clicks; below `10` it sits under the full-viewport app root and is never clicked. Use
+    **`useClickOutside(target, handler, active)`** (`src/hooks/useClickOutside.ts`) instead — a
+    document `click` listener registered only while open, with a containment check against a wrapper
+    that holds **both** the toggle and the dropdown (so the opening click can't close it), removed on
+    close and on unmount. Wired in `GameHeader.vue` (☰ menu) and `WalletButtons.vue` (wallet popover).
+  - This class of bug is **invisible on phones and on hardware-acceleration-off desktops**, because
+    `arcade.css` strips `backdrop-filter` under `html.light-graphics` — so always check a
+    GPU-rasterizing desktop. See `specs/fair-modal-off-screen.md`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
 - **Design system (required):** **always build new UI with the existing frontend design system** —

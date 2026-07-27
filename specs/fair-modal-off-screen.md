@@ -1,7 +1,7 @@
 # SpaceStroker — "FAIR modal is off screen" Fix — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [#109 fair modal is off screen](https://trello.com/c/ye9CYjpo) (2026-07-27).
+> **Status: Shipped** — merged via `feature/fair-modal-off-screen` on 2026-07-27. Refined via Trello
+> card [#109 fair modal is off screen](https://trello.com/c/ye9CYjpo) (2026-07-27).
 > Repos affected: `monkify-front` (the only code change) and this doc in `monkify-meta`.
 > **No `monkify-backend` change.**
 >
@@ -373,3 +373,4 @@ cd .worktrees/fair-modal-off-screen/monkify-front && yarn install --frozen-lockf
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #109 (frontend-only containing-block bug fix). Corrects the card's decision 5: the two click-away backdrops **cannot** be teleported (App.vue's root `relative z-10` stacking context, §7.3) and are replaced by a new `useClickOutside` composable. Records that the wallet popover is a **latent** case (§7.4) and that the clipped-wordmark symptom is **unexplained** by the root cause (§7.6). |
+| 2026-07-27 | **Shipped** as specced (`monkify-front` `3c6f04d`). Implementation notes: `src/hooks/index.ts` was left untouched — it re-exports only 3 of 18 hooks, so direct-path import is the repo's actual pattern (§10.2 file 5 was conditional). Verification: lint + build clean, then a measured browser pass — because a headless/CPU-rasterized browser resolves to `light-graphics` (where the bug cannot appear), the failing condition was restored by removing the class, and the trap was first **proven with a probe**: a `fixed inset-0` element inside the blurred header measured **1442×63** (the header box) against a 1442×822 viewport. With the fix, the overlay's parent is `#app`, overlay + dim fill the viewport, the panel is fully visible and centred, and there is no horizontal overflow — confirmed on lobby / play / stats / history, in light-graphics, at phone width, and absent when embedded. **§7.6 outcome:** the clipped wordmark did **not** reproduce at any width, so it is not a symptom of this bug; no follow-up card was opened. Not exercised: the popover's Disconnect button (tested against a seeded fake wallet session, which was removed afterwards). |
