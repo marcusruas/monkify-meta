@@ -59,3 +59,19 @@ variable "rate_limit_interval_sec" {
   type    = number
   default = 60
 }
+
+# Infrastructure paths (/health, /Hubs/*) get their own, much looser bucket than the general per-IP rule.
+# NOT an exemption: a blanket `allow` would leave POST /Hubs/Games/negotiate with no ceiling anywhere,
+# and the in-app limiter that would normally backstop it is under suspicion of bucketing every player on
+# earth together (Trello #112). 3000/60s is ~5x the general rule — far above any real client, low enough
+# to bound an abuser. A throttled health probe makes Cloud Run recycle the instance; a mass SignalR
+# reconnect behind one NAT would blank an operator's realtime for everyone on that exit.
+variable "infra_rate_limit_count" {
+  type    = number
+  default = 3000
+}
+
+variable "infra_rate_limit_interval_sec" {
+  type    = number
+  default = 60
+}

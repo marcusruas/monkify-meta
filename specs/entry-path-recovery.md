@@ -1,6 +1,6 @@
 # SpaceStroker — "Entry-path recovery" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Implemented** (2026-07-27) — refined via Trello card
 > [A transient failure on any boot call dead-ends the player on a static error page](https://trello.com/c/KvfUl6ff)
 > (**#110**, refined 2026-07-27).
 > Repos affected: `monkify-front`, and this doc + the edge Terraform in `monkify-meta`.
@@ -24,7 +24,7 @@ spent another request.
 
 | | Today | After this spec |
 | --- | --- | --- |
-| Transient boot failure | `/error`, terminal, no way back | Stays on route; `> RECONNECTING…`; 3 jittered retries spanning ≈70 s |
+| Transient boot failure | `/error`, terminal, no way back | Stays on route; `> RECONNECTING…`; 3 jittered retries spanning ≈80 s |
 | Transient failure that recovers | never happens (never retried) | Overlay clears, lobby renders, no reload |
 | Transient failure that never recovers | `/error`, terminal | `/error` **with a RETRY control** |
 | Terminal failure (401 real token, 404) | `/error`, terminal | `/error` immediately, no retries, **with RETRY**; copy unchanged |
@@ -68,7 +68,7 @@ Carried verbatim in substance from the card's `## Decisions (from refinement)` (
 | # | Decision |
 | --- | --- |
 | 1 | **Classify and recover in place**, *and* give `/error` a retry — not a retry button alone. Armor's `throttle` enforces across the whole 60 s interval, so only the app can wait it out. |
-| 2 | **Back-off = 3 retries at ~5 s / ~20 s / ~45 s, ±20 % jitter (≈70 s total), then `/error`.** The budget must outlive the 60 s enforcement window. Jitter is load-bearing — everyone behind one VPN exit is throttled simultaneously. Indefinite retry rejected. |
+| 2 | **Back-off = 3 retries at ~5 s / ~20 s / ~55 s, ±20 % jitter (≈80 s nominal, **64 s worst case**), then `/error`.** The budget must outlive the 60 s enforcement window **at the jitter floor**, not merely on average — see the correction note under §6.2. Jitter is load-bearing — everyone behind one VPN exit is throttled simultaneously. Indefinite retry rejected. |
 | 3 | **A full-screen arcade boot state (`> RECONNECTING…`)** — one line, **no countdown, no attempt counter** (a visible "attempt 2 of 3" invites the reload we are preventing). Copy generic; never mentions the operator. |
 | 4 | **Route 3: classify the re-mint failure *and* replace `window.location.assign`** with a router navigation (a full reload wipes in-flight back-off state and re-spends the boot budget). |
 | 5 | **Embedded: same classification, no new postMessage.** `token-expired` is the wrong signal for a 429. Terminal keeps today's `token-expired` + relaunching exactly. |
@@ -153,18 +153,18 @@ Everything else — any 4xx that *has* a response (401 on a real operator token,
 malformed or absent launch token — is **terminal**.
 
 **Knowingly accepted:** "no response" also covers a player who is simply offline. They will retry for
-≈70 s and then land on `/error` with RETRY. `navigator.onLine` was rejected as too unreliable to act
+≈80 s and then land on `/error` with RETRY. `navigator.onLine` was rejected as too unreliable to act
 on — it reports "online" for a machine attached to a network with no route to the internet, so acting
 on it would add a wrong answer rather than a right one.
 
 ### 6.2 The schedule — `src/utils/retrySchedule.ts` (new, pure)
 
 ```ts
-// Delays in ms before retry attempts 1, 2 and 3. The cumulative total (~70s) deliberately EXCEEDS
+// Delays in ms before retry attempts 1, 2 and 3. The cumulative total deliberately EXCEEDS
 // Cloud Armor's 60s enforcement interval, so at least one attempt lands in a fresh interval — a
 // conventional 1/2/4s back-off would spend all three retries inside the same saturated window and
 // fail identically. See specs/entry-path-recovery.md §3 decision 2.
-export const RETRY_BASE_DELAYS_MS = [5_000, 20_000, 45_000] as const;
+export const RETRY_BASE_DELAYS_MS = [5_000, 20_000, 55_000] as const;
 export const RETRY_JITTER_RATIO = 0.2;
 
 // Pure given `rand`. The default is Math.random; a test passes a stub. Jitter is NOT cosmetic: every
@@ -176,6 +176,15 @@ export const buildRetrySchedule = (rand: () => number = Math.random): number[] =
     return Math.round(base - swing + rand() * 2 * swing);
   });
 ```
+
+> ⚠️ **Correction made during implementation (2026-07-27).** This spec originally specified
+> `[5_000, 20_000, 45_000]`. Those numbers **fail the invariant they exist to satisfy.** The guarantee
+> has to hold at the **jitter floor**, not at the nominal values: with `rand() → 0` on every call the
+> delays become `4 000 + 16 000 + 36 000 = 56 000 ms` — **under** the 60 s enforcement window, so a
+> player unlucky in the jitter (roughly 1 run in 8) would spend all three retries inside the same
+> saturated interval and fail exactly as if nothing had been retried. Raising the last base delay to
+> **55 s** puts the floor at `4 000 + 16 000 + 44 000 = 64 000 ms` ✅. Totals are now ~80 s nominal,
+> 64 s worst case, 96 s best case. **When changing these constants, check the floor, not the mean.**
 
 ### 6.3 The recovery runner — `src/hooks/useBootRecovery.ts` (new)
 
@@ -484,7 +493,7 @@ sequenceDiagram
   R->>R: wait ~20s (±20%)
   R->>E: retry 2
   E--xR: still denied
-  R->>R: wait ~45s (±20%) — cumulative ≈70s > 60s window
+  R->>R: wait ~55s (±20%) — cumulative ≈80s (64s worst case) > 60s window
   R->>E: retry 3 (fresh interval)
   E-->>R: 200 OK
   R->>A: recovering = false
@@ -563,7 +572,7 @@ hand-built object:
 | `isTransient` | `{}` (no `response`) | `true` — the incident case |
 | `isTransient` | `{ response: { status: 429 } }` / `500` / `503` / `408` | `true` |
 | `isTransient` | `{ response: { status: 401 } }` / `403` / `404` / `400` | `false` |
-| `buildRetrySchedule` | `rand: () => 0.5` (no jitter) | exactly `[5000, 20000, 45000]` |
+| `buildRetrySchedule` | `rand: () => 0.5` (no jitter) | exactly `[5000, 20000, 55000]` |
 | `buildRetrySchedule` | `rand: () => 0` and `rand: () => 1` | each delay within ±20 % of its base |
 | `buildRetrySchedule` | any `rand` | **`sum > 60_000`** — the property the whole design rests on |
 
@@ -577,7 +586,7 @@ and the reason the schedule is a pure function rather than inline `setTimeout` c
 Mapped 1:1 from the Trello **Acceptance Criteria** checklist (22 items).
 
 1. Given a standalone player booting the lobby and `GET /operators/{id}` fails with NO response at all (a Cloud Armor 429 blocked by the browser for missing CORS headers), when the boot path runs, then the player stays on the current route showing the reconnecting state and is NOT navigated to `/error`.
-2. Given a transient boot failure, when the back-off runs, then at most 3 retries are issued at approximately 5 s, 20 s and 45 s (each ±20 % jitter), and the cumulative elapsed time from the first failure to the last attempt exceeds 60 s.
+2. Given a transient boot failure, when the back-off runs, then at most 3 retries are issued at approximately 5 s, 20 s and 55 s (each ±20 % jitter), and the cumulative elapsed time from the first failure to the last attempt exceeds 60 s **even at the jitter floor** (see the §6.2 correction — the originally-specified 45 s failed this).
 3. Given two browser sessions whose boot fails transiently at the same instant, when both back off, then their retry timestamps differ (jitter is applied per session, not a shared fixed schedule).
 4. Given a transient boot failure that recovers on any retry, when that retry succeeds, then the reconnecting state is dismissed and the lobby renders normally with no page reload.
 5. Given the reconnecting state is showing, when the player looks at it, then it displays a single generic line (e.g. `> RECONNECTING…`) with no countdown, no attempt counter, and no mention of the operator.
@@ -618,7 +627,7 @@ alone. Use one of:
 | # | Scenario | Expect |
 | --- | --- | --- |
 | 1 | Block `/operators/*`, load the lobby | `> RECONNECTING…`, no `/error`, **no red toast** (§6.7(d)) |
-| 2 | Unblock during the ~70 s window | Overlay clears, lobby renders, no reload |
+| 2 | Unblock during the ~80 s window | Overlay clears, lobby renders, no reload |
 | 3 | Leave blocked past the 3rd retry | `/error` **with RETRY**; pressing it re-boots |
 | 4 | Block `/games/active-types` only | Lobby back-off, then the existing toast — never an empty silent list |
 | 5 | Terminal 401 on a real operator token | Straight to `/error`, no delay, vague copy |
@@ -632,7 +641,7 @@ alone. Use one of:
 ### 13.1 ⚠️ The one money-adjacent check
 
 `App.vue:167` runs `handleMobileDeeplinkReturn()` **after** `loadOperator()` — deliberately (`:165`),
-so a resumed bet POST carries a valid launch token. A ~70 s back-off therefore delays a player who
+so a resumed bet POST carries a valid launch token. A ~80 s back-off therefore delays a player who
 just approved in Phantom and navigated back.
 
 **Before implementing, read `useMobileWallet`'s resume path and confirm in code that the
@@ -663,3 +672,4 @@ shorten the back-off for this path (decision 10 rejected a second timing regime)
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #110 (13 decisions, 22 acceptance criteria). Adds two code-exploration findings the card did not have: the global toast interceptor in `services/handlers.ts` would fire a red toast per absorbed retry (§6.7(d)), and the un-exported router forces a small `navigation.ts` shim to avoid an import cycle (§6.7(c)). Also records that route 2's back-off runs pre-mount, so the overlay does not cover it (§6.6). |
+| 2026-07-27 | **Implemented.** One correction to this spec's own design, made before any code: the retry schedule's last delay moved **45 s → 55 s**, because `[5,20,45]` ±20 % bottoms out at 56 s and so failed the >60 s invariant at the jitter floor (§6.2). Also verified and discharged §13.1: `useGame.ts:754-759` places the round-changed guard **before** `broadcastSignedTransaction` at `:761`, so a back-off that outlives the round cannot make a player pay into a dead one. |

@@ -7,6 +7,41 @@ resource "google_compute_security_policy" "armor" {
   name    = "${var.name_prefix}-armor"
   project = var.project_id
 
+  # Infrastructure paths get a much looser per-IP bucket than player traffic. Deliberately a looser
+  # THROTTLE and not an `allow` exemption — an exemption would leave POST /Hubs/Games/negotiate with no
+  # ceiling anywhere, and the in-app limiter that would normally backstop it is under suspicion (#112).
+  # See the variable comments in variables.tf and monkify-meta/specs/entry-path-recovery.md §7.
+  #
+  # Matches on `expr` (request path), not versioned_expr (source IP): the two forms are mutually
+  # exclusive within a single match block.
+  rule {
+    action   = "throttle"
+    priority = 800
+    match {
+      expr {
+        expression = "request.path.startsWith('/Hubs/') || request.path == '/health'"
+      }
+    }
+    rate_limit_options {
+      conform_action = "allow"
+      exceed_action  = "deny(429)"
+      enforce_on_key = "IP"
+      rate_limit_threshold {
+        count        = var.infra_rate_limit_count
+        interval_sec = var.infra_rate_limit_interval_sec
+      }
+    }
+    description = "Looser per-IP throttle for /health + /Hubs/* (infrastructure paths)."
+  }
+
+  # ⚠️ A rule's `action` CANNOT be changed in place. The provider updates rules via patchRule, which
+  # MERGES rather than replaces, so leftover fields from the old action survive and collide: #104's
+  # rate_based_ban -> throttle change failed with "Ban threshold or duration can only be specified if
+  # the action is 'rate_based_ban'" because banDurationSec: 300 outlived the patch. To change an action,
+  # delete the live rule first (gcloud compute security-policies rules delete <priority>
+  # --security-policy <policy>) or bump the rule's priority for an atomic remove+add. Adding a NEW rule
+  # at a NEW priority — as the rule above does — is unaffected.
+
   # Per-IP rate limiting (complements the app's in-process IpRateLimiting).
   #
   # THROTTLE, not rate_based_ban. A ban denies EVERY request from the IP for its whole duration, and the

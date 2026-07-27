@@ -115,7 +115,7 @@ dotnet run -- deploy api             # one component only (also: consumers | fro
 ```
 
 The tool: syncs each `secrets` entry to **Secret Manager** (values via stdin, never on the command line
-or in Terraform state), writes the non-secret Terraform variables to `production.auto.tfvars.json`
+or in Terraform state), writes the non-secret Terraform variables to `production.tfvars.json`
 (git-ignored), builds/pushes the images to Artifact Registry, `terraform apply`s the workload, then
 builds each static site (baking the `frontBuild` `VUE_APP_*` values) and syncs it to its GCS bucket +
 invalidates the CDN. **Consumers is released before the API** (it owns EF migrations/seeding).
