@@ -115,14 +115,41 @@ agents work different features at once without colliding.
   **Never reveal contract status** (e.g. never say "the contract expired"). Reuse the existing
   generic error messages; do not add expiry-specific ones.
 
-## 7. Asking the user to decide — always give the trade-offs
+## 7. Asking the user to decide — pick the answer mode first, then give the trade-offs
 
 Every time you ask the user a question that decides how something gets built — "should I implement
 X?", "which approach do you want?", "how should this behave when Y?", or presenting a plan for
-approval — you **must** explain, **in detail**, the trade-offs of the proposal **against the current
-functionality**. A bare question, or an option list with no consequences attached, is not acceptable.
+approval — the user chooses **how much detail** they get (§7.0), and in **Complete** mode you
+**must** explain, **in detail**, the trade-offs of the proposal **against the current functionality**
+(§7.1).
 
-### The required format
+### 7.0 Before the first question: ask which answer mode the user wants (mandatory)
+
+Before you start refining a task, and before you ask the user **any** decision question in a run,
+ask **one** meta question first — and ask nothing else until it is answered:
+
+> "Do you want the **short** version (question + options + my recommendation) or the **complete**
+> version (each option with today's behavior and its trade-offs)?"
+
+- **Short** — the older, pre-trade-off style: the question, its realistic options (still including
+  **keep the current behavior**), and a one-line recommendation. **No** `Today:` line, **no**
+  `Benefits` / `Issues that this approach brings` block.
+- **Complete** — the full §7.1 treatment on every question.
+
+Rules for this mode gate:
+
+- Ask it **once per run**, before the first question, then reuse the answer for the rest of the
+  conversation. If the user later says "switch to short/complete", honor it from that point on.
+- The mode question itself is **exempt** from the format below — it is the meta question.
+- **Unknown, ambiguous, or unanswered → Complete.** Never fall back to Short by silence.
+- In Short mode the user can still ask for the full treatment on a single question ("expand that",
+  "trade-offs?") — give the §7.1 format for that question without changing the mode.
+- Short mode changes **how much you write**, never **what you decide**: it does not let you skip a
+  question, drop the "keep it as it is" option, or hide a consequence you know is material. If an
+  option can lose money, break a shipped contract, or needs a migration/data backfill, say so in one
+  clause even in Short mode.
+
+### 7.1 The required format (Complete mode)
 
 For **each** option on the table, state **what happens today** in that area (the current behavior it
 replaces or bends, why it works that way, and where it lives — `features/*.md`, the spec, or the
@@ -153,7 +180,7 @@ Issues that this approach brings: <the problem stays unsolved, ...>
 **Recommendation:** <option> — <why>.
 ```
 
-### What must appear on those two lines
+### What must appear on those two lines (Complete mode)
 
 - **Benefits** — the problem it actually solves and for whom (player, operator, ops), plus anything
   it makes cheaper or simpler later.
@@ -166,8 +193,10 @@ Issues that this approach brings: <the problem stays unsolved, ...>
 
 ### Rules of thumb
 
-- **Keeping the current behavior is always one of the options**, with the same two lines. State it,
-  never imply it.
+- **Ask the mode question (§7.0) before the first decision question of the run** — refinement
+  included. When in doubt about the mode, use **Complete**.
+- **Keeping the current behavior is always one of the options** — in Complete mode with the same two
+  lines, in Short mode as a listed option. State it, never imply it.
 - Never drop the `Issues` line. If an option genuinely has no real downside, still write it and say
   so — `Issues that this approach brings: none beyond one extra query`. An option with no stated cost
   reads as an omission.

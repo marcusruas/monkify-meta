@@ -1,6 +1,6 @@
 ---
 name: monkify-implement-feature
-description: Implement a Monkify feature end to end from its spec, in the feature worktree/branch that monkify-create-spec created. Use when the user names a Specs-created Trello card and wants the code written — after monkify-create-spec, before monkify-ship-feature. Gathers session + card + spec context, writes an implementation plan with the Superpowers writing-plans skill, implements it (with unit + mandatory happy-path integration tests), commits & pushes, deploys the feature to the local Docker stack (setup_local_environment), has the user verify the running containers, then moves the card to Implemented. Needs Trello MCP, Superpowers, and Docker.
+description: Implement a Monkify feature end to end from its spec, in the feature worktree/branch that monkify-create-spec created. Use when the user names a Specs-created Trello card and wants the code written — after monkify-create-spec, before monkify-ship-feature. Gathers session + card + spec context, writes an implementation plan with the Superpowers writing-plans skill, implements it (with unit + mandatory happy-path integration tests), commits & pushes, hands back a GitHub compare link (branch vs main) per repo, deploys the feature to the local Docker stack (setup_local_environment), has the user verify the running containers, then moves the card to Implemented. Needs Trello MCP, Superpowers, and Docker.
 disable-model-invocation: true
 ---
 
@@ -70,6 +70,7 @@ Copy this checklist and track progress:
 - [ ] Step 7: Add the mandatory happy-path integration test (+ one per complex flow)
 - [ ] Step 8: Verify — run unit + integration tests
 - [ ] Step 9: Commit + push the work on feature/<slug> (each affected repo)
+- [ ] Step 9b: Build the GitHub compare links (feature branch vs main) for every pushed repo
 - [ ] Step 10: Deploy the feature to Docker (setup_local_environment) — handle a stack already running
 - [ ] Step 11: Hand off to the user to test the running containers; WAIT for the nod
 - [ ] Step 12: Trello — move card to Implemented
@@ -263,6 +264,61 @@ git -C <workspace-root>/.worktrees/<slug>/<repo> push origin feature/<slug>
 
 Do **not** merge to `main` here — that's `monkify-ship-feature`.
 
+### Step 9b: Build the GitHub compare links (branch vs `main`)
+
+Right after the push succeeds, produce — for **every** repo you pushed — a **GitHub compare link**
+so the user can review exactly what this feature changed against `main` in the browser. This is a
+required output of the skill: the links go into the Step 11 hand-off **and** the Step 13 report.
+
+1. **Confirm the push landed** (never link to a branch that isn't on `origin`):
+
+   ```bash
+   git -C <workspace-root>/.worktrees/<slug>/<repo> rev-parse HEAD
+   git -C <workspace-root>/.worktrees/<slug>/<repo> ls-remote --heads origin feature/<slug>
+   ```
+
+   The two SHAs must match. If the branch is absent or behind, push again before building the link.
+
+2. **Derive the repo's web URL from its own remote** — never hardcode owners (backend and front live
+   under different GitHub accounts):
+
+   ```bash
+   git -C <workspace-root>/.worktrees/<slug>/<repo> remote get-url origin
+   ```
+
+   Normalize to `https://github.com/<owner>/<repo>`: strip a trailing `.git`, and rewrite
+   `git@github.com:<owner>/<repo>.git` → `https://github.com/<owner>/<repo>`.
+
+3. **Build the compare link** (three dots = diff since the branch left `main`, which is what "changed
+   vs main" means; it is also the page GitHub offers "Create pull request" from):
+
+   ```
+   https://github.com/<owner>/<repo>/compare/main...feature/<slug>
+   ```
+
+   URL-encode the branch only if it contains characters GitHub won't take literally (`/` is fine).
+
+4. **Summarize the diff next to each link** so the user knows the size before clicking:
+
+   ```bash
+   git -C <workspace-root>/.worktrees/<slug>/<repo> fetch origin main
+   git -C <workspace-root>/.worktrees/<slug>/<repo> diff --stat origin/main...feature/<slug>
+   git -C <workspace-root>/.worktrees/<slug>/<repo> log --oneline origin/main..feature/<slug>
+   ```
+
+Present one line per repo, e.g.:
+
+```markdown
+- **monkify-backend** — `feature/<slug>` (3 commits, 12 files, +410/-56)
+  → https://github.com/marcusruas/monkify-backend/compare/main...feature/<slug>
+- **monkify-front** — `feature/<slug>` (1 commit, 4 files, +88/-12)
+  → https://github.com/VitorIsaacSM/monkify-front/compare/main...feature/<slug>
+```
+
+If a repo was **not** pushed (nothing changed in it), say so instead of emitting a link — an empty
+compare page reads as a failed deploy. Rebuild these links after **every** follow-up commit in Step 9
+(the URL is stable, the diff stats are not) and re-send them with the new hand-off.
+
 ### Step 10: Deploy the feature to the local Docker stack
 
 Boot this feature's code in the local containers via `setup_local_environment.bat`, so the user tests
@@ -384,6 +440,9 @@ is up). Then **ask them to test the running app** before the card moves. Give th
 - **Where it's live** — API `http://localhost:6001`, frontend `http://localhost:6003` (dev launch
   buttons enabled). If they chose **Skip** (10b), say clearly it is **not** deployed and how to deploy
   it themselves.
+- **The GitHub compare links from Step 9b** — one per pushed repo, each with its commit/file/line
+  counts, so they can review the full diff **against `main`** in the browser. These are mandatory in
+  the hand-off, not optional extras.
 - What changed (per repo, short bullets) and which acceptance criteria are now satisfied.
 - Any manual QA steps from the spec's **Manual QA** section.
 
@@ -413,7 +472,10 @@ Tell the user:
 4. **Tests** — **exactly which unit tests** were added/changed (per `constraints.md` §3) and the
    integration test(s) added; confirm both suites are green (or, if `level == Minor change`, note that
    the integration test was skipped under the level-based exemption).
-5. **Committed + pushed** — `feature/<slug>` in which repos.
+5. **Committed + pushed** — `feature/<slug>` in which repos, **each with its GitHub compare link**
+   (`…/compare/main...feature/<slug>`, Step 9b) and its commit/file/line counts, so the user can see
+   exactly what changed versus `main`. Name any affected repo that got **no** push instead of
+   emitting an empty link.
 6. **Deployed** — how the feature was deployed (clean / redeploy / **Replace** / **Combine** / not
    deployed because the user chose **Skip**); the running URLs (API `:6001`, front `:6003`) and, for a
    Combine, which other cards share the stack.
@@ -422,6 +484,16 @@ Tell the user:
 
 ## Hard rules
 
+- **Ask the answer mode before your first question to the user** (`AGENTS.md` rule 9 /
+  `constraints.md` §7.0): *short* (question + options + recommendation) or *complete* (each option
+  with today's behavior and its trade-offs). Ask it once per run — before the first spec-gap question
+  or the Step 10b Replace/Combine/Skip choice — and reuse it; unknown/unanswered ⇒ **complete**. If
+  the mode was already chosen earlier in the same chat, reuse it rather than re-asking.
+- **Push, then hand over the compare links** — after the tests are green, the branch is pushed
+  (Step 9) and **every** pushed repo gets its GitHub `compare/main...feature/<slug>` link (Step 9b)
+  in both the hand-off (Step 11) and the report (Step 13). Derive the URL from each repo's own
+  `origin` remote (backend and front have different owners); verify the pushed SHA matches local
+  `HEAD` before linking; rebuild the links after every follow-up commit.
 - **Plan before code** — use writing-plans first; implement against the spec, not from memory.
 - **Stop on spec/cross-feature conflict** — ask the user; never guess (INDEX.md).
 - **Commit + push and deploy before hand-off** — the user tests the committed, containerized build

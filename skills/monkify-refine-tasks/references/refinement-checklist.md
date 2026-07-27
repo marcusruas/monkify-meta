@@ -9,6 +9,26 @@ about anything the card does not already answer. The point is to surface impact 
 
 ## 0. How to ask every question (mandatory)
 
+### 0a. First, ask the answer mode (before any question below)
+
+- [ ] **Mode gate (Step 3b)** — ask once, before the first refinement question:
+      *"short version (question + options + recommendation) or complete version (each option with
+      today's behavior and its trade-offs)?"* Apply the answer to every question in this checklist,
+      including the Level question. Unknown/unanswered ⇒ **complete**. This meta question is the only
+      one exempt from the formats below.
+
+### 0b. Short mode
+
+- [ ] The question, concrete and scenario-shaped.
+- [ ] The realistic **options**, always including **keep the current behavior**.
+- [ ] A one-line **recommendation** and why.
+- [ ] No `Today:` line and no trade-off block — but if an option touches money/payouts, refunds, a
+      migration/backfill, or a shipped public/SignalR contract, say that in one clause anyway.
+- [ ] The user may ask to "expand" a single question ⇒ answer it in the 0c format without switching
+      the mode.
+
+### 0c. Complete mode
+
 No bare questions. **Every** item below, when you turn it into a question for the user, must carry
 the trade-offs of the answers **versus the current functionality** (`AGENTS.md` rule 9 /
 `constraints.md` §7):
@@ -31,7 +51,8 @@ the trade-offs of the answers **versus the current functionality** (`AGENTS.md` 
 - [ ] Scale the depth to the stake (naming ⇒ a couple of short items per line; money/migrations/
       shipped behavior ⇒ full treatment). Never drop the `Issues` line — no real downside is written
       `Issues that this approach brings: none beyond <X>`, not omitted.
-- [ ] The trade-off that drove each answer goes into `## Decisions (from refinement)` on the card.
+- [ ] The trade-off that drove each answer goes into `## Decisions (from refinement)` on the card
+      (in short mode, a one-line "why this option" instead).
 
 ## 1. Scope & intent
 
@@ -94,9 +115,10 @@ For each area: does this card change it, depend on it, or break an assumption it
 
 ## 7. Exit bar
 
-- [ ] Every "how should it behave when…" question has a concrete, agreed answer — and was asked
-      **with its trade-offs against the current behavior** (§0), with the deciding trade-off recorded
-      in `## Decisions (from refinement)`.
+- [ ] The answer mode was agreed up front (§0a) before the first question.
+- [ ] Every "how should it behave when…" question has a concrete, agreed answer — asked in the agreed
+      mode (§0b / §0c), with the reason (or, in complete mode, the deciding trade-off) recorded in
+      `## Decisions (from refinement)`.
 - [ ] The **Level** (`Feature` / `Minor change`) is agreed with the user and written to `## Level`.
 - [ ] Acceptance criteria are testable (Given / When / Then).
 - [ ] A spec-writer could produce an implementation spec from this card **without** asking anything.

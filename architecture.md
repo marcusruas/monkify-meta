@@ -464,8 +464,21 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
   is **internal-ingress only** (it hosts `/hangfire` and owns EF migrations/seeding), **CPU always-on**,
   pinned to `var.consumer_count` (default 1), and is released **before** the API.
 - **Static sites:** `monkify-front` and `monkify-lp` are built and served from **GCS website buckets +
-  Cloud CDN**; the front reproduces its `Content-Security-Policy: frame-ancestors *` as a CDN response
-  header (no nginx in this path).
+  Cloud CDN**; the front carries `Content-Security-Policy: frame-ancestors *` **and `X-Robots-Tag:
+  noindex`** as CDN response headers (no nginx in this path). The lp bucket carries neither.
+- **Crawler policy (`specs/robots-txt.md`):** the three public hosts answer deliberately and differently.
+  **`app.spacestroker.com`** and **`api.spacestroker.com`** are `Disallow: /` — the SPA is client-rendered
+  (a crawler only ever sees an empty shell) and the API serves JSON, while bot traffic on either spends the
+  same per-IP Cloud Armor budget as a real player. The app serves the file from `public/robots.txt` and is
+  additionally de-indexed by the `X-Robots-Tag` header above; the API serves it from a `HomeController`
+  action (`GET /robots.txt`, `text/plain`, no launch token) because the API has **no static-file middleware
+  and no wwwroot**. **`spacestroker.com` / `www.`** stays fully indexable (`Allow: /` + sitemap) and is where
+  all SEO signal is concentrated, but denies **AI training** crawlers (`GPTBot`, `ClaudeBot`,
+  `Google-Extended`, `meta-externalagent`, `CCBot`, `Bytespider`) while leaving **AI search/answer** crawlers
+  (`OAI-SearchBot`, `PerplexityBot`, `Claude-SearchBot`, …) and **all link-preview agents**
+  (`facebookexternalhit`, `Twitterbot`, `TelegramBot`) allowed — the latter generate the campaign unfurls.
+  The **development environment is deliberately not covered**: its hosts are public but serve prod's
+  committed `robots.txt` verbatim.
 - **Data tier (private only):** **Cloud SQL Postgres 16** (one instance, both `spacestroker` and
   `spacestroker_messaging`) and **Memorystore Redis 7**, no public IPs; Cloud Run reaches them through a
   **Serverless VPC Access connector**, egress via **Cloud NAT**.

@@ -362,6 +362,11 @@ Tell the user:
 
 ## Hard rules
 
+- **Ask the answer mode before your first question to the user** (`AGENTS.md` rule 9 /
+  `constraints.md` §7.0): *short* (question + options + recommendation) or *complete* (each option
+  with today's behavior and its trade-offs). Ask it once per run, before the Step 3 ship-plan
+  confirmation, and reuse it for every later question; unknown/unanswered ⇒ **complete**. If the mode
+  was already chosen earlier in the same chat, reuse it — don't re-ask.
 - **KB first, then merge** — sync and commit the KB on `feature/<slug>` **before** merging, so it
   lands on `main` with the feature (not as a separate main commit).
 - **The card's `Level` drives the `features/<slug>.md` doc** (read from the `## Implementation`

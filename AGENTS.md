@@ -168,13 +168,28 @@ local Docker stack for the user to test before the card advances.
    end to end and asserts it works 100%**. If the feature introduces a **particularly complex flow**
    (beyond the happy path), that flow **must** get its own integration test too. See
    `constraints.md` → "Integration tests" for the full rule.
-9. **Always explain the trade-offs — the proposed change vs. how it works today — in the required
-   format.** Whenever you ask the user to decide something (approve an implementation, choose between
-   approaches, answer a refinement or design question, accept a plan), you **must** spell out **in
-   detail** the trade-offs of doing it **versus the current functionality**. Never hand the user a
-   bare question or an option list with no consequences attached. For **each** option, first say
-   **what happens today** (the current behavior it replaces or bends, and why it is that way), then
-   give the trade-offs in **exactly this format**:
+9. **Ask which answer mode the user wants, then explain the trade-offs in the required format.**
+   **Before** you start refining a task and **before** the first decision question of a run (approve
+   an implementation, choose between approaches, answer a refinement or design question, accept a
+   plan), ask **one** meta question first and wait for the answer:
+
+   > "Do you want the **short** version (question + options + my recommendation) or the **complete**
+   > version (each option with today's behavior and its trade-offs)?"
+
+   Ask it **once per run** and reuse the answer for the rest of the conversation (the user can switch
+   at any time). The mode question itself is exempt from the format below. If the mode is unknown or
+   unanswered, use **Complete** — never assume Short by silence.
+
+   - **Short mode** — the older style: the question, its realistic options (**including keeping the
+     current behavior**), and a one-line recommendation. No `Today:` line, no trade-off block. It
+     changes how much you write, never what you decide: never drop a question, the "keep it as it is"
+     option, or a material consequence (money loss, broken shipped contract, migration/backfill — say
+     it in one clause). The user can still ask you to expand any single question.
+   - **Complete mode** — you **must** spell out **in detail** the trade-offs of doing it **versus the
+     current functionality**. Never hand the user a bare question or an option list with no
+     consequences attached. For **each** option, first say **what happens today** (the current
+     behavior it replaces or bends, and why it is that way), then give the trade-offs in **exactly
+     this format**:
 
    ```
    Benefits: X, Y, Z
@@ -186,7 +201,7 @@ local Docker stack for the user to test before the card advances.
    never generic filler. **Keeping the current behavior is always one of the options** and gets the
    same two lines. If an option genuinely has no real downside, still write the `Issues` line and say
    so ("none beyond X"); never drop it. Finish with a **recommendation and the reason for it**.
-   See `constraints.md` → §7 for the full shape.
+   See `constraints.md` → §7 for the mode gate (§7.0) and the full shape (§7.1).
 
 ## Quick context
 
