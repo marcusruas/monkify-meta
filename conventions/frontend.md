@@ -103,6 +103,20 @@
     GPU-rasterizing desktop. See `specs/fair-modal-off-screen.md`.
 - **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
   (see `useOperator.applyOperatorTheme`).
+- **`arcade.css` beats Tailwind utilities — do not fight it with classes (learned the hard way):**
+  `src/main.css` `@import`s `colors.css` + `arcade.css` **after** `@tailwind utilities`, and the arcade
+  material classes are plain single-class rules (deliberately **not** in `@layer components` — Vue CLI's
+  css-loader runs Tailwind's PostCSS plugin on each `@import`ed file standalone, where a bare
+  `@layer components` has no matching `@tailwind components` directive and **fails the build**). Equal
+  specificity + later in the cascade means **`.btn-arcade` wins over any utility you stack on it**:
+  `justify-start` loses to its `justify-content: center`, `py-2.5` loses to `.btn-arcade--sm`'s
+  `padding: 0 1em`, `gap-2` loses to its `gap: 0.6ch`. Only `!important` utilities (`!h-auto`) win.
+  So: use `.btn-arcade` **as-is** when you want a standard arcade button, and build with **plain
+  Tailwind** when you need a differently-shaped control — do not half-adopt the class and try to
+  override its box. `GameMobileTabs.vue` (segmented control) and the `GameConsole` mobile preset keypad
+  both take the plain-Tailwind route for exactly this reason. Reach for the arcade **tokens**
+  (`bg-primary`, `text-terminal-light`, `border-terminal-border`) to stay on-system either way.
+  See `specs/mobile-preset-keypad.md` → §7.3.
 - **Design system (required):** **always build new UI with the existing frontend design system** —
   Tailwind CSS + DaisyUI plus the shared UI components under `src/components/ui/`
   (e.g. `PrimaryButton`, `SecondaryButton`) and the established layout/spacing/theming patterns

@@ -1,6 +1,11 @@
 # Space Stroker — "Mobile preset keypad" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged via `feature/mobile-preset-keypad` on **2026-07-27**
+> (`monkify-front` `bc33cd0` + `monkify-meta`). Distilled into `features/mobile-layout.md`.
+> **One deviation from this spec — see §16 Post-ship notes:** the keys are styled with plain Tailwind,
+> not `.btn-arcade` as §7.3 proposed.
+>
+> Originally: **Ready for implementation** — refined via Trello card
 > [horse race mobile UI is ugly](https://trello.com/c/uJdWRk7g/94-horse-race-mobile-ui-is-ugly) (#94, 2026-07-27).
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**. **`monkify-backend` is not touched.**
 > Branch / worktree: `feature/mobile-preset-keypad` → `.worktrees/mobile-preset-keypad/<repo>`.
@@ -411,3 +416,36 @@ Verification is manual — there is no frontend test suite.
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #94 (refinement + spec written in the same session). |
+| 2026-07-27 | Shipped. Status banner + §16 post-ship notes added at ship time. |
+
+---
+
+## 16. Post-ship notes
+
+**§7.3's `.btn-arcade` suggestion was wrong and was not followed.** `src/main.css` `@import`s
+`arcade.css` **after** `@tailwind utilities`, and the arcade classes are plain single-class rules. At
+equal specificity the later rule wins, so `.btn-arcade`'s `justify-content: center` beats
+`justify-start` and `.btn-arcade--sm`'s `padding: 0 1em` beats `py-2.5` — the keys would have rendered
+centered and vertically cramped, with only `!h-auto` surviving. The keys are built from **plain
+Tailwind + arcade tokens** instead, matching `GameMobileTabs.vue`. Consequences:
+
+- **§10.2 row 3 (`arcade.css`) was not needed** — no light-mode override was added. The keys use no
+  `backdrop-filter`, `blur()`, `mix-blend-mode`, or animation, so `html.light-graphics` has nothing to
+  strip; verified in-browser (`filter/backdropFilter/animationName/mixBlendMode` all inert).
+- **§7.4's `GamePresetKeypad.vue` was not extracted** — the final markup is ~20 lines, under the
+  spec's own ~40-line threshold. The keypad stays in `GameConsole.vue`.
+- The convention is now recorded in `conventions/frontend.md` so the next component doesn't repeat it.
+
+**Verification reality.** 17 of the 19 acceptance criteria were confirmed live against the local
+Docker stack, including a real free bet (AC 7) and a real two-player race started from an isolated
+browser context (AC 8, AC 17). Two were **not** fully verified and are worth a pass on real hardware:
+
+- **AC 13** — the emulated viewport would not go below ~502px, where a 12-character label fits
+  exactly on one line (114px of 114px available) with the index visible and no horizontal overflow.
+  The `truncate` ellipsis path itself never triggered.
+- **AC 18** — `showMobileConnect` requires a real mobile user-agent for `isMobileDeeplinkContext()`.
+  That code path was not modified by this change.
+
+**Test posture as shipped.** No tests were added: `monkify-backend` is untouched (so no
+`SpaceStroker.Tests` change and no integration test — Minor change / QOL per `constraints.md` §3) and
+`monkify-front` has no test framework. Done = `yarn lint` + `yarn build` green + the browser pass above.

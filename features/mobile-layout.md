@@ -36,9 +36,34 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
   metal-bezel CRT panel (`.mobile-terminal`); it still shows game/bet/frequency, `> POT:`, bets,
   countdown, the free-bet toggle, the `N AWAY!` near-miss row, and the provably-fair reveal. The three
   arcade console modules collapse into **one** compact bet panel: a choice input (device native
-  keyboard — `inputmode="numeric"` for number games — or a themed preset keypad) and a single
+  keyboard — `inputmode="numeric"` for number games — or the preset keypad below) and a single
   `PLACE BET` action (the lever). **There is no amount field — the ticket price is fixed at
   `requiredAmount`.**
+- **The mobile preset keypad is named, uncapped and stateful** (reworked by `mobile-preset-keypad`,
+  2026-07-27; see `../specs/mobile-preset-keypad.md`). For a preset-choice game the mobile panel does
+  **not** reuse the desktop cabinet's numbered `button<N>.png` art — that art carries an opaque grey
+  plate drawn to blend into `terminal.png`, which read as floating grey squares on the mobile panel's
+  dark gradient. Mobile builds its own keys instead:
+  - **One key per configured choice, no cap** — the keys come straight from `presetChoices`, so a
+    12-choice game is fully playable and a 5-choice game shows exactly 5 keys. (The old fixed
+    `[...Array(8)]` keypad made choices 9+ unreachable and rendered dimmed ghost keys below 8. The
+    backend sets **no maximum** on `PresetChoices`, so operators can and do exceed 8.)
+  - **Keys carry the choice NAME** plus its 1-based index (`1 RABBIT`), the index matching the
+    terminal's `> CHOICES:` order. The label is `> PICK YOUR CHOICE` — deliberately generic, because
+    preset choices are operator-configured free text and are not always animals or numbers.
+  - **Selection is derived from `userWord`, never stored locally**, so it clears itself when
+    `placeBet()` succeeds and when `GamePage` resets on a round/game change. Exactly one key is lit
+    (`bg-primary` + amber glow, the same active idiom as `GameMobileTabs`).
+  - **Keys dim and go inert while betting is closed** (`allowBets` false), and **PLACE BET is disabled
+    until a choice is selected**. Both were previously silent dead taps: the rejection path calls
+    `leverError()`, which plays a sound at a lever that does not exist on mobile. The action button
+    stays enabled at `RewardForWinnersCompleted` so `NEXT ROUND` still works.
+  - Preset games are exempt from choice exclusivity, so a key stays selectable after another player
+    takes that choice (see `choice-exclusivity.md`).
+  - **Desktop is unchanged** — it keeps the cabinet, the lever and the 8 PNG keys, and still owns the
+    `button1..8.png` assets. Its own 8-key cap is a known gap awaiting its own card.
+  - Two columns in portrait, three from `sm:` up (landscape phones are still `< lg`). Labels clamp to
+    one line; the index never truncates.
 - **CHAT view = full-width chat.** The desktop absolute cabinet (dock rail / docked / maximized) is not
   used on mobile; `GameSidePanel` renders the chat body full-width (the `CHAT | STATS` sub-tabs were
   removed by `fair-stats-menu` — Stats moved to the header-menu Stats page). An **unread dot** shows on
@@ -67,7 +92,7 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
 - `monkify-front/src/utils/walletDeepLink.ts` — **new.** `isMobileBrowser()` + Phantom/Solflare in-app-browse deep links.
 - `monkify-front/src/pages/GamePage.vue` — mobile branch: segmented tabs + absolutely-stacked GAME/CHAT·STATS views.
 - `monkify-front/src/components/game/GameTerminal.vue` — `mobile` prop; guards the JS width; full-width `.mobile-terminal` CRT panel.
-- `monkify-front/src/components/game/GameConsole.vue` — `mobile` prop; compact bet panel (native keyboard / preset keypad, PLACE BET, no amount field); "OPEN IN WALLET APP" affordance (`canDeepLinkWallet`).
+- `monkify-front/src/components/game/GameConsole.vue` — `mobile` prop; compact bet panel (native keyboard / preset keypad, PLACE BET, no amount field); "OPEN IN WALLET APP" affordance (`canDeepLinkWallet`). Also owns the reworked mobile preset keypad: `presetKeys` (all N choices, mobile-only) alongside the untouched desktop `presetButtons`, `isKeySelected` (derived from `userWord`), the `allowBets` guard in `selectPresetButton`, and `canPlaceBet`.
 - `monkify-front/src/components/game/GameSidePanel.vue` — `mobile`/`visible` props; full-width chat/stats segment (desktop cabinet unchanged).
 - `monkify-front/src/components/game/GameChatPanel.vue` — `visible` prop; bumps `useChatUnread` when hidden.
 - `monkify-front/src/components/GameHeader.vue` — inline single-row header at phone sizes.
