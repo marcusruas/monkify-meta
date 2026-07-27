@@ -473,7 +473,7 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
 - **Crawler policy (`specs/robots-txt.md`):** the three public hosts answer deliberately and differently.
   **`app.spacestroker.com`** and **`api.spacestroker.com`** are `Disallow: /` — the SPA is client-rendered
   (a crawler only ever sees an empty shell) and the API serves JSON, while bot traffic on either spends the
-  same per-IP Cloud Armor budget as a real player. The app serves the file from `public/robots.txt` and is
+  same per-IP Cloud Armor throttle budget as a real player. The app serves the file from `public/robots.txt` and is
   additionally de-indexed by the `X-Robots-Tag` header above; the API serves it from a `HomeController`
   action (`GET /robots.txt`, `text/plain`, no launch token) because the API has **no static-file middleware
   and no wwwroot**. **`spacestroker.com` / `www.`** stays fully indexable (`Allow: /` + sitemap) and is where
@@ -486,8 +486,11 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
 - **Data tier (private only):** **Cloud SQL Postgres 16** (one instance, both `spacestroker` and
   `spacestroker_messaging`) and **Memorystore Redis 7**, no public IPs; Cloud Run reaches them through a
   **Serverless VPC Access connector**, egress via **Cloud NAT**.
-- **Edge:** one external **HTTPS load balancer** → **Cloud Armor** (per-IP rate limiting + OWASP rules) →
-  api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `spacestroker.com`.
+- **Edge:** one external **HTTPS load balancer** → **Cloud Armor** (per-IP **throttle** + OWASP rules) →
+  api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `spacestroker.com`. The per-IP rule
+  **throttles at 600/60 s and never bans** — denying only the excess, so a burst costs a few 429s instead
+  of a blackout. It banned for 300 s until 2026-07-27, which locked real players out; see
+  `features/terraform-gcp-deploy.md` → Cloud Armor for why the ban must not be restored.
 - **Secrets:** the deploy tool syncs `secrets.<env>.json` into **Secret Manager**; Cloud Run reads them via
   IAM at boot. Each host has a **least-privilege service account**. No secret value enters Terraform state.
 - **Health probes:** Cloud Run probes `GET /health` on both hosts (API via `HomeController`, Consumers via

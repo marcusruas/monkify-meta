@@ -1,6 +1,24 @@
 # SpaceStroker — "Player lockouts: duplicate concurrent API calls + Cloud Armor ban" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (Terraform not yet applied)** — merged to `main` on **2026-07-27** from
+> `feature/player-lockouts` (`monkify-front` + `monkify-meta`). **Minor change ⇒ no
+> `features/player-lockouts.md`**; distilled into `features/terraform-gcp-deploy.md` → Cloud Armor,
+> `architecture.md` → Edge, and `conventions/frontend.md` → Concurrent-request dedupe.
+>
+> **What was actually measured (§12 criteria 01/03/04 passed; the rest did not, and that is on purpose):**
+> `/players/preferences` on a SolanaToken game page with a wallet went **4 → 3** — the two same-tick
+> `?wallet=` calls collapsed into one, and the two `sub`-keyed calls (~6 s apart) correctly did not.
+> **The lobby never duplicated at all (1:1 before and after).**
+> ⚠️ **§1's "~143 → ~85-95" is WITHDRAWN.** It rested on the premise that every boot doubled its calls,
+> which the baseline disproved. Real saving ≈ **1 request per game-page load, ~10%** of the incident's
+> volume — not the ~40% claimed. **Criterion 02 also failed as written** (it demanded "exactly one"
+> preferences call on the lobby; it is 1 **or 2** by design). **05** is partial, **06/07/08** were never
+> exercised — see the card comments.
+> **The Cloud Armor `throttle` change is the load-bearing half of this card**, and it is **not live**:
+> no `terraform apply` has run. `action = "throttle"` remains **unproven** (see §7.3 — `validate` accepts
+> a bogus action, so only `apply` can reject it).
+
+> Refined via Trello card
 > [Duplicate concurrent API calls + a 5-minute Cloud Armor ban lock players out — single-flight dedupe & throttle](https://trello.com/c/SpTvJGi9)
 > (2026-07-27). Root cause was confirmed from production load-balancer logs **before** refinement; the
 > card's "Measured evidence" section is the primary source and is not re-derived here.

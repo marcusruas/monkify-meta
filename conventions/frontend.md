@@ -13,7 +13,24 @@
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
   interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches the **`X-Launch-Token`**
   (from the `src/utils/launchToken.ts` store); a response interceptor routes any `401` to `/error`.
-  Add new endpoints here and export them from the default object.
+  Add new endpoints here and export them from the default object. (Only `401` is intercepted — a `429`,
+  `5xx` or network error rejects and each caller handles it locally: a toast in `GameTypes.vue` /
+  `GamePage.vue`, a silent swallow in `useDisplayCurrency`.)
+- **Concurrent-request dedupe (`singleFlight`)** — `mainService.ts` holds a module-local
+  `Map<string, Promise>`; while a request for a key is in flight every later caller receives **that same
+  promise**, and the entry is deleted in `finally`. It is **not a cache**: nothing survives across time,
+  so a caller can never be served a value fetched before it asked — which is what makes it safe near the
+  money path. Keys are `method + path + deterministically-serialized params`; the params matter, because
+  `getPlayerPreferences(wallet)` and `getPlayerPreferences()` resolve **different players** (connected
+  wallet vs launch-token `sub`) and must never share a promise.
+  **Applied to an explicit allow-list of five boot-path functions only** — `getGamesTypes`,
+  `getPlayerPreferences`, `getFxRates`, `getOperator`, `getDefaultLaunchToken`. **Never wrap it around
+  the interceptor or apply it to every GET:** `getTokenBalance(..., { live: true })` exists precisely for
+  the reads that must not be stale (own bet, post-win settle, refund), and collapsing it into a
+  concurrent poll would turn a rate-limit fix into a payout bug. Adding an endpoint to the list is a
+  deliberate, reviewable line of code. Every waiter also shares the **same resolved object** — treat
+  these responses as read-only, and clone before mutating. Shipped by Trello #104; see
+  `specs/player-lockouts.md` §6.
 - **Launch token:** `src/hooks/useLaunch.ts` captures the token from the launch URL fragment
   (`…#launch_token=<jwt>`), strips it from the URL, and persists it per-tab in `sessionStorage`
   (a fresh fragment overrides a stored one). In dev, tokens come from the Crypto/Regulated buttons on

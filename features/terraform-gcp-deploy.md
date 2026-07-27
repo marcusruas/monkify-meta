@@ -64,8 +64,21 @@ Solana/Fx secrets).
   (the MassTransit SQL transport DB), **private IP only**; **Memorystore Redis 7**, private only. Cloud
   Run reaches them via a **Serverless VPC Access connector**; egress via **Cloud NAT**.
 - **Artifact Registry** holds the API + Consumers images.
-- **External HTTPS LB → Cloud Armor** (per-IP rate limit + OWASP SQLi/XSS) → api / app / lp; **Google-managed
+- **External HTTPS LB → Cloud Armor** (per-IP **throttle** + OWASP SQLi/XSS) → api / app / lp; **Google-managed
   TLS**; **Cloud DNS** A-records for `api.` / `app.` / apex / `www.` `spacestroker.com`.
+  > **The per-IP rule throttles; it does not ban** (`modules/edge/main.tf`, priority 1000:
+  > `action = "throttle"`, `enforce_on_key = "IP"`, **600 / 60 s**, **no `ban_duration_sec`**). It was
+  > `rate_based_ban` at 100/60 s with a **300 s ban** until 2026-07-27, and that combination locked real
+  > players out (Trello #104): the policy is attached to the **api backend service only** — the backend
+  > *buckets* have none — so a banned player kept getting **200s for every static asset** while **every**
+  > API call 429'd. The app rendered and looked broken rather than rate-limited, so they reloaded, and
+  > each reload **re-armed** the 300 s ban. A few seconds of excess became a multi-minute outage that
+  > outlived its own cause. Throttling denies only the requests *above* the rate, so the next interval is
+  > served normally. 100/60 s was also simply too low: the key is **IP**, so a VPN exit or corporate NAT
+  > is one bucket, and two ordinary players sharing one tripped it with no misbehaviour at all.
+  > **Do not restore the ban or lower the count without re-reading that card** — and note Cloud Armor
+  > enforces the rate across the **whole interval**, so interleaved 200s and 429s from one IP during a
+  > burst are expected, not a partial outage.
 - **Secret Manager** holds all secrets; Terraform creates the **containers only** (values synced by the
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.
