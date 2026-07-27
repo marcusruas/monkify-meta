@@ -1,5 +1,13 @@
 # Space Stroker — "Analytics for LP and app" — Implementation Spec
 
+> **Status: Shipped** — merged to `main` (and the LP's `master`) on `feature/analytics`, 2026-07-27.
+> Distilled into `features/analytics.md`; this spec stays the deep design archive.
+> **Shipped as specified**, with two implementation details worth recording: the LP's gtag shim keeps
+> the classic `function gtag(){dataLayer.push(arguments)}` form (and the app builds a genuine
+> `arguments` object) because the tag detects `[object Arguments]` and silently ignores a plain array;
+> and the Tier-2 "open in wallet app" path also reports a `wallet_connect_attempt`
+> (`connect_path: wallet_in_app_browser`), which §7.2.4 did not enumerate.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [Analytics for LP and app](https://trello.com/c/Hbfp779A) (2026-07-27).
 > Repos affected: `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.

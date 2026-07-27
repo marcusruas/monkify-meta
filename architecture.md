@@ -422,6 +422,18 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   (`updateNewGame(true)`) because the round has rolled over; there is no silent auto-resume. An
   in-flight mobile wallet hop is exempt from the hidden timer. Only the game **play** page is
   affected — no other route holds a websocket. See `specs/idle-websocket-disconnect.md`.
+- **Analytics (both public sites, frontend-only):** the app and the `monkify-lp` landing page report to
+  **one GA4 property** via `gtag.js` — they share the registrable domain `spacestroker.com`, so the
+  `_ga` cookie is shared and the LP→app hop stays a **single session** (a bet keeps the campaign that
+  brought the visitor). The tag loads only when a measurement id was baked in at build time
+  (`VUE_APP_GA_MEASUREMENT_ID` / `PUBLIC_GA_MEASUREMENT_ID`, both from the existing `frontBuild`
+  block); **empty ⇒ no script, no cookie, no banner**, which is how local, docker and the development
+  environment stay out of the production property. Consent Mode v2 defaults to `denied` behind an
+  Accept/Reject banner whose answer rides an `ss_consent` cookie on `.spacestroker.com` so both hosts
+  honour one choice. `useAnalytics` is the app's sole `gtag` owner (manual `page_view` per route;
+  events for CTA clicks, wallet connect, `game_type_selected`, and `bet_placed` as a **count** with no
+  amounts, wallet or player identity). Analytics is **off entirely when embedded** and on the
+  `chromeless` routes. No backend involvement. See `features/analytics.md`.
 - **Bet flow:** `useGame.bet()` branches on `selectedGame.paymentMethod`. **`Standard`** posts
   `{ amount, choice, seed }` with no wallet/signature (identity via launch token `sub`); **`SolanaToken`**
   sends an on-chain SPL token transfer to the game's token via `useConnection.sendToken`, then POSTs
