@@ -48,11 +48,11 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
                 break;
             case "front":
                 BuildStaticSite(_paths.FrontRepo, isYarn: true);
-                UploadAndInvalidate(_naming.FrontBucket, Path.Combine(_paths.FrontRepo, "dist"));
+                UploadAndInvalidate(StaticSite.Front, _naming.FrontBucket, Path.Combine(_paths.FrontRepo, "dist"));
                 break;
             case "lp":
                 BuildStaticSite(_paths.LpRepo, isYarn: false);
-                UploadAndInvalidate(_naming.LpBucket, Path.Combine(_paths.LpRepo, "dist"));
+                UploadAndInvalidate(StaticSite.Lp, _naming.LpBucket, Path.Combine(_paths.LpRepo, "dist"));
                 break;
             default:
                 throw new DeployException($"Unknown component '{component}'. Use api|consumers|front|lp.");
@@ -588,14 +588,125 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
         File.WriteAllText(Path.Combine(repo, ".env.production.local"), sb.ToString());
     }
 
-    private void UploadAndInvalidate(string bucket, string distDir)
+    private void UploadAndInvalidate(StaticSite site, string bucket, string distDir)
     {
         if (!Directory.Exists(distDir))
             throw new DeployException($"Build output not found: {distDir}. Did the build succeed?");
-        ProcessRunner.RunOrThrow("gsutil", $"-m rsync -r -d \"{distDir}\" gs://{bucket}");
-        // CDN cache invalidation (best-effort; url-map name follows the module convention).
+
+        // The plan is derived from what the build actually emitted, so a file class nobody enumerated
+        // lands in the conservative 1h tier rather than being missed.
+        var rootFiles = Directory.GetFiles(distDir)
+            .Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal).ToArray();
+        var rootDirectories = Directory.GetDirectories(distDir)
+            .Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal).ToArray();
+        // Any depth: Astro emits directory-style pages, so the lp's /cookies page is cookies/index.html.
+        var htmlPaths = Directory.EnumerateFiles(distDir, "*.html", SearchOption.AllDirectories)
+            .Select(p => Path.GetRelativePath(distDir, p).Replace('\\', '/'))
+            .Order(StringComparer.Ordinal).ToArray();
+
+        foreach (var step in StaticSiteCache.Plan(site, distDir, bucket, rootFiles, rootDirectories, htmlPaths))
+            ProcessRunner.RunOrThrow("gsutil", step.Arguments);
+
+        PruneRetainedAssets(site, bucket, distDir, rootDirectories);
+
+        // CDN cache invalidation (best-effort; url-map name follows the module convention). Kept at
+        // /*: it is the only thing that flushes edge copies cached under the OLD headers on the
+        // deploy that first carries this change.
         ProcessRunner.Run("gcloud",
             $"compute url-maps invalidate-cdn-cache {_naming.UrlMap} --project={_s.Gcp.ProjectId} --path=\"/*\" --async");
+    }
+
+    /// <summary>
+    /// Records what this build published, then deletes assets no build inside the retention window
+    /// still names. Assets are retained on purpose (a session running an older build can still fetch a
+    /// lazily-loaded chunk), but "keep forever" is not a policy — see <see cref="BuildManifest"/> for
+    /// why retirement time, not object age, is the thing being measured.
+    /// </summary>
+    private void PruneRetainedAssets(StaticSite site, string bucket, string distDir, IReadOnlyList<string> rootDirectories)
+    {
+        var hashedPrefixes = StaticSiteCache.HashedPrefixes(site)
+            .Where(p => rootDirectories.Contains(p, StringComparer.Ordinal))
+            .ToArray();
+        if (hashedPrefixes.Length == 0)
+            return;
+
+        // 1. Record this build. The manifest is what makes "retired 24h ago" answerable at all.
+        var published = hashedPrefixes
+            .SelectMany(prefix => Directory.EnumerateFiles(Path.Combine(distDir, prefix), "*", SearchOption.AllDirectories))
+            .Select(p => Path.GetRelativePath(distDir, p).Replace('\\', '/'))
+            .Where(p => !StaticSiteCache.IsExcluded(p))
+            .ToArray();
+
+        var manifestName = BuildManifest.NameFor(DateTimeOffset.UtcNow);
+        var localManifest = Path.Combine(Path.GetTempPath(), manifestName);
+        File.WriteAllText(localManifest, BuildManifest.Render(published));
+        try
+        {
+            ProcessRunner.RunOrThrow("gsutil",
+                $"cp \"{localManifest}\" gs://{bucket}/{BuildManifest.Prefix}/{manifestName}");
+        }
+        finally
+        {
+            File.Delete(localManifest);
+        }
+
+        // 2. Which builds are still protected? A listing we cannot read prunes nothing (fail closed).
+        var (listCode, listOut) = ProcessRunner.Capture("gsutil", $"ls gs://{bucket}/{BuildManifest.Prefix}/");
+        if (listCode != 0)
+        {
+            Console.WriteLine("  prune skipped: could not list build manifests.");
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var manifests = BuildManifest.ParseListing(listOut, bucket);
+        var retained = BuildManifest.RetainedManifests(manifests, now);
+        if (retained.Count == 0)
+        {
+            Console.WriteLine("  prune skipped: no retained manifests.");
+            return;
+        }
+
+        // 3. The union of every retained build's assets. One `gsutil cat` — we want the union, so the
+        //    concatenation losing track of which line came from which file is fine.
+        var keep = new List<string>();
+        foreach (var batch in BuildManifest.Batch(retained.Select(m => $"gs://{bucket}/{m}").ToArray()))
+        {
+            var (catCode, catOut) = ProcessRunner.Capture("gsutil", $"cat {string.Join(' ', batch)}");
+            if (catCode != 0)
+            {
+                Console.WriteLine("  prune skipped: could not read a retained manifest.");
+                return;
+            }
+            keep.AddRange(BuildManifest.ParseManifestBodies(catOut));
+        }
+
+        // 4. Everything currently under the asset prefixes, minus what the retained builds name.
+        var inBucket = new List<string>();
+        foreach (var prefix in hashedPrefixes)
+        {
+            var (lsCode, lsOut) = ProcessRunner.Capture("gsutil", $"ls -r gs://{bucket}/{prefix}");
+            if (lsCode != 0)
+            {
+                Console.WriteLine($"  prune skipped: could not list gs://{bucket}/{prefix}.");
+                return;
+            }
+            inBucket.AddRange(BuildManifest.ParseListing(lsOut, bucket));
+        }
+
+        var stale = BuildManifest.PruneTargets(inBucket, keep);
+        var expired = BuildManifest.ExpiredManifests(manifests, now);
+        var toDelete = stale.Concat(expired).Select(p => $"gs://{bucket}/{p}").ToArray();
+
+        if (toDelete.Length == 0)
+        {
+            Console.WriteLine("  prune: nothing to remove.");
+            return;
+        }
+
+        Console.WriteLine($"  prune: removing {stale.Count} retired asset(s) and {expired.Count} expired manifest(s).");
+        foreach (var batch in BuildManifest.Batch(toDelete))
+            ProcessRunner.RunOrThrow("gsutil", $"-m rm {string.Join(' ', batch)}");
     }
 
     // --- Helpers -----------------------------------------------------------------

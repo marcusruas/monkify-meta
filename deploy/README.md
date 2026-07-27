@@ -120,6 +120,44 @@ or in Terraform state), writes the non-secret Terraform variables to `production
 builds each static site (baking the `frontBuild` `VUE_APP_*` values) and syncs it to its GCS bucket +
 invalidates the CDN. **Consumers is released before the API** (it owns EF migrations/seeding).
 
+### Static-site caching
+
+Each static site is uploaded in three tiers, so the entry point is always fresh and the hashed assets
+are cached properly:
+
+| What | `Cache-Control` |
+| --- | --- |
+| HTML at any depth (`index.html`, `404.html`, `verify.html`, `embed-example.html`, `cookies/index.html`) | `no-cache` |
+| Content-hashed assets (front `js/ css/ img/ media/`, lp `_astro/`) | `public, max-age=31536000, immutable` |
+| Everything else unhashed (`fonts/`, favicons, `og-image.png`, `robots.txt`, `sitemap*.xml`) | `public, max-age=3600` |
+
+Each tier is set **twice**: once at upload (`gsutil -h`) and once by a `setmeta` pass. Both are
+needed — `rsync` compares checksums, not metadata, so an object it skips as unchanged would otherwise
+keep its old header forever. Sourcemaps (`*.map`) are not uploaded at all. The tiers live in
+`StaticSiteCache.cs` and are covered by `SpaceStroker.Deploy.Tests`.
+
+**Assets are retained, not deleted.** The asset passes deliberately drop `rsync -d`, so a session
+still running the previous build can fetch a lazily-loaded chunk (e.g. the provably-fair verify Web
+Worker) after a deploy. The root pass still uses `-d`, so top-level files the build dropped are pruned.
+
+**Retained assets are pruned automatically, after 24 hours.** Each deploy writes a manifest of what it
+published to `gs://<bucket>/_builds/<utc-timestamp>.txt`, then deletes any asset that no manifest from
+the last **24 hours** still names, along with the expired manifests themselves.
+
+The window is measured from when an asset was **retired**, not from when it was uploaded — an image
+that sat unchanged for eight months has an ancient creation date, so an age-based GCS lifecycle rule
+would have deleted it the instant it dropped out of a build. That is why the manifests exist.
+
+24 hours comes from how long an **already-open tab** can still ask for an old chunk. It is not a
+Cache-Control question: HTML is `no-cache`, so it revalidates on every load and can never name stale
+chunks. The app already abandons idle sessions after 30-60 minutes (`useIdleDisconnect`), so 24h is
+roughly 20× that ceiling and still covers a laptop closed overnight. Change it in one place:
+`BuildManifest.Retention`.
+
+The prune **fails closed** at every step — if the manifest listing cannot be read, a manifest cannot be
+fetched, or an asset listing fails, it prints why and deletes nothing. `_builds/` is shielded from the
+root pass's `-d`, or the manifests would be deleted by the very deploy that wrote them.
+
 ## Teardown — workload-only by default, `--purge` for a full wipe
 
 ```bash

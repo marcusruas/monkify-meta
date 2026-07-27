@@ -116,7 +116,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | **Both upload-time `-h` and a `setmeta` convergence pass.** Neither alone is sufficient (§1.2). |
 | 3 | **Three tiers:** HTML → `no-cache`; hashed assets → `public, max-age=31536000, immutable`; everything else → explicit `public, max-age=3600`. |
 | 4 | **Fonts stay in the 1h tier.** `fonts/*.woff2` are **not** content-hashed, so an immutable TTL would strand a font swap for a year with no clean remedy. The whole unhashed group is a few hundred KB behind a CDN; the win did not justify the risk. Promoting it later is a one-constant change. |
-| 5 | **GCS object-lifecycle pruning rejected.** rsync never re-uploads an unchanged file, so an age-based rule would eventually delete an asset that is **still referenced by the live build**, breaking production until the next deploy. Pruning is a documented manual ops step instead (§6.5). |
+| 5 | **REVISED during implementation — retained assets are pruned automatically after 24h (§6.6).** The refined card rejected automated pruning because rsync never re-uploads an unchanged file, so an age-based rule would delete an asset **still referenced by the live build**. That is right but too broad: it rules out deleting on age *alone*, not on *"absent from the build just published **and** retired longer than the window"* — an object no retained build names is by definition unreferenced. Implemented with per-deploy **build manifests**, not a GCS lifecycle rule, because the quantity that matters is **retirement** time and GCS records no such field. |
 | 6 | **Pass order: assets → root → setmeta (broad to specific).** See §1.3. |
 | 7 | **`no-cache`, not `no-store`.** The HTML is still stored and revalidated, so returning visitors get cheap ETag 304s rather than a full re-download. Cloud CDN's `CACHE_ALL_STATIC` declines to edge-cache `no-cache` either way, so the browser and the edge are both fixed by the one directive. |
 | 8 | **`*.map` excluded from upload.** Decision 1 is what changes the calculus: retained builds make sourcemap accumulation permanent instead of self-overwriting. The `//# sourceMappingURL=` comment stays in the shipped JS, so devtools will request a map and get a clean 404 — accepted. |
@@ -280,6 +280,12 @@ Construction rules:
   by the `RootSync` step — they are not excluded from it. Their objects are then corrected by the
   `SetMeta` steps: `cookies/index.html` by the HTML step (its path is enumerated from the dist walk,
   not just the root listing — see below), `fonts/**` by a recursive 1h step.
+- **A non-hashed root directory that CONTAINS HTML is skipped by the 1h `SetMeta` step** (the lp's
+  `cookies/`). Recursing the 1h header over it would stamp `cookies/index.html` at `max-age=3600`
+  until the HTML step ran — a brief over-cache, and §1.3 rule 2 says intermediate states may only
+  under-cache. Its HTML is stamped by the HTML step; any non-HTML sibling keeps the root pass's
+  `no-cache`, which is safe. (Added during implementation — the original §6.1.2 did not address the
+  recursive pass colliding with a page directory.)
 - **The HTML `SetMeta` step enumerates every `.html` in the dist tree**, at any depth — not only
   root-level ones. `Plan` therefore needs the full relative-path list for HTML, which the caller
   supplies (§6.2). Root-level *non*-HTML files and non-hashed root *directories* are enough for the
@@ -350,24 +356,61 @@ case "lp":
   `not_found_page` / `main_page_suffix` and the `edge` module's `custom_error_response_policy` are
   card #102's surface and stay exactly as merged.
 
-### 6.5 Pruning retained assets (ops, documented not automated)
+### 6.5 What actually accumulates
 
-Decision 1 means the buckets accumulate roughly 26 MB per retained front build, with nothing
-deleting it. Decision 5 rejects an automated lifecycle rule. `deploy/README.md` gains a short
-subsection under **Deploy**:
+Measured against the real build output, not the 26 MB the refined card implied:
 
-> **Pruning retained assets.** Deploys keep the previous builds' hashed assets so a session running
-> the old build can still fetch a lazily-loaded chunk. Nothing prunes them automatically — an
-> age-based lifecycle rule would delete assets that are still referenced, because `rsync` never
-> re-uploads an unchanged file. To reclaim space, run a one-off full sync **immediately after** a
-> normal deploy, during a quiet window:
->
-> ```bash
-> gsutil -m rsync -r -d "<repo>/dist" gs://<bucket>     # deletes everything not in the current build
-> ```
->
-> This re-introduces the dead-chunk window for anyone mid-session, so do not make it part of the
-> routine deploy.
+| | Size | Churns per deploy? |
+| --- | --- | --- |
+| front `js/` real code | 1.5 MB | yes, on any code change |
+| front `js/` sourcemaps | 6.2 MB | **no longer uploaded at all** |
+| front `css/` | 96 KB | yes |
+| front `img/` | 7.5 MB | only when the art changes |
+| front `media/` | 11 MB | audio — effectively never |
+| lp `_astro` js/css | 223 KB | yes |
+| lp `_astro` images | 2.2 MB | only when the art changes |
+
+`rsync` skips unchanged files and a hashed name only changes with its content, so a code-only deploy
+leaves roughly **1.6 MB** (front) and **0.2 MB** (lp) behind — not a whole build. Dropping the 6.2 MB
+of sourcemaps more than pays for the first several deploys. The cost is negligible; the reason to
+prune is that unbounded growth is not a policy.
+
+### 6.6 Pruning retained assets (automatic, 24h)
+
+Runs inside `UploadAndInvalidate` after the upload plan, before the CDN invalidation.
+
+**Why manifests and not a lifecycle rule.** The quantity that matters is how long an asset has been
+**retired**, and GCS records no such field. Object creation time is the wrong proxy: an image
+unchanged for eight months has an ancient creation date, so any age-based rule would delete it the
+moment it dropped out of a build — precisely the assets retention exists to protect. So each deploy
+writes down what it published, and an asset is prunable once no manifest inside the window lists it.
+
+**The retention window: 24 hours.** It is not derived from `Cache-Control` — HTML is `no-cache`, so it
+revalidates on every load and can never name a stale chunk. The binding constraint is an
+**already-open tab**, whose document lives in memory and can lazily fetch a chunk (the provably-fair
+verify Worker) at any moment. `useIdleDisconnect` (#96) abandons idle sessions after 30-60 minutes, so
+24h is ~20× that ceiling and still covers a laptop closed overnight. One constant:
+`BuildManifest.Retention`.
+
+**Flow.**
+
+1. Write `gs://<bucket>/_builds/<yyyyMMddTHHmmssZ>.txt` — every asset path this build published.
+2. `gsutil ls` the manifests; retain those inside the window (an **unparseable** name is retained, never
+   assumed expired).
+3. `gsutil cat` the retained manifests in batches → the union of protected paths.
+4. `gsutil ls -r` each hashed prefix → what is actually in the bucket.
+5. Delete `(in bucket) − (protected)`, plus the expired manifests, in batched `gsutil -m rm` calls.
+
+**Fail-closed at every step.** A non-zero `ls` or `cat` prints why and prunes nothing;
+`PruneTargets` returns empty for an empty keep-set, so a failed read can never be mistaken for
+"nothing is protected". Deleting the live build because a listing failed would be far worse than the
+bug being fixed.
+
+**`_builds/` is shielded** from the root pass's `-d` in `RootExclusionRegex` — it is bucket-only and
+absent from every dist tree, so without the shield the deploy would delete the manifest it just wrote.
+
+**Batching** keeps every command line under the Windows 8191-character cap; the lp alone publishes
+~80 `_astro` objects and a delete list can span several builds.
 
 ---
 
@@ -421,7 +464,9 @@ sequenceDiagram
   companion card #102 ([mkogi4tR](https://trello.com/c/mkogi4tR)), already merged, **not yet
   applied**. No Terraform is touched here.
 - Any change to the SPA, the lp, or the Terraform LB topology.
-- GCS object-lifecycle rules / automated pruning (decision 5).
+- GCS object-lifecycle rules. Pruning itself is now **in scope** and automatic (§6.6, decision 5
+  revised) — but it is done tool-side with build manifests, not with a lifecycle rule, and adds no
+  Terraform.
 - Migrating the deploy tool from `gsutil` to `gcloud storage` (decision 10).
 - Disabling sourcemap **generation** in `monkify-front/vue.config.js` — this card only stops
   **uploading** them.
@@ -445,12 +490,14 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `deploy/tools/SpaceStroker.Deploy/StaticSiteCache.cs` | **New.** Pure tier + plan decisions: the 3 `Cache-Control` constants, `HashedPrefixes`, `IsExcluded`, `ForPath`, `RootExclusionRegex`, `Plan`. |
-| 2 | `deploy/tools/SpaceStroker.Deploy/Deployer.cs` | `UploadAndInvalidate` takes a `StaticSite`, reads the dist listing, executes `StaticSiteCache.Plan` step by step via `RunOrThrow`; CDN invalidation unchanged. `DeployComponent`'s `front`/`lp` cases pass the site. |
-| 3 | `deploy/tools/SpaceStroker.Deploy.Tests/StaticSiteCacheTests.cs` | **New.** xUnit + Shouldly cover for §11. |
-| 4 | `deploy/README.md` | Document the three cache tiers, asset retention, and the manual pruning command under **Deploy** (§6.5). |
-| 5 | `specs/static-site-cache-control.md` | **New.** This spec. |
-| 6 | `INDEX.md` | Spec row + "Feature currently in flight". |
+| 1 | `deploy/tools/SpaceStroker.Deploy/StaticSiteCache.cs` | **New.** Pure tier + plan decisions: the 3 `Cache-Control` constants, `HashedPrefixes`, `IsExcluded`, `ForPath`, `RootExclusionRegex` (which also shields `_builds/`), `Plan`. |
+| 2 | `deploy/tools/SpaceStroker.Deploy/BuildManifest.cs` | **New.** Pure prune decisions: `Retention` (24h), `NameFor`/`TimestampOf`, `RetainedManifests`/`ExpiredManifests`, `PruneTargets` (fail-closed), `ParseListing`, `Render`/`ParseManifestBodies`, `Batch`. |
+| 3 | `deploy/tools/SpaceStroker.Deploy/Deployer.cs` | `UploadAndInvalidate` takes a `StaticSite`, reads the dist listing, executes `StaticSiteCache.Plan` step by step via `RunOrThrow`, then calls the new private `PruneRetainedAssets`; CDN invalidation unchanged. `DeployComponent`'s `front`/`lp` cases pass the site. |
+| 4 | `deploy/tools/SpaceStroker.Deploy.Tests/StaticSiteCacheTests.cs` | **New.** 43 tests over the tiers and the plan. |
+| 5 | `deploy/tools/SpaceStroker.Deploy.Tests/BuildManifestTests.cs` | **New.** 18 tests over the prune decisions. |
+| 6 | `deploy/README.md` | Document the three cache tiers, asset retention, and the automatic 24h prune under **Deploy** (§6.5-6.6). |
+| 7 | `specs/static-site-cache-control.md` | **New.** This spec. |
+| 8 | `INDEX.md` | Spec row + "Feature currently in flight". |
 
 No `.csproj` change is needed — `SpaceStroker.Deploy.Tests` already references `SpaceStroker.Deploy`
 and carries xUnit 2.4.2 + Shouldly 4.2.1 on net8.0.
@@ -483,8 +530,14 @@ Run with `dotnet test` from `deploy/tools/`.
 | | `Plan_LpUsesAstroPrefixOnly` — lp plan | one `AssetSync` for `_astro`; no `js`/`css`/`img`/`media` anywhere in the plan (AC 8) |
 | | `Plan_SourcemapsExcludedFromEveryStep` — front plan | every rsync step's `-x` regex matches `app.abc.js.map` (AC 5) |
 
+`BuildManifestTests.cs` (new, 18 tests) covers §6.6: timestamp round-trip, undateable manifests being
+**retained** rather than assumed expired, the retention edge exactly at 24h, `PruneTargets` deleting
+only what no retained build names, the **fail-closed** empty-keep-set case, `gsutil ls` parsing
+(directory headers, blanks, other buckets), manifest-body union/dedup, and `Batch` respecting the
+command-line cap including an oversized single target.
+
 `TeardownDecisionsTests.cs` is **not** modified — nothing in this card touches teardown. The whole
-suite must still be green (AC 12).
+suite must still be green (AC 12): **76 tests**, 0 failed.
 
 ---
 
@@ -560,3 +613,4 @@ No local GCS is available, so verification before the operator deploy is the tes
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #103 (12 decisions, 19 acceptance criteria). Code exploration added three findings the card did not have: (a) the lp's `/cookies` page exists on `origin/master` and Astro builds it to **`dist/cookies/index.html`**, so the tier rule must test `.html` at **any depth** — a first-path-segment rule would have re-created this bug one directory down; (b) `gsutil rsync` honours only **one** `-x`, so the exclusions must be composed into a single alternation regex; (c) a `setmeta` step with an empty target list is an error, so tier steps must be omitted when nothing matches. |
+| 2026-07-27 | **Decision 5 reversed during implementation.** The user challenged indefinite retention ("aren't we gonna pile trash old builds forever this way?"). Measurement showed the real churn is ~1.6 MB per code-only front deploy, not 26 MB — but unbounded growth still is not a policy. The original rejection of automated pruning was too broad: it correctly rules out deleting on **age alone**, not on *"absent from the build just published **and** retired longer than the window"*. Added §6.5 (what actually accumulates) and §6.6 (automatic 24h prune via per-deploy build manifests, fail-closed, `_builds/` shielded from the root `-d`). Window derived from the **open-tab** horizon, not from `Cache-Control` — HTML is `no-cache` and revalidates every load, so the app's own 30-60 min `useIdleDisconnect` ceiling is the real constraint. Retirement time, not object age, is what the manifests make measurable; a GCS lifecycle rule still cannot express it. |
