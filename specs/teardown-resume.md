@@ -1,7 +1,10 @@
 # SpaceStroker — "Fix teardown: resuming a partial teardown re-creates the workload" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/teardown-resume` on **2026-07-27**. Refined via Trello card
 > [Fix teardown: resuming a partial teardown re-creates the workload](https://trello.com/c/7a9aYZiG) (2026-07-27).
+> Shipped as specified; the teardown contract now lives in `features/terraform-gcp-deploy.md`
+> ("Teardown is resumable"). One deviation: the raw-Terraform escape hatch in `ResumeHint` omits the
+> `TF_DATA_DIR=.terraform-<envCode>` prefix shown in §6.1 — see the revision log.
 > Repos affected: **`monkify-meta` only** (`deploy/tools/` + `deploy/README.md` + `deploy/docs/`).
 > `monkify-backend` and `monkify-front` are untouched.
 > **Level: Minor change** — ops-tooling bug fix. No new backend integration test, no new
@@ -514,3 +517,4 @@ Ops verification (the **user** runs these against the `development` project, not
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from the refined card (#98) + the refinement conversation. |
+| 2026-07-27 | **Shipped** on `feature/teardown-resume` (5 commits, `ad85fbd` → `9122e61`). Implemented as specified — targeted+conditional apply, fail-closed `ReadState`, 3-pass 60s/120s retry, leftover classification, `--purge` stop-guard, `TeardownDecisions` + a new `SpaceStroker.Deploy.Tests` project (**16 tests, all green**). **Deviation:** the escape hatch rendered by `ResumeHint` is `terraform destroy -auto-approve -var-file="<env>.tfvars.json"` **without** the `TF_DATA_DIR=.terraform-<envCode>` prefix that §6.1 shows; since the stack is env-scoped by `TF_DATA_DIR`, an operator pasting it verbatim would use the default `.terraform` dir. Cosmetic (hint text only), left as a follow-up. Not verifiable locally: the real GCP behaviour (targeted apply on an intact stack, retry passes, zero-cost warning) lands on the next real `teardown --env development` — an ops step. |
