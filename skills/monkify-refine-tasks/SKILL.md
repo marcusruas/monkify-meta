@@ -34,6 +34,7 @@ Copy this checklist and track progress:
 - [ ] Step 1: Load Monkify context (INDEX + linked docs)
 - [ ] Step 2: Resolve the board and pick the card
 - [ ] Step 3: Read EVERYTHING on the card
+- [ ] Step 3b: Ask the answer mode (short vs complete) BEFORE any other question
 - [ ] Step 4: Refine with the user (Superpowers brainstorming)
 - [ ] Step 4b: Classify the level with the user (Feature vs Minor change)
 - [ ] Step 5: Write the refined result back to the card
@@ -68,6 +69,26 @@ Gather the full current state so nothing is lost or duplicated:
 
 Summarize the card back to the user in 2-4 sentences before refining.
 
+### Step 3b: Ask the answer mode — BEFORE refining or asking anything else
+
+Per `AGENTS.md` rule 9 / `constraints.md` §7.0, the user picks how much detail every refinement
+question carries. Ask this **first**, right after the card summary and **before** the first
+refinement question, and wait for the answer:
+
+> "Before we refine: do you want the **short** version (question + options + my recommendation) or
+> the **complete** version (each option with today's behavior and its trade-offs)?"
+
+- **Short** — the older style: the question, its realistic options (**including keeping the current
+  behavior**), and a one-line recommendation. No `Today:` line, no `Benefits` /
+  `Issues that this approach brings` block.
+- **Complete** — the full trade-off treatment below on every question.
+
+This meta question is the **only** one exempt from the trade-off format. Ask it **once per run** and
+apply the answer to every later question in the skill — including **Step 4b (Feature vs Minor
+change)** and any Step 5+ confirmation. If the user switches mid-refinement ("go short now"), honor
+it from that point on. **If the mode is unknown, ambiguous, or unanswered, use Complete** — never
+default to Short by silence.
+
 ### Step 4: Refine with the user (the core of this skill)
 
 Use the Superpowers **brainstorming** skill to drive the dialogue (one question at a time,
@@ -89,11 +110,26 @@ hand, cover impact across **all** relevant features and both apps:
 feature, ask a concrete scenario question, e.g.:
 > "In scenario X, when <event> happens while <feature> is active, how should this behave?"
 
-#### Every question carries its trade-offs (required — `AGENTS.md` rule 9 / `constraints.md` §7)
+#### How every question is asked (mode-driven — `AGENTS.md` rule 9 / `constraints.md` §7)
 
-Never ask a bare question. **Each** question you put to the user must come with the trade-offs of the
-answers **versus the current functionality**, so the user is deciding with the consequences in front
-of them instead of guessing. For every question:
+Ask every question in the mode the user chose in **Step 3b**.
+
+**Short mode** — the older style. Give:
+
+1. The question itself, concrete and scenario-shaped.
+2. The realistic **options**, always including **keep it as it is**.
+3. A one-line **recommendation** and why.
+
+No `Today:` line, no `Benefits` / `Issues` block. Short mode shortens the *writing*, not the
+*thinking*: never skip a question a spec-writer would need answered, never drop the "keep it as it
+is" option, and never hide a material consequence — if an option touches money/payouts, refunds, a
+migration/backfill, or a shipped public/SignalR contract, say so in one clause inside the option.
+The user can ask you to "expand" any single question and you give it the Complete treatment below
+without changing the mode.
+
+**Complete mode** — never ask a bare question. **Each** question you put to the user must come with
+the trade-offs of the answers **versus the current functionality**, so the user is deciding with the
+consequences in front of them instead of guessing. For every question:
 
 1. State **what happens today** in that area — the current behavior, and where it lives
    (`features/<x>.md`, the spec, or the code). If nothing exists yet, say so.
@@ -133,8 +169,10 @@ Scale the depth to the stake — a naming or copy question gets a couple of shor
 anything touching money, migrations, or a shipped feature's behavior gets the full treatment. Never
 drop the `Issues` line: if an option genuinely has no real downside, write
 `Issues that this approach brings: none beyond one extra query` rather than listing only upsides.
-Record the chosen answer **and the trade-off that drove it** in the card's
-`## Decisions (from refinement)` section (Step 5).
+
+**Either mode**, record the chosen answer in the card's `## Decisions (from refinement)` section
+(Step 5) — with the trade-off that drove it in Complete mode, or a one-line "why this option" in
+Short mode.
 
 Keep asking until there are **no** open ambiguities a spec-writer would have to guess about.
 The exit bar: the card now contains enough detail to write an implementation spec for an AI agent
@@ -155,8 +193,10 @@ skip them, so don't leave it implicit:
   tests, and it still keeps the KB current — any existing `features/*.md` docs the change affects
   must still be corrected downstream; only the *new dedicated* artifacts are waived.
 
-Ask directly ("Is this a **Feature** or a **Minor change**?") — and, as with every other question,
-present the trade-offs in the required format:
+Ask directly ("Is this a **Feature** or a **Minor change**?") — in the **Step 3b mode**, as with
+every other question. In **Short** mode: the question, the two options, and your recommendation with
+the one-line downstream consequence (integration test + `features/<slug>.md` doc, or not). In
+**Complete** mode, present the trade-offs in the required format:
 
 ```markdown
 **Feature**
@@ -234,11 +274,16 @@ was moved to **Refined** and is ready for a spec via `/monkify-create-spec`.
 
 - **Do not** write a spec or any code in this skill — refinement only. (Spec writing is a separate,
   later step.)
+- **Ask the answer mode (Step 3b) before anything else.** No refinement question — not even the first
+  one — goes out before the user has picked **short** or **complete**. Unknown/unanswered ⇒
+  **complete**. The mode question is the only one exempt from the formats below.
 - **Never ask a bare question.** Every question in Step 4 — including the Step 4b Level question —
-  must present, for each option (always including "keep it as it is"), today's behavior plus the
-  trade-offs in the required format — `Benefits: …` / `Issues that this approach brings: …` — and
-  close with your recommendation. Both lines are mandatory; never drop `Issues`. See `AGENTS.md`
-  rule 9 / `constraints.md` §7.
+  always lists the realistic options **including "keep it as it is"** and closes with your
+  recommendation. In **complete** mode it must also present, per option, today's behavior plus the
+  trade-offs in the required format — `Benefits: …` / `Issues that this approach brings: …` (both
+  lines mandatory; never drop `Issues`). In **short** mode the trade-off block is omitted, but a
+  material consequence (money, migration, shipped contract) is still stated in one clause. See
+  `AGENTS.md` rule 9 / `constraints.md` §7.
 - **Always classify the Level** (`Feature` / `Minor change`) with the user and record it in `## Level`
   — it gates whether the integration test and `features/` doc get created downstream. When unsure,
   choose `Feature` (never skip an artifact by guessing "minor").

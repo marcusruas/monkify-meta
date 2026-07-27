@@ -357,6 +357,12 @@ Tell the user:
 
 ## Hard rules
 
+- **Ask the answer mode before your first question to the user** (`AGENTS.md` rule 9 /
+  `constraints.md` §7.0): *short* (question + options + recommendation) or *complete* (each option
+  with today's behavior and its trade-offs). Ask it once per run, reuse it for every later question
+  (Step 7 plan confirmation, any spec-gap question); unknown/unanswered ⇒ **complete**. If this skill
+  runs right after `/monkify-refine-tasks` in the same chat and the mode was already chosen there,
+  reuse it — don't re-ask.
 - **No implementation** — spec + worktrees/branches + Trello move only.
 - **No refinement** — if the card is not spec-ready, send the user to `/monkify-refine-tasks`.
 - Honor `constraints.md` — mock secrets, vague operator messaging, **worktree-per-repo (hub stays on

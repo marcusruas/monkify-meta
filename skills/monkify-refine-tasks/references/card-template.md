@@ -18,12 +18,17 @@ checklist (see SKILL.md Step 5).
 
 ## Decisions (from refinement)
 <Bullet list of the concrete answers reached during refinement — especially the "how does it behave
-when X" clarifications. This is what makes the card unambiguous. For each decision, also record the
-**trade-off that drove it** in the same format the question was asked in — what the system does
-today, and the Benefits / Issues of the option we picked over the alternative.>
+when X" clarifications. This is what makes the card unambiguous. Record each decision in the same
+format the question was asked in (the agreed answer mode — see the skill's Step 3b).>
+
+*Complete mode — record the **trade-off that drove it**: what the system does today, and the
+Benefits / Issues of the option we picked over the alternative:*
 - `<decision>` — today: `<current behavior>`; chose `<option>` over `<alternative>`.
   - Benefits: `<X>`, `<Y>`
   - Issues that this approach brings: `<A>`, `<B>` (knowingly accepted)
+
+*Short mode — the decision plus a one-line why:*
+- `<decision>` — chose `<option>` over `<alternative>` because `<one-line reason>`.
 - ...
 
 ## Backend impact (monkify-backend)
