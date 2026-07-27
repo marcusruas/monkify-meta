@@ -161,7 +161,28 @@ Changes, precisely:
   `{verb}:{path}`, so the rule never matched a single request.
 - **Changed:** `*:/rpc` limit `120` → `240`.
 - **Added:** the `EndpointWhitelist` array.
+- **Added at implementation:** `"RealIpHeader": ""` — see §6.3. The library's default of `"X-Real-IP"`
+  was a live bypass of the whole limiter; this pin is not cosmetic.
 - **Unchanged:** `EnableEndpointRateLimiting`, `StackBlockedRequests`, and both `/solana` rules.
+
+The shipped block is therefore:
+
+```json
+    "IpRateLimiting": {
+        "EnableEndpointRateLimiting": true,
+        "StackBlockedRequests": false,
+        "RealIpHeader": "",
+        "EndpointWhitelist": [
+            "*:/health",
+            "*:/Hubs/*"
+        ],
+        "GeneralRules": [
+            { "Endpoint": "*:/rpc", "Period": "1m", "Limit": 240 },
+            { "Endpoint": "*:/solana/*", "Period": "1m", "Limit": 120 },
+            { "Endpoint": "*:/solana/balance/live", "Period": "1m", "Limit": 20 }
+        ]
+    },
+```
 
 **Do not touch any other part of this file.** It also holds `LaunchTokens.*` PEM keys and
 `Token.TokenOwnerPrivateKey`. Verify with `git diff -- src/SpaceStroker.Common/spacestrokersettings.json`
@@ -278,14 +299,27 @@ expected to be inert — but confirm it during QA rather than assuming.
 
 ### 6.3 What deliberately does **not** change
 
-- **`RealIpHeader` is not set.** The production probe recorded `realIp=[]`, i.e. `X-Real-IP` is absent
-  on the wire, so AspNetCoreRateLimit's IP resolution falls through to `Connection.RemoteIpAddress` —
-  which is exactly what `UseForwardedHeaders` corrects. ⚠️ **Verify at implementation** whether
-  `IpRateLimitOptions.RealIpHeader` has a non-empty *default* in AspNetCoreRateLimit **4.0.2**: if it
-  does and something upstream ever starts sending that header, it would take priority over the
-  connection address and silently re-break the keying. If a non-empty default exists, set it
-  explicitly to `""` in `spacestrokersettings.json` and say so in the revision log. Do **not** set it
-  to `"X-Forwarded-For"` (decision 4).
+- **✅ RESOLVED AT IMPLEMENTATION — `RealIpHeader` is pinned to `""`, and this was load-bearing.**
+  AspNetCoreRateLimit **4.0.2** defaults `IpRateLimitOptions.RealIpHeader` to **`"X-Real-IP"`**
+  (measured, not read from docs), and it resolves the client from that header **in preference to**
+  `Connection.RemoteIpAddress`. The production probe recorded `realIp=[]` — Google's ALB does not send
+  it — **but the ALB forwards whatever the client sends.** So a caller supplying its own
+  `X-Real-IP: <anything>` minted a **fresh bucket per request** and walked through every rule over the
+  **ordinary public path**, not merely via the `run.app` bypass of §6.4.
+
+  This was **verified live against the booted host** (`ClientSuppliedRealIpHeader_CannotMintAFreshBucket`,
+  §11.2 test 6): before the pin, a client that exhausted its bucket and then added `X-Real-IP` was
+  served normally; after the pin it stays throttled. Two consequences worth stating plainly:
+
+  1. **This was a pre-existing production bypass**, independent of this card — the `/rpc` and
+     `/solana/*` quota limits could already be evaded by rotating one header.
+  2. **Without the pin, `ForwardLimit = 2` would have been trivially defeatable**, so the fix would
+     have looked correct in tests and bought almost nothing in production.
+
+  `""` makes the header contributor find nothing, so resolution falls through to the connection
+  address that `UseForwardedHeaders` has already corrected. It must still never be `"X-Forwarded-For"`
+  (decision 4). Both properties are pinned by
+  `RateLimitSettingsTests.RealIpHeader_IsPinnedEmpty_SoNoClientHeaderCanOverrideTheConnectionAddress`.
 - **`EnableEndpointRateLimiting: true` stays true.** Setting it false would collapse the per-path
   rules and kill the `/rpc` + `/solana/*` caps that protect the paid Helius quota.
 - **`app.UseHttpsRedirection()` (`:153`) stays exactly where it is.** It is a known no-op — the app
@@ -502,8 +536,9 @@ controller runs, so a 4xx from the controller still consumes a counter.
 | 3 | `SingleEntryForwardedFor_KeysOnThatEntry` | `203.0.113.9` and `203.0.113.10` (no chain, as local docker-compose sends) get independent buckets | 03 |
 | 4 | `NoForwardedForHeader_FallsBackToTheSocketPeer` | A client with no XFF is a **separate** bucket from any XFF client: exhaust an XFF client, then the header-less client is not 429 | 04 |
 | 5 | `ThrottledResponse_CarriesCorsHeaders` | Exhaust a dedicated client that sends `Origin: http://localhost:8080`; assert the 429 **has** `Access-Control-Allow-Origin`. This is the only guard against `UseIpRateLimiting()` drifting back above `UseCors()` | 07 |
-| 6 | `HealthEndpoint_IsNeverThrottled` | See the caveat below | 10 |
-| 7 | `SolanaBalanceLive_EffectiveLimitIsMeasuredNotAssumed` | Count how many requests are allowed before the 429 and assert that exact number; separately assert whether exhausting `/solana/balance/live` also throttles `/solana/balance` for the same client | 12 |
+| 6 | `ClientSuppliedRealIpHeader_CannotMintAFreshBucket` | **Added at implementation.** Exhaust a client's bucket, then repeat the request with a self-supplied `X-Real-IP` — it must **stay** 429. This is what caught the pre-existing bypass in §6.3 | — |
+| 7 | `WhitelistedPaths_AreNeverThrottled_EvenUnderACatchAllRule` + `NonWhitelistedPath_IsThrottledByTheCatchAllRule` | Second host with a 1/min `*:/*` catch-all layered over the real settings; whitelisted paths survive 5 hits, the control path throttles on its 2nd. See the caveat below | 10 |
+| 8 | `SolanaBalanceLive_EffectiveLimitIsTheSpecificRuleNotTheBroaderOne` | Count how many requests are allowed before the 429 and assert that exact number. **Measured: 20** — the specific rule wins over `*:/solana/*` | 12 |
 
 **⚠️ Caveat on test 6 (AC 10).** A test that simply hammers `/health` and sees no 429 passes **even
 without the whitelist**, because no rule matches `/health` once `api/*` is gone — so it proves the
@@ -652,3 +687,4 @@ Local docker-compose only (`constraints.md` §5 — never point these at product
 | Date | Change |
 | --- | --- |
 | 2026-07-27 | Initial spec from refined card #112 (Level `Minor change`, short answer mode). Records the production `ForwardLimit` measurement, the delete-not-repair decision that dissolves the card's ordering constraint, the `/rpc` 120 → 240 raise and its money-path rationale, and the accepted Helius cost increase. |
+| 2026-07-27 | **Implemented.** Findings, all measured against the booted host: **(1)** `RealIpHeader` defaults to **`"X-Real-IP"`** in 4.0.2 and **takes priority over the connection address**, so a client-supplied header minted a fresh bucket per request over the ordinary public path — a **pre-existing production bypass** that would also have made `ForwardLimit = 2` trivially defeatable. Pinned to `""` and covered by a dedicated test; §5.1 and §6.3 rewritten. **(2)** AC 12 resolved: with `EnableEndpointRateLimiting: true` the **specific** rule wins — `/solana/balance/live` allows exactly **20**, not the broader rule's 120. **(3)** The `EndpointWhitelist` wildcard forms `*:/health` and `*:/Hubs/*` **do** match as written, proven by a second host carrying a 1/min `*:/*` catch-all plus a control test showing a non-whitelisted path throttles on its 2nd request. **(4)** AC 05 satisfied by the exhaustion proof rather than the `X-Rate-Limit-Remaining` header. **(5)** AC 03/04 tests pass both before and after the fix by design — with `ForwardLimit = 1` a single-entry XFF already resolved to the client and a header-less request already keyed on the socket peer, so those criteria are "must not break" guards, not bug reproductions; only `DistinctClientsBehindTheSameLoadBalancer_GetIndependentBuckets` fails before and passes after. Suites: **510 unit**, **80 integration** (was 70), all green. |
