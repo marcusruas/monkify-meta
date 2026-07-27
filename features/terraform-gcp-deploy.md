@@ -35,8 +35,15 @@ Solana/Fx secrets).
 - **Consumers → Cloud Run**, **internal ingress only** (hosts `/hangfire` + owns EF migrations/seeding),
   **CPU always-on** (`cpu_idle = false`), instance count pinned to `var.consumer_count` (default **1**;
   `> 1` is a documented app caveat). Released **before** the API.
-- **front + lp → GCS website buckets + Cloud CDN** behind the LB. The front bucket reproduces the retired
-  nginx header `Content-Security-Policy: frame-ancestors *` as a CDN response header. **HTTP status codes
+- **front + lp → GCS website buckets + Cloud CDN** behind the LB. The front bucket carries **two** CDN
+  response headers: `Content-Security-Policy: frame-ancestors *` (reproducing the retired nginx header so
+  regulated operators can still embed) and **`X-Robots-Tag: noindex`**. The lp bucket deliberately carries
+  **neither** — the landing page is the property that must stay indexable. The `noindex` header is the half
+  of the crawler policy that actually **de-indexes** `app.spacestroker.com`: `robots.txt` only stops
+  crawling, and blocking the crawl also stops Google ever reading a `noindex` *meta* tag, so a URL it
+  already knows (the LP's "PLAY NOW" links straight there) could otherwise persist as a bare titleless
+  link. It applies to every object from that bucket, `verify.html` and `embed-example.html` included.
+  See `../specs/robots-txt.md`. **HTTP status codes
   are handled per site** (`static_site` takes a `not_found_page` variable; see
   `../specs/static-site-status-codes.md`): a GCS website config **always** returns 404 for
   `not_found_page` and cannot override that status, so the **front leaves it unset** and gets its SPA

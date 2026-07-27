@@ -1,6 +1,17 @@
 # SpaceStroker — "robots.txt" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-07-27, `feature/robots-txt` → `main`; `master` in `monkify-lp`) — but the
+> `X-Robots-Tag` header is NOT yet applied.** The Terraform is on `main` and passes `terraform fmt` and
+> `terraform validate`, but no `terraform apply` has run, so `app.spacestroker.com` does **not** yet send
+> `X-Robots-Tag: noindex` in production. **§12 acceptance criterion 4 is unverified** until an operator
+> applies. The other three pieces (API endpoint, app `robots.txt`, LP deny groups) go live on the next
+> deploy of each property. After applying, verify §13 steps 4-9 and drop this caveat here, in `INDEX.md`,
+> and in `features/terraform-gcp-deploy.md`.
+>
+> ⚠️ Note for whoever runs that apply: **`specs/static-site-status-codes.md` is also merged-but-unapplied**,
+> so the next plan will carry **two** unrelated pending diffs. Read it rather than rubber-stamping it.
+>
+> Refined via Trello card
 > [Robots.txt](https://trello.com/c/6aOoMq2n) (2026-07-27).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc + Terraform in
 > `monkify-meta`.
@@ -371,6 +382,8 @@ sequenceDiagram
 | 1 | `src/SpaceStroker.Api/Controllers/HomeController.cs` | Add `RobotsTxt()` — `[HttpGet("robots.txt")]` + **`[Produces("text/plain")]`** (overrides the class-level JSON attribute), returning `Content("User-agent: *\nDisallow: /\n", "text/plain")`. |
 | 2 | `src/SpaceStroker.Tests/UnitTests/Controllers/HomeControllerTests.cs` | **New file.** Assert body and content type (§11.1). |
 | 3 | `src/SpaceStroker.Tests.Integration/RobotsTxtTests.cs` | **New file.** Anonymous client hits `GET /robots.txt` (§11.2). |
+| 4 | `src/SpaceStroker.Tests.Integration/Harness/IntegrationTestFixture.cs` | **Out-of-spec, bundled at ship time — see §10.5.** Drop the unbacked `donkey` preset choice from `SeedIsolatedOperatorAsync`. |
+| 5 | `src/SpaceStroker.Tests.Integration/GamesHistoryFlowTests.cs` | **Out-of-spec, bundled at ship time — see §10.5.** Drop the unbacked `donkey` preset choice from `SeedDedicatedPresetTypeAsync`. |
 
 ### 10.2 App frontend (`monkify-front`)
 
@@ -395,6 +408,40 @@ sequenceDiagram
 | 5 | `architecture.md` | **At ship time.** Record that app + API are `Disallow: /` while the LP is indexable, and that the LP blocks AI training crawlers but not AI search or link-preview crawlers. |
 
 **No** `features/robots-txt.md` — the card is a **Minor change**.
+
+### 10.5 Out-of-spec addition: the flaky integration tests (bundled by explicit decision)
+
+Two integration tests unrelated to this feature — `GlobalStatsFlowTests` and `GamesHistoryFlowTests` —
+failed intermittently in roughly half of full suite runs while shipping this card. A control run on
+clean `origin/main` (commit `7e1622f`, without any of this feature's code) reproduced the failure, so
+the defect **predates this card**.
+
+**Root cause — a test-data bug, not a timing race.** Both seeds declare **three** winning-eligible
+preset choices (`rabbit`, `monkey`, `donkey`) while placing paid bets on only **two**. When the typer
+lands on `donkey` — about one round in three — no *paid* bet matches the winning choice, so:
+
+- `GlobalStatsFlowTests` sees `WinnersPaid = 0` (it counts credit `TransactionLog` rows, and no paid
+  winner means no credits) against an assertion of `>= 1`;
+- `GamesHistoryFlowTests` sees `WinnerCount = 0` (it counts paid bets whose choice equals the winning
+  choice, `GameHistoryService.cs:128`) against the same assertion.
+
+Both tests' own comments claimed a paid winner existed "regardless of which the typer lands on" —
+untrue with a third unbacked choice. `GameStatsFlowTests` uses the same three choices and does **not**
+flake, because it backs all three with paid bets; that contrast confirms the diagnosis.
+
+**Fix:** remove the unbacked `donkey` from both seeds so the choice space is exactly the set the tests
+pay into. Adding a third paid bet instead would have broken their `Pot` / `BetCount` /
+`TotalBetsPlaced` / `UniquePlayers` assertions. `GameStatsFlowTests` is deliberately left unchanged.
+
+**Deliberately NOT fixed:** `ProvablyFairFlowTests` also failed twice during this work, but it uses
+**free-text** choices (`"135791"`), not presets, so it is a different mechanism — and its failure
+message was never captured. It is left untouched rather than "fixed" on a guess. If it keeps flaking
+it needs its own investigation.
+
+> **Scope note.** This is out of scope for a robots.txt card and was flagged as such. It was bundled
+> here by explicit user decision after the alternatives (its own card through the pipeline, or a
+> separate branch) were declined. §10.1 rows 4-5 record the files so this spec still matches the
+> branch.
 
 ---
 
