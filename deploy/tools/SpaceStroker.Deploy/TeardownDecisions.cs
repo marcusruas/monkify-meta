@@ -21,6 +21,17 @@ public static class TeardownDecisions
     /// </summary>
     public const string ZeroCostPrefix = "module.network.";
 
+    /// <summary>
+    /// Waits BETWEEN destroy passes; the count implies the number of passes. The three known ordering
+    /// failures each clear once the resource that was blocking them is really gone, so a blind re-pass
+    /// is both correct and cheaper than parsing GCP's error text.
+    /// </summary>
+    public static readonly IReadOnlyList<TimeSpan> DestroyBackoff =
+        [TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(120)];
+
+    /// <summary>Total destroy passes: one more than the number of waits between them.</summary>
+    public static int DestroyAttempts => DestroyBackoff.Count + 1;
+
     /// <summary>Split `terraform state list` stdout into trimmed, non-empty resource addresses.</summary>
     public static IReadOnlyList<string> ParseStateList(string stdout) =>
         (stdout ?? "")
@@ -32,4 +43,12 @@ public static class TeardownDecisions
     /// <summary>Exact-match lookup — a longer address sharing the prefix is a different resource.</summary>
     public static bool Contains(IReadOnlyList<string> addresses, string address) =>
         addresses.Any(a => string.Equals(a, address, StringComparison.Ordinal));
+
+    /// <summary>
+    /// True when SOMETHING survived and every survivor is zero-cost. An empty list is deliberately
+    /// NOT "zero-cost only" — that is a complete teardown and gets the plain success message.
+    /// </summary>
+    public static bool IsZeroCostOnly(IReadOnlyList<string> leftovers) =>
+        leftovers.Count > 0 &&
+        leftovers.All(a => a.StartsWith(ZeroCostPrefix, StringComparison.Ordinal));
 }

@@ -63,4 +63,37 @@ public class TeardownDecisionsTests
     public void Contains_SqlInstanceAbsent_IsFalse() =>
         // This is the resume case: the instance is already destroyed, so the targeted apply is skipped.
         TeardownDecisions.Contains(ZeroCostLeftovers, TeardownDecisions.SqlInstanceAddress).ShouldBeFalse();
+
+    [Fact]
+    public void IsZeroCostOnly_EmptyList_IsFalse() =>
+        // An empty state is a COMPLETE teardown, not a "leftover" — the caller must not print a warning.
+        TeardownDecisions.IsZeroCostOnly([]).ShouldBeFalse();
+
+    [Fact]
+    public void IsZeroCostOnly_AllNetworkAddresses_IsTrue() =>
+        TeardownDecisions.IsZeroCostOnly(ZeroCostLeftovers).ShouldBeTrue();
+
+    [Fact]
+    public void IsZeroCostOnly_AnyBillableAddress_IsFalse()
+    {
+        string[] withSql = [.. ZeroCostLeftovers, TeardownDecisions.SqlInstanceAddress];
+
+        TeardownDecisions.IsZeroCostOnly(withSql).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsZeroCostOnly_RejectsNearMissPrefix()
+    {
+        // "module.networking_extra." starts with "module.network" but is NOT the network module.
+        string[] nearMiss = ["module.networking_extra.google_compute_address.egress"];
+
+        TeardownDecisions.IsZeroCostOnly(nearMiss).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DestroyAttempts_IsThreeWithSixtyAndOneTwentySecondBackoff()
+    {
+        TeardownDecisions.DestroyAttempts.ShouldBe(3);
+        TeardownDecisions.DestroyBackoff.ShouldBe([TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(120)]);
+    }
 }
