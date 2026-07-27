@@ -115,6 +115,67 @@ agents work different features at once without colliding.
   **Never reveal contract status** (e.g. never say "the contract expired"). Reuse the existing
   generic error messages; do not add expiry-specific ones.
 
+## 7. Asking the user to decide — always give the trade-offs
+
+Every time you ask the user a question that decides how something gets built — "should I implement
+X?", "which approach do you want?", "how should this behave when Y?", or presenting a plan for
+approval — you **must** explain, **in detail**, the trade-offs of the proposal **against the current
+functionality**. A bare question, or an option list with no consequences attached, is not acceptable.
+
+### The required format
+
+For **each** option on the table, state **what happens today** in that area (the current behavior it
+replaces or bends, why it works that way, and where it lives — `features/*.md`, the spec, or the
+code; "nothing exists yet" is a valid answer, but say it), then give the trade-offs in **exactly**
+this two-line format:
+
+```
+Benefits: X, Y, Z
+Issues that this approach brings: A, B, C
+```
+
+Both lines are mandatory, on every option. Then give a **recommendation and the reason for it** — do
+not leave the user to weigh a neutral menu.
+
+Worked shape:
+
+```markdown
+**Option A — <name>**
+Today: <current behavior + where it lives>.
+Benefits: <gain>, <gain>, <gain>
+Issues that this approach brings: <cost>, <risk>, <what it makes harder later>
+
+**Option B — keep the current behavior**
+Today: <same current behavior>.
+Benefits: <no migration, no new test surface, nothing to undo>
+Issues that this approach brings: <the problem stays unsolved, ...>
+
+**Recommendation:** <option> — <why>.
+```
+
+### What must appear on those two lines
+
+- **Benefits** — the problem it actually solves and for whom (player, operator, ops), plus anything
+  it makes cheaper or simpler later.
+- **Issues that this approach brings** — be specific, not generic: added complexity, blast radius
+  across other features (game/bet lifecycle, payments & payouts, refunds, operators/multi-tenancy,
+  SignalR contracts, caching, scheduling), schema/migration impact, performance, ops burden, new test
+  surface (including the mandatory integration test if it is a `Feature`), **how hard it is to undo**
+  once shipped (config flip vs. migration + data backfill vs. a public contract we can't take back),
+  and anything it makes harder later.
+
+### Rules of thumb
+
+- **Keeping the current behavior is always one of the options**, with the same two lines. State it,
+  never imply it.
+- Never drop the `Issues` line. If an option genuinely has no real downside, still write it and say
+  so — `Issues that this approach brings: none beyond one extra query`. An option with no stated cost
+  reads as an omission.
+- Scale the depth to the stake: a naming choice gets a couple of short items per line; anything
+  touching money, migrations, or a shipped feature's behavior gets the full treatment.
+- Ground it in the codebase, not in generalities — cite the current behavior from `features/`,
+  `specs/`, or the live code, and be honest when you are unsure.
+
 ## 8. Scope & safety defaults
 
 - Prefer editing existing files over creating new ones; don't create docs/files unless asked.

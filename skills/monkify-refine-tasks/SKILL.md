@@ -89,6 +89,53 @@ hand, cover impact across **all** relevant features and both apps:
 feature, ask a concrete scenario question, e.g.:
 > "In scenario X, when <event> happens while <feature> is active, how should this behave?"
 
+#### Every question carries its trade-offs (required — `AGENTS.md` rule 9 / `constraints.md` §7)
+
+Never ask a bare question. **Each** question you put to the user must come with the trade-offs of the
+answers **versus the current functionality**, so the user is deciding with the consequences in front
+of them instead of guessing. For every question:
+
+1. State **what happens today** in that area — the current behavior, and where it lives
+   (`features/<x>.md`, the spec, or the code). If nothing exists yet, say so.
+2. Give the realistic **options** (including **keep it as it is** — always an option).
+3. For **each** option, give the trade-offs in **exactly this format**:
+
+   ```
+   Benefits: X, Y, Z
+   Issues that this approach brings: A, B, C
+   ```
+
+4. End with **your recommendation and why**.
+
+Both lines are mandatory on every option. Fill them with concrete items: what the option solves and
+for whom, against complexity, blast radius across other features (game/bet lifecycle, payments &
+payouts, refunds, operators, SignalR contracts, caching, scheduling), schema/migration impact,
+performance, ops burden, the test surface it adds (including the mandatory happy-path integration
+test if the card is a `Feature`), and how hard it is to **undo** later.
+
+Worked shape:
+
+```markdown
+**Option A — <name>**
+Today: <current behavior + where it lives>.
+Benefits: <gain>, <gain>
+Issues that this approach brings: <cost>, <risk>
+
+**Option B — keep the current behavior**
+Today: <same>.
+Benefits: <no migration, no new test surface>
+Issues that this approach brings: <the problem stays unsolved>
+
+**Recommendation:** <option> — <why>.
+```
+
+Scale the depth to the stake — a naming or copy question gets a couple of short items per line;
+anything touching money, migrations, or a shipped feature's behavior gets the full treatment. Never
+drop the `Issues` line: if an option genuinely has no real downside, write
+`Issues that this approach brings: none beyond one extra query` rather than listing only upsides.
+Record the chosen answer **and the trade-off that drove it** in the card's
+`## Decisions (from refinement)` section (Step 5).
+
 Keep asking until there are **no** open ambiguities a spec-writer would have to guess about.
 The exit bar: the card now contains enough detail to write an implementation spec for an AI agent
 **without further clarification**.
@@ -108,8 +155,24 @@ skip them, so don't leave it implicit:
   tests, and it still keeps the KB current — any existing `features/*.md` docs the change affects
   must still be corrected downstream; only the *new dedicated* artifacts are waived.
 
-Ask directly ("Is this a **Feature** or a **Minor change**?") and confirm the user understands the
-downstream effect. **When in doubt, classify as `Feature`** — that is the safe default; never skip an
+Ask directly ("Is this a **Feature** or a **Minor change**?") — and, as with every other question,
+present the trade-offs in the required format:
+
+```markdown
+**Feature**
+Benefits: the happy path is verified end to end by a mandatory integration test, the behavior gets a
+dedicated `features/<slug>.md` doc so the KB stays true, regressions get caught at ship time.
+Issues that this approach brings: slower to ship, an integration test to write and keep green, an
+extra KB doc to maintain.
+
+**Minor change**
+Benefits: ships faster, no new integration test, no new KB doc — only the existing `features/*.md`
+docs get corrected.
+Issues that this approach brings: nothing pins the new behavior down, so a later change can silently
+break it; if it turns out to be a real capability the artifacts are missing.
+```
+
+Confirm the user understands the downstream effect. **When in doubt, classify as `Feature`** — that is the safe default; never skip an
 artifact by guessing "minor". Record the agreed level (plus a one-line rationale) in the card's
 `## Level` section in Step 5. `/monkify-create-spec` carries it into the `## Implementation` block,
 and `/monkify-implement-feature` + `/monkify-ship-feature` read it from there.
@@ -171,6 +234,11 @@ was moved to **Refined** and is ready for a spec via `/monkify-create-spec`.
 
 - **Do not** write a spec or any code in this skill — refinement only. (Spec writing is a separate,
   later step.)
+- **Never ask a bare question.** Every question in Step 4 — including the Step 4b Level question —
+  must present, for each option (always including "keep it as it is"), today's behavior plus the
+  trade-offs in the required format — `Benefits: …` / `Issues that this approach brings: …` — and
+  close with your recommendation. Both lines are mandatory; never drop `Issues`. See `AGENTS.md`
+  rule 9 / `constraints.md` §7.
 - **Always classify the Level** (`Feature` / `Minor change`) with the user and record it in `## Level`
   — it gates whether the integration test and `features/` doc get created downstream. When unsure,
   choose `Feature` (never skip an artifact by guessing "minor").
