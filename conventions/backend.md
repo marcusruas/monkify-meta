@@ -105,13 +105,28 @@
   `appsettings.json` / `appsettings.Development.json` overlays for app settings; put new keys in
   `spacestrokersettings.json` under the appropriate `GeneralSettings` section.
 
-- **Logging is Serilog, console-only.** Both hosts configure Serilog once via
-  `builder.AddLogs()` (`SpaceStroker.Infrastructure/DependencyInjection.cs`) — a single **Console** sink
-  (stdout), minimum level **Information** in non-production and **Warning** in production. **Logs are
-  not persisted to the database** (the old `Serilog.Sinks.PostgreSQL` sink and its `SpaceStrokerApiLogs`/
-  `SpaceStrokerConsumerLogs` tables were removed — see `specs/no-db-logging.md`); stdout is captured by
-  Cloud Run → Cloud Logging in production and shown in the terminal locally. Code logs via the static
-  `Serilog.Log`.
+- **Logging is Serilog, console-only — and Serilog is the *only* provider.** Both hosts configure
+  Serilog once via `builder.AddLogs()` (`SpaceStroker.Infrastructure/DependencyInjection.cs`) — a single
+  **Console** sink (stdout), minimum level **Information** in non-production and **Warning** in
+  production. **Logs are not persisted to the database** (the old `Serilog.Sinks.PostgreSQL` sink and its
+  `SpaceStrokerApiLogs`/`SpaceStrokerConsumerLogs` tables were removed — see `specs/no-db-logging.md`);
+  stdout is captured by Cloud Run → Cloud Logging in production and shown in the terminal locally. Code
+  logs via the static `Serilog.Log`.
+
+  **`AddLogs` calls `builder.Logging.ClearProviders()` before `AddSerilog`, and that call is
+  load-bearing — do not drop it.** `AddSerilog` only *adds* a provider; it does not replace the host's
+  built-in Console/Debug providers. Left registered, those write the **same stdout** but are filtered by
+  `Logging:LogLevel` in `spacestrokersettings.json` (`Default: Information`, with **no per-environment
+  override**) rather than by Serilog's `MinimumLevel`. That is why production emitted Information-level
+  noise into Cloud Logging for months despite `MinimumLevel.Warning()` — most visibly four
+  `IHttpClientFactory` lines per Solana RPC call under category `System.Net.Http.HttpClient.*`, which
+  none of the `Microsoft.*` → `Error` rules cover. Fixed 2026-07-28 and pinned by
+  `SpaceStroker.Tests/UnitTests/Common/AddLogsProviderTests.cs`, which asserts exactly one
+  `ILoggerProvider` (the `SerilogLoggerProvider`) survives `AddLogs()` in every environment.
+
+  Note that **Cloud Run's own request log is separate** and unaffected by any of the above: one INFO
+  entry per HTTP request (`httpRequest.requestMethod`/`status`/`latency`), emitted by the platform, not
+  the app. Silencing those needs a Cloud Logging exclusion filter, not a code change.
 
 ## Middleware ordering and client-IP keying (`SpaceStroker.Api/Program.cs`)
 
