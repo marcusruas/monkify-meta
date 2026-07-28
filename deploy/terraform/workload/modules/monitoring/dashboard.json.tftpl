@@ -13,7 +13,7 @@
           "title": "Cost",
           "text": {
             "format": "MARKDOWN",
-            "content": "Cloud Monitoring **cannot chart billing cost** — there is no cost data source and no embed widget, so there is deliberately no chart here rather than an empty one.\n\n**[Open Billing → Reports](https://console.cloud.google.com/billing/reports?project=${project_id})** — group by service or SKU, sorted biggest-first. That page already is the view this dashboard would otherwise duplicate.\n\nA budget alerts at 50%%, 90%% and 100%% of the monthly amount, so spend movement reaches you without anyone having to look. Note the budget covers the **whole project** — development and production share one — because cost attribution keys off labels, not resource names."
+            "content": "Cloud Monitoring **cannot chart billing cost** — there is no cost data source and no embed widget, so there is deliberately no chart here rather than an empty one.\n\n**[Open Billing → Reports](https://console.cloud.google.com/billing/reports?project=${project_id})** — group by service or SKU, sorted biggest-first. That page already is the view this dashboard would otherwise duplicate.\n\nA budget alerts at 50%, 90% and 100% of the monthly amount, so spend movement reaches you without anyone having to look. Note the budget covers the **whole project** — development and production share one — because cost attribution keys off labels, not resource names."
           }
         }
       },
@@ -313,7 +313,7 @@
               },
               "plotType": "LINE"
             }],
-            "thresholds": [{ "value": ${max_connections}, "color": "RED", "direction": "ABOVE" }]
+            "thresholds": [{ "value": ${max_connections}, "direction": "ABOVE" }]
           }
         }
       },
