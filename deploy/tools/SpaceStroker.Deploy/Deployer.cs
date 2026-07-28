@@ -165,6 +165,13 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             ["api_max_instances"] = _s.Gcp.ApiMaxInstances,
             ["consumer_count"] = _s.Gcp.ConsumerCount,
             ["enable_deletion_protection"] = deletionProtectionOverride ?? _s.Gcp.EnableDeletionProtection,
+            // Monitoring is production-only and DERIVED, not authored: one less hand-set field to get
+            // wrong, and a typo'd environment falls through to false rather than pointing a production
+            // dashboard at nothing. Compare on Environment, NOT EnvCode — ToEnvCode maps anything
+            // unrecognised to its first four alphanumerics, so "productionn" would still yield "prod".
+            ["enable_dashboards"] = string.Equals(_s.Environment, "production", StringComparison.OrdinalIgnoreCase),
+            ["billing_account_id"] = _s.Gcp.BillingAccountId,
+            ["alert_email"] = _s.Gcp.AlertEmail,
             ["db_instance_suffix"] = _s.Gcp.DbInstanceSuffix,
             ["db_app_password"] = _s.Secrets.TryGetValue("ConnectionStrings:SpaceStroker", out var cs)
                 ? ExtractPassword(cs)

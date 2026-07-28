@@ -67,6 +67,17 @@ public sealed class GcpSection
     [JsonPropertyName("enableDeletionProtection")] public bool EnableDeletionProtection { get; set; } = true;
 
     /// <summary>
+    /// Billing account id for the spend budget (e.g. "01A2B3-C4D5E6-F7G8H9"). Empty ⇒ no budget.
+    /// A budget is created against the BILLING ACCOUNT, which sits above the project, so this also
+    /// needs roles/billing.costsManager granted there — no project-level role can do it.
+    /// Plain config rather than a credential; still never commit a real value.
+    /// </summary>
+    [JsonPropertyName("billingAccountId")] public string BillingAccountId { get; set; } = "";
+
+    /// <summary>Destination for budget threshold mail. Empty ⇒ no notification channel, no budget.</summary>
+    [JsonPropertyName("alertEmail")] public string AlertEmail { get; set; } = "";
+
+    /// <summary>
     /// Optional suffix for the Cloud SQL instance name. GCP reserves a deleted instance name for ~7
     /// days, so redeploying an environment inside that window needs a new name — bump this (e.g. "2")
     /// instead of waiting.

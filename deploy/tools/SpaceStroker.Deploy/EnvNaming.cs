@@ -24,6 +24,13 @@ public sealed class EnvNaming
     private const int DnsZoneMax = 63;
     private const int SecretIdMax = 255;
 
+    // Uptime check config id 1-63; log-based metric name 1-100. The dashboard and the notification
+    // channel are addressed by GCP-generated ids and carry only a DISPLAY name, so they are
+    // charset-checked rather than length-capped — hence the deliberately loose cap below.
+    private const int UptimeCheckMax = 63;
+    private const int LogMetricMax = 100;
+    private const int DisplayNameMax = 255;
+
     private readonly string _projectId;
     private readonly string _region;
     private readonly IEnumerable<string> _secretKeys;
@@ -85,6 +92,16 @@ public sealed class EnvNaming
     public string SqlInstance => $"{NamePrefix}-pg";
     public string RedisInstance => $"{NamePrefix}-redis";
 
+    // --- Monitoring (production only, but always env-scoped: dev and prod share one project) ------
+    // Terraform hard-codes these same strings in modules/monitoring — keep the two in sync, or
+    // `validate` reports a name nobody creates.
+    public string DashboardName => $"{NamePrefix}-overview";
+    public string UptimeCheckApi => $"{NamePrefix}-uptime-api";
+    public string UptimeCheckApp => $"{NamePrefix}-uptime-app";
+    public string NotificationChannel => $"{NamePrefix}-ops-email";
+    public string ArmorDeniedMetric => $"{NamePrefix}-armor-denied";
+    public string ArmorPreviewMetric => $"{NamePrefix}-armor-preview";
+
     /// <summary>Per-environment Terraform working dir — two environments must never share .terraform.</summary>
     public string TfDataDir => $".terraform-{EnvCode}";
 
@@ -119,6 +136,12 @@ public sealed class EnvNaming
             ("gcs-bucket", FrontBucket, BucketMax),
             ("gcs-bucket", LpBucket, BucketMax),
             ("dns-zone", DnsZoneName, DnsZoneMax),
+            ("monitoring-dashboard", DashboardName, DisplayNameMax),
+            ("uptime-check", UptimeCheckApi, UptimeCheckMax),
+            ("uptime-check", UptimeCheckApp, UptimeCheckMax),
+            ("notification-channel", NotificationChannel, DisplayNameMax),
+            ("log-metric", ArmorDeniedMetric, LogMetricMax),
+            ("log-metric", ArmorPreviewMetric, LogMetricMax),
         };
 
         foreach (var key in _secretKeys)
