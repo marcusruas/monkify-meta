@@ -113,6 +113,54 @@
   Cloud Run → Cloud Logging in production and shown in the terminal locally. Code logs via the static
   `Serilog.Log`.
 
+## Middleware ordering and client-IP keying (`SpaceStroker.Api/Program.cs`)
+
+The API's middleware order is load-bearing, and two ordering/config traps silently disabled the
+in-app rate limiter in production until 2026-07-28 (Trello #112, `specs/rate-limiter-keying.md`).
+Both are the kind of bug that looks fine in review and passes every test.
+
+**The order, and why each position matters:**
+
+```csharp
+app.UseForwardedHeaders(forwardedHeadersOptions);   // 1. FIRST — everything downstream reads the client IP
+if (dev) { app.UseSwagger(); app.UseSwaggerUI(); }
+app.UseCors("DevOrigins");                          // 2. BEFORE any short-circuiting middleware
+app.UseIpRateLimiting();                            // 3. after CORS, so its 429 carries CORS headers
+app.UseHttpsRedirection();
+app.UseMiddleware<LaunchTokenValidationMiddleware>();
+app.UseMiddleware<AdminTokenValidationMiddleware>();
+```
+
+- **A middleware that can short-circuit must sit AFTER `UseCors()`.** `CorsMiddleware` writes its
+  headers *before* invoking the rest of the pipeline, so anything that returns early above it produces
+  a response with **no `Access-Control-Allow-Origin`** — and the browser then reports a **CORS error**,
+  not the actual status. `UseIpRateLimiting()` sat above `UseCors()`, so every 429 reached players as
+  an indistinguishable-from-outage CORS failure. Applies to any future short-circuiting middleware, not
+  just the limiter.
+- **`UseForwardedHeaders` must stay first**, and **`ForwardLimit` must be set explicitly**. ASP.NET's
+  default is `1`, which walks one hop from the **right** of `X-Forwarded-For` — and the rightmost entry
+  is the proxy that *added* the header, never the client. Behind the Google external ALB (which sends
+  `<client>, <lb>`) that resolved every request to the load balancer, so every `AspNetCoreRateLimit`
+  rule became **one global bucket shared by the whole player base**. It is now
+  `ForwardLimit = 2`, matching the measured hop count.
+- **Never set `ForwardLimit = null`** and never set `IpRateLimitOptions.RealIpHeader` to
+  `"X-Forwarded-For"`. Both end up trusting the **leftmost** entry, which is fully attacker-controlled,
+  so every request could mint its own bucket — strictly worse than the bug above.
+- **⚠️ `RealIpHeader` is pinned to `""` in `spacestrokersettings.json`, and must stay pinned.**
+  AspNetCoreRateLimit **4.0.2 defaults it to `"X-Real-IP"`** and resolves the client from that header
+  **in preference to** `Connection.RemoteIpAddress`. Google's ALB does not originate that header — but
+  it forwards whatever the **client** sends, so a caller supplying its own `X-Real-IP` got a **fresh
+  rate-limit bucket per request** and walked through every rule over the ordinary public path. That was
+  a live production bypass, independent of `ForwardLimit`, and it would have made the `ForwardLimit`
+  fix worthless. A package upgrade that reintroduces a non-empty default re-opens it, which is why
+  `RateLimitSettingsTests` asserts the pinned value.
+- **Adding a rate-limit rule is a money-path decision.** `POST /games/{id}/bets` is deliberately
+  **unlimited** app-side: for `SolanaToken` the client transfers on-chain *first*, then posts the
+  signature, so a rejected bet strands tokens with no `Bet` row, no auto-refund, and nothing for
+  `POST /admin/bets/refund` to find. `RateLimitSettingsTests` asserts the rule list **exactly** so a
+  new catch-all fails the build instead of a player quietly losing money. A rule whose `Endpoint` has
+  no `:` (e.g. `api/*`) matches **nothing** — the first segment is parsed as the *hostname*.
+
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, and add
      concrete examples. -->
 

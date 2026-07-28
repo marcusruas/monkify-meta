@@ -43,6 +43,17 @@ provider does not cost credits in proportion to player count.
   **Not launch-token gated** — the same-origin wallet-bridge popup carries no token by design.
   Stated plainly: `Origin` is self-reported and forgeable, so this is a practical barrier, not a
   guarantee; the registered-mint restriction and the rate limits are the substantive protection.
+- ⚠️ **Correction (2026-07-28, Trello #112 / `specs/rate-limiter-keying.md`): those rate rules were
+  never per-IP in production.** `ForwardLimit` was unset, so every request resolved to the load
+  balancer and all three rules were **one global bucket for the whole player base** —
+  `*:/solana/balance/live` at 20/min *in total*, which a handful of concurrent players exhausted.
+  Separately, `RealIpHeader` defaulted to `"X-Real-IP"` and outranked the connection address, so a
+  client sending that header got a **fresh bucket per request** and bypassed the rules entirely. Both
+  are fixed (`ForwardLimit = 2`, `RealIpHeader` pinned `""`), so the rules are now genuinely
+  per-player. **`*:/rpc` is now 240/min** (raised from 120) because `confirmSignature` polls
+  `getSignatureStatuses` once a second for up to 45 s over that one path, so a single slow-confirming
+  bet costs ~47 of a player's budget — and a throttled `/rpc` mid-confirm leaves tokens that already
+  left the wallet unconfirmable. The `/solana/*` numbers are unchanged.
 
 ### Frontend transport
 

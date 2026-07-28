@@ -1,6 +1,27 @@
 # SpaceStroker — "In-app rate limiter keying" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-07-28** via `feature/rate-limiter-keying`
+> (`monkify-backend` + `monkify-meta`; **no `monkify-front`**). **510 unit + 80 integration tests green**
+> (18 tests added across two new files; no pre-existing test modified). Level **`Minor change`** ⇒ **no
+> dedicated `features/rate-limiter-keying.md`**; distilled into `architecture.md` → Edge /
+> "Two rate limiters", `conventions/backend.md` → "Middleware ordering and client-IP keying",
+> `features/frontend-helius-gateway.md` (the `/rpc` + `/solana/*` rule numbers) and
+> `features/terraform-gcp-deploy.md` → Cloud Armor.
+>
+> **Shipped beyond the original scope — a second, pre-existing production bypass.** §6.3 flagged
+> `RealIpHeader` as a verify-at-implementation item; it turned out to be load-bearing.
+> AspNetCoreRateLimit 4.0.2 defaults it to `"X-Real-IP"` and resolves the client from that header **in
+> preference to** the connection address. The ALB does not originate it but forwards whatever the client
+> sends, so a caller supplying its own `X-Real-IP` got a **fresh bucket per request** and bypassed every
+> rule over the ordinary public path. Pinned to `""`. Without that pin `ForwardLimit = 2` would have
+> passed every test and bought almost nothing in production. See §5.1, §6.3 and the revision log.
+>
+> ⚠️ **Still outstanding after this ship:** the accepted **Helius cost increase** (§12 — today's global
+> buckets were suppressing legitimate traffic; correcting the keying releases it, so watch the credit
+> burn for a day or two after the prod deploy) and the **`run.app` ingress bypass** (§6.4 — its own
+> card; it caps what any keying scheme is worth).
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [The in-app rate limiter buckets every player on earth together](https://trello.com/c/h27WZeQC)
 > (**#112**, refined 2026-07-27).
 > Repos affected: `monkify-backend`, and this doc in `monkify-meta` (**no `monkify-front`**).

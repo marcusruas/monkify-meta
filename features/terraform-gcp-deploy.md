@@ -79,6 +79,18 @@ Solana/Fx secrets).
   > **Do not restore the ban or lower the count without re-reading that card** — and note Cloud Armor
   > enforces the rate across the **whole interval**, so interleaved 200s and 429s from one IP during a
   > burst are expected, not a partial outage.
+  >
+  > **Armor is the only enforceable limiter — the in-app one cannot substitute for it.** The API also
+  > runs an `AspNetCoreRateLimit` limiter, but its counters are **in-process** (`MemoryCache`
+  > singletons), so with `api_min_instances: 1` … `max: 10` its effective limit scales with instance
+  > count. It also protects a deliberately narrow surface — only `*:/rpc` and `*:/solana/*`, to defend
+  > the paid Helius quota — and **never** the boot path or `POST /games/{id}/bets`. Until 2026-07-28 it
+  > was in fact enforcing nothing per-player at all (Trello #112: `ForwardLimit` unset ⇒ every request
+  > keyed on **this load balancer's** address, so all rules were one global bucket; and `RealIpHeader`
+  > defaulted to `"X-Real-IP"`, which a client could send to mint a fresh bucket per request). Both are
+  > fixed in the app, but the conclusion stands: **never loosen this Armor rule on the grounds that
+  > "the app also rate-limits"** — see `conventions/backend.md` → "Middleware ordering and client-IP
+  > keying".
 - **Secret Manager** holds all secrets; Terraform creates the **containers only** (values synced by the
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.

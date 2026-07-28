@@ -496,5 +496,16 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
 - **Health probes:** Cloud Run probes `GET /health` on both hosts (API via `HomeController`, Consumers via
   `MapHealthChecks`). The API trusts forwarded headers (`UseForwardedHeaders`) so HTTPS-redirect works
   behind the LB. Browser CORS origins are config-driven (`GeneralSettings:Cors:AllowedOrigins`).
+- **Two rate limiters, one hard and one soft.** Cloud Armor at the edge (above) is the **enforceable**
+  one. The **in-app** `AspNetCoreRateLimit` limiter is deliberately **soft**: its counters are
+  in-process `MemoryCache` singletons (`SpaceStroker.Api/Program.cs`), so with `api_min_instances: 1`
+  … `max: 10` the effective limit scales with instance count. **It must never be used to justify
+  loosening Cloud Armor.** Its job is narrow — protect the **paid Helius RPC quota** — so only three
+  rules exist (`*:/rpc` 240/min, `*:/solana/*` 120/min, `*:/solana/balance/live` 20/min) and
+  `EndpointWhitelist` exempts `*:/health` + `*:/Hubs/*`. **Everything else, including
+  `POST /games/{id}/bets`, is intentionally unlimited app-side**: rejecting a paid `SolanaToken` bet
+  would strand tokens that already left the wallet with no `Bet` row and no auto-refund.
+  See `conventions/backend.md` → "Middleware ordering and client-IP keying" for the two traps that
+  made this limiter a no-op in production until 2026-07-28.
 - **Teardown keeps the domain:** Terraform is split into a **persistent** layer (DNS zone + domain + state
   bucket, `prevent_destroy`) and a **workload** layer; `teardown` destroys only the workload.
