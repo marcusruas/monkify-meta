@@ -1,0 +1,405 @@
+{
+  "displayName": "${name_prefix}-overview",
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 0,
+        "widget": { "title": "EXPENSES", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 12, "height": 3, "xPos": 0, "yPos": 1,
+        "widget": {
+          "title": "Cost",
+          "text": {
+            "format": "MARKDOWN",
+            "content": "Cloud Monitoring **cannot chart billing cost** — there is no cost data source and no embed widget, so there is deliberately no chart here rather than an empty one.\n\n**[Open Billing → Reports](https://console.cloud.google.com/billing/reports?project=${project_id})** — group by service or SKU, sorted biggest-first. That page already is the view this dashboard would otherwise duplicate.\n\nA budget alerts at 50%%, 90%% and 100%% of the monthly amount, so spend movement reaches you without anyone having to look. Note the budget covers the **whole project** — development and production share one — because cost attribution keys off labels, not resource names."
+          }
+        }
+      },
+
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 4,
+        "widget": { "title": "API", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 0, "yPos": 5,
+        "widget": {
+          "title": "API instances",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"run.googleapis.com/container/instance_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_MEAN",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.state"]
+                  }
+                }
+              },
+              "plotType": "STACKED_AREA"
+            }]
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 6, "yPos": 5,
+        "widget": {
+          "title": "API requests by response class",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"run.googleapis.com/request_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.response_code_class"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 0, "yPos": 9,
+        "widget": {
+          "title": "API latency p50 / p95 / p99",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"run.googleapis.com/request_latencies\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_PERCENTILE_50" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "p95",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"run.googleapis.com/request_latencies\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_PERCENTILE_95" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "p99",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"run.googleapis.com/request_latencies\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_PERCENTILE_99" }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 6, "yPos": 9,
+        "widget": {
+          "title": "API errors & warnings",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-api\" metric.type=\"logging.googleapis.com/log_entry_count\" metric.label.severity!=\"INFO\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.severity"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 13,
+        "widget": { "title": "CONSUMERS", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 0, "yPos": 14,
+        "widget": {
+          "title": "Consumers instances (0 means the game has stopped)",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-consumers\" metric.type=\"run.googleapis.com/container/instance_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_MEAN",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.state"]
+                  }
+                }
+              },
+              "plotType": "STACKED_AREA"
+            }]
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "xPos": 6, "yPos": 14,
+        "widget": {
+          "title": "Consumers errors & warnings",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" resource.labels.service_name=\"${name_prefix}-consumers\" metric.type=\"logging.googleapis.com/log_entry_count\" metric.label.severity!=\"INFO\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.severity"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 18,
+        "widget": { "title": "EDGE / CLOUD ARMOR", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 0, "yPos": 19,
+        "widget": {
+          "title": "Armor denials by rule priority",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/${name_prefix}-armor-denied\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_DELTA",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.priority"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 4, "yPos": 19,
+        "widget": {
+          "title": "Preview WAF would-be blocks (rule 900)",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/${name_prefix}-armor-preview\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_DELTA",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.priority"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 8, "yPos": 19,
+        "widget": {
+          "title": "LB responses (429/403 volume — see the metric left for attribution)",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"https_lb_rule\" resource.labels.url_map_name=\"${name_prefix}-urlmap\" metric.type=\"loadbalancing.googleapis.com/https/request_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": ["metric.label.response_code_class"]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 23,
+        "widget": { "title": "DATA", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 0, "yPos": 24,
+        "widget": {
+          "title": "Cloud SQL CPU / memory / disk",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "cpu",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloudsql_database\" resource.labels.database_id=monitoring.regex.full_match(\".*:${name_prefix}-pg.*\") metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "memory",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloudsql_database\" resource.labels.database_id=monitoring.regex.full_match(\".*:${name_prefix}-pg.*\") metric.type=\"cloudsql.googleapis.com/database/memory/utilization\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "disk",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloudsql_database\" resource.labels.database_id=monitoring.regex.full_match(\".*:${name_prefix}-pg.*\") metric.type=\"cloudsql.googleapis.com/database/disk/utilization\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN" }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ],
+            "yAxis": { "label": "ratio", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 4, "yPos": 24,
+        "widget": {
+          "title": "Cloud SQL connections (limit ${max_connections})",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloudsql_database\" resource.labels.database_id=monitoring.regex.full_match(\".*:${name_prefix}-pg.*\") metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_MEAN",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "LINE"
+            }],
+            "thresholds": [{ "value": ${max_connections}, "color": "RED", "direction": "ABOVE" }]
+          }
+        }
+      },
+      {
+        "width": 4, "height": 4, "xPos": 8, "yPos": 24,
+        "widget": {
+          "title": "Redis memory / evictions / clients",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "memory usage ratio",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"redis_instance\" resource.labels.instance_id=monitoring.regex.full_match(\".*${name_prefix}-redis\") metric.type=\"redis.googleapis.com/stats/memory/usage_ratio\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "evicted keys",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"redis_instance\" resource.labels.instance_id=monitoring.regex.full_match(\".*${name_prefix}-redis\") metric.type=\"redis.googleapis.com/stats/evicted_keys\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_RATE" }
+                  }
+                },
+                "plotType": "LINE"
+              },
+              {
+                "legendTemplate": "connected clients",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"redis_instance\" resource.labels.instance_id=monitoring.regex.full_match(\".*${name_prefix}-redis\") metric.type=\"redis.googleapis.com/clients/connected\"",
+                    "aggregation": { "alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN" }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+
+      {
+        "width": 12, "height": 1, "xPos": 0, "yPos": 28,
+        "widget": { "title": "UPTIME", "sectionHeader": { "dividerBelow": true } }
+      },
+      {
+        "width": 6, "height": 3, "xPos": 0, "yPos": 29,
+        "widget": {
+          "title": "api uptime",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" resource.type=\"uptime_url\" metric.label.check_id=monitoring.regex.full_match(\".*uptime-api.*\")",
+                "aggregation": {
+                  "alignmentPeriod": "300s",
+                  "perSeriesAligner": "ALIGN_FRACTION_TRUE",
+                  "crossSeriesReducer": "REDUCE_MEAN"
+                }
+              }
+            },
+            "gaugeView": { "lowerBound": 0.0, "upperBound": 1.0 }
+          }
+        }
+      },
+      {
+        "width": 6, "height": 3, "xPos": 6, "yPos": 29,
+        "widget": {
+          "title": "app uptime",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" resource.type=\"uptime_url\" metric.label.check_id=monitoring.regex.full_match(\".*uptime-app.*\")",
+                "aggregation": {
+                  "alignmentPeriod": "300s",
+                  "perSeriesAligner": "ALIGN_FRACTION_TRUE",
+                  "crossSeriesReducer": "REDUCE_MEAN"
+                }
+              }
+            },
+            "gaugeView": { "lowerBound": 0.0, "upperBound": 1.0 }
+          }
+        }
+      }
+    ]
+  }
+}
