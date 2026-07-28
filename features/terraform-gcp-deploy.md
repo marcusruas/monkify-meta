@@ -198,6 +198,19 @@ Solana/Fx secrets).
   source of truth for names; `ProcessRunner` can capture stdout and set `TF_DATA_DIR` per invocation.
 - **`spacestroker-db`** — read-write REPL over the game or messaging DB via the Cloud SQL Auth Proxy + IAM;
   `SELECT`/`WITH`/`SHOW`/`EXPLAIN` run immediately, `INSERT`/`UPDATE`/`DELETE`/DDL require typing `YES`.
+- **`spacestroker-seeder`** — the **auto bet seeder**: shares the folder and the `secrets.*.json`
+  convention but is otherwise unrelated to the deploy stack. Places **one real paid bet** into
+  **Cosmic Sprint** and **Beast Mode** whenever their current round has no bets (an empty round reads
+  as a dead game, and `MinimumNumberOfPlayers` is 2 so nobody wants to be first in), on start and then
+  every 6h. A **pure client of shipped endpoints** — `POST /launch-token/default` (re-minted every pass:
+  the token's TTL is 3600s, shorter than the interval), `GET /games/active-types` (both types resolved
+  **by name**; `GameParametersDto` already carries mint/decimals/receiver/stake/presets as public data,
+  so **no admin token and no operator signing key**), `GET /games/{id}` (the emptiness check),
+  `GET /solana/balance` (pre-flight), `POST /rpc` for build→send→confirm, `POST /games/{id}/bets`.
+  **Self-limiting:** its own bet from the previous pass is what makes the round non-empty, so at most
+  one seeded bet is outstanding per game and no state file exists. Config lives in the unversioned
+  `deploy/secrets.seeder.json` (template `secrets.seeder.example.json`). See
+  `specs/auto-bet-seeder.md`.
 
 ### Front/lp production build
 - `VUE_APP_*` are baked at build. The deploy tool generates the prod env (`api.spacestroker.com`,
@@ -245,7 +258,8 @@ Solana/Fx secrets).
   `tools/SpaceStroker.Deploy/` (`EnvNaming.cs`, `Deployer.cs`, `ProcessRunner.cs`, `SecretsFile.cs`,
   `TeardownDecisions.cs`, `StaticSiteCache.cs`, `BuildManifest.cs`, `Program.cs`),
   `tools/SpaceStroker.Deploy.Tests/`,
-  `tools/SpaceStroker.DbConsole/`, `secrets.example.json`, `.gitignore`, `README.md`.
+  `tools/SpaceStroker.DbConsole/`, `tools/SpaceStroker.Seeder/`, `tools/SpaceStroker.Seeder.Tests/`,
+  `secrets.example.json`, `secrets.seeder.example.json`, `.gitignore`, `README.md`.
 - **Teardown decisions:** `deploy/tools/SpaceStroker.Deploy/TeardownDecisions.cs` — pure, I/O-free
   (`SqlInstanceAddress`, `ZeroCostPrefix`, `DestroyBackoff`/`DestroyAttempts`, `ParseStateList`,
   `Contains`, `IsZeroCostOnly`, and the resume-hint / zero-cost / billable-leftover / purge-blocked
@@ -259,11 +273,17 @@ Solana/Fx secrets).
   `Render`/`ParseManifestBodies`, `Batch`). Wired through `Deployer.UploadAndInvalidate(StaticSite, …)`,
   which reads the dist listing and executes each planned `gsutil` call, and its private
   `PruneRetainedAssets`.
-- **Deploy-tool tests:** `deploy/tools/SpaceStroker.Deploy.Tests` (xUnit + Shouldly, **76 tests**,
+- **Deploy-tool tests:** `deploy/tools/SpaceStroker.Deploy.Tests` (xUnit + Shouldly, **78 tests**,
   registered in `SpaceStroker.DeployTools.sln`) — `TeardownDecisionsTests` (16),
-  `StaticSiteCacheTests` (43), `BuildManifestTests` (18) — the only automated tests in the deploy
-  stack; `ProcessRunner` and the real `terraform`/`gcloud`/`gsutil` calls stay untested, so the upload
-  and prune argument shapes are first exercised for real on the next deploy.
+  `StaticSiteCacheTests` (44), `BuildManifestTests` (18). `ProcessRunner` and the real
+  `terraform`/`gcloud`/`gsutil` calls stay untested, so the upload and prune argument shapes are first
+  exercised for real on the next deploy. (Counts corrected 2026-07-28 — the doc had said 76/43.)
+- **Seeder tests:** `deploy/tools/SpaceStroker.Seeder.Tests` (xUnit + Shouldly, **94 tests**, same
+  solution) — `SeederConfigTests` (21), `RetryScheduleTests` (23), `SeedDecisionTests` (20),
+  `ChoicePickerTests` (12), `RawAmountTests` (11), `BetSeedsTests` (6), `SmokeTests` (1). Every covered
+  function is pure, so no test touches a network or a chain. The seeder's own HTTP and Solana clients
+  are deliberately untested shells — like `ProcessRunner`, they are first exercised for real on the
+  first live run.
 - **Backend readiness:** `monkify-backend/src/SpaceStroker.Common/Cors/CorsOriginResolver.cs`,
   `SpaceStroker.Domain/Configs/Entities/CorsSettings.cs`, `SpaceStroker.Api/Program.cs` (forwarded headers + CORS),
   `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + Main-operator seed URLs), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).
