@@ -1,0 +1,18 @@
+Tier,Follower band,Target partners,Early-buy cap per partner (% supply),Tier subtotal (% supply),Tokens per partner (of 1B),Creator-fee revshare per partner,Cash,Posts required,Expected cold-DM yes-rate,Notes
+Mid,"50k-200k",4,1.50%,6.00%,15000000,0.75%,"$200-2000/post if they insist",3 posts + 1 pinned 24h,<5%,Most will quote a cash rate. Only sign the ones who actually play the game first.
+Micro,"10k-50k",12,0.75%,9.00%,7500000,0.50%,"$100-500 first post optional",2 posts + 1 quote-tweet,5-15%,The sweet spot. Bulk of the campaign lives here.
+Nano,"1k-10k",20,0.25%,5.00%,2500000,0.25%,None,2 posts,15-30%,Volume play. Cheap to say yes to. Expect ~40% to ghost after the first post.
+TOTAL,,36,,20.00%,,,,,,"20% is your stated ceiling. RECOMMENDATION: deploy 10-12% in the launch window and hold 8-10% in reserve for partners who actually perform - see notes below."
+,,,,,,,,,,
+RESERVE PLAN,,,,,,,,,,
+Deploy at launch,"all tiers",~18,,10-12%,,,,,,"Half the roster, the vetted half. Keeps the on-chain early-holder concentration under the ~15% line that gets a chart branded 'bundled'."
+Reserve pool,"performers only",~18,,8-10%,,,,,,"Released weekly to partners who delivered posts AND still hold. Verifiable on-chain because you know their wallet. This is your only real enforcement lever."
+,,,,,,,,,,
+VETTING CHECKLIST,Kill the lead if it fails 2 or more,,,,,,,,,
+1,Engagement ratio,"likes >= ~1% of followers on normal posts. Below 0.3% = dead or bought.",,,,,,,,
+2,Reply quality,"Same 20-30 accounts liking every post = engagement pod. Their audience is other shills, not buyers.",,,,,,,,
+3,Last 20 calls,"Paste their recent tickers into DexScreener. All instant -90% = their followers stopped buying their calls.",,,,,,,,
+4,kolscan wallet,"Do they hold their calls or dump in 4 minutes? This predicts exactly what they will do to your token.",,,,,,,,
+5,Account age and renames,"New account + generic name = likely purchased or recycled.",,,,,,,,
+6,Audience geography,"You need people who can deposit and play. Check the language of their replies.",,,,,,,,
+7,Do they disclose?,"An account that never labels sponsored posts is a compliance liability and has probably already burned its audience.",,,,,,,,
