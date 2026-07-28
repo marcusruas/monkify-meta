@@ -14,16 +14,35 @@ vocabulary this playbook's tracked links use).
 
 ---
 
-## 0. Verification limit (read this first)
+## 0. How the list was verified (read this first)
 
-`x.com` is not fetchable by my tooling (returns HTTP 402), and every "top crypto influencer"
-listicle on the open web is either AI-generated, stale by 2+ years, or a marketplace advertising its
-own roster. So:
+`x.com` returns **HTTP 402** to automated fetches, and every mirror (xcancel, nitter, sotwe,
+lightbrd) plus socialblade and kick.com returns **403**. The one route that works is
+**search-engine indexing of `x.com`**: searching a bare handle with results restricted to that
+domain returns `Display Name (@handle) / X` plus indexed posts for a real account, and only
+look-alikes for a dead one. Snippets frequently leak the follower count and display name too.
 
-- **Handles below are real accounts named by sources** — but **follower counts, activity, and even
-  current existence are NOT verified by me**. Check each one on X before you DM.
-- The **durable value is in sections 2–4** (self-updating sourcing surfaces + exact search queries).
-  A static list of 30 handles decays in ~60 days. The queries don't.
+Every row in `kol-outreach-tracker/1-partners.csv` now carries a `Link status` column set by that
+check. **What it caught, out of 23 handles taken from published lists:**
+
+| Verdict | Count | Examples |
+|---|---|---|
+| Real and active | 15 | `@Sol_Ficra`, `@valueandtime`, `@rasmr_eth`, `@NotChaseColeman` |
+| Real but stale / unconfirmed | 2 | `@Thorshammergems` (nothing newer than 2024), `@cryptolouca` |
+| Real but a dead lead | 1 | `@CryptoStache` — publicly quit crypto content |
+| **Did not exist at all** | **3** | `@GuruMemeCoin`, `@CryptoSolanaCeo`, `@bitcoindaily0` |
+
+Two traps, because both produce plausible-looking dead links:
+- **cryptokolz's "handles"** (`@cipher`, `@jury`, `@airdrop`) are marketplace *display names*, not X
+  handles.
+- **kolscan's `@Bi4rd5`-style strings are wallet-address prefixes**, not handles. Click through to
+  get the real account.
+
+**Two things still cannot be found from outside X**, and no amount of research fixes it:
+- The **nano tier (1k–10k)** isn't search-indexed. Reply-guy mining (§2.4) is the only route, and it
+  has to be done logged in.
+- **PT-BR degen accounts** returned nothing in any external search — the Brazilian scene on X is
+  genuinely unindexed. Lead the Brazil push with **Kick** (§2.7) instead.
 
 ---
 
@@ -139,11 +158,40 @@ education) and most will not touch a betting product.
 
 Where the BR degen/gambling audience actually is:
 1. **Portuguese-language X search** (queries in §3) — the BR degen scene is real but unindexed.
-2. **Kick and Twitch crypto-casino streamers (PT-BR)** — Brazil is one of the largest casino-stream
-   audiences in the world. These creators already run affiliate/revshare deals, already have a
-   deposit-ready audience, and your affiliate offer speaks their exact language. **This is probably
-   your best BR channel, and it's not on X.**
+2. **Kick crypto-casino streamers (PT-BR)** — Brazil is one of the largest casino-stream audiences in
+   the world. These creators already run affiliate/revshare deals, already have a deposit-ready
+   audience, and your offer speaks their exact language. **This is your best BR channel, and it's not
+   on X.** Browse `kick.com/category/slots` and filter by language. Named candidates already in the
+   tracker: **`kick.com/prizao`**, **`kick.com/BAIANOTV`** (both Brazilian), plus
+   `kick.com/brunenger`, `kick.com/spinlife`, `kick.com/axt` (language unconfirmed). Kick blocks
+   automated reads, so follower counts are a manual pass.
 3. BR crypto Telegram/Discord call groups — find them by searching X for `t.me` links in PT posts.
+
+**And re-read our own `promotion-channels.md`.** Its §5.7 already verified **12 casino streamers**
+with follower counts and check dates — including **`kick.com/schneckyirl` (45.8k, caught LIVE in
+Slots & Casino)**, the smallest and most reachable of them. That doc assessed them for a **$0 organic**
+approach and concluded it was a long shot. **Our offer isn't $0 organic** — allocation plus creator
+fees changes their answer, so those rows are now partner leads, not just reply targets. They're
+carried into the tracker.
+
+---
+
+### 2.8 Competitors the search turned up — do not DM, do read
+
+Four Solana wager products surfaced while hunting partners. They're in the tracker flagged
+`COMPETITOR` so nobody pitches them by accident:
+
+- **`@solanacrashio`** — a Solana crash game with **provably-fair** positioning. The closest thing
+  found to us: same chain, same trust angle, adjacent mechanic. Read their feed before you write
+  partner terms — they are competing for the same KOLs.
+- **`@PvPSolanaCasino`** — player-versus-player casino. Structurally the nearest match to our
+  pot-based, player-funded model.
+- **`@CasinoSolana`**, **`@degencom`** — a club-style project and a platform-scale casino. Degen.com's
+  published affiliate terms are a useful benchmark for what partners will compare your offer against.
+
+One more account worth reading and not contacting: **`@0xmani`**, who publicly calls out "washed KOLs
+teaming up to extract the last bit of liquidity from memecoins". That's the exact reaction a
+20%-to-partners launch invites. Read it before you finalise the allocation caps (§8.4).
 
 ---
 
@@ -156,6 +204,22 @@ Note: X search matches *post text*, not bios — for bio matching use the **Peop
 ```
 ("dm for promo" OR "promo rates" OR "paid promo" OR "collabs open" OR "dm for collab") (solana OR pumpfun OR memecoin) -filter:replies
 ```
+
+That one is proven: **`@Sol_Ficra` and `@Cryptosage500` both carry "DM for promo" in their bio** and
+were found exactly this way.
+
+**English — first-time paid-promo takers (cheapest quality on the market):**
+```
+("first paid promo" OR "first sponsored" OR "first collab") (solana OR memecoin) -filter:replies
+```
+Found `@genuinearticles`, who posted "The first paid promo deal I've ever taken. Solana." No rate
+card yet, audience not yet burnt.
+
+**English — gambling × memecoin crossover (they get both halves without explanation):**
+```
+(solana) (casino OR wager OR gambling OR degen) (trenches OR memecoin OR pumpfun) -filter:replies
+```
+Found `@Degen_Hardy` and `@Overdose_AI`.
 
 **English — active small callers:**
 ```
