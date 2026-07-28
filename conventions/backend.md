@@ -113,6 +113,35 @@
   stdout is captured by Cloud Run → Cloud Logging in production and shown in the terminal locally. Code
   logs via the static `Serilog.Log`.
 
+  **The console sink's *format* is environment-dependent: Cloud-Logging JSON in Production, plain text
+  everywhere else** (2026-07-28, Trello #114, `specs/gcp-dashboards.md`). `AddLogs` picks
+  `WriteTo.Console(new GoogleCloudJsonFormatter())` when `builder.Environment.IsProduction()`, and the
+  default plain-text template otherwise — so local and Docker output is unchanged and a developer never
+  reads JSON. **This is not cosmetic.** Cloud Run files a plain-text stdout line as `textPayload` at
+  severity **`DEFAULT`**, so before this an `Error` and a `Warning` were *indistinguishable* in Cloud
+  Logging and "count the errors" had nothing to count. The JSON line carries a top-level `severity`,
+  which is what makes the built-in `logging.googleapis.com/log_entry_count` metric (labelled by
+  `severity`) usable — that metric drives the production dashboard's error/warning panels, so **no
+  log-based metric was needed for them at all**.
+
+  `GoogleCloudJsonFormatter` lives in **`SpaceStroker.Common/Logging/`** (an `ITextFormatter`; `Common`
+  already referenced Serilog, so **no new NuGet package**). Three details are load-bearing:
+  - **The exception is appended into `message`**, not written after it. Cloud Run treats every stdout
+    line as its own entry, so a stack trace on following lines becomes **N entries** — inflating error
+    counts and orphaning the trace from its message. In one entry it also lets Error Reporting
+    recognise the stack trace.
+  - **Do not reach for `Serilog.Formatting.Compact`.** It writes the level as `@l`, which Cloud Run
+    does **not** read as a severity — it would look right and change nothing.
+  - `severity` maps `Verbose`/`Debug`→`DEBUG`, `Information`→`INFO`, `Warning`→`WARNING`,
+    `Error`→`ERROR`, `Fatal`→`CRITICAL`.
+
+  Pinned by `SpaceStroker.Tests/UnitTests/Common/GoogleCloudJsonFormatterTests.cs` (severity mapping,
+  one-line output, exception-in-the-same-entry, quote escaping) and by two cases appended to
+  `AddLogsProviderTests` covering the Production-vs-non-Production choice. Note the **integration
+  suite is unaffected by design**: `IntegrationTestFixture` replaces `Log.Logger` *after* the hosts
+  build (`Harness/IntegrationTestFixture.cs`), so its "no error logs" assertion never sees this
+  formatter.
+
   **`AddLogs` calls `builder.Logging.ClearProviders()` before `AddSerilog`, and that call is
   load-bearing — do not drop it.** `AddSerilog` only *adds* a provider; it does not replace the host's
   built-in Console/Debug providers. Left registered, those write the **same stdout** but are filtered by

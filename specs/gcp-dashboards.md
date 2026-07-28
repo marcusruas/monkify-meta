@@ -1,6 +1,24 @@
 # SpaceStroker — "GCP Dashboards" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/gcp-dashboards` on **2026-07-28** (`monkify-meta` +
+> `monkify-backend`; `monkify-front` untouched). Distilled into
+> `features/terraform-gcp-deploy.md` → Observability and `conventions/backend.md` → Logging;
+> **no `features/gcp-dashboards.md`** (Level `Minor change`).
+>
+> ⚠️ **Shipped committed-but-NOT-applied.** No `terraform apply` has run and the dashboard JSON was
+> never `terraform validate`-ed (no terraform binary in the authoring environment). The Cloud SQL and
+> Redis `metric.type` strings are unverified and fail as **empty charts, not apply errors**. Joins
+> #102/#103/#105/#110 in the pending-apply queue. Acceptance criteria **1** and **13** are therefore
+> unverified; every other criterion was checked by test or by inspection.
+>
+> **Post-ship notes vs this spec:** (1) added **`EnvNamingTests`** (5 tests) beyond the spec — §12.1
+> required the six ids to reach `DerivedIds()`, and a test is what stops that regressing. (2) The
+> formatter was verified **in the real API host**, not only in unit tests: booting with
+> `ASPNETCORE_ENVIRONMENT=Production` produced a genuine `severity: ERROR` entry from ASP.NET's own
+> SignalR logger, with message and stack trace in **one** entry — which also proves `ClearProviders()`
+> routing still holds with the formatter attached.
+>
+> _Original header:_ **Ready for implementation** — refined via Trello card
 > [Setup GCP Dashboards](https://trello.com/c/SIfSHGs9) (#114, refined 2026-07-28).
 > Repos affected: `monkify-meta` (primary) and `monkify-backend`. **No `monkify-front` / `monkify-lp`
 > change.**

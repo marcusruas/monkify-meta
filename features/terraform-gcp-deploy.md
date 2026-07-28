@@ -6,6 +6,8 @@
 > development and production coexist in one GCP project, and a **total development teardown**.
 > Extended by `../specs/teardown-resume.md` (2026-07-27): teardown is **resumable** — targeted
 > pre-destroy apply, destroy retries, leftover-aware exit codes and a `--purge` stop-guard.
+> Extended by `../specs/gcp-dashboards.md` (2026-07-28): a tenth workload module, **`monitoring`** —
+> production dashboard, uptime checks, spend budget and Cloud Armor log-based metrics.
 
 ## What it does
 
@@ -112,6 +114,59 @@ Solana/Fx secrets).
 - **Secret Manager** holds all secrets; Terraform creates the **containers only** (values synced by the
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.
+
+### Observability — `modules/monitoring` (production only)
+
+Added 2026-07-28 (Trello #114, `../specs/gcp-dashboards.md`). A tenth workload module holding one
+`google_monitoring_dashboard` **`spacestroker-prod-overview`**, two `google_monitoring_uptime_check_config`
+(`api.spacestroker.com/health` and `app.spacestroker.com`, `period = 300s`), a
+`google_monitoring_notification_channel` (email), a `google_billing_budget` (50/90/100%), and **two**
+`google_logging_metric` over the LB logs. Panels: API/Consumers instance counts, requests by
+response-code class, p50/p95/p99 latency, error+warning counts, Armor denials, Cloud SQL
+CPU/memory/disk + connections against `max_connections`, Redis memory/evictions/clients, uptime.
+
+- **`enable_dashboards` is DERIVED, not authored.** The deploy tool sets it from
+  `environment == "production"` when emitting `<env>.tfvars.json` — there is no field for it in
+  `secrets.<env>.json`. It compares on `Environment`, **not** `EnvCode`, because `ToEnvCode` maps any
+  unrecognised value to its first four alphanumerics (so `"productionn"` would still yield `prod`).
+- **The module block carries `count`, not the resources.** A development plan therefore holds **no
+  `module.monitoring` address at all** rather than a set of zero-instance resources — which is what
+  keeps a dev teardown from ever reaching a production-facing monitoring object in the shared project.
+- **Error/warning panels use NO log-based metric.** They read the built-in
+  `logging.googleapis.com/log_entry_count`, labelled by `severity`. That only works because the app
+  emits **structured JSON in Production** (see `conventions/backend.md` → Logging): plain-text stdout
+  lands at severity `DEFAULT`, where an `Error` is indistinguishable from a `Warning`.
+- **The Armor metrics are two, and the second reads a different field.** `…-armor-denied` filters
+  `jsonPayload.enforcedSecurityPolicy.outcome="DENY"`; `…-armor-preview` filters
+  **`previewSecurityPolicy`**. ⚠️ A `preview = true` rule populates *only* the preview field, so
+  pointing the second metric at the enforced one yields a permanently-zero panel that reads as "the
+  WAF never false-positives" — when the priority-900 OWASP rule is in preview **precisely because it
+  does**, on Solana base58 bet payloads. Both label on rule priority + configured action (bounded
+  cardinality: only three rules exist). Env-scoping comes from `resource.labels.url_map_name`; LB
+  logging was already on at `sample_rate = 1.0`, so **no edge change was needed**.
+- **Cost is a link, not a chart.** Cloud Monitoring has **no cost data source and no embed widget**, so
+  the EXPENSES section is a markdown widget linking to Billing → Reports (already the "biggest cost
+  first" view) plus the budget, which supplies what Reports cannot: telling someone without being
+  looked at. The budget covers the **whole project**, dev spend included — cost attribution keys off
+  **labels**, not names, and per-module label coverage is unaudited, so a partial label filter would
+  *under*-report.
+- **Two things Terraform cannot do for you.** `monitoring.googleapis.com` +
+  `billingbudgets.googleapis.com` must be enabled (now in both `FIRST-DEV-DEPLOY` guides), and the
+  budget needs **`roles/billing.costsManager` on the billing account** — it is created against the
+  billing account, *above* the project, so no project-level role grants it. Empty
+  `gcp.billingAccountId` or `gcp.alertEmail` ⇒ budget **and** channel are skipped and the apply still
+  succeeds.
+- **Denied requests ≠ denied users.** Log-based metrics have no distinct-count, so "who is being
+  denied" is a Log Analytics query (in `deploy/README.md`). Per Trello #111 one IP is not one user —
+  a VPN exit is one Armor bucket for everyone behind it.
+- The six ids are derived in `EnvNaming` and included in `DerivedIds()`, so `spacestroker-deploy
+  validate` checks them against their GCP caps before any apply (pinned by `EnvNamingTests`).
+
+  > ⚠️ **Committed 2026-07-28 but NOT applied**, and never `terraform validate`-ed (no terraform
+  > binary in the authoring environment). The Cloud SQL and Redis `metric.type` strings are written
+  > from documentation and unverified — a wrong one renders an **empty chart, not an apply error**, so
+  > check every panel has data after the first production apply. Remove this note once applied and
+  > verified.
 
 ### Environment scoping (one GCP project, many environments)
 - `environment` in `secrets.<env>.json` yields an **env code** (`development → dev`, `production → prod`,

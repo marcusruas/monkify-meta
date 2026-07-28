@@ -512,5 +512,16 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
   would strand tokens that already left the wallet with no `Bet` row and no auto-refund.
   See `conventions/backend.md` → "Middleware ordering and client-IP keying" for the two traps that
   made this limiter a no-op in production until 2026-07-28.
+- **Observability (production only):** a `monitoring` module creates one dashboard
+  (`spacestroker-prod-overview`), two uptime checks, an email notification channel, a spend **budget**
+  (50/90/100%) and **two Cloud Armor log-based metrics** — one on `enforcedSecurityPolicy`, one on
+  **`previewSecurityPolicy`** so the preview WAF's would-be blocks are visible. `enable_dashboards` is
+  **derived** by the deploy tool from `environment == "production"`, and the module block carries
+  `count`, so a development plan holds **no `module.monitoring` address at all**. Error/warning panels
+  read the built-in `logging.googleapis.com/log_entry_count` — which works only because the app emits
+  **structured JSON in Production** (plain-text stdout lands at severity `DEFAULT`, where an `Error` is
+  indistinguishable from a `Warning`). **Cost is not charted**: Cloud Monitoring has no cost data
+  source, so the dashboard links to Billing → Reports and the budget does the telling. See
+  `features/terraform-gcp-deploy.md` → Observability.
 - **Teardown keeps the domain:** Terraform is split into a **persistent** layer (DNS zone + domain + state
   bucket, `prevent_destroy`) and a **workload** layer; `teardown` destroys only the workload.
