@@ -84,8 +84,8 @@ Solana/Fx secrets).
   > #110): `request.path.startsWith('/Hubs/') || request.path == '/health'` throttles at
   > **3000 / 60 s** per IP (`infra_rate_limit_count`). Deliberately a *looser throttle*, **not** an
   > `allow` exemption — an exemption would leave `POST /Hubs/Games/negotiate` with **no ceiling
-  > anywhere**, and the in-app limiter that would normally backstop it is under suspicion of bucketing
-  > every player together (#112). It matters because a throttled health probe makes Cloud Run recycle
+  > anywhere**, and the in-app limiter that would normally backstop it was at the time under
+  > suspicion of bucketing every player together (#112 — since **confirmed and fixed**). It matters because a throttled health probe makes Cloud Run recycle
   > the instance, and a mass SignalR reconnect behind one NAT would blank realtime for everyone on that
   > exit. ⚠️ `/health`'s share of this is **hygiene, not an incident fix** — Cloud Run's own probes are
   > *internal* (`modules/cloud_run_api/main.tf:66,76`) and never traverse the LB, so the only thing ever
@@ -97,6 +97,18 @@ Solana/Fx secrets).
   > `rate_based_ban → throttle` change failed on a leftover `banDurationSec`. Delete the live rule
   > first, or bump its priority for an atomic remove+add. Adding a **new** rule at a **new** priority
   > (as #110 did) is unaffected. This is now recorded in `modules/edge/main.tf` itself.
+  >
+  > **Armor is the only enforceable limiter — the in-app one cannot substitute for it.** The API also
+  > runs an `AspNetCoreRateLimit` limiter, but its counters are **in-process** (`MemoryCache`
+  > singletons), so with `api_min_instances: 1` … `max: 10` its effective limit scales with instance
+  > count. It also protects a deliberately narrow surface — only `*:/rpc` and `*:/solana/*`, to defend
+  > the paid Helius quota — and **never** the boot path or `POST /games/{id}/bets`. Until 2026-07-28 it
+  > was in fact enforcing nothing per-player at all (Trello #112: `ForwardLimit` unset ⇒ every request
+  > keyed on **this load balancer's** address, so all rules were one global bucket; and `RealIpHeader`
+  > defaulted to `"X-Real-IP"`, which a client could send to mint a fresh bucket per request). Both are
+  > fixed in the app, but the conclusion stands: **never loosen this Armor rule on the grounds that
+  > "the app also rate-limits"** — see `conventions/backend.md` → "Middleware ordering and client-IP
+  > keying".
 - **Secret Manager** holds all secrets; Terraform creates the **containers only** (values synced by the
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.
