@@ -291,6 +291,65 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 > Postgres transport can provision its DB at Consumers startup (#64). Both DBs are declared in the
 > `data` module, so a default apply already creates `spacestroker` + `spacestroker_messaging`.
 
+## Auto bet seeder (`spacestroker-seeder`)
+
+Places **one real paid bet** into **Cosmic Sprint** and **Beast Mode** whenever their current round
+has no bets, so an empty round never reads as a dead game. Runs a pass immediately on start and then
+every 6 hours. A local operator tool — it is never deployed anywhere, and it is unrelated to the
+Terraform stack above.
+
+It is a pure client of endpoints that already ship (`/launch-token/default`, `/games/active-types`,
+`/games/{id}`, `/solana/balance`, `/rpc`, `/games/{id}/bets`) and changes nothing in the backend or
+the frontend. Spec: [`specs/auto-bet-seeder.md`](../specs/auto-bet-seeder.md).
+
+### Configure
+
+```bash
+cp deploy/secrets.seeder.example.json deploy/secrets.seeder.json
+# then fill in walletPrivateKeyBase58 and displayName
+```
+
+`deploy/secrets.seeder.json` is gitignored (only the `*.example.json` templates are tracked). Never
+commit a real key.
+
+> ⚠️ **The seeder wallet must NOT be the operator's token-owner (treasury) wallet.** The backend
+> validates a bet's payment by comparing the transaction's pre/post token balances **by owner**, so a
+> transfer from that wallet to itself nets zero and the bet is rejected as underpaid *after* the
+> money has moved. The app checks this at startup and refuses to run.
+
+Fund the wallet with the game token (for the stakes) and a little SOL (for transaction fees).
+
+### Run
+
+```bash
+dotnet run --project deploy/tools/SpaceStroker.Seeder
+# or point it at a specific config:
+dotnet run --project deploy/tools/SpaceStroker.Seeder -- /path/to/secrets.seeder.json
+```
+
+`Ctrl+C` stops it cleanly. It only seeds while the process is running — a reboot stops it until you
+start it again.
+
+### What to expect in the log
+
+- `skipping — "Cosmic Sprint" round … already has 1 bet(s)` — **the normal steady state.** The
+  seeder's own bet from the previous pass is what makes the round non-empty, so it never stacks bets.
+- `BET PLACED` — a round was empty and has been seeded.
+- `balance … is below the stake` — top the wallet up with the game token.
+- `send failed … may be out of SOL for transaction fees` — send the wallet some SOL. This one cannot
+  be pre-flighted, because the `/rpc` proxy does not allow a SOL balance read.
+- `ORPHAN PAYMENT` — the stake confirmed on chain but no bet was recorded. Nothing auto-refunds this;
+  reconcile the logged signature by hand via the operator-admin `POST /admin/bets/refund`.
+
+### Known limits (by design)
+
+- `MinimumNumberOfPlayers` is 2, so a seeded bet does **not** start a round on its own. If no human
+  joins, the stake stays committed — races never auto-refund. Recovery is the manual admin refund
+  above.
+- Space Jackpot is deliberately not seeded.
+- Both target game names are compile-time constants; everything else about them (id, mint, decimals,
+  stake, choice rules, preset choices) is resolved from the API at runtime.
+
 ## Notes / caveats
 
 - **`consumer_count > 1` is an app concern** (duplicate Hangfire jobs, EF-migration race, re-seeding).
