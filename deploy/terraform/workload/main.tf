@@ -173,3 +173,22 @@ module "edge" {
   domain_lp             = var.domain_lp
   domain_lp_www         = var.domain_lp_www
 }
+
+module "monitoring" {
+  # count, not per-resource count: this is what guarantees a development plan holds NO
+  # module.monitoring address at all, rather than a set of zero-instance resources. Development and
+  # production share one GCP project, so that distinction is what keeps a dev teardown from ever
+  # reaching a production-facing dashboard, uptime check, budget or log-based metric.
+  count  = var.enable_dashboards ? 1 : 0
+  source = "./modules/monitoring"
+
+  project_id         = var.project_id
+  name_prefix        = local.name_prefix
+  billing_account_id = var.billing_account_id
+  alert_email        = var.alert_email
+  budget_amount_usd  = var.budget_amount_usd
+  max_connections    = var.max_connections
+  domain_api         = var.domain_api
+  domain_app         = var.domain_app
+  labels             = var.labels
+}

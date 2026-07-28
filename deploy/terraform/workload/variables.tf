@@ -139,6 +139,42 @@ variable "domain_lp_www" {
   default = "www.spacestroker.com"
 }
 
+# --- Monitoring ------------------------------------------------------------------
+variable "enable_dashboards" {
+  type        = bool
+  description = <<-EOT
+    Create the monitoring module (dashboard, uptime checks, budget, Cloud Armor log-based metrics).
+    DERIVED by the deploy tool from environment == "production" — deliberately NOT authored in
+    secrets.<env>.json, so there is one less hand-set field to get wrong. Development and production
+    share one GCP project, so a dev copy would only clutter the dashboard list; the module block
+    carries `count`, which is what keeps development state free of any module.monitoring address at
+    all rather than holding zero-instance resources.
+  EOT
+  default     = false
+}
+
+variable "billing_account_id" {
+  type        = string
+  description = <<-EOT
+    Billing account for the spend budget. Empty ⇒ no budget and the apply still succeeds: a budget is
+    created against the BILLING ACCOUNT (above the project) and needs roles/billing.costsManager
+    granted there, which no project-level role provides.
+  EOT
+  default     = ""
+}
+
+variable "alert_email" {
+  type        = string
+  description = "Budget threshold mail destination. Empty ⇒ no notification channel, and therefore no budget."
+  default     = ""
+}
+
+variable "budget_amount_usd" {
+  type        = number
+  description = "Monthly USD budget the 50/90/100% thresholds are measured against."
+  default     = 100
+}
+
 # --- App config (non-secret env injected into both Cloud Run services) ------------
 variable "plain_env" {
   type        = map(string)
