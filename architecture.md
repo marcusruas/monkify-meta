@@ -490,7 +490,12 @@ Deploys are **manual** (no CI); everything is driven by an unversioned local `se
   api / app / lp, with **Google-managed TLS** and **Cloud DNS** for `spacestroker.com`. The per-IP rule
   **throttles at 600/60 s and never bans** — denying only the excess, so a burst costs a few 429s instead
   of a blackout. It banned for 300 s until 2026-07-27, which locked real players out; see
-  `features/terraform-gcp-deploy.md` → Cloud Armor for why the ban must not be restored.
+  `features/terraform-gcp-deploy.md` → Cloud Armor for why the ban must not be restored. A **second,
+  looser rule at priority 800** gives `/health` + `/Hubs/*` their own 3000/60 s bucket (a throttle, not
+  an exemption). ⚠️ **An Armor denial is emitted before the app runs and carries no CORS headers**, so
+  the browser blocks it and the SPA sees a *network error with no status* — never a readable 429. Any
+  client-side handling of rate limiting must key off "no response", not off `status === 429`; see
+  `conventions/frontend.md` → Transient vs terminal failures.
 - **Secrets:** the deploy tool syncs `secrets.<env>.json` into **Secret Manager**; Cloud Run reads them via
   IAM at boot. Each host has a **least-privilege service account**. No secret value enters Terraform state.
 - **Health probes:** Cloud Run probes `GET /health` on both hosts (API via `HomeController`, Consumers via

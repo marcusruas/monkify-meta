@@ -79,6 +79,24 @@ Solana/Fx secrets).
   > **Do not restore the ban or lower the count without re-reading that card** — and note Cloud Armor
   > enforces the rate across the **whole interval**, so interleaved 200s and 429s from one IP during a
   > burst are expected, not a partial outage.
+  >
+  > **Infrastructure paths have their own looser bucket** (priority **800**, added 2026-07-27 by Trello
+  > #110): `request.path.startsWith('/Hubs/') || request.path == '/health'` throttles at
+  > **3000 / 60 s** per IP (`infra_rate_limit_count`). Deliberately a *looser throttle*, **not** an
+  > `allow` exemption — an exemption would leave `POST /Hubs/Games/negotiate` with **no ceiling
+  > anywhere**, and the in-app limiter that would normally backstop it is under suspicion of bucketing
+  > every player together (#112). It matters because a throttled health probe makes Cloud Run recycle
+  > the instance, and a mass SignalR reconnect behind one NAT would blank realtime for everyone on that
+  > exit. ⚠️ `/health`'s share of this is **hygiene, not an incident fix** — Cloud Run's own probes are
+  > *internal* (`modules/cloud_run_api/main.tf:66,76`) and never traverse the LB, so the only thing ever
+  > throttled there was an unidentified third-party poller. Note the rule matches on **`expr`**, not
+  > `versioned_expr` — path and source-IP matching are mutually exclusive in one `match` block.
+  >
+  > ⚠️ **A rule's `action` cannot be changed in place.** The provider patches rules via `patchRule`,
+  > which **merges** rather than replaces, so fields from the old action survive and collide — #104's
+  > `rate_based_ban → throttle` change failed on a leftover `banDurationSec`. Delete the live rule
+  > first, or bump its priority for an atomic remove+add. Adding a **new** rule at a **new** priority
+  > (as #110 did) is unaffected. This is now recorded in `modules/edge/main.tf` itself.
 - **Secret Manager** holds all secrets; Terraform creates the **containers only** (values synced by the
   deploy tool), and each component's **least-privilege service account** gets `secretAccessor` only on its
   secrets, plus `cloudsql.client`. No secret value ever enters Terraform state or a committed file.

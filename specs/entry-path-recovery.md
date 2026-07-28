@@ -1,6 +1,10 @@
 # SpaceStroker — "Entry-path recovery" Feature — Implementation Spec
 
-> **Status: Implemented** (2026-07-27) — refined via Trello card
+> **Status: Shipped** — merged to `main` 2026-07-27 from `feature/entry-path-recovery`
+> (`monkify-front` + `monkify-meta`). ⚠️ Two post-ship caveats: the Cloud Armor rule in §7 is **merged
+> but not applied** (`terraform apply` is an ops step, `constraints.md` §5), and the §13 QA matrix was
+> **never run** — the feature shipped without a local deploy, so acceptance criteria 1-17 and 22 are
+> behaviourally unverified. Refined via Trello card
 > [A transient failure on any boot call dead-ends the player on a static error page](https://trello.com/c/KvfUl6ff)
 > (**#110**, refined 2026-07-27).
 > Repos affected: `monkify-front`, and this doc + the edge Terraform in `monkify-meta`.

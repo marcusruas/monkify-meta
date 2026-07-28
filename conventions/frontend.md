@@ -137,6 +137,30 @@
 - **Routing:** `src/routes.ts` — `/space-stroker/game/games`, `/space-stroker/game/play`, `/error`;
   `/space-stroker/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
   `/` redirects to `/error`.
+- **Transient vs terminal failures on the boot path (required):** a failed boot call must be
+  **classified** before it decides anything. `src/utils/transientError.ts` → `isTransient(error)` is the
+  single rule: **transient = no response at all, or 429 / 5xx / 408**; terminal = any other 4xx that
+  *has* a response, plus a malformed/absent token. ⚠️ **"No response" is the important arm, not a
+  fallback.** Cloud Armor denies at the edge *before the app runs*, so its 429 carries no CORS headers,
+  the browser blocks it, and axios reports `error.response === undefined` — a classifier written as
+  `status === 429 || status >= 500` **never fires on the real rate-limit case** (this is exactly why
+  the 2026-07-26 lockout was reported as "a CORS error"). Transient failures go through
+  `useBootRecovery().runWithRecovery(task)`, which retries on a **jittered schedule whose total
+  deliberately exceeds Armor's 60 s enforcement interval** (`utils/retrySchedule.ts`) behind a shared
+  `> RECONNECTING…` state, then rethrows; terminal failures rethrow immediately. Two rules when
+  touching this: **check the jitter floor, not the mean** (the first draft's `[5,20,45]` ±20 % bottomed
+  out at 56 s, under the window it exists to cross), and `runWithRecovery` must go **outside**
+  `singleFlight`, never inside — inside, concurrent callers keep the original rejected promise while
+  the retry succeeds. Absorbed errors are marked `handled = true` so `services/handlers.ts` doesn't
+  toast once per retry. See `specs/entry-path-recovery.md`.
+- **Non-component code navigates via `services/navigation.ts`, never `window.location.assign`.** The
+  router is created in `main.ts` and not exported, and `main.ts` transitively imports `mainService`, so
+  importing it back is a cycle; `setNavigationRouter(router)` hands it over once and `navigateToError()`
+  uses it. This is not cosmetic — a full document reload destroys any in-flight boot recovery (module
+  state) and re-spends the whole boot request budget against the limit that caused the failure.
+- **`/error` is never a dead end.** `ErrorPage.vue` always offers RETRY, whatever routed the player
+  there. The button is unconditional on purpose: its presence must not become a tell about *why* the
+  game is unavailable (`constraints.md` §6 — expired, inactive and not-found all render identically).
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
