@@ -350,8 +350,90 @@ start it again.
 - Both target game names are compile-time constants; everything else about them (id, mint, decimals,
   stake, choice rules, preset choices) is resolved from the API at runtime.
 
+## Monitoring (production only)
+
+A **production** deploy also creates the observability stack — `modules/monitoring`, one tenth module
+in the workload layer. Development creates **none** of it.
+
+**There is no toggle to set.** `enable_dashboards` is **derived** by the deploy tool from
+`environment == "production"` and emitted into `<environment>.tfvars.json`. The module block carries
+`count`, so a development plan holds **no `module.monitoring` address at all** — not zero-instance
+resources, nothing. That is deliberate: development and production share one GCP project, and it is
+what stops a dev teardown from ever reaching a production-facing monitoring object.
+
+What you get:
+
+| Resource | Name |
+| --- | --- |
+| Dashboard | `spacestroker-prod-overview` |
+| Uptime checks | `spacestroker-prod-uptime-api` (probes `/health`), `spacestroker-prod-uptime-app` |
+| Log-based metrics | `spacestroker-prod-armor-denied`, `spacestroker-prod-armor-preview` |
+| Notification channel | `spacestroker-prod-ops-email` (only when `gcp.alertEmail` is set) |
+| Budget | `spacestroker-prod-budget` (only when `gcp.billingAccountId` **and** `gcp.alertEmail` are set) |
+
+Run `spacestroker-deploy validate --env production` to print every derived id with its GCP cap — the
+monitoring ids are included, so a name that would be rejected fails before any apply starts.
+
+### Budget prerequisites (the part Terraform cannot do for you)
+
+1. Enable the two APIs: `gcloud services enable monitoring.googleapis.com billingbudgets.googleapis.com`
+2. Set `gcp.billingAccountId` and `gcp.alertEmail` in `secrets.production.json`.
+3. Grant the deploying principal **`roles/billing.costsManager`** (or `billing.admin`) **on the
+   billing account**. A budget is created against the billing account, which sits *above* the
+   project — **no project-level role grants this**, and it is the one step that reliably surprises
+   people.
+
+Leave either field empty and the budget **and** its notification channel are simply skipped; the
+apply still succeeds. That is an ordinary state, not an error.
+
+⚠️ **The budget covers the whole project, development spend included.** Cost attribution keys off
+**labels**, not names, and per-module label coverage has not been audited. A partial label filter
+would *under*-report spend, which is worse than a project-wide budget that over-reports.
+
+### Cost is not on the dashboard, and that is not an omission
+
+Cloud Monitoring **cannot chart billing cost** — there is no cost data source and no embed widget.
+The dashboard's EXPENSES section is a text widget linking to
+**Billing → Reports**, which already *is* the "biggest cost first" view, grouped by service or SKU.
+The budget is what tells you spend moved without anyone having to look.
+
+### Investigating denials
+
+The Armor metrics count **denied requests** by rule priority. They cannot count *users*: log-based
+metrics have no distinct-count, so for "who is being denied" use Log Analytics:
+
+```sql
+SELECT
+  http_request.remote_ip AS ip,
+  COUNT(*) AS denials,
+  ANY_VALUE(json_payload.enforcedSecurityPolicy.priority) AS rule_priority
+FROM `<project>.global._Default._AllLogs`
+WHERE json_payload.enforcedSecurityPolicy.outcome = 'DENY'
+  AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
+GROUP BY ip
+ORDER BY denials DESC
+LIMIT 25
+```
+
+⚠️ **One IP is not one user.** `enforce_on_key = "IP"` makes a VPN exit a single bucket for everyone
+behind it, and this player base is crypto-oriented, so shared exits are the norm rather than the
+exception (Trello #111). Never read a denied-IP count as a count of affected people — a single busy
+exit can represent an unknown number of real players.
+
+### Why the backend emits JSON in production
+
+The error/warning panels read the **built-in** `logging.googleapis.com/log_entry_count` metric, which
+is labelled by `severity`. That only works because `AddLogs` emits **structured JSON** when
+`ASPNETCORE_ENVIRONMENT=Production`: Cloud Run files a plain-text stdout line as `textPayload` at
+severity **`DEFAULT`**, so before this an `Error` and a `Warning` were indistinguishable in Cloud
+Logging. Local and Docker output is unchanged — the plain-text template is still used everywhere
+except Production.
+
 ## Notes / caveats
 
+- **Monitoring `metric.type` strings are unverified.** The Cloud SQL and Redis panels were authored
+  without GCP access. A wrong metric type renders an **empty chart** — it does **not** fail the
+  apply — so check every panel has data after the first production apply.
 - **`consumer_count > 1` is an app concern** (duplicate Hangfire jobs, EF-migration race, re-seeding).
   Default is **1**; raising it is validated separately.
 - **No real `apply` is committed here** — the IaC is validated with `terraform fmt` + `validate`; run the

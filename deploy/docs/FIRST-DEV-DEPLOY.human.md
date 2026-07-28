@@ -99,8 +99,13 @@ gcloud services enable \
   run.googleapis.com sqladmin.googleapis.com redis.googleapis.com \
   compute.googleapis.com servicenetworking.googleapis.com vpcaccess.googleapis.com \
   secretmanager.googleapis.com artifactregistry.googleapis.com dns.googleapis.com \
-  cloudresourcemanager.googleapis.com --project <PROJECT>
+  cloudresourcemanager.googleapis.com \
+  monitoring.googleapis.com billingbudgets.googleapis.com --project <PROJECT>
 ```
+
+> The last two are for the **production** monitoring stack (dashboard, uptime checks, budget). A
+> development deploy never creates those resources, but enabling the APIs here is free and saves a
+> failed apply the first time you deploy production.
 
 ### Stage 1 — Sanity-check the names
 

@@ -75,8 +75,13 @@ gcloud auth configure-docker us-central1-docker.pkg.dev
 gcloud services enable run.googleapis.com sqladmin.googleapis.com redis.googleapis.com \
   compute.googleapis.com servicenetworking.googleapis.com vpcaccess.googleapis.com \
   secretmanager.googleapis.com artifactregistry.googleapis.com dns.googleapis.com \
-  cloudresourcemanager.googleapis.com --project <PROJECT>
+  cloudresourcemanager.googleapis.com \
+  monitoring.googleapis.com billingbudgets.googleapis.com --project <PROJECT>
 ```
+
+The last two serve the **production** monitoring stack. Development creates none of those resources
+(`enable_dashboards` is false outside production), but enabling the APIs now costs nothing and
+avoids a failed apply on the first production deploy.
 
 ### Phase 1 — validate, then partial apply (data + registry)
 ```bash
