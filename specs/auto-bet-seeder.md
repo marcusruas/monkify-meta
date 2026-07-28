@@ -1,8 +1,18 @@
 # Space Stroker — "Auto Bet Seeder" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-07-28** from `feature/auto-bet-seeder`
+> (`monkify-meta` only). Refined via Trello card
 > [#113 Setup a console app to automatically add 1 bet in beast mode & cosmit sprint](https://trello.com/c/AhRfdxga)
 > (2026-07-28).
+>
+> ⚠️ **Shipped without a live run.** `constraints.md` §5 forbids an agent pointing this at production,
+> and the transfer path cannot be exercised locally without a funded wallet, so the on-chain half is
+> **correct-by-construction but behaviourally unverified**: the `TransferChecked` instruction shape,
+> the `preflightCommitment: Confirmed` fix, the `getSignatureStatuses` poll, and the JSON field
+> mappings. What *was* verified by execution: the Solnet 6.1.0 signatures and the base58 keypair
+> round-trip (reflection probes), the 94 unit tests, both fail-fast config paths, and the gitignore
+> rules. Nothing in the product depends on this tool, so a wire-format mistake is a follow-up card,
+> not a rollback. **Run it first with a wallet holding roughly one stake plus a little SOL.**
 > Repos affected: **`monkify-meta` only** (this doc + a new console app under `deploy/tools/`).
 > `monkify-backend` and `monkify-front` are **not touched**.
 >
