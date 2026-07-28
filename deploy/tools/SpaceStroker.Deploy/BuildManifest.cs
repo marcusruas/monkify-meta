@@ -78,14 +78,21 @@ public static class BuildManifest
     /// Asset objects no retained build still names. FAILS CLOSED: an empty keep-set means we could not
     /// read a single manifest, and deleting every asset because a `gsutil cat` failed would take the
     /// site down — so that case prunes nothing at all.
+    ///
+    /// <paramref name="currentBuildPaths"/> is what this deploy just uploaded, and is protected on top
+    /// of the keep-set. The keep-set is parsed out of remote text and a parsing slip there once deleted
+    /// the stylesheet the same deploy had published; the current build is known locally, so guarding it
+    /// costs nothing and makes "a deploy deleted its own assets" unreachable rather than merely fixed.
     /// </summary>
     public static IReadOnlyList<string> PruneTargets(
-        IReadOnlyList<string> bucketAssetPaths, IReadOnlyList<string> keepPaths)
+        IReadOnlyList<string> bucketAssetPaths,
+        IReadOnlyList<string> keepPaths,
+        IReadOnlyList<string> currentBuildPaths)
     {
         if (keepPaths.Count == 0)
             return [];
 
-        var keep = keepPaths.ToHashSet(StringComparer.Ordinal);
+        var keep = keepPaths.Concat(currentBuildPaths).ToHashSet(StringComparer.Ordinal);
         return bucketAssetPaths
             .Where(p => p.Length > 0 && !keep.Contains(p))
             .Order(StringComparer.Ordinal)
@@ -111,11 +118,16 @@ public static class BuildManifest
             .ToArray();
     }
 
-    /// <summary>Manifest body: one bucket-relative asset path per line.</summary>
+    /// <summary>
+    /// Manifest body: one bucket-relative asset path per line, INCLUDING the last one. The trailing
+    /// newline is load-bearing, not cosmetic — bodies are concatenated when read back, so an
+    /// unterminated final line fuses with the next manifest's first line and both paths drop out of
+    /// the keep-set. That is exactly how a deploy once pruned the CSS it had just uploaded.
+    /// </summary>
     public static string Render(IReadOnlyList<string> assetPaths) =>
-        string.Join('\n', assetPaths.Order(StringComparer.Ordinal));
+        string.Concat(assetPaths.Order(StringComparer.Ordinal).Select(p => p + '\n'));
 
-    /// <summary>The union of every retained manifest's contents — `gsutil cat` of several files at once.</summary>
+    /// <summary>The union of every retained manifest's contents.</summary>
     public static IReadOnlyList<string> ParseManifestBodies(string stdout) =>
         (stdout ?? "")
             .Split('\n')

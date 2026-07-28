@@ -667,12 +667,16 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             return;
         }
 
-        // 3. The union of every retained build's assets. One `gsutil cat` — we want the union, so the
-        //    concatenation losing track of which line came from which file is fine.
+        // 3. The union of every retained build's assets — ONE `gsutil cat` PER MANIFEST. Reading them
+        //    in a single call concatenates the bodies, so one manifest whose final line is not
+        //    terminated fuses that line with the next manifest's first line and silently drops both
+        //    from the keep-set (which pruned a freshly-published stylesheet). Render now always
+        //    terminates, but manifests written before that fix still sit in the buckets for their
+        //    retention window, so the reader must not depend on it either.
         var keep = new List<string>();
-        foreach (var batch in BuildManifest.Batch(retained.Select(m => $"gs://{bucket}/{m}").ToArray()))
+        foreach (var manifest in retained)
         {
-            var (catCode, catOut) = ProcessRunner.Capture("gsutil", $"cat {string.Join(' ', batch)}");
+            var (catCode, catOut) = ProcessRunner.Capture("gsutil", $"cat gs://{bucket}/{manifest}");
             if (catCode != 0)
             {
                 Console.WriteLine("  prune skipped: could not read a retained manifest.");
@@ -694,7 +698,9 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             inBucket.AddRange(BuildManifest.ParseListing(lsOut, bucket));
         }
 
-        var stale = BuildManifest.PruneTargets(inBucket, keep);
+        // `published` is protected outright: whatever the manifests say, this deploy must never delete
+        // what it just uploaded.
+        var stale = BuildManifest.PruneTargets(inBucket, keep, published);
         var expired = BuildManifest.ExpiredManifests(manifests, now);
         var toDelete = stale.Concat(expired).Select(p => $"gs://{bucket}/{p}").ToArray();
 

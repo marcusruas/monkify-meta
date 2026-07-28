@@ -62,14 +62,14 @@ public class BuildManifestTests
         string[] inBucket = ["js/new.js", "js/old.js", "img/logo.png"];
         string[] keep = ["js/new.js", "img/logo.png"];
 
-        BuildManifest.PruneTargets(inBucket, keep).ShouldBe(["js/old.js"]);
+        BuildManifest.PruneTargets(inBucket, keep, []).ShouldBe(["js/old.js"]);
     }
 
     // Fail closed: an empty keep-set means no manifest could be read, and pruning everything because
     // a `gsutil cat` failed would take the site down.
     [Fact]
     public void PruneTargets_WithNoKeepSet_PrunesNothing() =>
-        BuildManifest.PruneTargets(["js/a.js", "js/b.js"], []).ShouldBeEmpty();
+        BuildManifest.PruneTargets(["js/a.js", "js/b.js"], [], []).ShouldBeEmpty();
 
     [Fact]
     public void ParseListing_DropsDirectoryHeadersAndBlanks()
@@ -97,7 +97,41 @@ public class BuildManifestTests
 
     [Fact]
     public void Render_IsOnePathPerLineSorted() =>
-        BuildManifest.Render(["js/b.js", "css/a.css"]).ShouldBe("css/a.css\njs/b.js");
+        BuildManifest.Render(["js/b.js", "css/a.css"]).ShouldBe("css/a.css\njs/b.js\n");
+
+    /// <summary>
+    /// The manifests are read back with ONE `gsutil cat` over several objects, which concatenates the
+    /// bodies byte for byte. A body that does not terminate its final line therefore fuses that line
+    /// with the FIRST line of the next manifest, and both paths vanish from the keep-set.
+    ///
+    /// This is not hypothetical: it took production down. Paths sort ordinal, so a Vue build's first
+    /// line is always its single `css/app.&lt;hash&gt;.css` — the prune deleted the stylesheet it had just
+    /// uploaded, and the app served unstyled HTML behind a 404.
+    /// </summary>
+    [Fact]
+    public void Render_TerminatesItsLastLineSoConcatenatedManifestsDoNotFuse()
+    {
+        var older = BuildManifest.Render(["js/old.js", "media/victory.mp3"]);
+        var newer = BuildManifest.Render(["css/app.new.css", "js/new.js"]);
+
+        BuildManifest.ParseManifestBodies(older + newer)
+            .ShouldBe(["css/app.new.css", "js/new.js", "js/old.js", "media/victory.mp3"]);
+    }
+
+    /// <summary>
+    /// Defence in depth: whatever the manifests say, a deploy must never delete an asset it just
+    /// published. The keep-set is parsed from remote text, and this outage proved that parsing can
+    /// lose an entry — the current build is known locally, so it is protected without a round trip.
+    /// </summary>
+    [Fact]
+    public void PruneTargets_NeverDeletesTheCurrentBuild()
+    {
+        string[] inBucket = ["css/app.new.css", "js/old.js"];
+        string[] keepMissingTheStylesheet = ["js/retained.js"];
+
+        BuildManifest.PruneTargets(inBucket, keepMissingTheStylesheet, ["css/app.new.css"])
+            .ShouldBe(["js/old.js"]);
+    }
 
     [Fact]
     public void Batch_SplitsOnTheLineLengthCap()
