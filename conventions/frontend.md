@@ -170,6 +170,17 @@
 - **`/error` is never a dead end.** `ErrorPage.vue` always offers RETRY, whatever routed the player
   there. The button is unconditional on purpose: its presence must not become a tell about *why* the
   game is unavailable (`constraints.md` §6 — expired, inactive and not-found all render identically).
+- **A wallet deeplink return does not say WHICH request it answers.** `signAllTransactions` (a bet) and
+  `signMessage` (a self-exclusion) come back with the **same** `data`+`nonce` params and no encryption
+  key, so `detectDeeplinkReturn` classifies both as `'sign'`. What the app **stashed in localStorage
+  before leaving** is the only thing that tells them apart — a pending bet vs a pending
+  self-exclusion, in separate keys, each tried in turn on the way back. Never try to infer the hop from
+  the return params. See `features/legal-docs-self-exclusion.md`.
+- **Cross-host state between `www.` and `app.` must be a cookie on `.spacestroker.com`, never
+  localStorage** — they are different origins. Both `ss_consent` (analytics) and `ss_terms` (18+/Terms)
+  do this, and both **omit the `domain` attribute off our own hosts**: a domain the browser refuses
+  writes no cookie at all, so the prompt would return on every single visit. Store a **version string**
+  rather than a boolean when you may need to re-ask later.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
