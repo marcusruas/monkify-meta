@@ -26,6 +26,13 @@ winning sequence now maps to exactly one bet, free-text rounds are effectively *
   validation — the bet is **auto-refunded** (`RefundInvalidBetEvent`) and the message carries the
   refund warning. **Standard** paid bets are rejected before the wallet debit (no refund needed);
   **free** bets are rejected log-only (no refund), per the free-bet rule.
+  > ⚠️ **Correction (2026-07-29, `legal-docs-self-exclusion` #125).** From this feature's ship until
+  > that card, the auto-refund above **did not actually happen**. `RefundInvalidBet` publishes for a
+  > bet that `InsertBet` only creates later, so `RefundInvalidBetConsumer` could not load it and
+  > returned after a warning — the player saw the refund warning and the stake stayed with the house.
+  > Refunds are now issued **bet-less from the event** (which carries `GameId` + the payment
+  > signature), so this paragraph describes real behavior again. See
+  > `legal-docs-self-exclusion.md` → "The refund fix".
 - **Same-player behavior is unchanged.** A player re-betting their *own* choice still hits the
   existing `DuplicateBet` / `DuplicateBetRefunded` path (the exclusivity check runs *after* the
   per-player duplicate check); a player may still place multiple bets on *different* free-text choices.

@@ -1,5 +1,14 @@
 # Space Stroker — "Legal Documentation & Per-Wallet Self-Exclusion" — Implementation Spec
 
+> **Status: SHIPPED** — merged via `feature/legal-docs-self-exclusion` on **2026-07-29**.
+> Distilled into `features/legal-docs-self-exclusion.md`.
+> ⚠️ **One correction to this spec, found during implementation:** §6.2 keyed refund idempotency on
+> the payment signature in `CryptoTransactionLog.Signature`, but that column holds the **refund's own**
+> transaction — the check could never match, and a redelivered message would have paid twice. What
+> shipped adds an indexed nullable **`CryptoTransactionLog.RelatedSignature`** (the payment a refund
+> reverses) and keys on that. Also not done, deliberately: the §11.2 crypto RG-deny integration test
+> (the RG fixture operator seeds only `Standard` types; covered by unit tests instead).
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [#125 Add some legal documentation for crypto users](https://trello.com/c/3kPjRxsJ) (2026-07-29).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.

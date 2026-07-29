@@ -33,6 +33,16 @@ as before. (The pitch-facing RG/operator integration document is a separate, uns
   - **Unavailable / timeout / error → fail-closed.** The bet is rejected with a specific "temporarily
     unavailable, please try again" message; no debit, no persistence, no synchronous retry. Any thrown
     exception from the adapter is caught and treated as `Unavailable`.
+  - **A paid `SolanaToken` bet is refunded on both Denied and Unavailable** (added 2026-07-29 by
+    `legal-docs-self-exclusion` #125). The player pays on-chain *before* the handler runs this check,
+    so a denial that merely rejected would keep their stake. ⚠️ Until #125 it did exactly that — the
+    branch had never fired in production only because no operator has an adapter configured. Standard
+    and free bets are still reject-only (nothing has moved yet).
+- **First-party self-exclusion is NOT this hook.** Space Stroker's own per-wallet self-exclusion
+  (#125) is a separate check in `RegisterBetHandler` that runs for **every** operator always, ahead of
+  this opt-in adapter, and uses its own `ErrorMessages.SelfExclusionActive` — `RgSelfExcluded`'s copy
+  ("Please contact your operator") is wrong when we *are* the operator. See
+  `legal-docs-self-exclusion.md`.
 - **Free bets.** The check applies to a free bet that carries an external player id; it is **skipped**
   for identity-less (anonymous) free bets (nothing to check). The single guard is "run only when a
   resolved external player id exists" — non-free bets always have one by the time the check runs.
