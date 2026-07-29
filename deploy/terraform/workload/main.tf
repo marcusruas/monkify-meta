@@ -11,12 +11,10 @@ locals {
     "ConnectionStrings-SpaceStroker",
     "ConnectionStrings-Messaging",
     "ConnectionStrings-Redis",
-    "GeneralSettings-Token-TokenOwnerPrivateKey",
-    "GeneralSettings-LaunchTokens-MainSigningPrivateKeyPem",
-    "GeneralSettings-SecretProtection-Key",
-    "GeneralSettings-Fx-ApiKey",
+    "GeneralSettings-Operator-Token-TokenOwnerPrivateKey",
+    "GeneralSettings-Operator-AdminToken-PrivateKeyPem",
     # The RPC endpoint carries the provider's api-key in its query string, so the whole URL is a secret.
-    "GeneralSettings-Token-ClusterUrl",
+    "GeneralSettings-Operator-Token-ClusterUrl",
   ]
 
   secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
@@ -27,11 +25,9 @@ locals {
     "ConnectionStrings__SpaceStroker"                         = "ConnectionStrings-SpaceStroker"
     "ConnectionStrings__Messaging"                            = "ConnectionStrings-Messaging"
     "ConnectionStrings__Redis"                                = "ConnectionStrings-Redis"
-    "GeneralSettings__Token__TokenOwnerPrivateKey"            = "GeneralSettings-Token-TokenOwnerPrivateKey"
-    "GeneralSettings__LaunchTokens__MainSigningPrivateKeyPem" = "GeneralSettings-LaunchTokens-MainSigningPrivateKeyPem"
-    "GeneralSettings__SecretProtection__Key"                  = "GeneralSettings-SecretProtection-Key"
-    "GeneralSettings__Fx__ApiKey"                             = "GeneralSettings-Fx-ApiKey"
-    "GeneralSettings__Token__ClusterUrl"                      = "GeneralSettings-Token-ClusterUrl"
+    "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"  = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
+    "GeneralSettings__Operator__AdminToken__PrivateKeyPem"    = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
+    "GeneralSettings__Operator__Token__ClusterUrl"            = "GeneralSettings-Operator-Token-ClusterUrl"
   }
 
   secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }

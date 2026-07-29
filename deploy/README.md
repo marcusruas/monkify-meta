@@ -263,8 +263,8 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 | Where | Keys |
 | --- | --- |
 | **`gcp`** | `projectId`, `region`, `dnsZoneName`, `dnsDomain`, `domains.{api,app,lp,lpWww}`, `consumerCount`, `apiMinInstances`, `apiMaxInstances`, `enableDeletionProtection`, `dbInstanceSuffix` (optional) — **no `stateBucket`**, it is derived |
-| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Token:TokenOwnerPrivateKey`, `GeneralSettings:LaunchTokens:MainSigningPrivateKeyPem`, `GeneralSettings:SecretProtection:Key`, `GeneralSettings:Fx:ApiKey`, **`GeneralSettings:Token:ClusterUrl`** (#62 — the Solana RPC endpoint is a secret because the provider's api-key rides in its query string) |
-| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Token:{FallbackClusterUrl(public mainnet),MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:LaunchTokens:MainOperatorPublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
+| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Operator:Token:TokenOwnerPrivateKey`, `GeneralSettings:Operator:AdminToken:PrivateKeyPem`, **`GeneralSettings:Operator:Token:ClusterUrl`** (#62 — the Solana RPC endpoint is a secret because the provider's api-key rides in its query string) |
+| **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Operator:Token:{FallbackClusterUrl(public mainnet),Symbol,MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:Operator:AdminToken:PublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
 | **`frontBuild`** (baked into the SPA) | `VUE_APP_API_BASE_URL`, `VUE_APP_WEBSOCKET_BASE_URL`, `VUE_APP_SOLANA_NETWORK=mainnet-beta`, `VUE_APP_USDC_TOKEN_ADDRESS`, `VUE_APP_GAME_TOKEN_ADDRESS`, `VUE_APP_ALLOW_FREE_BETS=false`, `VUE_APP_DEV_LAUNCH=false`, `VUE_APP_IDLE_DISCONNECT_HIDDEN_MS=1800000`, `VUE_APP_IDLE_DISCONNECT_INACTIVE_MS=3600000`, **`VUE_APP_SOLANA_PROXY_URL=https://api.<env-host>/rpc`** (#99), `VUE_APP_SOLANA_CONFIRM_TIMEOUT_MS=45000`, `VUE_APP_SOLANA_CONFIRM_POLL_INTERVAL_MS=1000`, `VUE_APP_BALANCE_POLL_INTERVAL_MS=30000` |
 
 > **Migrating an existing `secrets.<env>.json` for #99 (frontend Helius gateway).** Add the four
@@ -274,15 +274,15 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 > `https://api.spacestroker.com/rpc` for production, `https://api.dev.spacestroker.com/rpc` for
 > development. All four are **public build values**: they belong in `frontBuild`, never in `secrets`, and
 > the browser must never receive the keyed provider URL (that stays server-side in
-> `GeneralSettings:Token:ClusterUrl`). Leaving `VUE_APP_SOLANA_PROXY_URL` empty is a valid *local/devnet*
+> `GeneralSettings:Operator:Token:ClusterUrl`). Leaving `VUE_APP_SOLANA_PROXY_URL` empty is a valid *local/devnet*
 > setting (the SPA then uses the public endpoint directly, spending no provider credits) but is **not**
 > viable for a deployed mainnet environment.
 
-> **Migrating an existing `secrets.<env>.json` for #62 (Helius RPC).** `GeneralSettings:Token:ClusterUrl`
+> **Migrating an existing `secrets.<env>.json` for #62 (Helius RPC).** `GeneralSettings:Operator:Token:ClusterUrl`
 > **moved from `appConfig` to `secrets`** — `appConfig` entries become *plaintext* Cloud Run env vars, and
 > the endpoint now carries an api-key. In your local file: move that key into the `secrets` block and set
 > it to your Helius URL (`https://mainnet.helius-rpc.com/?api-key=…`, or `devnet.helius-rpc.com` for the
-> development environment), then add `"GeneralSettings:Token:FallbackClusterUrl": "https://api.mainnet-beta.solana.com/"`
+> development environment), then add `"GeneralSettings:Operator:Token:FallbackClusterUrl": "https://api.mainnet-beta.solana.com/"`
 > to `appConfig` (public, keyless — it is the endpoint the backend falls back to after the primary's
 > retries are exhausted; leave it blank to disable failover). Re-run the secret sync so the new Secret
 > Manager entry exists before the next apply.
