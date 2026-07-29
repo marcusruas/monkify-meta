@@ -1,6 +1,18 @@
 # SpaceStroker — "Fix bets logic" (per-round bet limits) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged via `feature/fix-bets-logic` on **2026-07-29** (`monkify-backend` +
+> `monkify-front` + `monkify-meta`). 540 unit tests green (10 added); integration **81/81** green
+> (**0 added** — `Minor change` exemption), with one existing test adapted:
+> `OperatorPlayerIdentityTests.CryptoBets_ResolveAndReuse_SameOperatorPlayerByWallet` placed two paid
+> bets from one wallet while it was the round's only bettor, which Rule 2 now rejects, so a second
+> player's bet was inserted between them. **Implemented as specified**, with one deliberate deviation:
+> Rule 2's query is written as the explicit `x.OperatorPlayerId == null || x.OperatorPlayerId != …`
+> (§6.2 relied on EF's null-semantics expansion of `!=`) so the in-memory and Npgsql providers agree
+> without depending on a translation the `Minor change` exemption leaves untested end to end.
+> `Minor change` ⇒ **no `features/fix-bets-logic.md`**; distilled into `features/games.md` §9,
+> `features/choice-exclusivity.md`, `features/free-bet-mode.md` and `glossary.md`.
+>
+> Originally refined via Trello card
 > [Fix bets logic (#126)](https://trello.com/c/wF5zmsss) (2026-07-29).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
