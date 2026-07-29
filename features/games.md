@@ -331,6 +331,19 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 - **On-chain payment invalid** (`ISolanaService.ValidateBetPayment`) → validation failure.
 - **Duplicate bet** (same game+wallet+choice): same signature → `DuplicateBetError`;
 different signature → refund (`DuplicateBetRefundedError`).
+- **Per-round bet limits** (paid, identified bets only — gate `!isFreeBet && OperatorPlayerId != null`),
+checked right after the duplicate check and before the RG hook and the `Standard` debit:
+  - **One bet per player per round in preset types** (non-empty `PresetChoices`, e.g. *Beast Mode*):
+  a second bet is rejected whatever choice it picks → `OneBetPerPresetRound`. Free-text types are
+  unaffected — choice exclusivity already stops two players sharing a sequence.
+  - **No second bet while you are the round's only bettor** (every type): rejected with
+  `SecondBetNeedsAnotherPlayer` until a bet from a **different** `OperatorPlayerId` exists (a `NULL`
+  one — an anonymous free bet by someone else — counts); after that there is **no further cap**.
+  - Both count **every persisted `Bet` row regardless of `Status`**, so an admin-refunded bet still
+  holds your preset slot. Both reset on rollover. Blocked bets take the same `RefundInvalidBet` path
+  as `ChoiceAlreadyTaken` (paid `SolanaToken` refunded, `Standard` rejected pre-debit, free log-only).
+  Application-level only — no unique index, so two simultaneous same-wallet bets can both slip
+  through (bounded, no money lost). See `specs/fix-bets-logic.md`.
 - **Game not accepting bets / not found / operator expired** → refund with the vague
 `GameNotValidForBets` (never reveals operator/contract state — see `operators.md`,
 `constraints.md`).

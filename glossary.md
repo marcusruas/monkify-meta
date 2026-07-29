@@ -205,6 +205,15 @@
   distinct ⇒ preset games still share choices). Same-player repeats still hit the `DuplicateBet` path.
   Consequence: a free-text winning sequence maps to exactly one bet ⇒ **winner-takes-all** (no
   reward-math change). See `features/choice-exclusivity.md`.
+- **Per-round bet limits** — two caps on how many bets one player may hold in a single round, applied
+  to **paid, identified** bets only (free bets are exempt, which is what keeps solo free-bet QA
+  working). In **preset** types: **one bet per player per round** whatever the choice
+  (`ErrorMessages.OneBetPerPresetRound`). In **every** type: while a player is the round's **only**
+  bettor, a second bet is rejected (`ErrorMessages.SecondBetNeedsAnotherPlayer`) until a bet from a
+  different `OperatorPlayerId` exists — after which there is no further cap. Every persisted `Bet` row
+  counts regardless of `Status`; the limits reset on rollover. Enforced in
+  `RegisterBetHandler.ValidateBetParameters` only (no unique index, unlike choice exclusivity), with
+  blocked bets refunded/rejected via the shared `RefundInvalidBet` path. See `specs/fix-bets-logic.md`.
 - **LotteryParameters** — config for lottery-style games (`Frequency`, base `LotteryPot`); scheduled
   via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the game as
   **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
