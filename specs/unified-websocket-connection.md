@@ -1,9 +1,34 @@
 # SpaceStroker — "Unified WebSocket Connection" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [unify websocket calls into 1 connection per player](https://trello.com/c/b2PoXJ1I) (#120, refined
-> 2026-07-28).
+> **Status: Shipped** — merged to `main` via `feature/unified-websocket-connection` on **2026-07-29**
+> (`monkify-backend` + `monkify-front` + `monkify-meta`). Refined via Trello card
+> [unify websocket calls into 1 connection per player](https://trello.com/c/b2PoXJ1I) (#120).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+>
+> **Post-ship notes — what differs from the body below:**
+> 1. **`attachToGame` self-detaches.** If a round is still attached it calls `detachFromGame()` first,
+>    so a caller that attaches twice without an explicit detach (a direct `getBets`) cannot leave the
+>    previous round's handlers bound. §7.1 described detach as the caller's job.
+> 2. **`ensureConnected` settles a mid-reconnect socket.** It waits (bounded, 5 s) for a
+>    `Connecting`/`Reconnecting` connection to resolve and **rebuilds** it if it doesn't, because
+>    `invoke('JoinGame')` on a half-open connection throws — which would have surfaced as a failed
+>    round load when a rollover raced a transport drop. Not anticipated in §7.1.
+> 3. **One extra file touched:** `SpaceStroker.Tests/UnitTests/Handlers/RegisterBetHandlerTests.cs`
+>    held an unused `Mock<IHubContext<RecentBetsHub>>` that §10.1 did not list. Removed with the field.
+> 4. **Bundled at the user's request during QA:** the per-bet `New bet received via websocket` log and
+>    `GameTerminal.vue`'s `Game started/ended at` logs were deleted (the `gameStart`/`gameEnd` refs
+>    existed only to feed them, so they went too; `revealServerSeed()` is untouched).
+>
+> **Verification at ship time:** unit **530/530** green (count unchanged — a compile-surface edit),
+> integration **81/81** green with `HubBetNotificationTests` added; on the running local stack
+> `/Hubs/Games/negotiate` → 200, `/Hubs/RecentBets/negotiate` → **404**, and the served bundle carries
+> zero `RecentBets` references. `monkify-front` has no test runner, so its verification is
+> `yarn lint` + `yarn build` + the §13 manual QA, which the user ran.
+>
+> ⚠️ **Unrelated pre-existing bug surfaced by this card's deploy:** `scripts/setup_local_environment.bat`
+> exits **255** on its own post-deploy "Verifying the served bundle" step (a PowerShell one-liner cmd
+> cannot run). It runs *after* the front image is built and started, so the deploy itself is fine.
+> Needs its own card.
 >
 > **Purpose:** every player currently holds **two** SignalR connections that are **torn down and
 > rebuilt on every round rollover**. Collapse them into **one hub and one connection per browser tab**,

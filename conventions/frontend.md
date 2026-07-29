@@ -54,10 +54,19 @@
   unavailable). The preferred currency has no effect on SolanaToken amounts. See
   `features/payment-methods.md` + `features/player-customization-modal.md`.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
-- **Real-time via `@microsoft/signalr`** in `useGame`: two hubs (`Games`, `RecentBets`) at
-  `VUE_APP_WEBSOCKET_BASE_URL`; join per-game groups; handle `…/Terminal`, `…/DisplaySpeed`,
-  `…/Status`, `…/Bets`, `GameReceived`, and `{gameId}/ChatMessage` (game chat — see
-  `features/game-chat.md`).
+- **Real-time via `@microsoft/signalr`: one connection per tab, owned by `useGameHub`.**
+  `src/hooks/useGameHub.ts` is the only module that builds a `HubConnection` — a single socket to the
+  `Games` hub at `VUE_APP_WEBSOCKET_BASE_URL`, opened lazily on the first game load and **kept** across
+  round rollovers, game-type switches and trips back to the lobby. A round change is a **group swap**
+  (`attachToGame` → `JoinGame` + bind `{gameId}/…`; `detachFromGame` → unbind + `LeaveGame`), never a
+  reconnect; `GameReceived` is bound **once** for the tab via `onBroadcast`. `useGame` consumes it and
+  handles `…/Terminal`, `…/DisplaySpeed`, `…/Status`, `…/Bets` and `{gameId}/ChatMessage` (game chat —
+  see `features/game-chat.md`). Rules when touching it: **unbind before joining** (a handler that
+  outlives its round double-pushes bets and double-counts the pot), `onreconnected` re-joins **only**
+  the current `gameId`, and `ensureConnected` is single-flight so a rollover racing a mount cannot open
+  two sockets. `useGameHub` also arms/stops the **idle watch**, because the connection outlives
+  `GamePage` and a page-scoped watch would leave a kept socket unpoliced in the lobby. See
+  `specs/unified-websocket-connection.md`.
 - **Near-miss reveal ("Characters Away"):** a pure detector (`src/utils/nearMiss.ts`, KMP tail-prefix)
   plus a module-singleton composable (`src/hooks/useNearMiss.ts`) fed the raw `…/Terminal` batches from
   `useGame` (independent of the terminal crop). It tracks each of the player's **own** bet choices

@@ -224,13 +224,18 @@ instances. Clients join a per-game group via `JoinGame(gameId)` (and `LeaveGame`
 |                                        | `<gameId>/DisplaySpeed`                     | server→client | `{ typingSpeed }` (1–3, ramps during the run).                                                                           |
 |                                        | `<gameId>/Status`                           | server→client | `GameStatusUpdatedEvent` `{ status, startDate, result }`; `result` carries `winners` + `firstChoiceTyped` on `Ended`. |
 |                                        | `<ActiveGamesEndpoint>` / `GameReceived` | server→client | `GameCreatedEvent` — the next game is available.                                                                   |
-| `RecentBetsHub` (`/Hubs/RecentBets`)   | `<gameId>/Bets`                             | server→client | New bet `{ amount, choice, wallet, paymentSignature }`.                                                                  |
+|                                        | `<gameId>/Bets`                             | server→client | New bet `{ amount, choice, wallet, paymentSignature }`, published by `BetNotificationConsumer`.                          |
 
+
+Every stream rides **one hub** (`ActiveGamesHub`) and, on the client, **one connection per tab**:
+`useGameHub` opens it lazily on the first game load and keeps it across rollovers and game switches,
+swapping the per-game group rather than reconnecting. See `specs/unified-websocket-connection.md`.
 
 Endpoint name formats come from `GeneralSettings.Games` (`GameTerminalEndpoint`,
-`GameSpeedEndpoint`, `GameStatusEndpoint`, `ActiveGamesEndpoint`). The frontend wires these
-in `useGame.initalizeWebsocketConnections` and renders the stream via `GameTyper.vue` (which crops
-`terminalOutput` to the last ~2000 chars once it exceeds 20000). JSON is camelCase.
+`GameSpeedEndpoint`, `GameStatusEndpoint`, `GameBetsEndpoint`, `ActiveGamesEndpoint`). The frontend
+binds these in `useGame.initalizeWebsocketConnections` (through `useGameHub.attachToGame`) and renders
+the stream via `GameTyper.vue` (which crops `terminalOutput` to the last ~2000 chars once it exceeds
+20000). JSON is camelCase.
 
 ---
 
@@ -356,7 +361,7 @@ sequenceDiagram
     participant MQ as RabbitMQ
     participant C as SpaceStroker.Consumers
     participant SOL as SolanaService
-    participant WS as SignalR (Games/RecentBets)
+    participant WS as SignalR (Games hub)
 
     Player->>FE: Pick game type, connect wallet
     Player->>FE: Enter choice / pick preset, pull lever
@@ -364,7 +369,7 @@ sequenceDiagram
     FE->>API: POST /games/{id}/bets (BodyGameBet + paymentSignature)
     API->>API: Validate signature + choice
     API->>API: Persist Bet
-    API->>WS: Push new bet (RecentBets)
+    API->>WS: Push new bet ({gameId}/Bets)
     API->>MQ: BetPlacedEvent (non-lottery)
     MQ->>C: BetPlacedConsumer
     C->>C: Wait min period + min players → TryStartGame

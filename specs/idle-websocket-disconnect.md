@@ -3,6 +3,17 @@
 > **Status: Shipped** — merged to `main` via `feature/idle-websocket-disconnect` on **2026-07-26**
 > (`monkify-front` + `monkify-meta`; `monkify-backend` untouched).
 >
+> ⚠️ **Superseded in part by `specs/unified-websocket-connection.md` (shipped 2026-07-29).** The
+> thresholds, the timestamp-based detection, the overlay and the explicit-resume rule are all
+> unchanged, but **two mechanics in the body below no longer describe what runs**: (a) there is now
+> **one** hub connection per tab, not two, so every "both hubs" reference means that single
+> connection; and (b) the watch is **no longer armed/disarmed by `GamePage`** — `useGameHub` arms it
+> when it opens the connection and stops it in `stopForIdle()`, because the connection outlives the
+> game page and a page-scoped watch would leave a kept socket unpoliced in the lobby. The
+> `initalizeWebsocketConnections` idle gate described here was also **removed**: an explicit game load
+> is a user action that reconnects and re-arms, or a lobby click after an idle stop would land on a
+> dead screen. Automatic revival is still blocked, via `onreconnecting`.
+>
 > **Post-ship notes — three deliberate deviations from the body below:**
 > 1. **§6.4 wallet-hop exemption is injected, not imported.** The spec shows `isWalletHopInFlight()`
 >    called inline in `evaluateIdle()`. Done literally that means calling `useMobileWallet()` from a
