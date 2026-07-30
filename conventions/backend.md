@@ -10,6 +10,16 @@
 - **Migrations** live in `SpaceStroker.Infrastructure/Migrations/` and are applied **only** at
   `SpaceStroker.Consumers` startup via `Database.Migrate()`. Generate with `dotnet ef migrations add`;
   never hand-edit the snapshot.
+  ⚠️ **Never pass `--no-build` to `dotnet ef migrations add`.** It compares the model from *stale*
+  assemblies, so a migration for a property you just added comes out with an **empty `Up`/`Down`** and
+  no error. Always read the generated file before committing it.
+- **Startup self-heal writes use `ExecuteUpdate`, and their change predicate must handle NULL.** The
+  `SpaceStrokerDbContext` is `NoTracking` by default, so a load-mutate-`SaveChanges` at startup
+  silently persists nothing. When such a patch is guarded by "only rows that differ", remember SQL
+  three-valued logic: `x.Col != @value` is **NULL, not true**, when `x.Col` is NULL, so a bare
+  inequality **skips exactly the rows a newly-added nullable column needs to fill**. Compare the
+  null-ness explicitly — `(x.Col == null) != (@value == null) || x.Col != @value`. Seen in the
+  `AllowFreeBet` and lottery-schedule self-heals in `SpaceStroker.Consumers/Program.cs`.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
   `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **Single-responsibility classes read top-down — isolate behaviours into named methods.** When a

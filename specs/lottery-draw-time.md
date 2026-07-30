@@ -1,5 +1,27 @@
 # SpaceStroker — "Lottery draw time (UTC anchor)" — Implementation Spec
 
+> **Status: Shipped** — merged via `feature/lottery-draw-time` on **2026-07-30**.
+> Distilled summary: `../features/lottery-draw-time.md`.
+>
+> **Two corrections to this spec, from what actually shipped:**
+> 1. **§7.4 is wrong.** The terminal reads **`24 HOURS AT 22:00 UTC`**, not `DAILY AT 22:00 UTC`.
+>    `formatLotteryFrequency` is shared with the quick tour (`GameHeader.vue` → "Edson types every
+>    {frequency}"), so collapsing a 24 h period to `DAILY` would have rendered "Edson types every
+>    DAILY". The period wording is left alone and the anchor is appended instead.
+> 2. **§11's `CreateGame` unit tests are not achievable.** `CreateGame` → `ScheduleLottery` → the
+>    static `Hangfire.BackgroundJob.Schedule`, which throws when `JobStorage.Current` is
+>    uninitialised (the pre-existing `CreateGameTests` avoids lotteries for exactly this reason).
+>    The slot maths is unit-tested exhaustively on the pure helper; `CreateGame`'s lottery wiring is
+>    asserted in `LotteryDrawTimeFlowTests` where Hangfire is really configured.
+>
+> Also shipped differently by design: **§6.3b's `CorrectScheduledLotteryDraws` lives on
+> `IGameService`**, not as a `Program.cs` local function — local functions are uncallable from the
+> integration suite, and AC 8 is precisely what had to be proven. `Program.cs` is a resolve-and-call.
+> Card #115 had already merged by implementation time, so `formatDrawTime` went into the **shared**
+> `src/utils/lotteryFrequency.ts` as §7.2 anticipated.
+>
+> ---
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [#132 Space Jackpot: fix the 24-day TimeSpan trap + fixed daily draw time (UTC anchor)](https://trello.com/c/cGlkxiYo)
 > (2026-07-30).

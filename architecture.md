@@ -196,7 +196,16 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   **game** DB (`spacestroker`, `ConnectionStrings:SpaceStroker` — not the messaging DB), with a dashboard at
   `/hangfire`.
 - Used to **schedule lottery games**: `GameService.ScheduleLottery` enqueues a delayed
-  `BetPlacedEvent` publish for the game's start time.
+  `BetPlacedEvent` publish for the game's start time. This is a lottery's **only** draw trigger —
+  `RegisterBetHandler` publishes `BetPlacedEvent` only for **non-lottery** games — so moving a round's
+  `StartDate` without rescheduling the job does nothing, and vice versa.
+- **Anchored draw times.** A lottery type may carry `LotteryParameters.DrawTimeUtc`, a fixed UTC time
+  of day. When set, `GameService.CreateGame` puts `StartDate` on the absolute grid
+  `{ epoch + DrawTimeUtc + k·Frequency }` (via `LotterySchedule.NextDrawTime`) instead of
+  `UtcNow + Frequency`, so the draw stops drifting when a round runs long; null keeps the rolling
+  behaviour. At startup `SpaceStroker.Consumers` realigns open **anchored** rounds that are off-grid —
+  updating `StartDate` **and** rescheduling the job — which also re-arms a draw missed during
+  downtime. See `features/lottery-draw-time.md`.
 - **Game chat purge:** daily recurring job `game-chat-purge` runs `ChatMessagePurgeJob`, deleting
   `GameChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (default 7). See
   `features/game-chat.md`.
