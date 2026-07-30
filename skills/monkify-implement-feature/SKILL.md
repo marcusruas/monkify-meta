@@ -52,6 +52,10 @@ If the card has no **Implementation** block or **Branch** line, **stop** and tel
    feature branch, **stop** and ask the user to restore it to a clean `main`.
 5. **Docker running** — the integration tests (Step 8) and the deploy (Step 10) both need it. Verify
    `docker info` succeeds; if not, **stop** and ask the user to start Docker.
+6. **`impeccable` skill + `claude-in-chrome`** — needed only when the feature has a **visual surface**
+   (Step 6b): `impeccable` for the design pass, `claude-in-chrome` to read the card's mockups (the
+   `chrome-devtools` profile is not signed in to Trello). If the card touches UI and either is missing,
+   **stop** and tell the user, rather than eyeballing the design.
 
 Do not write code until prerequisites pass.
 
@@ -67,6 +71,7 @@ Copy this checklist and track progress:
 - [ ] Step 4: Validate the card is implementation-ready (Specs created + spec on disk)
 - [ ] Step 5: Write the implementation plan (Superpowers writing-plans)
 - [ ] Step 6: Implement the feature in the worktree(s), TDD
+- [ ] Step 6b: UI surfaces — read the card's mockups, run the `impeccable` design pass, screenshot-compare
 - [ ] Step 7: Add the mandatory happy-path integration test (+ one per complex flow)
 - [ ] Step 8: Verify — run unit + integration tests
 - [ ] Step 9: Commit + push the work on feature/<slug> (each affected repo)
@@ -199,6 +204,35 @@ Honor `constraints.md` throughout:
   behavior (`Monkify.Tests`).
 
 Follow `references/implementation-checklist.md` for the per-repo quality bar.
+
+#### Step 6b: UI work goes through the design skill (mandatory when the feature has a visual surface)
+
+If the feature adds or changes anything a player sees — a component, a modal, a page, a panel — you
+**must** run the design pass below. Writing frontend markup straight from the spec's prose produces
+something that is functionally correct and visually wrong; the spec describes behavior, not design.
+
+1. **Get the mockups before writing markup.** Card attachments are the design source of truth and they
+   outrank the spec's prose description of the UI. Read them off the card (`get_card` lists
+   `badges.attachments`; the description usually links them). Trello attachment URLs need the user's
+   session — the `chrome-devtools` profile is **not** logged in, so open them with **`claude-in-chrome`**
+   and screenshot. If there is no mockup, say so and design from `conventions/frontend.md` + the
+   existing arcade tokens.
+2. **REQUIRED SUB-SKILL: `impeccable`.** Invoke it for the build (`/impeccable craft <surface>`) or, on
+   an existing surface, `critique` / `polish`. Its rules on hierarchy, contrast, motion and slop are the
+   bar. ⚠️ Its setup step will report **`NO_PRODUCT_MD`** and tell you to run its `init` interview
+   first — **do not**. This workspace deliberately keeps no `PRODUCT.md` / `DESIGN.md` (decided
+   2026-07-29): the design source is the card's mockups plus the arcade tokens already in
+   `colors.css` / `arcade.css`. Apply the skill's design rules directly and carry on.
+3. **Reuse the design system, do not reinvent it.** `arcade.css` + `colors.css` tokens, the existing
+   `src/components/ui/` primitives, and the `.btn-arcade` rule (use it as-is or build with plain
+   Tailwind + tokens — never half-adopt it).
+4. **Screenshot-compare before hand-off.** Render the real surface in the browser against the local
+   stack and put it side by side with the mockup at desktop **and** phone widths. Fix the differences
+   you can see. Do not hand off a UI you have not looked at.
+
+⚠️ **The mockup's *copy* is not automatically the shipped copy.** Refinement decisions on the card
+override it (a mockup routinely carries wording the refinement later rejected). Match the mockup's
+**design**; follow the card for **words**.
 
 ### Step 7: Add the mandatory happy-path integration test
 

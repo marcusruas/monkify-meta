@@ -117,6 +117,41 @@
   both take the plain-Tailwind route for exactly this reason. Reach for the arcade **tokens**
   (`bg-primary`, `text-terminal-light`, `border-terminal-border`) to stay on-system either way.
   See `specs/mobile-preset-keypad.md` → §7.3.
+- **Two overlay tiers — this is deliberate, do not "consolidate" it away (decided 2026-07-29):** the app
+  runs **two** modal treatments on purpose, chosen by what the overlay is *for*, not by who wrote it.
+  - **System tier — neutral hairline.** Everything the player opens *themselves* and may open again and
+    again: Settings, Provably Fair, Connect Wallet, errors/rejected-tx, and the side panels. Quiet
+    chrome that recedes: 1px `--color-line` border, `--radius-arcade`, amber reserved for the primary
+    action. This is the tier the Claude Design spec below describes.
+  - **Tutorial / help tier — black + cyan frame.** Onboarding and how-to-play overlays: they appear
+    **unprompted**, have to earn attention, and are **shown once then never again** (the Quick Tour,
+    and anything reached from `How to play`). A louder CRT-cyan frame on near-black is correct here
+    precisely *because* it does not have to live comfortably beside repeat-use chrome. The test is
+    frequency, not subject matter: **Provably Fair is system tier even though it explains something**,
+    because the player opens it themselves and reopens it every round.
+  A future agent finding `QuickTourModal` styled differently from `GameFairModal` is looking at the
+  rule, not a bug. What the tiers **do** share: size scale, titlebar/padding geometry, scroll-at-90dvh,
+  dismissal contract (X / Esc / backdrop / primary), and a **dithered** backdrop rather than a blurred
+  one (`backdrop-filter` is stripped under `html.light-graphics`).
+- **Design workflow (required for any new visual surface):** a spec describes *behavior*; it does not
+  describe *design*. Building a component straight from spec prose reliably produces something that
+  passes its acceptance criteria and still looks wrong. So, before writing markup for a new
+  component/modal/page:
+  1. **Read the card's mockups** — Trello attachments are the design source of truth and outrank the
+     spec's prose description of the UI. They need the user's Trello session, so open them with
+     **`claude-in-chrome`**; the `chrome-devtools` automation profile is not signed in and will bounce
+     to an error page.
+  2. **Run the `impeccable` skill** (`craft` for new surfaces, `critique` / `polish` for existing ones)
+     and apply its design rules. It will report **`NO_PRODUCT_MD`** and ask to run its `init` interview
+     — **skip that**: this workspace deliberately keeps no `PRODUCT.md` / `DESIGN.md` (decided
+     2026-07-29). The design source is the card's mockups plus the arcade tokens already committed in
+     `colors.css` / `arcade.css`.
+  3. **Screenshot-compare** the running surface against the mockup at desktop *and* phone widths before
+     hand-off. Looking at it is the step that catches what tests never will.
+  ⚠️ Match the mockup's **design**, but take **copy** from the card's refinement decisions — a mockup
+  routinely carries wording that refinement later rejected (the quick-tour mockup says *"Pick an animal
+  number (1-8)"*, which decision #4 on #115 explicitly killed).
+  Wired into the pipeline as `monkify-implement-feature` → Step 6b.
 - **Design system (required):** **always build new UI with the existing frontend design system** —
   Tailwind CSS + DaisyUI plus the shared UI components under `src/components/ui/`
   (e.g. `PrimaryButton`, `SecondaryButton`) and the established layout/spacing/theming patterns
