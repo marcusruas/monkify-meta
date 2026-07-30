@@ -1,0 +1,814 @@
+# Space Stroker — "Starting page (home dashboard) + drop the `/space-stroker` prefix" — Implementation Spec
+
+> **Status: Ready for implementation** — refined via Trello card
+> [Create a starting page, like a dashboard or something where we have links to other pages](https://trello.com/c/ijRUhWbX/131-create-a-starting-page-like-a-dashboard-or-something-where-we-have-links-to-other-pages)
+> (2026-07-30).
+> Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
+> Branch / worktree: `feature/home-dashboard` · `.worktrees/home-dashboard/<repo>`.
+>
+> **Purpose:** Give the app a **front door**. Today `/space-stroker/game` *is* the lobby — a 16-line
+> wrapper around three arcade cards — and everything else the product has built (Stats, Games History,
+> Provably Fair, Settings, How to play) is reachable **only** from the ☰ header menu, which a
+> first-time player has no reason to open. This adds a landing page at **`/`** that carries the game
+> picker, links to every surface, and shows the player their **own** numbers for the first time
+> (new `GET /players/stats?wallet=`). Folded in, because it rewrites the same routes: the now-redundant
+> **`/space-stroker` URL prefix is dropped** (the app is hosted at `app.spacestroker.com`), with a
+> strip-prefix redirect shim and — closing a pre-existing gap — a generic catch-all → `/error`.
+
+---
+
+## 1. Summary
+
+| Surface | Today | After this feature |
+| --- | --- | --- |
+| **Front door** | `/` → 302-style router redirect to the lobby. No landing page exists. | **`/` renders a new `HomePage`** — hero, game modes, personal stats, quick links, how-it-works entry, global-stats teaser |
+| **Lobby** | `/space-stroker/game` → `GameSelectPage` (`GameTypes.vue`) | `/game` → **the same page, unchanged**. Still the documented iframe target and the `?type=` deep-link fallback |
+| **URLs** | `/space-stroker/{game,game/play,game/history,game/stats,admin,wallet-bridge,background}` | The same paths **without the prefix**, plus a `/space-stroker/*` → stripped-path redirect shim and a generic catch-all → `/error` |
+| **Player's own numbers** | Nothing. `GET /games/{id}/history?mineOnly&wallet` is per-type and paginated ≤30 — no honest total, no win rate | **New public read `GET /players/stats?wallet=`** → 11 aggregate metrics + the currency descriptor |
+| **Quick Tour `overview@1`** | Auto-opens on the first **lobby** visit | Auto-opens on the first **`/`** visit, every guard intact |
+| **Embedded (iframe)** | `/` redirects to the lobby | `/` **redirects to `/game`** — there is no embedded dashboard variant |
+
+Backend adds exactly one read (`GET /players/stats`), modelled directly on the shipped
+`GlobalStatsService`: **on-demand aggregation over existing rows + a short Redis TTL — no new entity,
+no migration, no Consumers change, no SignalR change.**
+
+Everything else is frontend: one new page, a small set of section components built from the design
+pass, one new route + two redirect rules, and a handful of prefix/comment/doc corrections.
+
+---
+
+## 2. Constraints (MANDATORY)
+
+From `monkify-meta/constraints.md` (full list there):
+
+- **Worktree-per-repo (§2):** `feature/home-dashboard` in `monkify-backend`, `monkify-front` and
+  `monkify-meta`; work lives in `.worktrees/home-dashboard/<repo>`; the shared checkouts stay on
+  `main` and are never switched. Push after every branch update; never force-push.
+- **Unit tests (§3):** update + add in `SpaceStroker.Tests`, run the full suite via
+  `scripts/run_tests.bat`, and **report the changed/added tests by name** at the end.
+- **Integration test is mandatory (§3, `AGENTS.md` rule 8).** This is a **Feature** ⇒
+  `SpaceStroker.Tests.Integration` gets a happy-path test that drives a real round to
+  `RewardForWinnersCompleted` and asserts `GET /players/stats` returns the player's aggregate.
+- **No entity, no migration (§4).** Aggregation only — nothing is added to
+  `SpaceStrokerDbContext.OnModelCreating`.
+- **Vague, non-leaking messaging (§6):** an unknown/never-seen wallet returns **zeroed stats with 200**
+  — never a 404 and never anything that reveals whether that player exists. `/error` never says why.
+- **Mock values only (§1)** in any config touched (none is expected).
+- **Design workflow is blocking** (`conventions/frontend.md` → "Design workflow"): a new
+  claude.ai/design project covering **both page states at desktop and phone widths**, built on the
+  committed arcade tokens (`colors.css` / `arcade.css`), **before any markup**; run `impeccable`
+  (skip its `NO_PRODUCT_MD` init interview); screenshot-compare at both widths. Record the project URL
+  on the Trello card. **Mockups outrank this spec's prose for design; copy comes from the card's
+  decisions, not from the mockup.**
+- **Design system required:** build with the committed arcade primitives and `src/components/ui/`.
+  `arcade.css` is plain CSS (not `@layer components`) and beats Tailwind utilities — use `.btn-arcade`
+  as-is or build with plain Tailwind, never half-adopt. If a primitive is missing, add it to the
+  system rather than styling in place.
+
+---
+
+## 3. Resolved product decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | The starting page is a **new route at `/`**, not a replacement for the lobby. `/game` keeps rendering today's plain lobby untouched — it is the URL `EMBEDDING.md` / `embed-example.html` point integrators at, and the `?type=` deep-link target. *(Rejected: making the lobby itself the dashboard — every embedded player would get a page whose Stats/Fair/History/How-to-play rows are all hidden by the embed gate.)* |
+| 2 | **Drop the `/space-stroker` prefix**, folded into this card. New paths: `/` · `/game` · `/game/play` · `/game/history` · `/game/stats` · `/admin` · `/wallet-bridge` · `/background` · `/error`. Splitting it into a second card would rewrite the dashboard's route, the `/` redirect, the docs and the analytics twice. |
+| 3 | **Keep a strip-prefix shim**: `/space-stroker/:pathMatch(.*)*` → the stripped path, **preserving query and hash**. Without it a surviving old URL renders a *blank page* (`routes.ts` has no catch-all and the LB's `/*` fallback happily serves `index.html`), and a mobile wallet deeplink hop straddling the deploy returns to the old path and strands a player mid-bet. **Also add a generic catch-all → `/error`**, closing that pre-existing blank-page gap. The shim is deletable in a later cleanup card. |
+| 4 | `EMBEDDING.md` + `public/embed-example.html` are **already stale**: they document `#launch_token=<jwt>`, which no longer exists anywhere in `monkify-front` (removed with operators). Correct the URLs to the tokenless form; **do not attempt to restore the token flow** (see §7.9 for the exact bounded edit). |
+| 5 | The page **contains the real game-mode cards** — `GameTypes.vue` reused **verbatim** as a section, not a new compact variant. A standalone player then never needs the lobby route, no click is added versus today, and #116 (better mode cards) + #129 (practice mode) land on both surfaces for free. |
+| 6 | **Two page states, both designed.** **Cold (no wallet)** — welcome/onboarding-led: hero, connect invitation, how-it-works entry, global-stats teaser. **Connected** — stats-led: hero, modes, personal stats, quick links. The personal-stats area is **never simply hidden**; the cold state is a designed welcome (matching the shipped "Connect wallet to customize" precedent) rather than a page that reflows on connect. |
+| 7 | **Sections:** hero banner → game modes → personal stats → quick links (Stats · History · Fair · Settings) → "how it works" entry → global-stats teaser. **Final ordering and the banner's content are design-pass outputs**, benchmarked against comparable game-lobby / crypto-casino landing pages. |
+| 8 | **Quick links respect the embed gate.** Stats, Fair, History and How to play are hidden when embedded today; the dashboard's links follow the same rule. (Moot in practice — decision 13 means the dashboard never renders in a frame — but the rule is kept so a future embedded variant cannot regress it.) |
+| 9 | **Global-stats teaser reuses `GET /games/stats`** (public, Redis-cached 120 s) — 2–3 tiles. It is what makes the page non-empty for a visitor with no wallet. Its numbers **must agree with `/game/stats`**: same endpoint, same formatter, no third set of money rules. |
+| 10 | **Dropped: live pots per mode.** Would need 3 extra REST calls on the landing path *and* joining 3 SignalR groups — a direct violation of the one-connection/one-group design `useGameHub` owns. Its own card if wanted. |
+| 11 | **#130 ("How to play") is NOT absorbed.** This card adds a **section/button that routes to that page**, and the design must account for it. Until #130 ships, the entry opens the existing Quick Tour `overview` modal; #130 repoints it. *(Absorbing #130 would inherit its Orbit blocker — #121 is restarted and unrefined.)* |
+| 12 | **Quick Tour `overview@1` auto-open moves from the lobby to `/`**, keeping **every** existing guard (catalogue loaded, not embedded, no other tour open, key unseen, no boot-recovery / idle / relaunching overlay, terms accepted, display-name prompt closed). Leaving it on `/game` would silently stop it firing for almost everyone. **Accepted gap:** a player deep-linking straight to `/game` gets no overview. |
+| 13 | **Embedded `/` redirects to `/game`.** One rule, enforced in a router guard so `HomePage` never mounts in a frame — no embedded dashboard variant to design or QA. |
+| 14 | **New endpoint `GET /players/stats?wallet=…`.** *(Rejected: deriving a client-side "recent activity" strip from `?mineOnly` — it is per-game-type, paginated at ≤30, and there is no honest way to show a total or a win rate without paging the entire history.)* |
+| 15 | **Public and wallet-keyed**, exactly like every sibling player read (`GET /players/preferences?wallet=`, `GET /games/{id}/history?mineOnly&wallet=`, `GET /solana/balance`). It leaks nothing new — it aggregates data already publicly readable by wallet, over bets that are public on-chain USDC transfers. *(Rejected: signature-gating the read — it would be the first gated read in the codebase, would demand a wallet signature and a mobile app-hop just to open the home page, and buys privacy that does not actually exist.)* |
+| 16 | **Metrics returned:** rounds played · bets placed · most-played mode · total wagered · total won · net · win rate · biggest single win · biggest win multiplier (`×n`) · current streak · best streak. Plus the currency descriptor (`tokenSymbol`, `tokenDecimals`). |
+| 17 | **Money rules mirror `fair-stats-menu` / `game-type-stats` exactly:** only `RewardForWinnersCompleted` rounds count; free bets (`Amount == 0`) are **excluded from money** but **counted in participation**; payouts come from `Credit` `TransactionLog` rows; amounts are token-native from the one configured token. |
+| 18 | **Streaks (settled here, §6.4):** ordered by `Game.EndDate` (ties by `Game.CreatedDate`) over the completed rounds the player bet in; a round counts as a **win** if **any** of that player's bets in it matched the winning choice (case-insensitive, the shipped `GameHistoryService` rule); **free bets included** — it is a participation metric. `CurrentStreak` is the trailing win-run at the newest end (0 if the most recent round was a loss); `BestStreak` is the longest win-run anywhere in the sequence. |
+| 19 | **Cache TTL is short — 30 seconds** (`PlayerStats:{wallet}`), a quarter of the 120 s global/per-type TTL. A player's own just-settled win going invisible behind a long TTL is exactly the complaint `wallet-balance-refresh` was filed for; 30 s still collapses the boot burst and a couple of refreshes. |
+| 20 | **A new claude.ai/design project is a blocking prerequisite for markup** (see §2). Both page states, desktop **and** phone. Its URL is recorded on the card. |
+| 21 | **No new rate-limit rule.** `RateLimitSettingsTests.GeneralRules_AreExactlyTheThreeQuotaProtectingPatterns` pins the rule set to `*:/rpc`, `*:/solana/*`, `*:/solana/balance/live` — every other endpoint is deliberately unlimited app-side. `/players/stats` joins `/players/preferences` and `/games/*/history` as an unlimited read behind Cloud Armor's per-IP rule. Adding a rule here would be a money-path decision, and would break that exact-set test by design. |
+
+---
+
+## 4. Data model
+
+**No entity change. No migration. No `OnModelCreating` change.**
+
+Everything the endpoint needs already exists:
+
+| Table | Columns read |
+| --- | --- |
+| `Players` | `Id`, `ExternalPlayerId` (the wallet) |
+| `Games` | `Id`, `ParametersId`, `Status`, `EndDate`, `CreatedDate`, `WinningChoice` |
+| `GameBets` | `Id`, `GameId`, `PlayerId`, `Choice`, `Amount` |
+| `TransactionLogs` | `BetId`, `Type` (`Credit`), `Amount` |
+| `GameParameters` | `Id`, `Name` (for the most-played mode) |
+
+Confirm before implementing that the query set stays inside the existing indexes
+(`GameBets.PlayerId`, `GameBets.GameId`, `TransactionLogs.BetId`); if a scan shows up in local
+`EXPLAIN`, **report it — do not add an index silently** (that would be a migration and is out of
+scope for this card).
+
+---
+
+## 5. Configuration
+
+None. No new `GeneralSettings` key, no new `VUE_APP_*` env var. The currency descriptor is read from
+the already-bound `GeneralSettings.Operator.Token` (`Symbol`, `Decimals`), exactly as
+`GlobalStatsDto.From` does.
+
+---
+
+## 6. Backend behaviour (`monkify-backend`)
+
+### 6.1 New endpoint — `GET /players/stats`
+
+```
+GET /players/stats?wallet=<base58 address>
+```
+
+- **Public.** No auth header; identity is the `wallet` query param. Same contract as
+  `GET /players/preferences`.
+- **200 always.** Missing/blank `wallet`, an unknown wallet, or a wallet that has never bet all return
+  the **zeroed** `PlayerStatsDto` (with the currency descriptor filled). Never 400, never 404 —
+  §6 of `constraints.md`.
+- Wrapped in the standard `ApiResult<T>` envelope by `BaseController.ProcessRequest`, like every other
+  read.
+
+Register it on `PlayersController` alongside the existing routes, and extend the CORS-preflight
+`[HttpOptions]` coverage:
+
+```csharp
+[HttpOptions("stats")]
+public IActionResult GetStatsOptions()
+{
+    HttpContext.Response.Headers.Append("Allow", "GET,OPTIONS");
+    return Ok();
+}
+
+/// <summary>
+/// All-time aggregate stats for one wallet: participation, money, streaks. Public and wallet-keyed,
+/// exactly like GET /players/preferences — it aggregates facts that are already publicly readable by
+/// address. An unknown wallet returns ZEROED stats, never an existence-revealing error.
+/// </summary>
+/// <response code="200">Returns the player's aggregate stats (zeroed when unknown).</response>
+[HttpGet("stats")]
+public async Task<IActionResult> GetPlayerStats([FromQuery] string? wallet)
+    => await ProcessRequest(new GetPlayerStatsRequest(wallet));
+```
+
+### 6.2 Request + handler — `Handlers/Players/GetPlayerStats/`
+
+`GetPlayerStatsRequest.cs`
+
+```csharp
+public record GetPlayerStatsRequest(string? Wallet) : IRequest<PlayerStatsDto>;
+```
+
+`GetPlayerStatsHandler.cs` — mirrors `GetGlobalStatsHandler` (resolve → aggregate → map):
+
+```csharp
+public class GetPlayerStatsHandler : BaseRequestHandler<GetPlayerStatsRequest, PlayerStatsDto>
+{
+    public GetPlayerStatsHandler(IPlayerStatsService statsService, SpaceStrokerDbContext context,
+        IMessaging messaging, GeneralSettings settings) : base(context, messaging) { … }
+
+    public override async Task<PlayerStatsDto> HandleRequest(GetPlayerStatsRequest request, CancellationToken ct)
+    {
+        var wallet = request.Wallet?.Trim();
+
+        // No wallet, or a wallet nobody has ever bet with -> zeroed stats. Resolving to null here (not
+        // throwing) is what keeps the endpoint non-leaking: "unknown player" and "player with no rounds"
+        // are indistinguishable to the caller.
+        var playerId = string.IsNullOrWhiteSpace(wallet)
+            ? (Guid?)null
+            : (await Context.Players.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ExternalPlayerId == wallet, ct))?.Id;
+
+        var stats = playerId == null
+            ? PlayerStats.Empty
+            : await _statsService.GetPlayerStats(playerId.Value, wallet!);
+
+        return PlayerStatsDto.From(stats, _settings.Operator.Token);
+    }
+}
+```
+
+The wallet→`Player.Id` resolution is copied verbatim from
+`GetGamesHistoryHandler.ResolveCallerPlayerId` — same lookup, same "null means no rows" semantics.
+
+### 6.3 `IPlayerStatsService` / `PlayerStatsService` — `Services/Players/`
+
+New folder `SpaceStroker.Infrastructure/Services/Players/` holding `IPlayerStatsService.cs`,
+`PlayerStatsService.cs` and the plain result model `PlayerStats.cs` (the same shape
+`Services/Games/` uses for `GlobalStats` / `GlobalStatsService`).
+
+```csharp
+Task<PlayerStats> GetPlayerStats(Guid playerId, string wallet);
+```
+
+Aggregation, in order (a direct re-shaping of `GlobalStatsService`, scoped to one player):
+
+1. **Cache read.** `CacheHelper.GeneratePlayerStatsCacheSettings(wallet)`; return the hit.
+2. **The player's bets** — `GameBets` where `PlayerId == playerId`, projecting
+   `{ Id, GameId, Choice, Amount }`.
+   Empty ⇒ cache and return `PlayerStats.Empty`.
+3. **The completed rounds among them** — `Games` where `Id ∈ betGameIds` **and**
+   `Status == RewardForWinnersCompleted`, projecting
+   `{ Id, ParametersId, EndDate, CreatedDate, WinningChoice }`.
+   Everything below is computed over **these rounds only** — a round still in flight, refunded, or
+   ended in error contributes nothing, exactly as in `game-type-stats` / `fair-stats-menu`.
+4. **Participation** (free bets **included**):
+   - `RoundsPlayed` = completed rounds count.
+   - `BetsPlaced` = the player's bets that belong to those rounds.
+   - `MostPlayedTypeName` / `MostPlayedTypeRounds` = the `ParametersId` with the most completed rounds
+     (ties broken by name for determinism), resolved to `GameParameters.Name`.
+5. **Money** (paid bets only, `Amount > 0`):
+   - `TotalWagered` = Σ stake.
+   - `TotalWon` = Σ of `Credit` `TransactionLog.Amount` grouped by `BetId` over the player's bets in
+     those rounds (the shipped payout source).
+   - `Net` = `TotalWon - TotalWagered` (may be negative — do **not** clamp).
+   - `BiggestSingleWin` = max per-bet credit sum (0 when none).
+   - `BiggestWinMultiplier` = max(`credit / stake`) over paid bets with `stake > 0` (0 when none).
+6. **Outcome metrics** (§6.4).
+7. **Cache write** with the 30 s TTL, then return.
+
+Every money read stays token-native; there is one configured token, so no currency grouping exists
+(the same structural simplification `GlobalStatsService` documents).
+
+### 6.4 Win, win rate and streaks (decision 18 — settled)
+
+- A **won round** = the player has ≥1 bet in that round whose `Choice` equals the round's
+  `WinningChoice`, compared with `StringComparison.OrdinalIgnoreCase` — the identical rule
+  `GameHistoryService.ApplyOwnColumnsAsync` and `GlobalStatsService` use. **Free bets count**: this is
+  a participation/outcome metric, not a money metric, and a free bet that matched the winner did win
+  the round even though it was never credited.
+- `WinRate` = `wonRounds / RoundsPlayed`, returned as a **fraction in `[0,1]`** (`decimal`), formatted
+  as a percentage by the client. `0` when `RoundsPlayed == 0` — never a divide-by-zero, never `null`.
+- **Ordering for streaks:** `EndDate` ascending, ties by `CreatedDate` ascending. `EndDate` is nullable
+  on `Game`, but a `RewardForWinnersCompleted` round always has one; still coalesce to `CreatedDate`
+  defensively rather than throwing.
+- `CurrentStreak` = length of the trailing run of won rounds at the newest end; **0** when the most
+  recent completed round was a loss.
+- `BestStreak` = the longest run of consecutive won rounds anywhere in that sequence
+  (`BestStreak >= CurrentStreak` always).
+
+### 6.5 DTO — `Contracts/Players/PlayerStatsDto.cs`
+
+New folder `Contracts/Players/` (the `Contracts/Games/` convention; today's `PlayerPreferencesDto`
+lives beside its handler — leave it where it is, do not move it in this card).
+
+```csharp
+public class PlayerStatsDto
+{
+    // Participation (free bets included).
+    public long RoundsPlayed { get; set; }
+    public long BetsPlaced { get; set; }
+    public string? MostPlayedTypeName { get; set; }
+    public long MostPlayedTypeRounds { get; set; }
+
+    // Outcomes.
+    public decimal WinRate { get; set; }        // fraction in [0,1]
+    public long CurrentStreak { get; set; }
+    public long BestStreak { get; set; }
+
+    // Money (token-native; free bets excluded).
+    public decimal TotalWagered { get; set; }
+    public decimal TotalWon { get; set; }
+    public decimal Net { get; set; }
+    public decimal BiggestSingleWin { get; set; }
+    public decimal BiggestWinMultiplier { get; set; }
+
+    // Currency descriptor (mirrors GlobalStatsDto so the client formats amounts identically).
+    public string? TokenSymbol { get; set; }
+    public int? TokenDecimals { get; set; }
+
+    public static PlayerStatsDto From(PlayerStats stats, TokenSettings token) { … }
+}
+```
+
+Plain get/set (no records) so it also deserializes in the integration tests — the same reason
+`GlobalStatsDto` is written that way.
+
+### 6.6 Cache — `CacheHelper`
+
+```csharp
+// Per-wallet all-time aggregate. DELIBERATELY SHORTER than the 120s global/per-type stats TTL: this is
+// the player's OWN money, and a just-settled win that stays invisible for two minutes is the exact
+// complaint specs/wallet-balance-refresh.md was filed for. 30s still collapses the boot burst (the page
+// load plus a refresh or two) without ever making a player doubt their own numbers. No invalidation:
+// the TTL bounds it, and there is no write path to hook.
+public static CacheSettings GeneratePlayerStatsCacheSettings(string wallet)
+    => new($"PlayerStats:{wallet}", TimeSpan.FromSeconds(30));
+```
+
+The zeroed result for an unknown wallet **is** cached under the same key — harmless (it reveals
+nothing), and the 30 s TTL bounds any key growth from an address scan.
+
+### 6.7 DI registration
+
+`SpaceStroker.Infrastructure/DependencyInjection.cs`, next to the sibling stats services:
+
+```csharp
+services.AddScoped<IPlayerStatsService, PlayerStatsService>();
+```
+
+### 6.8 What does **not** change
+
+- No Consumers change, no typer/game-flow change, no SignalR contract change.
+- No new rate-limit rule (decision 21).
+- No change to `RegisterBetHandler`, payouts, refunds or the provably-fair path.
+
+---
+
+## 7. Frontend behaviour (`monkify-front`)
+
+### 7.1 `src/routes.ts` — new `Home`, prefix dropped, shim + catch-all
+
+Route **names are unchanged** (`GameLobby`, `Game`, `GameHistory`, `GameStats`, `Admin`,
+`WalletBridge`, `Background`, `Error`) — every in-app navigation already goes through names
+(verified: `App.vue`, `GameHeader.vue`, `GamePage.vue`, `GameTypes.vue`, `navigation.ts`), so the
+prefix drop touches **only** this file plus the two hardcoded URLs in §7.7/§7.8.
+
+```ts
+export default [
+  { name: 'Home',        path: '/',              component: require('@/pages/HomePage.vue').default },
+  { name: 'GameLobby',   path: '/game',          component: require('@/pages/GameSelectPage.vue').default },
+  { name: 'Game',        path: '/game/play',     component: require('@/pages/GamePage').default },
+  { name: 'GameHistory', path: '/game/history',  component: require('@/pages/GameHistoryPage.vue').default },
+  { name: 'GameStats',   path: '/game/stats',    component: require('@/pages/GameStatsPage.vue').default },
+  { name: 'Admin',       path: '/admin',         component: require('@/pages/AdminPage.vue').default },
+  { name: 'WalletBridge',path: '/wallet-bridge', component: require('@/pages/WalletBridgePage.vue').default, meta: { chromeless: true } },
+  { name: 'Background',  path: '/background',    component: require('@/pages/BackgroundPage.vue').default, meta: { chromeless: true } },
+  { name: 'Error',       path: '/error',         component: require('@/pages/ErrorPage.vue').default },
+
+  // Strip-prefix shim. The app used to live under /space-stroker; it is hosted at app.spacestroker.com
+  // and the segment is redundant. WITHOUT this, a surviving old URL renders a BLANK PAGE, not /error:
+  // vue-router matches nothing and the LB's `/*` fallback serves index.html anyway. The money case is a
+  // mobile wallet deeplink hop that straddles the deploy — the wallet returns the player to the OLD
+  // path with its response params attached, and a blank page there strands a signed, paid bet.
+  // Query AND hash must survive: ?type= drives the game, the wallet appends its response as query, and
+  // #admin_token= is how an operator reaches the portal.
+  // Deletable in a later cleanup card.
+  {
+    path: '/space-stroker/:pathMatch(.*)*',
+    redirect: (to) => ({ path: to.path.replace(/^\/space-stroker/, '') || '/', query: to.query, hash: to.hash }),
+  },
+
+  // Generic catch-all. Closes a PRE-EXISTING gap: routes.ts had none, so any unmatched path was a blank
+  // page. /error always offers RETRY and never says why (constraints.md §6).
+  { path: '/:pathMatch(.*)*', redirect: { name: 'Error' } },
+] as RouteRecordRaw[];
+```
+
+⚠️ Both catch-alls can coexist: vue-router 4 ranks by specificity, not declaration order, so the
+static `/space-stroker/` prefix always outranks the bare `/:pathMatch(.*)*`. **Add a smoke check for
+this in manual QA (§13)** rather than assuming it.
+
+### 7.2 Embedded `/` → `/game` (decision 13)
+
+A navigation guard in `src/main.ts`, registered **before** the `afterEach` analytics hook so the
+dashboard never even counts as a pageview in a frame:
+
+```ts
+// Embedded (regulated iframe) has no dashboard variant: every quick link, the how-it-works entry and
+// the Quick Tour are hidden in a frame, so the page would render as a hero over an empty column. One
+// rule here means HomePage never mounts embedded — nothing downstream has to re-check it.
+router.beforeEach((to) => {
+  if (to.name === 'Home' && useEmbed().isEmbedded) return { name: 'GameLobby' };
+});
+```
+
+`useEmbed()` resolves the framing context once at module load, so this is a constant test.
+
+### 7.3 New `src/pages/HomePage.vue` + `src/components/home/`
+
+⚠️ **A stale `src/pages/HomePage.vue` already exists** (12 lines, prints a wallet-connected emoji,
+routed nowhere). **Overwrite it deliberately** — do not leave two home pages.
+
+`HomePage.vue` is a thin composition shell (like `GameSelectPage.vue`): it owns the section order and
+nothing else. The sections live under `src/components/home/`:
+
+| Component | Renders | State |
+| --- | --- | --- |
+| `HomeHero.vue` | The hero banner / wordmark / primary CTA | Both (copy differs cold vs connected) |
+| `HomeConnectCta.vue` | The connect invitation + onboarding-led welcome | **Cold only** |
+| `HomePlayerStats.vue` | The 11 personal metrics; zeroed "no rounds yet" empty state | **Connected only** |
+| `HomeQuickLinks.vue` | Stats · History · Fair · Settings (+ the how-it-works entry) | Both, hidden when embedded |
+| `HomeGlobalTeaser.vue` | 2–3 tiles from `GET /games/stats` | Both |
+
+Game modes are **`@/components/game-selection/GameTypes.vue` reused verbatim** (decision 5) — no
+props, no variant, no copy of its fetch. It already routes to `{ name: 'Game', query: { type } }` and
+already fires `game_type_selected`.
+
+**Final ordering, hero content and the exact tile set are design-pass outputs** (decision 7) — this
+table is the component inventory, not the layout.
+
+Cold vs connected keys off `useMobileWallet().effectivePublicKey` (the shipped "which wallet counts"
+computed — desktop extension **or** mobile deeplink session), never `useWallet().connected` alone.
+
+### 7.4 `HomePlayerStats.vue` — fetch, identity and the wallet-switch rule
+
+```ts
+const { effectivePublicKey } = useMobileWallet();
+const { formatGameAmount } = usePlayerPreferences();
+
+const stats = ref<PlayerStats | null>(null);
+const loading = ref(false);
+const failed = ref(false);
+
+// Monotonic token so only the LATEST wallet's result is applied — the same guard GameStatsPage uses for
+// its type dropdown. Without it, wallet A's slower response can land after wallet B's and paint another
+// player's money onto the page (AC8).
+let reqSeq = 0;
+
+const load = async (wallet: string | null) => {
+  const seq = ++reqSeq;
+  stats.value = null;              // clear FIRST: no previous-wallet figure may survive the switch
+  if (!wallet) { loading.value = false; failed.value = false; return; }   // cold state: no call at all (AC5)
+  loading.value = true; failed.value = false;
+  try {
+    const response = await mainService.getPlayerStats(wallet);
+    if (seq !== reqSeq) return;
+    stats.value = response?.data ?? null;
+  } catch {
+    if (seq !== reqSeq) return;
+    failed.value = true;
+  } finally {
+    if (seq === reqSeq) loading.value = false;
+  }
+};
+
+watch(effectivePublicKey, (w) => load(w), { immediate: true });
+```
+
+- **Zeroed ≠ error.** `roundsPlayed === 0` renders the designed "no rounds yet" empty state (AC7/AC10),
+  not the failure copy. A free-bet-only player gets populated participation metrics and zeroed money —
+  that is a valid state, not a broken one.
+- **Failure** renders the shipped inline pattern from `GameStatsPage.vue`
+  (`> stats offline — retry`), **never** `/error`.
+- Money goes through `usePlayerPreferences().formatGameAmount(stats, amount)` — the same formatter the
+  Stats page uses, fed the DTO's own `tokenSymbol` (that is why the descriptor is on the DTO).
+- `winRate` is a fraction — render as `Math.round(winRate * 100)`%. `biggestWinMultiplier` reuses the
+  Stats page's `×n` formatting (integer bare, otherwise 2 dp).
+
+### 7.5 `HomeQuickLinks.vue` and the shared modal state — ⚠️ blocker
+
+Stats and History are pages (`RouterLink` to `{ name: 'GameStats' }` / `{ name: 'GameHistory' }`), but
+**Fair and Settings are modals whose open state is a `ref` local to `GameHeader.vue`**
+(`isFairOpen`, `isSettingsOpen`) — a component the dashboard cannot reach into. Mounting second
+instances of `GameFairModal` / `PlayerCustomizationModal` on the page is not an option (two modals,
+two Esc handlers).
+
+**Fix:** promote that state to a module-singleton composable — the pattern already used by
+`useQuickTour` (`openTour`) and `useMobileWallet` (`walletModalOpen`):
+
+`src/hooks/useHeaderModals.ts`
+
+```ts
+// The header owns the MODAL COMPONENTS (it is mounted app-wide except on chromeless routes); this owns
+// their OPEN STATE, so any surface can open one without a second instance. Module singleton, like
+// useQuickTour's openTour and useMobileWallet's walletModalOpen.
+const settingsOpen = ref(false);
+const fairOpen = ref(false);
+const responsibleGamingOpen = ref(false);
+export const useHeaderModals = () => ({ settingsOpen, fairOpen, responsibleGamingOpen, … });
+```
+
+`GameHeader.vue` swaps its three local refs for these (rendering is unchanged); `HomeQuickLinks.vue`
+sets them. The how-it-works entry calls `useQuickTour().open('overview', 'menu')` — the same call the
+☰ `How to play` row makes off the game screen (decision 11; #130 repoints this one line).
+
+Embed gate: the whole quick-links block is `v-if="!isEmbedded"` (decision 8).
+
+### 7.6 Quick Tour — move the overview watcher (decision 12)
+
+`src/components/GameHeader.vue`, the overview watcher only:
+
+```ts
+// Overview: first visit to the LANDING PAGE (was: the lobby). `/` is the front door now, so leaving it
+// on /game would silently stop it firing for almost everyone. Every guard is unchanged — the catalogue
+// gate still works because HomePage renders GameTypes.vue, which is what populates `gameTypes`.
+watch(
+  [() => route.name, () => gameTypes.value?.length, () => termsAccepted.value],
+  ([name, count]) => {
+    if (name === 'Home' && count) maybeAutoOpen('overview');
+  },
+  { immediate: true }
+);
+```
+
+The mode-tour watcher, `openHowToPlay()`, `maybeAutoOpen`'s guard chain and `useQuickTour` itself are
+**untouched**. `skipNextModeAutoOpen` still works: the overview auto-opens on `/`, and the mode tour
+cannot fire until the player is on `/game/play`, which is strictly later.
+
+### 7.7 `src/App.vue`
+
+1. `isPlayerRoute()` gains `route.name === 'Home'`, so `/` boots the catalogue under
+   `runWithRecovery` and loads player preferences (name prompt, display name) exactly as the lobby
+   does. This is also what gives AC14 for free: a transient catalogue failure on `/` shows the shared
+   `> RECONNECTING…` state, classified by `isTransient` (⚠️ **the "no response at all" arm is the
+   important one** — Cloud Armor's 429 arrives CORS-blocked with `error.response === undefined`).
+2. The admin hand-off keeps checking `route.name === 'GameLobby'`: the documented admin entry stays
+   `<origin>/game#admin_token=<jwt>` (the prefix drop is the only change). **Do not** extend it to
+   `Home` — that is a different decision and is not in this card.
+3. Prefix mentions in comments (lines ~82, ~147) updated.
+
+### 7.8 Service, types, analytics and the two hardcoded URLs
+
+- `src/services/mainService.ts` — new read, **added to the `singleFlight` allow-list** (it is a
+  boot-path read with more than one potential caller, like `getPlayerPreferences`; the key carries the
+  wallet, so two wallets can never collapse onto one promise):
+
+  ```ts
+  const getPlayerStats = async (wallet: string) => {
+    const params = { wallet };
+    const { data } = await singleFlight(flightKey('GET', '/players/stats', params), () =>
+      mainAPI.get<DefaultResponse<PlayerStats>>('/players/stats', { params })
+    );
+    return data;
+  };
+  ```
+
+  ⚠️ `runWithRecovery` is **not** wrapped around it: personal stats are not the boot gate, and a
+  failure renders inline (§7.4). Do not put it inside `singleFlight` either way — the ordering rule is
+  documented at the top of `mainService.ts`.
+- `src/types/index.ts` — `export interface PlayerStats { … }` mirroring §6.5 in camelCase, beside
+  `GlobalStats`.
+- `src/hooks/useAnalytics.ts` — one new event, no identifiers, consent-gated like the rest:
+
+  ```ts
+  // Which surface players actually reach for from the front door. A LABEL only — no wallet, no amount.
+  trackHomeLinkClick: (info: { link: 'stats' | 'history' | 'fair' | 'settings' | 'how_to_play' }): void =>
+    track('home_link_click', { link: info.link }),
+  ```
+
+  `page_view` already covers `/` via `router.afterEach`; `game_type_selected` already fires from the
+  reused mode cards.
+- `src/hooks/useEmbeddedWallet.ts:28` — `` `${window.location.origin}/wallet-bridge` ``.
+- `src/pages/ErrorPage.vue:7` — `window.location.assign('/game')`. Kept pointing at the **lobby**, not
+  `/`: this page exists for "the game is unavailable", and the lobby is the lightest boot path that
+  proves recovery. (A full reload here is deliberate — see the comment already in the file.)
+- Prefix mentions in comments: `useAdmin.ts`, `useMobileWallet.ts:70`, `main.ts:31`,
+  `BackgroundPage.vue`, `WalletBridgePage.vue`, `routes.ts`.
+
+### 7.9 Docs — `EMBEDDING.md` + `public/embed-example.html` (decision 4)
+
+Two bounded edits, no flow changes:
+
+1. **Paths:** `…/space-stroker/game` → `…/game`, `…/space-stroker/wallet-bridge` → `…/wallet-bridge`
+   (8 occurrences across the two files).
+2. **The stale token fragment:** every example URL currently reads
+   `https://<GAME_HOST>/space-stroker/game#launch_token=<jwt>`. `#launch_token` does not exist anywhere
+   in `monkify-front` any more (removed with operators) — embedding works **tokenless** via `useEmbed`
+   iframe detection. Correcting the *path* while keeping a fragment that does nothing would leave the
+   doc just as wrong, so the examples become the plain `https://<GAME_HOST>/game`, and the
+   token-minting snippet in `EMBEDDING.md` is replaced by a one-line note that the launch-token flow
+   was removed.
+   **Explicitly out of scope:** restoring the token flow, or any other rewrite of these documents.
+
+### 7.10 Mobile + light graphics
+
+- Single column below `lg` via the shipped `useIsMobile()` boundary; prefer `max-lg:` / `lg:` variants
+  and `dvh` over new breakpoints. **Both page states need a phone pass** in the design project.
+- Under `html.light-graphics` (which every phone runs): **no `backdrop-filter`, no infinite animation,
+  no `mix-blend-mode`** in any new section. A blurred hero would silently degrade to a flat box on the
+  devices most likely to see it first.
+- No horizontal overflow at any width — `<html>` carries the horizontal guard; a new section must not
+  reintroduce one.
+
+---
+
+## 8. Flow diagrams
+
+### 8.1 Landing on `/`
+
+```mermaid
+flowchart TD
+  A["GET /"] --> B{"embedded?"}
+  B -- yes --> C["router.beforeEach → /game (lobby)"]
+  B -- no --> D["HomePage mounts"]
+  D --> E["App.vue boot: getGamesTypes under runWithRecovery + loadPreferences"]
+  E -->|transient failure| F["> RECONNECTING… (BootRecovering)"]
+  E -->|ok| G["GameTypes.vue populates gameTypes"]
+  G --> H["GameHeader watcher: name==='Home' && count → maybeAutoOpen('overview')"]
+  D --> I{"effectivePublicKey?"}
+  I -- null --> J["COLD state — connect invitation; getPlayerStats NOT called"]
+  I -- wallet --> K["GET /players/stats?wallet= → CONNECTED state"]
+  D --> L["GET /games/stats → global teaser (same numbers as /game/stats)"]
+```
+
+### 8.2 An old prefixed URL after the deploy
+
+```mermaid
+sequenceDiagram
+  participant W as Wallet app
+  participant B as Browser
+  participant LB as HTTPS LB / GCS
+  participant R as vue-router
+  W->>B: return to /space-stroker/game/play?type=…&data=…
+  B->>LB: GET /space-stroker/game/play
+  LB-->>B: index.html (the `/*` SPA fallback — 200, not 404)
+  B->>R: resolve /space-stroker/game/play?type=…&data=…
+  R->>R: strip-prefix shim → /game/play?type=…&data=… (query + hash preserved)
+  Note over R: main.ts already stashed the wallet return params<br/>before the router was created — the hop resumes.
+```
+
+---
+
+## 9. Out of scope
+
+- **Card #130 (How to play)** — the how-it-works page itself. This card only adds the entry point.
+- **Live pots / live round status on the dashboard** (decision 10) — needs `useGameHub` rearchitected.
+- **Leaderboards** or any cross-player ranking.
+- **Card #116** (better mode-card art) and **#129** (practice mode) — they land here automatically via
+  the reused `GameTypes.vue`, but neither is built here.
+- **Restoring the `#launch_token` embed flow** — it is gone; only the docs are corrected (§7.9).
+- **Deleting the strip-prefix shim** — a later cleanup card.
+- **Backend/infra rename or any LB change.** Verified: the GCP path rules are
+  `["/js/*","/css/*","/img/*","/media/*"]` plus the `/*` SPA fallback
+  (`deploy/terraform/workload/modules/edge/main.tf`) — prefix-agnostic. `nginx.conf` is
+  `try_files $uri /index.html`. `public/robots.txt` is `Disallow: /`. Nothing to change.
+- **Extending the `#admin_token=` hand-off to `/`** (§7.7).
+- **Adding a DB index for the new aggregate** — report it if local `EXPLAIN` shows a scan; do not add
+  a migration.
+- Any change to the typer, bet, payout, refund or provably-fair paths.
+
+---
+
+## 10. File checklist
+
+### 10.1 Backend (`monkify-backend`)
+
+| # | File | Change |
+| --- | --- | --- |
+| 1 | `src/SpaceStroker.Api/Controllers/PlayersController.cs` | Add `GET stats` + its `[HttpOptions("stats")]` preflight |
+| 2 | `src/SpaceStroker.Infrastructure/Handlers/Players/GetPlayerStats/GetPlayerStatsRequest.cs` | **New** — `record GetPlayerStatsRequest(string? Wallet)` |
+| 3 | `src/SpaceStroker.Infrastructure/Handlers/Players/GetPlayerStats/GetPlayerStatsHandler.cs` | **New** — wallet→`Player.Id`, aggregate, map; unknown ⇒ zeroed |
+| 4 | `src/SpaceStroker.Infrastructure/Services/Players/IPlayerStatsService.cs` | **New** |
+| 5 | `src/SpaceStroker.Infrastructure/Services/Players/PlayerStatsService.cs` | **New** — on-demand aggregate + Redis, §6.3/§6.4 |
+| 6 | `src/SpaceStroker.Infrastructure/Services/Players/PlayerStats.cs` | **New** — plain result model + `Empty` |
+| 7 | `src/SpaceStroker.Infrastructure/Contracts/Players/PlayerStatsDto.cs` | **New** — DTO + `From(stats, token)` |
+| 8 | `src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GeneratePlayerStatsCacheSettings(wallet)` (30 s) |
+| 9 | `src/SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `IPlayerStatsService` |
+
+### 10.2 Frontend (`monkify-front`)
+
+| # | File | Change |
+| --- | --- | --- |
+| 1 | `src/routes.ts` | `Home` at `/`; drop the prefix everywhere; strip-prefix shim; generic catch-all → `/error` |
+| 2 | `src/main.ts` | `beforeEach`: embedded `Home` → `GameLobby`; comment prefix fix |
+| 3 | `src/pages/HomePage.vue` | **Overwrite the stale stub** — the dashboard shell |
+| 4 | `src/components/home/HomeHero.vue` | **New** |
+| 5 | `src/components/home/HomeConnectCta.vue` | **New** — cold state |
+| 6 | `src/components/home/HomePlayerStats.vue` | **New** — fetch + seq guard + zeroed/failed states |
+| 7 | `src/components/home/HomeQuickLinks.vue` | **New** — Stats·History·Fair·Settings + how-it-works; `v-if="!isEmbedded"` |
+| 8 | `src/components/home/HomeGlobalTeaser.vue` | **New** — 2–3 tiles from `GET /games/stats` |
+| 9 | `src/hooks/useHeaderModals.ts` | **New** — shared open state for Settings / Fair / Responsible Gaming |
+| 10 | `src/components/GameHeader.vue` | Use `useHeaderModals`; move the overview watcher `GameLobby` → `Home` |
+| 11 | `src/App.vue` | `isPlayerRoute()` += `Home`; comment prefix fixes |
+| 12 | `src/services/mainService.ts` | `getPlayerStats(wallet)` + `singleFlight` allow-list entry + export |
+| 13 | `src/types/index.ts` | `PlayerStats` interface |
+| 14 | `src/hooks/useAnalytics.ts` | `trackHomeLinkClick` |
+| 15 | `src/hooks/useEmbeddedWallet.ts` | Wallet-bridge popup URL → `/wallet-bridge` |
+| 16 | `src/pages/ErrorPage.vue` | RETRY target → `/game` |
+| 17 | `src/hooks/useAdmin.ts`, `src/hooks/useMobileWallet.ts`, `src/pages/BackgroundPage.vue`, `src/pages/WalletBridgePage.vue` | Comment prefix fixes |
+| 18 | `EMBEDDING.md`, `public/embed-example.html` | Paths + the stale `#launch_token` examples (§7.9) |
+
+### 10.3 Meta (`monkify-meta`)
+
+| # | File | Change |
+| --- | --- | --- |
+| 1 | `specs/home-dashboard.md` | **This spec** |
+| 2 | `INDEX.md` | KB map row + "Feature currently in flight" |
+| 3 | `features/home-dashboard.md` | **At ship** — the distilled `features/` doc (Feature ⇒ required) |
+| 4 | `conventions/frontend.md` | **At ship** — the "Routing" bullet is **already stale** (it says `/space-stroker/game/games`, a dev-launch landing gated by `VUE_APP_DEV_LAUNCH`, and `/` → `/error`); rewrite it for the new prefix-free map |
+| 5 | `features/quick-tour-modals.md`, `features/games-history.md`, `features/fair-stats-menu.md`, `features/iframe-embedding.md`, `features/mobile-layout.md` | **At ship** — every `/space-stroker/...` path reference |
+
+---
+
+## 11. Tests
+
+### 11.1 Unit — `monkify-backend/src/SpaceStroker.Tests`
+
+| Test file | Test cases | Expected |
+| --- | --- | --- |
+| `UnitTests/Services/PlayerStatsServiceTests.cs` **(new)** | Player with no bets | `PlayerStats.Empty` — all zeros, no throw |
+| | Bets only in non-`RewardForWinnersCompleted` rounds | Everything zero (completed-rounds-only rule) |
+| | Mixed paid + free bets in completed rounds | `BetsPlaced`/`RoundsPlayed` count both; `TotalWagered` counts paid only |
+| | Free-bet-only player whose free bet matched the winner | Participation + `WinRate`/streaks populated; every money metric `0` |
+| | Credits present on winning bets | `TotalWon` = Σ `Credit`; `Net` = won − wagered (negative allowed); `BiggestSingleWin` = max per-bet credit |
+| | Paid win with stake > 0 | `BiggestWinMultiplier` = max(credit/stake); stake-0 bets never divide |
+| | Rounds W,L,W,W ordered by `EndDate` | `RoundsPlayed`=4, `WinRate`=0.75, `CurrentStreak`=2, `BestStreak`=2 |
+| | Most recent round lost | `CurrentStreak`=0, `BestStreak` unchanged |
+| | Two bets in one round, one matching | The round counts as **one** win, `BetsPlaced` counts **two** |
+| | Bets spread over two game types | `MostPlayedTypeName`/`MostPlayedTypeRounds` = the type with more completed rounds |
+| | Second call for the same wallet | Served from cache (mocked `ICacheService` `TryGet` hit; no second DB pass) |
+| `UnitTests/Handlers/GetPlayerStatsHandlerTests.cs` **(new)** | Null / whitespace `wallet` | Zeroed DTO, 200, service never called |
+| | Wallet with no `Player` row | Zeroed DTO, 200 — no thrown validation message |
+| | Known wallet | Service result mapped 1:1; `TokenSymbol`/`TokenDecimals` from `GeneralSettings.Operator.Token` |
+| `UnitTests/Api/RateLimitSettingsTests.cs` | **Unchanged — must still pass.** | The exact-set assertion proves no rate-limit rule was added for `/players/stats` (decision 21) |
+
+### 11.2 Integration (mandatory — `AGENTS.md` rule 8)
+
+`SpaceStroker.Tests.Integration/PlayerStatsFlowTests.cs` **(new)**, following `GlobalStatsFlowTests`:
+
+1. Snapshot `GET /players/stats?wallet=<fresh wallet>` → **all zeros** (proves the non-leaking unknown-wallet arm).
+2. `SeedIsolatedTypeAsync("IT Player Stats")` + `SeedWaitingBetsGameAsync`.
+3. Place two **paid** bets on distinct winning-eligible choices (`rabbit` / `monkey`) from two fresh
+   wallets, so a paid winner exists whichever the typer lands on, plus one **free** bet from the wallet
+   under test (proves free-vs-paid handling).
+4. `WaitForStatusAsync(gameId, RewardForWinnersCompleted, 120s)`.
+5. Re-read past the 30 s cache (the fixture's cache-bypass/wait helper, as `GlobalStatsFlowTests` does
+   for its 120 s key) and assert for the wallet under test: `RoundsPlayed == 1`, `BetsPlaced` matches,
+   `TotalWagered` counts paid only, `MostPlayedTypeName` is the seeded type, and — on the winning arm —
+   `TotalWon > 0`, `Net`, `BiggestSingleWin`, `CurrentStreak == 1`, `BestStreak == 1`, `WinRate == 1`.
+   `TokenSymbol`/`TokenDecimals` equal the fixture's.
+
+Run with `scripts/run_integration_tests.bat` (Docker required). Unit suite: `scripts/run_tests.bat`
+— **not** a bare `dotnet test`, which pulls in the `ProductionGames` Monte Carlo suite the script
+excludes by design.
+
+### 11.3 Frontend
+
+No test framework exists in `monkify-front` (no `.spec`/`.test` files). Verification is `yarn lint`
+plus the manual QA in §13 and the design-project screenshot compare.
+
+---
+
+## 12. Acceptance criteria
+
+Copied 1:1 from the Trello **Acceptance Criteria** checklist.
+
+1. **AC1** — Given the app is deployed, when a player loads `/`, then the starting page renders (no redirect to the lobby) and `/game` still renders today's plain lobby unchanged.
+2. **AC2** — Given any old `/space-stroker/<path>` URL, when it is loaded, then the player is redirected to the same path without the prefix and the destination renders normally.
+3. **AC3** — Given a URL that matches no route, when it is loaded, then the player lands on `/error` with a RETRY button and no indication of why (never a blank page).
+4. **AC4** — Given a mobile wallet deeplink hop that started before the deploy, when the wallet returns the player to an old prefixed URL, then the redirect resolves it to the new path and the pending bet flow resumes (no stranded bet).
+5. **AC5** — Given no wallet is connected, when `/` renders, then the cold welcome/onboarding state is shown with a connect invitation, and `GET /players/stats` is not called at all.
+6. **AC6** — Given a wallet is connected, when `/` renders, then the connected state is shown with the player's personal stats populated from `GET /players/stats?wallet=`.
+7. **AC7** — Given a connected wallet that has never bet, when `/` renders, then the personal stats section shows a zeroed empty state ("no rounds yet"), not an error or a broken layout.
+8. **AC8** — Given the player switches or disconnects their wallet while on `/`, when the change lands, then the personal stats refetch for the new identity and no value from the previous wallet remains on screen.
+9. **AC9** — Given a player bets in a round that reaches `RewardForWinnersCompleted`, when they open `/` after at most the cache TTL (30 s), then rounds played, bets placed and total wagered include it, and on a win total won / net / biggest win reflect the payout.
+10. **AC10** — Given a player whose only bets are free bets (`Amount == 0`), when their stats are read, then participation metrics (rounds played, bets placed, most-played mode, win rate, streaks) count them and every money metric is zero.
+11. **AC11** — Given an unknown or never-seen wallet address, when `GET /players/stats` is called, then zeroed stats are returned with 200 and nothing reveals whether that player exists.
+12. **AC12** — Given rounds a player bet in ordered by `Game.EndDate`, when streaks are computed, then a round counts as a win if any of that player's bets won, and current + best streak reflect that sequence.
+13. **AC13** — Given the game catalogue has loaded, when `/` renders, then the same game-mode cards the lobby shows are rendered, and selecting one routes to `/game/play?type=<id>`.
+14. **AC14** — Given the catalogue fetch fails transiently on the landing path, when `/` loads, then the shared `> RECONNECTING…` boot-recovery state is shown (including the CORS-blocked no-response 429 case), not `/error`.
+15. **AC15** — Given the app is embedded in an iframe, when `/` is loaded, then the player is redirected to `/game` and no dashboard section renders; and the embedded lobby behaves exactly as it does today.
+16. **AC16** — Given the player is on `/` standalone, when they use the quick links, then Stats / History / Fair / Settings open the same surfaces the ☰ menu opens; and given the app is embedded, those links are not rendered.
+17. **AC17** — Given card #130's how-it-works page has not shipped yet, when the player uses the "how it works" entry on `/`, then the existing Quick Tour overview modal opens (and the entry is built so #130 can repoint it to the new page).
+18. **AC18** — Given a first-time player and a loaded catalogue, when they land on `/`, then the Quick Tour overview auto-opens exactly once; and when they return to `/` after dismissing it, it does not reopen.
+19. **AC19** — Given the 18+/Terms gate, the display-name prompt, boot-recovery or the idle overlay is up, when `/` loads for a first-time player, then the Quick Tour overview stays closed until that overlay clears; and when embedded it never opens.
+20. **AC20** — Given the global stats teaser on `/` and the global section of `/game/stats`, when both are open, then the shared figures match exactly (same completed-round and free-bet rules, same token-native formatting).
+21. **AC21** — Given a phone viewport (`< lg`), when `/` renders in either state, then sections stack to a single column with no horizontal overflow; and under `html.light-graphics` no new section uses `backdrop-filter`, an infinite animation or `mix-blend-mode`.
+22. **AC22** — Given implementation is starting, when any markup for this page is written, then a new claude.ai/design project covering BOTH page states at desktop and phone widths exists, is built on the committed arcade tokens, and its URL is recorded on this card.
+23. **AC23** — Given the backend change ships, when the suites run, then `SpaceStroker.Tests.Integration` contains a happy-path test (bet → round completes → `GET /players/stats` returns the aggregate) and the `SpaceStroker.Tests` unit suite is green, with changed/added tests reported by name.
+
+---
+
+## 13. Manual QA (local Docker stack)
+
+1. `docker compose up -d --build` in `monkify-backend`; `yarn serve` in the front worktree (copy the
+   hub's `.env.local` + `yarn.lock` into the worktree first — see the workspace notes).
+2. `curl 'http://localhost:6001/players/stats?wallet=NEVER_SEEN'` → 200, all zeros (**AC11**).
+3. Load `http://localhost:8080/` with no wallet → cold state; DevTools Network shows **no**
+   `/players/stats` call (**AC5**), and the Quick Tour overview auto-opens once (**AC18**).
+4. Reload → the overview does **not** reopen. Clear `space-stroker.tour.seen` and reload with the
+   18+/Terms gate unaccepted → the tour stays closed until ACCEPT (**AC19**).
+5. Connect a wallet → connected state, personal stats populate (**AC6**); a wallet that has never bet
+   shows the zeroed empty state (**AC7**).
+6. Place a free bet, let the round settle, wait ~30 s, reload `/` → participation counts moved, money
+   stayed 0 (**AC9/AC10**).
+7. Switch wallets in the extension → figures clear and refetch; no previous-wallet number is ever
+   visible (**AC8**).
+8. Compare the `/` teaser tiles against `/game/stats` GLOBAL → identical (**AC20**).
+9. Visit `http://localhost:8080/space-stroker/game/stats?x=1#y` → lands on `/game/stats?x=1#y`
+   (**AC2**, and the shim-vs-catch-all ranking check from §7.1). Visit
+   `http://localhost:8080/nope/nope` → `/error` with RETRY (**AC3**).
+10. Open `public/embed-example.html` (or any page with `?embed=1`) pointing at `/` → redirected to
+    `/game`, no dashboard section, quick links absent (**AC15/AC16**).
+11. DevTools device toolbar at 390×844 → single column, no horizontal scroll, both states (**AC21**);
+    force `html.light-graphics` and confirm no blur/infinite animation/blend in the new sections.
+
+---
+
+## 14. Trello / pipeline
+
+- **Source card:** [#131 — Create a starting page…](https://trello.com/c/ijRUhWbX) — list
+  **Specs created**; the `## Implementation` block on the card carries branch, worktree and this spec's
+  path.
+- **Next:** `/monkify-implement-feature` (its Step 6b runs the blocking design pass), then
+  `/monkify-ship-feature`.
+
+---
+
+## 15. Revision log
+
+| Date | Change |
+| --- | --- |
+| 2026-07-30 | Initial spec from the refined card (#131, refined 2026-07-30). Settled decision 18 (streak semantics, §6.4) and decision 19 (30 s TTL, §6.6). Code findings added: the shared-modal-state blocker for Fair/Settings (§7.5), the stale `HomePage.vue` stub (§7.3), the rate-limit exact-set constraint (decision 21), the shim/catch-all ranking caveat (§7.1), and the verified "LB path rules are prefix-agnostic" claim (§9). |
