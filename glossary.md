@@ -317,6 +317,22 @@
   covers `www` and `app`. Its value is a **version string**, not a boolean, so bumping it re-prompts
   everyone after a material change to the Terms. Sibling of `ss_consent`; the cookie banner waits for
   it, because consent to analytics must stay separable from accepting the Terms.
+- **Quick Tour** — the pixel-art onboarding modal. Four of them: `overview` (the basics, on the first
+  lobby visit) plus three **mode archetypes** matched by game **SHAPE** — `preset`, `race`, `lottery`.
+  Shape, never `gameTypeId` or name: GUIDs change on every teardown+reseed and operators mint their own
+  types, so neither can key content. A **preset lottery matches no archetype** and gets no auto-tour
+  (deliberate no-op, not an error). Re-openable from the `How to play` ☰ row; absent when embedded.
+  See `features/quick-tour-modals.md`.
+- **Tour key** — a **versioned** tour identifier, `^[a-z]+@\d+$` (`overview@1`, `race@1`). The version
+  is the *only* mechanism for re-showing a tour: bumping `TOUR_VERSIONS` in `constants/quickTours.ts`
+  re-opens it once for everyone who dismissed the previous version. Everything ships at `@1`.
+- **`OperatorPlayer.SeenTours`** — the server half of "already dismissed": a nullable `varchar(200)`
+  **CSV of tour keys** (a storage detail — the wire format on both prefs endpoints is a JSON array).
+  Read/written through the **existing** `GET`/`PATCH /players/preferences`. The write **unions**, never
+  replaces, so two devices cannot clobber each other; a null list on the PATCH means "this request did
+  not touch the tours". NULL column = has seen nothing. The authoritative seen-set is
+  **`localStorage` ∪ this column** — production Main mints an anonymous empty-`sub` token, so most
+  players have no server identity at all until a wallet connects.
 - **Bet-less refund** — a refund issued from `RefundInvalidBetEvent` alone, for a stake whose `Bet` row
   was never persisted (every inline rejection in `RegisterBetHandler` runs before `InsertBet`).
   Idempotency keys on `CryptoTransactionLog.RelatedSignature` — the payment being reversed — because

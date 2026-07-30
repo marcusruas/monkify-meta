@@ -1,6 +1,21 @@
 # SpaceStroker — "Quick Tour Modals" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/quick-tour-modals` on **2026-07-30**. Distilled summary:
+> `../features/quick-tour-modals.md` (read that first; this file is the design archive).
+>
+> **Shipped deltas from this spec.** (1) The mode header art is **one sprite reel**
+> (`src/assets/tours/game-modes.gif` + `TourModeReel.vue`), not the three separate gifs copied from
+> `monkify-lp` that §7.8 lists. (2) The auto-open guards gained **two** overlays that did not exist
+> when this was written — the **18+/Terms gate** (`z-[70]`, which *outranks* the modal, so both
+> watchers take `termsAccepted` as a dependency and fire on ACCEPT) and the **display-name prompt**.
+> (3) The mobile overview is **4 steps**, folding PULL THE LEVER into "tap PLACE BET" to match the
+> mobile bet panel. (4) Two adjacent fixes rode the branch: a **sticky header** (with the
+> horizontal-overflow guard moved to `<html>`) and the **wallet cluster on the lobby/history/stats**.
+> (5) `walletForPrefs` moved into `usePrefsWallet` and carries the `!getPlayerIdFromToken()` arm.
+> (6) **AC18's Standard/4-step half is unverified** — Main is all-`SolanaToken`, so no Standard game
+> exists to enter.
+>
+> Originally refined via Trello card
 > [Quick Tour Modals](https://trello.com/c/dwPf7li8/115-quick-tour-modals) (2026-07-28).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
