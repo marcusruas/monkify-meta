@@ -1,7 +1,7 @@
 # Feature doc template (`features/<name>.md`)
 
 Distilled summary for agents. Authoritative deep design stays in `specs/`. Match the tone of
-`features/operators.md`.
+`features/remove-operators.md`.
 
 ```markdown
 # Feature — <Human name>
@@ -30,6 +30,7 @@ consumers, routes, composables, services.>
 
 - **Present tense** — "Players must send…", "The API returns…", not "We will add…".
 - **Behavior over implementation** — rules first; code paths second.
-- **Vague operator errors** — never document revealing contract status in user-facing copy.
+- **Vague auth errors** — never document a user-facing message that distinguishes *why* an auth or
+  wallet-proof check failed (see `constraints.md` §6).
 - **Link the spec** — do not paste the whole spec; distill what agents need on every task.
 - **Key code touchpoints** — verify paths exist on `main` after merge; no planned paths.

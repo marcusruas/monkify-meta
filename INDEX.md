@@ -23,10 +23,10 @@ When you are **implementing** a feature from a spec in `specs/` (not just readin
 
 1. Read the **target spec** end to end, plus its matching `features/` summary if one exists.
 2. Read **every other doc in `features/`** — and skim related shipped specs — so you know what
-   already exists in production (games, operators, payment flows, player identity, free-bet mode,
-   etc.). The spec you are building is one piece of a shared system, not an isolated module.
+   already exists in production (games, the settlement path, player identity, free-bet mode, etc.).
+   The spec you are building is one piece of a shared system, not an isolated module.
 3. While designing and coding, actively look for **cross-feature interactions**: shared entities
-   and tables, request headers, payment and payout paths, game/bet lifecycle, operator scoping,
+   and tables, request headers, payment and payout paths, game/bet lifecycle, the single ledger,
    frontend state and composables, migrations, SignalR contracts, and public API shape.
 4. If you find a **conflict, ambiguity, or gap** between the spec you are implementing and
    **existing behavior documented elsewhere** — and the target spec does **not** already resolve
@@ -68,26 +68,22 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `INDEX.md`                  | This map. Read first.                                                                    | Drafted              |
 | `architecture.md`           | Repos, services, MassTransit Postgres SQL transport, PostgreSQL, Redis, SignalR, Solana, EF, payment processors | Drafted              |
 | `constraints.md`            | Non-negotiable rules: secrets, branches per repo, unit tests, migrations                 | Drafted              |
-| `glossary.md`               | Game, Bet, Operator, Typer, GameParameters, etc.                                   | Drafted              |
+| `glossary.md`               | Game, Bet, Player, Typer, GameParameters, the ledger, etc.                         | Drafted              |
 | `conventions/backend.md`    | EF inline in DbContext, migrations in Consumers, MediatR handlers, MassTransit consumers | TODO (stub)          |
 | `conventions/frontend.md`   | Vue 3, composables (`src/hooks`), types in `src/types`, axios service layer              | TODO (stub)          |
 | `features/games.md`      | Game lifecycle, the typer, rewards                                                    | Drafted              |
-| `features/operators.md`     | Multi-tenant operators; distilled from `specs/operator-feature.md`                       | Shipped              |
 | `features/free-bet-mode.md` | Dev/QA free bets without Solana payment; distilled from `specs/free-bet-mode.md`         | Shipped              |
-| `features/operator-player-identity.md` | Unified `OperatorPlayer` model; remove `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
+| `features/player-identity.md` | Wallet-keyed `Player` model (was `OperatorPlayer`); no `Bet.Wallet`; distilled from `specs/operator-player-identity.md` | Shipped              |
+| `features/remove-operators.md` | **The deployment is the operator.** Deletes the whole multi-tenant apparatus — `Operator`/`OperatorToken`/`OperatorPlayer`, the `X-Launch-Token` surface, the off-chain `Standard` payment method + `PaymentMethod` enum, the per-operator RG pre-bet hook, `ISecretProtector`, operator branding and the FX/display-currency stack. Everything token/game/admin now reads from **`GeneralSettings:Operator`** (`Token` + `AdminToken` + `DefaultGames`, seeded create-only by name); player endpoints are **public** and identity is the **connected wallet** (`Player`), with the display-name write ed25519-signature-gated on a purpose-scoped nonce. **One ledger:** `CryptoTransactionLog` merged into `TransactionLog` (nullable `BetId`, `RelatedSignature`; `ExternalTransactionReference` → `Signature`). Greenfield migration. 492 unit + 77 integration green | Shipped              |
 | `features/typer-pacing-scalability.md` | Wall-clock typer pacing, fallback winner, duration bounds; distilled from `specs/typer-pacing-scalability.md` | Shipped              |
-| `features/launch-token-validation.md` | Signed casino launch flow (`X-Launch-Token`); `Operator.PaymentModel`; replaces `x-operator-id` | Shipped              |
-| `features/operator-wallet-api.md` | Regulated (Model A) operator wallet debit/credit/refund; unified `TransactionLog`; commission removed | Shipped              |
 | `features/dev-qol-stuff.md` | Dev QOL: operator from token (not URL), dev launch buttons (`VUE_APP_DEV_LAUNCH`), `SpaceStroker.Tests.Integration` suite | Shipped              |
-| `features/rg-pre-bet-hook.md` | Opt-in per-operator responsible-gaming pre-bet check (`IPreBetCheckService`); allow/deny/fail-closed before the wallet debit | Shipped              |
 | `features/player-customization-modal.md` | Header-gear modal: display name (all operators) + preferred display currency (regulated only); `GET /fx/rates`, `GET /players/preferences`, client-side USD→fiat rendering; display-only | Shipped              |
 | `features/game-chat.md`  | Per-game chat on `/game` via `ActiveGamesHub`; display-name identity, DB audit persistence + daily purge, client 200-char/1s limits, no history replay | Shipped (v2)         |
-| `features/operator-admin-page.md` | Operator self-service admin portal at `/space-stroker/admin`: admin-scoped RS256 token (`X-Admin-Token`), create/list/deactivate game types (all 3 modes), deactivate-or-create (no edit), dev header icon → `POST /dev/admin-token` | Shipped              |
+| `features/admin-page.md` | Admin portal at `/space-stroker/admin`: admin-scoped RS256 token (`X-Admin-Token`) validated against the **configured** keypair (no `iss`, no contract check), create/list/deactivate game types (all 3 modes), deactivate-or-create (no edit), `POST /dev/admin-token` outside production | Shipped              |
 | `features/sales-technical-documents.md` | B2B SaaS sales doc set in `sales/` — per-model pitch + under-NDA integration overview (Model A/B), anti-clone playbook; EN + PT-BR | Shipped              |
 | `features/game-pot-display.md` | Frontend-only: the `> POT:` line is shown for **all** game types (races + lottery), seeded from `Σ bets` (+ lottery base), live via `/Bets`, visible during/after the run; distilled from `specs/game-pot-display.md` | Shipped              |
 | `features/characters-away.md` | Near-miss reveal: bottom-docked `> N AWAY!` row per own choice (KMP tail-prefix `away = L − k`) that climbs, loops every 2s, and types out the winner on a win; in-game `> POT:`; backend emits the fallback-decided winner as a final terminal batch | Shipped              |
 | `features/audio-overhaul.md` | Frontend-only AI (Suno) arcade-chiptune audio: idle/starting/random-running background per game status, own-bet/button/error SFX, bettors-only victory/lose, menu loop on the games page, header mute+volume (`localStorage`); 9 mp3 assets (kept `error1.wav`). Proximity "coin" bleeps dropped. Also: `/`→`/space-stroker/game` redirect + game-connection teardown fix | Shipped              |
-| `features/payment-methods.md` | **Per-game** payment: `GameParameters.PaymentMethod` (`Standard`=off-chain USD wallet / `SolanaToken`=on-chain per-operator registered token, key AES-GCM encrypted at rest); unified `IPaymentMethodService` strategy+resolver + availability gating; ledger split (`Bet`/`TransactionLog` `ExternalTransactionReference`+`PaymentMethod`, new `CryptoTransactionLog`); admin token CRUD. **Removes `Operator.PaymentModel`** | Shipped              |
 | `features/iframe-embedding.md` | Frontend-only: a **regulated (Model A)** casino embeds the game in an `<iframe>` — `useEmbed` detection, secret-free `{source:'space-stroker'}` postMessage lifecycle API, embedded 401→`token-expired`+"relaunching" (never `/error`), fills the frame, permissive `frame-ancestors *`, example page + `EMBEDDING.md`; distilled from `specs/iframe-embedding.md` | Shipped              |
 | `features/iframe-crypto-games.md` | Frontend-only, **stacked on #3**: paid **`SolanaToken`** bets inside the iframe via a **same-origin wallet-bridge popup** (`/space-stroker/wallet-bridge`) that returns the on-chain signature+wallet (`source:'space-stroker-wallet'`); popup opened synchronously on click, token-native amounts, no new parent contract; distilled from `specs/iframe-crypto-games.md` | Shipped              |
 | `features/game-type-stats.md` | Per-game all-time stats per game type via `GET /games/{parametersId}/stats` (biggest pot, biggest single payout, rounds played, total paid out, hottest choice for preset types) — **on-demand aggregate + Redis cache, no new entity/migration**; only `RewardForWinnersCompleted` rounds count, free bets excluded, single currency per type, operator-scoped/vague; rendered in a lazy **STATS** tab of the `/game` right-side panel (bundled with **CHAT** via `GameSidePanel`) | Shipped              |
@@ -97,7 +93,6 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/solana-connection-rpc.md` | **`monkify-backend` + `monkify-front`:** keep the game playable under RPC rate limits. Frontend `useConnection` keeps the **public RPC as primary**; a custom `fetch` detects **HTTP 429** and `withFailover` retries the same call on a new backend **`POST /rpc`** proxy, sticky for a cooldown (`VUE_APP_SOLANA_RPC_PROXY_COOLDOWN_MS`), then drifts back — **429-only** (other errors surface as-is); `confirmTransaction` **always stays on the public connection**; unset `VUE_APP_SOLANA_PROXY_URL` ⇒ no-op passthrough. `sendToken` reworked: **single** idempotent-ATA + transfer (**one** approval), optional ComputeBudget **priority fee** (0 disables), integer/BigInt amount math, sign-once + `sendRawTransaction` (`preflightCommitment:'confirmed'` to match the blockhash). Backend `RpcController` = thin JSON-RPC passthrough to the reused key-bearing `Token.ClusterUrl`, gated by env-independent **Origin allowlist + 7-method allowlist + per-IP `*:/rpc` rate rule**, **not** launch-token gated; key never logged (`MaskRpcUrl`); **no entity/migration/consumer/secret**. | Shipped |
 | `features/wallet-display-name.md` | SolanaToken player display-name/preferences key off the **connected wallet** everywhere: backend prefs handlers **prefer the wallet when provided** (`sub`-first ignored the wallet for the dev/mixed operator whose token carries a `sub`); `InsertBet` carries `externalPlayerId` on live notifications; frontend reactive per-wallet load + "Connect wallet to customize" gate + currency hidden for SolanaToken | Shipped              |
 | `features/lottery-pot-stacking.md` | Un-won lottery pots **stack** into the next round via `Game.CarriedExtra` (preset no-winner draw carries losing stakes; under-subscription carries the base unchanged; paid win resets). `pot = Σ bets + LotteryPot + CarriedExtra`; carry decided once at rollover by `LotteryPotCarry`. Admin **deactivation transfers** the un-won pot to an eligible active lottery (same operator/method/token) or blocks. Player `> POT:` reflects the jackpot; the dev 1-min preset lottery `6L Minute Menagerie` is **no longer seeded** (2026-07-23) | Shipped              |
-| `features/main-production-operator.md` | Default **production** operator **"Main"** (fixed RFC-4122 id, registered Solana token from `GeneralSettings.Token`, 3 SolanaToken default types: `6X Main Sprint` race / `6X Main Derby` preset "horse race" / `6X Main Millions` 24h lottery, free bets off) seeded in **all** envs (**prod = Main only**; non-prod also kept DEV Cassino — **DEV Cassino removed in ALL envs by `main-only-player-entry`, 2026-07-24; entry is player-only, free bets ON outside prod**). Production-enabled `POST /launch-token/default` mints an **anonymous Main-only** launch token; SPA auto-mints on no-token (never embedded), silent re-mint on 401, real tokens win; prod `/space-stroker/game` → games. No schema/migration | Shipped              |
 | `features/mobile-layout.md` | **Frontend-only:** responsive **mobile layout** (`< lg`/1024px) for the games lobby + game screen, portrait + landscape phones, standalone & embedded. Lobby: 1-col condensed cards. Game: a `GAME \| CHAT·STATS` segmented view (absolutely-stacked so a hidden view can't intercept taps) — full-width fluid terminal + compact bet panel (**no amount field**, lever = PLACE BET); full-width chat/stats with an unread dot; monkey hidden. Header inline; customization modal scrolls + seed row wraps. Mobile SolanaToken bets via an **"OPEN IN WALLET APP"** deep-link (Phantom/Solflare in-app browser) reusing `sendToken`. `useIsMobile`/`useChatUnread`/`GameMobileTabs`/`walletDeepLink`. No backend. | Shipped              |
 | `features/terraform-gcp-deploy.md` | **Infra/DevOps:** production **GCP** deploy (Terraform + two local C# console tools in `monkify-meta/deploy/`, driven by an unversioned `secrets.<env>.json`). Cloud Run (API public autoscale / Consumers internal, CPU-always-on, before-API) + GCS/CDN front·lp + Cloud SQL 16 (`spacestroker`+`spacestroker_messaging`, private) + Memorystore + Artifact Registry + HTTPS LB·Cloud Armor + Secret Manager + Cloud DNS/managed-TLS; TF **persistent** (DNS/domain `prevent_destroy`) vs **workload** (teardown target, keeps domain). Backend Cloud-Run readiness (no game change): `/health` on Consumers (API already had one via `HomeController`), `UseForwardedHeaders`, config-driven CORS (`GeneralSettings:Cors`, default `app.spacestroker.com`). Real `apply` is an ops step. | Shipped |
 | `features/lp-space-stroker-relaunch.md` | **Frontend-only (LP):** the `monkify-lp` landing page relaunched as **SpaceStroker**, **token-free/USDC** — SPACE·STROKER wordmark, USDC stake, **Tokenomics removed** → honest **"No token. Yet."** note (token maybe later, no ticker/CA), roadmap de-tokenized + future-token tease, "Buy" gone / "Play now" + community "Join the troop", trust points (provably-fair + instant on-chain payouts + auto-refund). App URL + socials are flagged `TODO(ship)` placeholders. Art/story/skin unchanged. | Shipped              |
@@ -155,7 +150,6 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `specs/terraform-development-deploy.md` | **Infra/DevOps (Minor change), `monkify-meta` only:** make a **development** teardown wipe everything — after `teardown --env development` nothing Terraform created remains in GCP, only the **GoDaddy registration of `spacestroker.com`**. Because dev and prod share **one GCP project**, this first makes the stack **environment-scoped**: `name_prefix = spacestroker-<envCode>` derived from `secrets.<env>.json` → `environment` (`development→dev`; the full word breaks the SA 30-char and VPC-connector 25-char caps), per-env **state bucket** (`spacestroker-tfstate-<envCode>-<projectId>`), per-env **Cloud SQL + Memorystore**, per-env **Secret Manager ids / Artifact Registry repo / GCS buckets**, per-env `<env>.tfvars.json` (the `.auto.` name is dropped — it cross-contaminates envs) and `TF_DATA_DIR`, plus **fail-fast id-cap validation** (`validate` command). Teardown then destroys workload → persistent (zone + state bucket, via a **local state migration**; `prevent_destroy` can't be variable-driven ⇒ protected/ephemeral resource pairs on `protect_persistent`) → orphan-secret sweep → local generated-file cleanup, guarded by **hard-block on production** + **refuse the registrable apex zone**; GoDaddy is only warned about, never called. `deploy --env development` **auto re-bootstraps** the persistent layer. No backend/front change ⇒ **no unit/integration test**. | Shipped |
 | `specs/solana-rpc-api-key.md` | **Backend infra (Minor change), `monkify-backend` + `monkify-meta` — no frontend:** move the backend's Solana RPC off the free public endpoint onto the purchased **Helius** endpoint and harden the money path. `GeneralSettings:Token:ClusterUrl` carries the whole keyed URL, so it **moves from the deploy tool's `appConfig` (plaintext Cloud Run env) to `secrets` (Secret Manager)** — which also needs the id added to the two hard-coded lists in `deploy/terraform/workload/main.tf`; the committed `spacestrokersettings.json` stays on the **keyless public devnet** URL so local dev/Docker/tests need no key and burn no credits. Adds retry policies to `sendTransaction` + `getTokenAccountsByOwner` (which have **none** today), replaces the 3×fixed-1s policies with exponential+jitter that is 429/5xx-aware, and adds a **per-call fallback** to the public RPC after retries are exhausted (new `FallbackClusterUrl`, new `ISolanaRpcClientProvider`, one attempt, Error-logged, all four ops; safe on `sendTransaction` because identical signed bytes de-duplicate on-chain). RPC URLs are **masked to host-only** wherever logged. Both endpoints failing ⇒ today's `Unavailable` → `NeedsRefunding` → 12h sweep. **No schema/migration/API change; no integration test** (the suite swaps in `FakeSolanaService`). | Shipped |
 | `specs/games-history.md` | **Full-stack (`monkify-backend` + `monkify-front` + `monkify-meta`):** a standalone **Games History** page (`/space-stroker/game/history`, reached from a new header **menu button** that also holds Settings; audio + wallet stay on the header). New read-only `GET /games/{parametersId}/history?pageNumber&pageSize&mineOnly&wallet` → `PaginatedList<GameHistoryDto>` — **one game type at a time** (dropdown), **only `RewardForWinnersCompleted`** rounds, newest first, `pageSize`≤30, a **"mine only"** toggle. Rows: ended date · type name · winning choice · pot (`Σ paid bets` + lottery base + carried extra) · winner count · short `serverSeedHash` · nullable **own-bet** block (choice/stake/won/payout) — **no character stream**. Money rules mirror **game-type-stats** (free bets excluded, single currency per type, `useDisplayCurrency`); "mine" identity resolves like the prefs handlers (`wallet` ?? token `sub` → `OperatorPlayer.Id` → `Bet.OperatorPlayerId`). **Public page cached 5 min in Redis** per operator+type+page+size; caller columns joined **live**. **Verify = link-out only** to the existing `/verification` payload + `public/verify.html` (no in-app replay). **No entity/migration.** New feature ⇒ mandatory happy-path integration test + handler/service unit tests. | Shipped |
-| `features/main-only-player-entry.md` | Consolidate to a **single "Main" operator in every environment** (DEV Cassino seeding removed), make `/space-stroker/game` **always land a player in the lobby** (auto-mint Main; `DevLandingPage` picker + `VUE_APP_DEV_LAUNCH` retired), and make the **admin portal token-gated** (`#admin_token` captured at the game page → `/space-stroker/admin`; `DevAdminButton` + `POST /dev/admin-token` removed; `POST /dev/launch-token`→Main). Main default types free bets `!IsProduction()` with a startup **self-heal** (`ExecuteUpdate`, since the context is `NoTracking`). Fixes "same link → different game types". **Partially reverses `main-production-operator` #2.** No schema/migration. | Shipped |
 | `specs/main-only-player-entry.md` | **Full-stack (`monkify-backend` + `monkify-front` + `monkify-meta`):** remove the **DEV Cassino** operator so **only Main** is seeded in all envs; player-only entry at `/space-stroker/game` (retire the dev-launch picker + `VUE_APP_DEV_LAUNCH`); token-gated admin (capture `#admin_token` at the game page, remove `POST /dev/admin-token`, repoint `POST /dev/launch-token`→Main); Main default types `AllowFreeBet = !IsProduction()` with a startup self-heal (`ExecuteUpdate`; the `SpaceStrokerDbContext` is `NoTracking` by default so load-mutate-`SaveChanges` no-ops). Existing DEV Cassino rows purged by hand via `SpaceStroker.DbConsole` (no cleanup code). **No schema/migration.** New feature ⇒ happy-path integration test (`OperatorSeedingTests`) + `DevControllerTests` rewrite. | Shipped |
 | `specs/choice-exclusivity.md` | **Full-stack (`monkify-backend` + `monkify-front` + `monkify-meta`):** in **free-text games** (empty `PresetChoices`, race or lottery) each typed sequence is **exclusive** to the first player who bets it in a round; a different player who takes the same normalized sequence is rejected (and **auto-refunded** for a paid `SolanaToken` bet, since the on-chain debit precedes validation — free/Standard are reject-only). **Preset games unchanged** (shared choices). Enforced at two layers: an app-level cross-player check in `RegisterBetHandler.ValidateBetParameters` (routed through the existing `RefundInvalidBet` helper + new `ErrorMessages.ChoiceAlreadyTaken`) **and** a DB unique index on a new NULL-for-preset shadow column `Bet.ExclusiveChoice` (`(GameId, ExclusiveChoice)`; NULLs distinct → preset unaffected), with `GameService.InsertBet` surfacing the 23505 race-loser as `ChoiceAlreadyTaken`. Also fixes the raw-vs-normalized per-player duplicate query. Frontend pre-pay guard in `useGame.bet()` blocks a taken sequence before payment (best-effort; backend authoritative). Winner becomes singular ⇒ winner-takes-all (no reward-math change). New migration `AddBetExclusiveChoice`. New feature ⇒ mandatory happy-path integration test. | Shipped |
 | `features/choice-exclusivity.md` | Distilled: in **free-text games** (empty `PresetChoices`, race or lottery) each typed sequence is reserved by the **first** bettor per round; a different player taking the same normalized choice is rejected (`ErrorMessages.ChoiceAlreadyTaken`) and **auto-refunded** for a paid `SolanaToken` bet (Standard rejected pre-debit; free log-only). Cross-player check in `RegisterBetHandler.ValidateBetParameters` **and** a DB unique index `(GameId, ExclusiveChoice)` (`Bet.ExclusiveChoice` = normalized choice for free-text, `NULL` for preset ⇒ NULLs distinct, preset games still share); `GameService.InsertBet` maps the 23505 race-loser to `ChoiceAlreadyTakenException`. Same-player repeats still hit `DuplicateBet`; frontend pre-pay guard in `useGame.bet()`; free-text winner becomes singular ⇒ **winner-takes-all** (no reward-math change). | Shipped |
@@ -214,19 +208,44 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-- **Remove Operators** (Feature) — spec `specs/remove-operators.md`, branch
-  **`feature/remove-operators`** in **`monkify-backend`** + **`monkify-front`** + **`monkify-meta`**
-  (worktrees at `.worktrees/remove-operators/<repo>`), Trello #128
-  ([TWf2oXxi](https://trello.com/c/TWf2oXxi)) — **spec created 2026-07-29, not yet implemented.**
-  Deletes the operator concept outright: `Operator`/`OperatorToken` tables, the launch-token auth on
-  every player call, the `Standard` payment method + operator wallet API, the RG pre-bet hook and
-  `ISecretProtector`. `GeneralSettings:Operator` (token + default games + admin keypair) becomes the
-  operator. `OperatorPlayer` → wallet-keyed `Player`; **`TransactionLog` and `CryptoTransactionLog`
-  merge into one ledger** with a nullable `BetId`; `ExternalTransactionReference` → `Signature`.
-  Admin token survives (config-keyed, no `iss`); prefs writes gain an ed25519 wallet signature.
-  Greenfield migration.
+_None._
 
-- _Last shipped:_ **Legal Documentation & Per-Wallet Self-Exclusion** (Feature) —
+- _Last shipped:_ **Remove Operators** (Feature) — `feature/remove-operators`
+  (**`monkify-backend`** + **`monkify-front`** + **`monkify-meta`**), **merged 2026-07-30**,
+  Trello #128 ([TWf2oXxi](https://trello.com/c/TWf2oXxi)).
+  **The deployment is now the operator.** Space Stroker was built as a multi-tenant B2B platform — an
+  `Operator` row owned every game type, held an RS256 launch keypair, carried a contract window and
+  branding, and (via `OperatorToken`) owned the Solana token — but only one operator ever existed, so
+  the apparatus was deleted: **197 of 367 backend files** mentioned it. `GeneralSettings:Operator`
+  (`Token` + `AdminToken` + `DefaultGames`, seeded **create-only by name**) replaces it; onboarding
+  another operator means deploying again with a different `spacestrokersettings.json`.
+  Two shipped subsystems went with it rather than being made operator-less: the off-chain **`Standard`**
+  payment method (nobody left to debit — taking the `PaymentMethod` enum, the strategy/resolver, the
+  operator wallet API and the whole FX/display-currency stack) and the **per-operator RG pre-bet hook**
+  (it resolved off an `Operator` and no adapter was ever configured; first-party per-wallet
+  self-exclusion is untouched and is now the only RG control that runs). `ISecretProtector` went too —
+  encrypting a config value with a key stored in the same config bought nothing once no user could type
+  a private key into the admin portal.
+  **Every player endpoint is public** (a paid bet still costs real money, so the open surface is not
+  free to spam) and identity is the **connected wallet** (`OperatorPlayer` → `Player`). Because a wallet
+  address is public, the display-name write is gated on an **ed25519 signature** over a
+  **purpose-scoped** single-use nonce — the same mechanism self-exclusion already used, generalised so
+  a challenge minted for one flow cannot be replayed against the other.
+  **One ledger:** `CryptoTransactionLog` merged into `TransactionLog` (verified lossless — the
+  relationship was never one-to-many, and once `Standard` was gone the Solana path was the only writer,
+  making the generic table a strict subset). `BetId` became **nullable**, which turned the shipped
+  bet-less-refund special case into an ordinary row; `ExternalTransactionReference` → `Signature`.
+  **The mandatory integration test earned its keep**: `OperatorlessFlowTests` caught a real bug —
+  `GameService.InsertBet` detaches `bet.Game` and `bet.Player` before `AddAsync` so EF will not
+  re-insert a persisted graph, but restored only `Game`, so **every placement ledger row was written
+  with a blank `Wallet`**. 492 unit and 77 integration green. It also exposed a pre-existing ~17% flake
+  in the provably-fair happy path: the typer's character cap is a **fixed multiple** of the
+  expected-chars-to-win (`p95 × 0.9 / mean`) whatever the search space, so ~1 race in 6 reaches the cap
+  and is decided by the fallback.
+  ⚠️ Open: **`sales/` and `pitch/` still describe the multi-tenant operator product** and need their
+  own card. Greenfield migration — no in-flight round or carried lottery pot survives the deploy.
+
+- _Previously shipped:_ **Legal Documentation & Per-Wallet Self-Exclusion** (Feature) —
   `feature/legal-docs-self-exclusion` (**`monkify-backend`** + **`monkify-front`** + **`monkify-lp`** +
   **`monkify-meta`**), **merged 2026-07-29**, Trello #125 ([3kPjRxsJ](https://trello.com/c/3kPjRxsJ)).
   A blocking **18+/Terms gate** on both public properties (one version-carrying `ss_terms` cookie on
@@ -1352,8 +1371,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
   page instead of `/error`. **No schema/migration** (data seeding). **Integration test waived** for
   this card (seeding/config + thin mint endpoint + FE fallback; existing SolanaToken integration tests
   cover bet→run→reward). **363 unit + 34 integration tests green** (+3 `LaunchControllerTests`, +4
-  `DefaultGameParametersTests`). See `features/main-production-operator.md`; spec
-  `specs/main-production-operator.md`; Trello #60 ([bdkTZJOL](https://trello.com/c/bdkTZJOL)).
+  `DefaultGameParametersTests`). Spec `specs/main-production-operator.md` (the distilled `features/`
+  doc was deleted when operators were removed); Trello #60 ([bdkTZJOL](https://trello.com/c/bdkTZJOL)).
 - _Last shipped:_ **Mobile layout for the game screen** — `feature/mobile-layout`
   (`monkify-front` + `monkify-meta`; **no backend**), **shipped 2026-07-15**. **Frontend-only**
   responsive layout for the two main player pages (games lobby + game screen), portrait + landscape
@@ -1503,7 +1522,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
   currency only for Standard; one dev operator (fixed RFC-4122 GUID
   `11111111-1111-4111-8111-111111111111`) pre-provisioned for both methods, with **all** default game
   types Standard plus **3** SolanaToken defaults. Dev/greenfield migration. **314 unit + 28 integration
-  tests green.** See `features/payment-methods.md`; spec `specs/payment-methods-refactor.md`. Trello #38
+  tests green.** Spec `specs/payment-methods-refactor.md` (the distilled `features/` doc was deleted
+  when operators were removed). Trello #38
   ([FH5TMT0T](https://trello.com/c/FH5TMT0T)).
 - _Last shipped:_ **Audio overhaul with AI (3-card feature, one shared branch)** —
   `feature/audio-overhaul` (`monkify-front` + `monkify-meta`; **no backend**), 2026-07-07. A cohesive
@@ -1550,8 +1570,7 @@ see "Skills — ensure installed" in `AGENTS.md`.
   2026-07-06; operator self-service admin at `/space-stroker/admin` with admin-scoped RS256 token
   (`X-Admin-Token`, not contract-gated), create/list/deactivate game types (all 3 modes;
   deactivate-or-create, no edit), first-game-on-create event, deactivation refunds waiting
-  games. Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). See
-  `features/operator-admin-page.md`.
+  games. Trello #31 ([JZcMz3ma](https://trello.com/c/JZcMz3ma)). See `features/admin-page.md`.
 - Previously shipped: **Add chat (game chat v2)** — `feature/game-chat`, 2026-07-03; per-game
   chat on `/game` via `ActiveGamesHub` (`SendChatMessage`, display-name identity, audit DB +
   daily purge, client 200-char/1s limits, no history replay). Trello #4 (`7UnjEOom`). See
@@ -1572,7 +1591,8 @@ see "Skills — ensure installed" in `AGENTS.md`.
   called in `RegisterBetHandler` after local validation and **before** the wallet debit; allow /
   deny(reason, specific message) / **fail-closed** unavailable; applies to both payment models; no
   provider configured ⇒ skipped; log-only, no migration; frontend unchanged. Integration doc
-  descoped to a separate story. Trello #20. See `features/rg-pre-bet-hook.md`.)
+  descoped to a separate story. Trello #20. Spec `specs/rg-pre-bet-hook.md` — **the hook was deleted
+  outright when operators were removed**.)
 - Previously shipped: **DEV QOL Stuff** — `feature/dev-qol-stuff`, 2026-06-30; operator resolved
   from the launch token's `iss` instead of the URL (routes param-free; prod launch lands on
   `/space-stroker/game/games`), dev mint returns `{ token }` only + non-expiring, silent auto-mint
@@ -1585,14 +1605,16 @@ see "Skills — ensure installed" in `AGENTS.md`.
 - **Backend** (`monkify-backend`) is a layered .NET 8 solution split into a web **API**
 (`SpaceStroker.Api`) and a background worker host (`SpaceStroker.Consumers`). They share `SpaceStroker.Domain`,
 `SpaceStroker.Infrastructure`, and `SpaceStroker.Common`.
-- A **bet** is placed via `POST /games/{id}/bets`. The handler validates the on-chain Solana
-payment signature, persists the bet, and publishes a `BetPlacedEvent`.
-- **Games** progress through a state machine driven by **RabbitMQ events** (via MassTransit)
-consumed in `SpaceStroker.Consumers`: `BetPlaced → RunGame → RewardGame`, with
+- A **bet** is placed via `POST /games/{id}/bets` — a **public** endpoint; there is no launch token
+and no operator. The handler validates the on-chain Solana payment signature, persists the bet, writes
+the `Debit` placement row to the single `TransactionLog` ledger, and publishes a `BetPlacedEvent`.
+- **Games** progress through a state machine driven by events on the **MassTransit Postgres SQL
+transport** (no broker) consumed in `SpaceStroker.Consumers`: `BetPlaced → RunGame → RewardGame`, with
 `RefundInvalidBet` for failures.
 - The **typer** (`SpaceStrokerTyper`) runs the game: it emits random characters over **SignalR** until
 a bet's choice appears; winners are then rewarded via **Solana** SPL token transfers.
-- **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters, FX rate tables
-  (6h TTL), and backs SignalR. **Hangfire** (on PostgreSQL) schedules lottery games.
+- **PostgreSQL** (EF Core / Npgsql) is the store. **Redis** caches active parameters + global stats,
+  holds single-use wallet-proof nonces, and backs SignalR. **Hangfire** (on PostgreSQL) schedules
+  lottery games.
 - **Frontend** (`monkify-front`) is Vue 3 + TypeScript: composables in `src/hooks`, an axios
 service layer in `src/services`, and SignalR clients to stream the live typer + bets.

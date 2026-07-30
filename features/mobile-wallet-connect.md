@@ -73,7 +73,7 @@ unchanged.
   Android) and points to the in-app option. iOS returns in place.
 - **Errors stay vague and non-blocking.** Cancel/reject → generic message, lever resets, no stuck
   state, clean retry. A blockhash that expired during a slow approval → a plain "approval took too
-  long — tap PLACE BET to try again" (the session persists, so retry is one hop). No operator/contract
+  long — tap PLACE BET to try again" (the session persists, so retry is one hop). No contract
   status is ever revealed.
 - **No new npm dependency.** base58 is inlined in `mobileWalletProtocol.ts`; `tweetnacl` was already a
   dependency. Keeps the Docker `yarn install --frozen-lockfile` build intact.

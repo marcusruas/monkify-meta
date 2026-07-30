@@ -25,9 +25,10 @@ replaced. Audience: players who bounce from the LP into the app and used to feel
   README's `#5b7fcc`, plus a stray `#00b7ff`) are **collapsed to one cyan accent**; `--color-blue-vivid`
   survives only as a **legacy alias equal to the cyan** (a hex, `#47deee`, so existing
   `border-[var(--color-blue-vivid)]/opacity` markup keeps building).
-- **Operator theming preserved.** `--color-secondary` (default `#181b31`) is still the runtime
-  operator-themable variable (`useOperator.applyOperatorTheme` sets it on `:root`; Tailwind maps
-  `secondary` to it). The token port must never fold it into the void ramp.
+- **`--color-secondary` preserved.** Default `#181b31`. *(It was the runtime operator-themable
+  variable — `useOperator.applyOperatorTheme` set it on `:root`; that hook was deleted with operators,
+  so the token is now static, but it is still a token — Tailwind maps `secondary` to it.)*
+  The token port must never fold it into the void ramp.
 - **Material layer.** The LP arcade classes are re-implemented in `src/assets/styles/arcade.css`
   (`.arcade-panel(+--accent/--cyan)`, `.btn-arcade(+--primary/--cyan/--sm)`, `.chip`, `.crt-screen`,
   `.scanlines`, `.glow-*`/`.text-glow-*`, `.pixel-notch`, `.step-num`, `.pixel-rule`, `.title`, plus
@@ -94,9 +95,9 @@ replaced. Audience: players who bounce from the LP into the app and used to feel
 
 - The lobby **"GAME SELECTION" header keeps a cyan CRT glow** — the one remaining bright-cyan accent on
   the lobby, left as-is by choice (trivial to neutralize later).
-- **Admin / dev-only surfaces** (operator portal, dev-landing, wallet-bridge) still use Courier New and
+- **Admin / dev-only surfaces** (admin portal, wallet-bridge) still use Courier New and
   `--color-blue-vivid` (now cyan) borders — outside the player-facing scope; changing them risks
-  breaking un-QA'd operator forms.
+  breaking un-QA'd admin forms.
 - The third **DM Sans** font seen in the browser comes from the `solana-wallets-vue` widget's own
   stylesheet, not app chrome.
 - A pre-existing prettier nit in `src/services/mainService.ts` was cleared by `lint:fix` so the branch

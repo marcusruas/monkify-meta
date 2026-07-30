@@ -40,7 +40,6 @@ The fields on `GameParameters` define how a type behaves:
 | `AllowFreeBet`               | When `true`, game type accepts free bets if backend/frontend dev flags allow. Default `false`. See `free-bet-mode.md`. |
 | `PresetChoices`              | Optional fixed set of allowed choices → turns a type into a "pick from a list" game.       |
 | `LotteryParameters`          | Optional → turns a type into a scheduled, pot-based lottery.                               |
-| `OperatorId` / `Operator`    | Optional tenant owner (null = "house"). See `operators.md`.                                |
 
 
 `GameCharacterType` (`SpaceStroker.Domain/Games/ValueObjects/GameCharacterType.cs`) — the
@@ -78,9 +77,9 @@ seeded defaults don't combine them. The reward pot differs only for lottery (it 
 
 ### Seeded default games — dev seeds the SAME catalogue production runs (since 2026-07-23)
 
-`CreateDefaultGameParametersAsync` seeds **`DefaultGameParameters.GenerateMainDefaultParameters()`**
-for **both** the "DEV Cassino" operator (non-production only) and **Main** (all environments), so what
-is exercised locally is what ships:
+Game types are seeded from **`GeneralSettings:Operator:DefaultGames`** in `spacestrokersettings.json`
+(`SpaceStroker.Consumers` at startup, **create-only by name**), so what is exercised locally is what
+ships — there is one catalogue and one deployment:
 
 | Name          | Charset | Len | Mode                                                                                 |
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
@@ -88,16 +87,17 @@ is exercised locally is what ships:
 | Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) |
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
-All: min 2 players, stake 2, duplicates allowed, `PaymentMethod.SolanaToken` backed by that operator's
-registered token. Two things differ for the dev copies, both because they must: they point at the
-**DEV operator's own token**, and **`AllowFreeBet` stays `true`** so the free-bet path is testable
-without a funded wallet (Main has free bets **off**). If no dev token is registered they fall back to
-`Standard` so the local stack still has games.
+All: min 2 players, duplicates allowed, settled in the single configured token. **Seeding never
+rewrites an existing row** — a type is inserted only when no row with that name exists, so a restart
+cannot resurrect an admin-deactivated type or mutate one under a live round. The single exception is
+the free-bet self-heal, which forces `AllowFreeBet = !IsProduction()`: outside production the free-bet
+path is testable without a funded wallet, and in production free bets are off.
 
-> **`GenerateDefaultParameters()` / `GenerateCryptoDefaultParameters()` are no longer seeded.** The old
-> broad dev catalogue (Letters/Number/NumbersAndLetters races, preset races, 4h + 24h lotteries at
-> lengths 6 and 8, plus three crypto types) survives **only as test fixtures** — `ProductionGameTests`
-> picks a game from it by name and the integration harness seeds all of them. Do not trim those lists
+> **`DefaultGameParameters.cs` is deleted.** The old broad dev catalogue (Letters/Number/
+> NumbersAndLetters races, preset races, 4h + 24h lotteries at lengths 6 and 8) survives **only as test
+> fixtures** — `SpaceStroker.Tests/UnitTests/Shared/TestGameParameters.cs` for the unit suite and
+> `SpaceStroker.Tests.Integration/Harness/IntegrationGameParameters.cs` for the integration harness.
+> `ProductionGameTests` picks a game from it by name. Do not trim those lists
 > to match dev, and do not expect those game names to exist in a running stack.
 
 
@@ -106,8 +106,8 @@ without a funded wallet (Main has free bets **off**). If no dev token is registe
 ## 3. How game types are handled in the frontend
 
 1. **Fetch:** `GameSelectPage` → `GameTypes.vue` calls `mainService.getGamesTypes()`
-  (`GET /games/active-types`), returning `ActiveGame[]` (mapped from `GameParametersDto`,
-   operator-scoped by the `operator-id` header).
+  (`GET /games/active-types`), returning `ActiveGame[]` (mapped from `GameParametersDto`; the endpoint
+   is public and takes no auth header).
 2. **Render cards:** `GameTypes.vue` maps each type to an `ActiveGameCard`, choosing the card
   image by content:
   - `Number` → number art; `NumbersAndLetters` → "free" art; `> 1` `presetChoices` → horse/animal
@@ -151,7 +151,7 @@ Key frontend types (`src/types/index.ts`): `ActiveGame` (incl. `lotteryParameter
   recent-bets feed.
 5. **Try to start** (`BetPlacedConsumer`): **player validation runs first** — it counts distinct
   players (free bets each count **individually**; paid/identified bets de-duplicate by
-  `OperatorPlayerId`). If the count ≥ `MinimumNumberOfPlayers`, the consumer **waits out the remaining
+  `PlayerId`). If the count ≥ `MinimumNumberOfPlayers`, the consumer **waits out the remaining
   `MinimumWaitPeriodForBets`** (so the game always honours its full betting window even when it
   fills early) and then calls `TryStartGame` (`WaitingBets → GameStarting`, sets `StartDate`,
   via a concurrency-safe conditional update so only one caller wins); after the start delay it
@@ -293,11 +293,11 @@ it pays them, so a deferred set would shrink mid-payout and over-reward later wi
     `Rewarded` but receive no payout, so they do **not** dilute the paid winners' share (a free + paid
     winner ⇒ the paid winner takes the whole pot).
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
-  - **Crypto commission (`SolanaToken` only):** subtract `rate × max(0, winnerReward − ownStake −
-    houseFundedShare)`, where `rate = GeneralSettings.Token.CommissionPercentage / 100` (default 0.5%,
-    `0` disables) and `houseFundedShare = (LotteryPot + CarriedExtra) / payableWinnerCount`. The cut
-    comes only from **profit above the winner's own stake**, and the house-funded lottery base is
-    excluded. **Standard games apply no commission.** See `features/crypto-commission.md`.
+  - **House commission:** subtract `rate × max(0, winnerReward − ownStake − houseFundedShare)`, where
+    `rate = GeneralSettings.Operator.Token.CommissionPercentage / 100` (default 0.5%, `0` disables) and
+    `houseFundedShare = (LotteryPot + CarriedExtra) / payableWinnerCount`. The cut comes only from
+    **profit above the winner's own stake**, and the house-funded lottery base is excluded. It now
+    applies to **every** game type, because there is only one. See `features/crypto-commission.md`.
   - Subtract this bet's already-paid **`Credit`** ledger rows: `winnerReward -= Σ(Credit-type TransactionLog amounts)`.
   If `≤ 0` → `BetHasAlreadyBeenRewarded` (idempotency guard for retries).
   - Round down to `TokenSettings.Decimals`; also compute the smallest-unit integer for the transfer.
@@ -305,10 +305,11 @@ it pays them, so a deferred set would shrink mid-payout and over-reward later wi
 minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down; `≤ 0` →
 `BetHasAlreadyBeenRefunded`. (`Debit` rows are never subtracted.)
 
-> **Payout/refund routing is per payment model.** Crypto operators (Model B) move money on-chain via
-> `ISolanaService`; regulated operators (Model A) instruct the operator's wallet API (debit at bet time,
-> credit on reward, refund on cancellation). Every movement is recorded in the unified `TransactionLog`
-> (`Credit`/`Debit`/`Refund`); the `RefundLog` table was removed. See `features/operator-wallet-api.md`.
+> **There is one payout/refund path:** on-chain via `ISolanaService`, against the token in
+> `GeneralSettings:Operator:Token`. Every movement is recorded as exactly one **`TransactionLog`** row
+> (`Debit` placement / `Credit` payout / `Refund`), carrying the on-chain detail inline and a
+> **nullable `BetId`**. `RefundLog` and then `CryptoTransactionLog` were both folded into it.
+> See `features/remove-operators.md`.
 
 ---
 
@@ -331,22 +332,21 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 - **On-chain payment invalid** (`ISolanaService.ValidateBetPayment`) → validation failure.
 - **Duplicate bet** (same game+wallet+choice): same signature → `DuplicateBetError`;
 different signature → refund (`DuplicateBetRefundedError`).
-- **Per-round bet limits** (paid, identified bets only — gate `!isFreeBet && OperatorPlayerId != null`),
-checked right after the duplicate check and before the RG hook and the `Standard` debit:
+- **Per-round bet limits** (paid, identified bets only — gate `!isFreeBet && PlayerId != null`),
+checked right after the duplicate check:
   - **One bet per player per round in preset types** (non-empty `PresetChoices`, e.g. *Beast Mode*):
   a second bet is rejected whatever choice it picks → `OneBetPerPresetRound`. Free-text types are
   unaffected — choice exclusivity already stops two players sharing a sequence.
   - **No second bet while you are the round's only bettor** (every type): rejected with
-  `SecondBetNeedsAnotherPlayer` until a bet from a **different** `OperatorPlayerId` exists (a `NULL`
+  `SecondBetNeedsAnotherPlayer` until a bet from a **different** `PlayerId` exists (a `NULL`
   one — an anonymous free bet by someone else — counts); after that there is **no further cap**.
   - Both count **every persisted `Bet` row regardless of `Status`**, so an admin-refunded bet still
   holds your preset slot. Both reset on rollover. Blocked bets take the same `RefundInvalidBet` path
-  as `ChoiceAlreadyTaken` (paid `SolanaToken` refunded, `Standard` rejected pre-debit, free log-only).
+  as `ChoiceAlreadyTaken` (a paid stake is refunded, a free bet is log-only).
   Application-level only — no unique index, so two simultaneous same-wallet bets can both slip
   through (bounded, no money lost). See `specs/fix-bets-logic.md`.
-- **Game not accepting bets / not found / operator expired** → refund with the vague
-`GameNotValidForBets` (never reveals operator/contract state — see `operators.md`,
-`constraints.md`).
+- **Game not accepting bets / not found** → refund with the vague `GameNotValidForBets` (see
+`constraints.md` §6).
 - Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning
   (**except free bets** — log only, no refund event; see `free-bet-mode.md`).
 

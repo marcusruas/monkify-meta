@@ -1,7 +1,8 @@
 # SpaceStroker — Glossary
 
 > Domain vocabulary for agents. Source of truth: `monkify-backend/src/SpaceStroker.Domain`.
-> See `architecture.md` for how terms fit together; `features/operators.md` for operator rules.
+> See `architecture.md` for how terms fit together; `features/remove-operators.md` for why there is
+> no operator/tenant vocabulary here any more.
 
 - **Brand — "Space Stroker" (consumer) vs `SpaceStroker` (technical)** — as of the #74 frontend rebrand
   (shipped 2026-07-21, `specs/rebrand-space-stroker.md`), the **consumer-facing brand is Space
@@ -16,25 +17,26 @@
 - **Game** — one round of the game for a given game type. Has a status lifecycle
   (`WaitingBets → GameStarting → InProgress → Ended → RewardForWinners…`). Entity: `Game`.
 - **GameParameters** — a "game type" / configuration (name, required amount, allowed characters,
-  min players, choice length, lottery params, **required** `OperatorId`, a **`PaymentMethod`**, and a
-  nullable **`OperatorTokenId`** set only for `SolanaToken`). Entity: `GameParameters`.
-- **Bet** — a player's wager on a `Game`: a `Choice` (the sequence they bet on), an `Amount`
-  (Standard = USD; SolanaToken = token-native), optional `OperatorPlayerId` FK (NULL for anonymous free
-  bets), a **`PaymentMethod`** (copied from the game type), a nullable **`ExternalTransactionReference`**
-  (SolanaToken → the on-chain signature; Standard → the wallet debit ref), a provably-fair **`Seed`**
-  (a 64-char `HMAC-SHA256(clientSeed, Nonce)` hex — the raw client seed never reaches the server), and a
-  per-bet **`Nonce`**. Entity: `Bet`. The old `PaymentSignature` column is **removed**. On-chain payout/refund address is resolved from linked
-  `OperatorPlayer.ExternalPlayerId`, not stored on the bet row.
-- **OperatorPlayer** — operator-scoped player identity. Fields include `ExternalPlayerId` (Solana
-  wallet pubkey or casino player id), optional `DisplayName`, `Currency` (defaults to USD),
-  `LastSeenAt`. Unique on `(OperatorId, ExternalPlayerId)`. No PII. (`IsCrypto` was removed; crypto-ness
-  is now the game type's `PaymentMethod`, not an operator property.) Entity: `OperatorPlayer`. See
-  `features/operator-player-identity.md`.
+  min players, choice length, lottery params). Flat — it belongs to no tenant, and every type settles
+  in the one configured token, so the old `OperatorId`, `PaymentMethod` and `OperatorTokenId` columns
+  are gone. Rows are seeded from `GeneralSettings:Operator:DefaultGames` (create-only by name) and
+  managed in the admin portal. Entity: `GameParameters`.
+- **Bet** — a player's wager on a `Game`: a `Choice` (the sequence they bet on), a token-native
+  `Amount`, an optional `PlayerId` FK (NULL for anonymous free bets), a nullable indexed **`Signature`**
+  (the on-chain payment signature — renamed from `ExternalTransactionReference` so the column matches
+  the `paymentSignature` name the wire contract always used), a provably-fair **`Seed`** (a 64-char
+  `HMAC-SHA256(clientSeed, Nonce)` hex — the raw client seed never reaches the server), and a per-bet
+  **`Nonce`**. Entity: `Bet`. The on-chain payout/refund address is resolved from the linked
+  `Player.ExternalPlayerId`, not stored on the bet row.
+- **Player** — player identity, and there is exactly one source of it: the **connected wallet**.
+  Fields: `ExternalPlayerId` (the wallet pubkey — uniquely indexed on its own), optional `DisplayName`,
+  `LastSeenAt`, and the self-exclusion pair `SelfExcludedAt`/`SelfExcludedUntil`. No PII. Entity:
+  `Player` (was `OperatorPlayer`, keyed `(OperatorId, ExternalPlayerId)`; the `Currency` column went
+  with the `Standard` payment method). See `features/player-identity.md`.
 - **Free bet** — dev/QA-only bet with `Amount = 0`, allowed only when backend `AllowFreeBets`, game
-  `AllowFreeBet`, and (for UI) the frontend flag are all enabled. No debit/credit/refund under **either**
-  payment method; a free `SolanaToken` game also skips wallet-connect. Detected via
-  `BetExtensions.IsFreeBet` (now `Amount == 0`; the old empty-`PaymentSignature` check is gone). See
-  `features/free-bet-mode.md`.
+  `AllowFreeBet`, and (for UI) the frontend flag are all enabled. No debit/credit/refund and no ledger
+  row; it also skips wallet-connect, so it carries no wallet and stays anonymous. Detected via
+  `BetExtensions.IsFreeBet` (`Amount == 0`). See `features/free-bet-mode.md`.
 - **AllowFreeBet** — bool on `GameParameters` (DB default `false`). Per game type; exposed as
   `allowFreeBet` on active-types API responses.
 - **AllowFreeBets** — bool on `GeneralSettings.Games` in `spacestrokersettings.json`. Global backend
@@ -74,7 +76,7 @@
   derived `Bet.Seed` unique and lets a bettor prove `Bet.Seed == HMAC(clientSeed, nonce)` without
   exposing the client seed.
 - **Provably-fair verification** — reproducing a round's outcome from published inputs. Exposed by the
-  reveal-gated `GET /games/{id}/verification` (operator-scoped): pre-Ended returns `serverSeedHash` +
+  reveal-gated, public `GET /games/{id}/verification`: pre-Ended returns `serverSeedHash` +
   ordered bet seeds/choices/nonces + `characterPool`/`queueLength`/`maxCharacters`; post-Ended adds
   `serverSeed` + `winningChoice` + `winnerDecidedByFallback` + `charactersTyped` (the raw `clientSeed`
   is never returned). Anyone replays the HMAC keystream to reproduce the winner. Players do it in the
@@ -94,111 +96,66 @@
   on a win. Computed entirely client-side from the existing `Terminal` stream (`utils/nearMiss.ts` +
   `hooks/useNearMiss.ts`, rendered in `GameTerminal.vue` beside the in-game `> POT:` line). No effect
   on outcomes, payouts, pacing, or the seed. See `features/characters-away.md`.
-- **Operator** — a casino/betting platform tenant (e.g. BetMGM). Every `GameParameters` row
-  belongs to exactly one operator (`OperatorId` required — no house mode). Scoped on REST via the
-  signed **launch token** (`X-Launch-Token`; the operator id is the token `iss`); players enter at
-  `/space-stroker/game/games` (the operator is read from the token, not the URL). Fields:
-  `ContractStartDate`, optional `ContractEndDate` (null = never
-  expires), **`LaunchPublicKey`** (+ optional `LaunchKeyId`), and a collection of registered
-  **`OperatorToken`s**. The old operator-level `PaymentModel` is **removed** — payment is a per-game
-  concern (see **PaymentMethod**). Entity: `Operator`.
-- **Main (default production operator)** — the operator named `Main` (fixed RFC-4122 GUID
-  `22222222-2222-4222-8222-222222222222`, active, no end date) seeded by `SpaceStroker.Consumers` in
-  **every** environment and the **only** seeded operator in production. Pre-provisioned with a
-  registered `OperatorToken` (from `GeneralSettings.Token`) and three **SolanaToken** default game
-  types (`6X Main Sprint` race, `6X Main Derby` preset "horse race", `6X Main Millions` 24h lottery;
-  free bets off). A standalone visitor with no launch token is issued an **anonymous** Main token so the
-  public game works without a casino redirect. See `features/main-production-operator.md`.
-- **`POST /launch-token/default`** — a **production-enabled** endpoint (`LaunchController`, **not** under
-  `/dev`, not token-guarded) that mints an **anonymous** (empty `sub`) RS256 launch token **only** for
-  the **Main** operator, signed with Main's own launch key (`MainSigningPrivateKeyPem`; TTL
-  `MainTokenTtlSeconds`, default 3600s). The SPA calls it when no fragment/stored token exists (never
-  when embedded); a 401 on the resulting token triggers a **silent re-mint**. Real operators' launch
-  tokens are unaffected. See `features/main-production-operator.md`.
-- **Launch token** — a casino-signed **RS256 JWT** that proves operator + player identity; required
-  (`X-Launch-Token` header) on every operator-scoped REST call and validated by middleware in
-  `SpaceStroker.Api` against the operator's `LaunchPublicKey`. Claims: `iss`=operatorId, `sub`=player id,
-  `exp`/`iat`/`jti`. Failures return a vague 401. See `features/launch-token-validation.md`.
-- **Admin token** — an operator-signed **RS256 JWT** with `scope = "admin"`, `iss = operatorId`,
-  **no `sub`**, sent as **`X-Admin-Token`** on `/admin/*` REST calls. Validated by
-  `AdminTokenValidationMiddleware` against the same `LaunchPublicKey`; **not** contract-gated. Admin
-  and launch tokens are not interchangeable. Entry:
-  `/space-stroker/admin#admin_token=<jwt>`. See `features/operator-admin-page.md`.
-- **IAdminContext** — scoped request identity set by admin middleware; carries `OperatorId` only
-  (no player). Used by admin handlers; kept separate from `ILaunchContext`.
-- **PaymentMethod** — enum on **`GameParameters`** (`Standard = 0`, `SolanaToken = 1`) that decides
-  how a game type settles. **Standard** = off-chain via the operator's wallet adapter, always USD,
-  player = launch-token `sub`, no wallet. **SolanaToken** = on-chain in a per-operator registered
-  `OperatorToken`, token-native units, player = connected wallet + signature. Replaces the removed
-  operator-level `Operator.PaymentModel`. Dispatched by `IPaymentMethodResolver`. See
-  `features/payment-methods.md`.
-- **OperatorToken** — a per-operator registered SPL token backing `SolanaToken` games. Fields:
-  `Label` (display symbol), `MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`,
-  `TokenOwnerPrivateKey` (**encrypted at rest**, never returned/logged), `Decimals`, `Active`. Managed
-  in the admin portal (register / list / deactivate — no edit). Entity: `OperatorToken`.
-- **SolanaTokenDescriptor** — an immutable record (`MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`,
-  `TokenOwnerPrivateKey`, `Decimals`) passed to `ISolanaService` per call so it settles against the
-  game's token (private key already decrypted by the caller — Consumers only). Replaces per-bet reads
-  of the global `GeneralSettings.Token`.
-- **IPaymentMethodService / resolver** — the unified settlement strategy (`Debit`/`Credit`/`Refund` →
-  `PaymentResult`) with `StandardPaymentMethodService` (→ `IOperatorWalletService`) and
-  `SolanaTokenPaymentMethodService` (→ `ISolanaService` + a `SolanaTokenDescriptor`).
-  `IPaymentMethodResolver.Resolve(parameters)` keys on the game's `PaymentMethod`;
-  `GetAvailableMethods(operatorId)` returns Standard iff a wallet provider is configured and SolanaToken
-  iff ≥1 active `OperatorToken`. See `features/payment-methods.md`.
-- **CryptoTransactionLog** — on-chain detail for a `SolanaToken` movement, always tied to a `Bet`:
-  `Signature`, `Wallet`, `MintAddress`, `SenderAccount`, token-native `Amount`, `RawTokenAmount`,
-  `Decimals`, `Reason`. `TransactionLogId` is **null** for the bet-**placement** record ("what the user
-  paid") and **set** for a Credit/Refund movement. Entity: `CryptoTransactionLog`.
-- **ISecretProtector** — encryption-at-rest for `OperatorToken.TokenOwnerPrivateKey`. Shipped impl
-  `AesSecretProtector` = **AES-256-GCM**, key derived (SHA-256) from the
-  `GeneralSettings.SecretProtection.Key` passphrase shared by both hosts; base64
-  `[nonce][tag][ciphertext]`. The API `Protect`s on register; Consumers `Unprotect`s only to build a
-  `SolanaTokenDescriptor` for a transfer. *(Deviates from the spec's Data-Protection plan.)*
-- **ContractIsActive** — domain helper on `Operator`: true when `ContractStartDate <= UtcNow` and
-  contract has not expired. Inactive operators return empty data or redirect to `/error` (vague). The
-  active-operator lookup is cached via `IOperatorService.GetActiveOperatorById`.
-- **TransactionLog** — the **unified money-movement ledger** per bet. Each row has a `TransactionLogType`
-  (`Credit | Debit | Refund`), `Amount`, a **`PaymentMethod`**, a nullable `ExternalTransactionReference`
-  (the operator wallet ref for `Standard`; the on-chain signature for `SolanaToken`), and nullable
-  `Reason`. The old `Signature` column is **removed** (on-chain specifics now live in
-  `CryptoTransactionLog`). Used for reward/refund idempotency: reward subtraction reads `Credit` rows,
-  the already-refunded guard reads `Refund` rows. (The separate `RefundLog` table was folded in here.)
-  See `features/payment-methods.md`.
+- **Operator** — **a configuration section, not an entity.** `GeneralSettings:Operator` in
+  `spacestrokersettings.json` holds everything that used to hang off an `Operator` row: **`Token`**
+  (cluster URLs, symbol, mint, sender, owner keypair, decimals, `CommissionPercentage`, cache TTLs),
+  **`AdminToken`** (RS256 keypair PEM + TTL) and **`DefaultGames`** (the seeded game types). The
+  deployment *is* the operator — onboarding another one means deploying again with a different
+  `spacestrokersettings.json`. There is no `Operator` table, no `OperatorId`, no contract window and no
+  tenant scoping anywhere. See `features/remove-operators.md`.
+- **DefaultGames** — the game-type definitions under `GeneralSettings:Operator:DefaultGames`, seeded
+  by `SpaceStroker.Consumers` at startup **create-only by name**: a type is inserted only when no row
+  with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
+  admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
+  (6-char race), **Beast Mode** (preset, 8 beasts) and **Space Jackpot** (24h lottery). The one
+  exception to "never rewritten" is the free-bet self-heal, which forces
+  `AllowFreeBet = !IsProduction()`.
+- **Admin token** — an **RS256 JWT** with `scope = "admin"` and **no `sub`**, sent as
+  **`X-Admin-Token`** on `/admin/*` REST calls. Signed with
+  `GeneralSettings:Operator:AdminToken:PrivateKeyPem` and validated by `AdminTokenValidationMiddleware`
+  against the matching `PublicKeyPem` — **no `iss` check, no contract check**. It is the **only**
+  authenticated surface left; player endpoints are public. Entry:
+  `/space-stroker/admin#admin_token=<jwt>`; `POST /dev/admin-token` mints one outside production. See
+  `features/admin-page.md`.
+- **IAdminContext** — scoped request identity set by the admin middleware. It no longer carries a
+  tenant (there is none) — it exists so admin handlers keep a uniform request-identity shape.
+- **The configured token** — there is exactly **one**, read from `GeneralSettings:Operator:Token`
+  (`Symbol`, `MintAddress`, `SenderAccount`, `TokenOwnerPublicKey`, `TokenOwnerPrivateKey`, `Decimals`,
+  `CommissionPercentage`, cluster URLs, cache TTLs). Every game settles in it, so every amount in the
+  system is token-native and there is no per-game payment choice, no `PaymentMethod` enum, no
+  registered-token entity and no settlement-strategy indirection — `ISolanaService` is called directly.
+  Its owner private key is **not** encrypted at rest: it lives in config, and encrypting a config value
+  with a key stored in the same config bought nothing once no user could type a private key into the
+  admin portal (`ISecretProtector`/`AesSecretProtector` are deleted). Deployed environments inject it
+  via Secret Manager; the committed file carries a placeholder.
+- **TransactionLog** — **THE ledger**: one row per money movement, and the only one
+  (`CryptoTransactionLog` was merged in and dropped, as `RefundLog` had been before it). Columns:
+  **nullable `BetId`**, `Type` (`Credit | Debit | Refund`), token-native `Amount`, `Signature` (this
+  movement's own on-chain transaction), `RelatedSignature` (for a refund, the payment being reversed),
+  `Wallet`, `MintAddress`, `SenderAccount`, `RawTokenAmount`, `Decimals`, `Reason`.
+  **A placement is a `Debit`** — the stake leaving the player — and must never be read as a payout;
+  `BetDomainService` never subtracted `Debit` rows, so reward and already-refunded math is unchanged
+  (reward subtraction reads `Credit`, the already-refunded guard reads `Refund`). Any query filtering
+  by bet id must tolerate the **null `BetId`** of a bet-less refund. See `features/remove-operators.md`.
 - **TransactionLogType** — enum on `TransactionLog` (`Credit = 0`, `Debit = 1`, `Refund = 2`); `Credit` is
   the default so legacy reward rows keep their meaning.
-- **Operator wallet API** — the off-chain settlement path for **`Standard`** game types: the
-  operator's own wallet that SpaceStroker instructs to **debit** stakes, **credit** winnings, and **refund**
-  cancelled bets in USD (SpaceStroker holds no float). Integrated via a per-operator adapter
-  (`IOperatorWalletService`) selected by a named provider in config (`IOperatorWalletResolver`), reached
-  through `StandardPaymentMethodService`. `SolanaToken` games settle on-chain instead. See
-  `features/operator-wallet-api.md` + `features/payment-methods.md`.
 - **NeedsRefunding / Refunded lifecycle** — `Bet.Status` values that are now a real, self-clearing
   refund lifecycle. `RefundInvalidBetConsumer` sets a bet to **`Refunded`** on any **successful**
   refund (all refund paths, incl. the inline lottery/deactivation/invalid-bet triggers — which used to
   leave it `Made`); a **failed** refund leaves the status so it is retried. A bet in **`NeedsRefunding`**
   is one flagged for refund but not yet paid back. See `features/refund-safeguards.md`.
 - **Pending-refund sweep** — `PendingRefundSweepJob`, a Hangfire recurring job in `SpaceStroker.Consumers`
-  (cron `0 */12 * * *`, id `pending-refund-sweep`) that loads every `NeedsRefunding` bet (all
-  operators, any game state) and publishes a `RefundInvalidBetEvent` for each so the refund consumer
-  pays it back and clears it to `Refunded`; failures retry on the next run. Fed by the operator-admin
+  (cron `0 */12 * * *`, id `pending-refund-sweep`) that loads every `NeedsRefunding` bet (any game
+  state) and publishes a `RefundInvalidBetEvent` for each so the refund consumer pays it back and
+  clears it to `Refunded`; failures retry on the next run. Fed by the admin
   **`POST /admin/bets/refund { paymentSignature }`** action (the only producer of `NeedsRefunding`),
-  which marks a bet for refund by its `ExternalTransactionReference` (operator-scoped; blocks
-  Rewarded/Refunded/free; idempotent). See `features/refund-safeguards.md`.
-- **Pre-bet check / RG hook** — an **opt-in**, per-operator responsible-gaming check SpaceStroker calls in
-  `RegisterBetHandler` after local validation and **before** the wallet debit, so the operator can
-  **allow or deny** a bet (self-exclusion, limits, cooling-off, KYC, blocked). Per-operator adapter
-  (`IPreBetCheckService`) selected by a named provider in `GeneralSettings.OperatorRgChecks`
-  (`IPreBetCheckResolver`, which returns **null → skip** when unconfigured — the default). Applies to
-  **both** payment methods (it runs before settlement, whichever strategy applies). A denial returns a
-  **specific** player message (`PreBetCheckDenyReason`: `SelfExcluded | LimitReached | CoolingOff |
-  KycRequired | Blocked | Other`); a timeout/error is **fail-closed** (rejected, no settlement). Skipped
-  for anonymous free bets. Log-only, no DB row. See `features/rg-pre-bet-hook.md`.
+  which marks a bet for refund by its indexed `Bet.Signature` (blocks Rewarded/Refunded/free;
+  idempotent). See `features/refund-safeguards.md`.
 - **PresetChoice** — predefined winnable choices for a game type.
 - **Choice exclusivity / `ExclusiveChoice`** — in **free-text** game types (empty `PresetChoices`),
   each typed sequence is exclusive to the **first** player who bets it in a round; a different player
   taking the same normalized choice is rejected (`ErrorMessages.ChoiceAlreadyTaken`) and **auto-refunded**
-  for a paid `SolanaToken` bet (reject-only for Standard/free). Enforced by a cross-player check in
+  when the stake was already paid on-chain (reject-only for a free bet). Enforced by a cross-player check in
   `RegisterBetHandler.ValidateBetParameters` **and** a DB unique index `(GameId, ExclusiveChoice)` —
   `Bet.ExclusiveChoice` is the **trimmed** choice for free-text bets (casing not folded — uppercase is
   rejected as `InvalidCharacters`, so a valid choice is already lowercase), `NULL` for preset bets (NULLs
@@ -210,7 +167,7 @@
   working). In **preset** types: **one bet per player per round** whatever the choice
   (`ErrorMessages.OneBetPerPresetRound`). In **every** type: while a player is the round's **only**
   bettor, a second bet is rejected (`ErrorMessages.SecondBetNeedsAnotherPlayer`) until a bet from a
-  different `OperatorPlayerId` exists — after which there is no further cap. Every persisted `Bet` row
+  different `PlayerId` exists — after which there is no further cap. Every persisted `Bet` row
   counts regardless of `Status`; the limits reset on rollover. Enforced in
   `RegisterBetHandler.ValidateBetParameters` only (no unique index, unlike choice exclusivity), with
   blocked bets refunded/rejected via the shared `RefundInvalidBet` path. See `specs/fix-bets-logic.md`.
@@ -223,34 +180,32 @@
   into the successor; an **under-subscribed** round refunds stakes and carries the jackpot unchanged; a
   **paid win** (incl. a free-bet winner) resets the successor to `0`. Decided once at rollover by
   `LotteryPotCarry.NextCarriedExtra(Game)`. `0` for every non-lottery game. On admin deactivation
-  it is **transferred** to an eligible same-operator/same-method/same-token lottery (never destroyed).
+  it is **transferred** to an eligible active lottery (never destroyed).
   See `features/lottery-pot-stacking.md`.
 - **Pot** — the amount winners split, shown as the `> POT:` line in the game terminal for **every**
   game type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
   lottery = `lotteryParameters.lotteryPot` base `+ CarriedExtra` (the stacked jackpot) `+ Σ bets`;
   seeded on load, accumulated live from the `/Bets` SignalR stream, reset/reseeded on rollover; free
-  bets (`amount = 0`) add nothing. Rendered via `formatAmount` (SolanaToken → the token
-  symbol/decimals; Standard → USD or preferred display currency). Settlement math is separate —
+  bets (`amount = 0`) add nothing. Rendered via `formatAmount`, which is token-native only (the
+  configured token's symbol + decimals). Settlement math is separate —
   `BetDomainService.SetPotAmount` (`= Σ bets + LotteryPot + CarriedExtra`) remains the payout source of
   truth. See `features/game-pot-display.md` and `features/lottery-pot-stacking.md`.
-- **Display name** — optional `OperatorPlayer.DisplayName` (1–20 chars, trimmed). Set via the
-  customization modal (`PATCH /players/preferences`); rendered on bet DTOs and recent-bets SignalR
-  events for self and others; falls back to truncated `externalPlayerId`. See
-  `features/player-customization-modal.md`.
-- **Preferred display currency** — `OperatorPlayer.Currency` (default `USD`). Offered to **all**
-  operators (chosen from the backend definitive fiat set, 33 codes), but affects **rendering of
-  `Standard` games only** — `SolanaToken` games always render token-native, regardless of the
-  choice. Rendering-only — backend always stores and transmits USD; client multiplies by cached
-  USD→currency rates from `GET /fx/rates`. See `features/player-customization-modal.md`.
-- **FX rates / display conversion** — token-gated `GET /fx/rates` returns the definitive currency
-  list with USD-based rates (Redis cache, 6h TTL; `IExchangeRateProvider` + FreeCurrencyAPI or mock).
-  Frontend `useDisplayCurrency.formatUsd` applies conversion for **`Standard`** games only;
-  settlement and operator-wallet amounts stay USD.
+- **Display name** — optional `Player.DisplayName` (1–20 chars, trimmed). Set via the customization
+  modal (`PATCH /players/preferences`), which is **signature-gated**: the endpoint is public and a
+  wallet address is not a secret, so the write carries an ed25519 signature over a purpose-scoped
+  single-use nonce. Rendered on bet DTOs and recent-bets SignalR events for self and others; falls
+  back to a truncated `externalPlayerId`. See `features/player-customization-modal.md`.
+- **Wallet-proof nonce** — a single-use challenge for any write that must prove control of a wallet.
+  `GET /players/nonce?wallet=…&purpose=…` issues it into Redis under
+  `WalletNonce:{purpose}:{wallet}` (5 min), and the handler consumes it on use. It is
+  **purpose-scoped** — today `preferences` and `self-exclusion` — so a challenge minted for one flow
+  cannot be replayed against the other. *(There is no preferred display currency and no FX rate table:
+  every game settles in the one configured token, so there is nothing to convert.)*
 - **Game chat message** — a plain-text line broadcast within one game instance over
   `ActiveGamesHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
   `GameChatMessage` for audit/retention only (not replayed). See `features/game-chat.md`.
 - **Game-type stats** — all-time aggregated stats for one **game type** (`GameParameters`),
-  served read-only by token-gated, operator-scoped `GET /games/{parametersId}/stats`: biggest pot
+  served read-only by the public `GET /games/{parametersId}/stats`: biggest pot
   ever split, biggest single payout, rounds played, total paid out, and (preset types only) the
   most-picked **hottest choice**. Computed **on demand** from the type's completed
   (`RewardForWinnersCompleted`) rounds — pot reconstructed as `Σ Bet.Amount` (+ lottery base), money
@@ -299,19 +254,19 @@
 - **`GET /solana/balance`** — the frontend-facing SPL balance read (`SolanaController`), so the browser
   never calls a Solana RPC for a player's balance. Redis-cached per `mint+wallet`; `/solana/balance/live`
   is the uncached variant (a separate **route**, because the rate limiter cannot budget a query-string
-  value). Restricted to **active registered `OperatorToken` mints**; every rejection returns one vague
-  message. A wallet with no associated token account reads `0`, not an error.
+  value). Restricted to the **configured mint**; every rejection returns one vague message. A wallet with no associated token account reads `0`, not an error.
 - **`confirmSignature` (confirmation poll)** — the frontend's bounded `getSignatureStatuses` poll that
   replaced `Connection.confirmTransaction`. A WebSocket subscription cannot be proxied and the public
   RPC's socket is unusable on mainnet, so desktop, the embedded popup and the mobile deeplink return
   all confirm this way. A **timeout is not a failed payment** — the transfer has most likely landed.
-- **Self-exclusion** — a player-set, **per-wallet** block on betting, stored on the `OperatorPlayer`
-  row as `SelfExcludedAt` (the flag) + `SelfExcludedUntil` (the expiry; **null with the flag set means
-  permanent**). Blocks paid **and** free bets for that wallet at that operator, is **extend-only**, and
-  **cannot be lifted early** — there is no support desk and no account recovery, so expiry is the only
-  reversal offered. Setting it requires an **ed25519 signature** over a single-use nonce, because
-  wallet addresses are public and an unproven request would let anyone lock anyone out. Distinct from
-  the opt-in **RG pre-bet hook**, which is an operator's *external* system. See
+- **Self-exclusion** — a player-set, **per-wallet** block on betting, stored on the `Player` row as
+  `SelfExcludedAt` (the flag) + `SelfExcludedUntil` (the expiry; **null with the flag set means
+  permanent**). Blocks paid **and** free bets for that wallet, is **extend-only**, and **cannot be
+  lifted early** — there is no support desk and no account recovery, so expiry is the only reversal
+  offered. Setting it requires an **ed25519 signature** over a purpose-scoped single-use nonce, because
+  wallet addresses are public and an unproven request would let anyone lock anyone out. It is now the
+  **only** responsible-gaming control that runs: the opt-in per-operator RG pre-bet hook was deleted
+  with operators (it resolved off an `Operator` row and no adapter was ever configured). See
   `features/legal-docs-self-exclusion.md`.
 - **`ss_terms`** — the 18+/Terms acceptance cookie, scoped to `.spacestroker.com` so one acceptance
   covers `www` and `app`. Its value is a **version string**, not a boolean, so bumping it re-prompts
@@ -319,6 +274,7 @@
   it, because consent to analytics must stay separable from accepting the Terms.
 - **Bet-less refund** — a refund issued from `RefundInvalidBetEvent` alone, for a stake whose `Bet` row
   was never persisted (every inline rejection in `RegisterBetHandler` runs before `InsertBet`).
-  Idempotency keys on `CryptoTransactionLog.RelatedSignature` — the payment being reversed — because
-  the row's own `Signature` is the *refund's* transaction. ⚠️ It has **no automated recovery** if its
+  Idempotency keys on `TransactionLog.RelatedSignature` — the payment being reversed — because the
+  row's own `Signature` is the *refund's* transaction. The row carries a **null `BetId`**, which is
+  precisely why the merged ledger had to make that column nullable. ⚠️ It has **no automated recovery** if its
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.

@@ -3,6 +3,11 @@
 > Status: **shipped.** Merged via `feature/wallet-connect-name-prompt` on 2026-07-29.
 >
 > **Frontend-only** (`monkify-front`). No spec in `specs/` — brainstormed and built directly.
+>
+> ⚠️ **Updated by `features/remove-operators.md` (2026-07-30).** Saving a display name is now
+> **signature-gated** (nonce → sign → PATCH), so the prompt signs from the connect flow too. The
+> `walletForPrefs` "no usable `sub`" branch is gone — there is no `sub`, and the wallet is the only
+> identity — and there is no preferred currency for the handler to leave untouched.
 
 ## What it does
 
@@ -28,7 +33,7 @@ stay behind the header gear.
   - the player has not already dismissed the prompt for that wallet.
 - **Once per wallet, remembered.** `SKIP` writes `space-stroker.namePrompt.skipped.<wallet>` to
   `localStorage`; that wallet is never asked again on that browser. Keyed **per wallet** because the
-  display name itself is per-wallet identity in a SolanaToken context ([[wallet-display-name]]).
+  display name itself is per-wallet identity ([[wallet-display-name]]).
   Backdrop click and `ESC` both behave as `SKIP`, so a dismissal always sticks. Storage unavailable
   (private mode) degrades to "never asked" rather than throwing.
 - **A saved name needs no flag.** The gate only fires on a confirmed-empty name, so once a name
@@ -39,22 +44,23 @@ stay behind the header gear.
   nameless either way. The mount path goes through the same evaluation so an **already-hydrated
   mobile deeplink session** — which never fires the wallet watcher — is still covered.
 - **Saving** reuses the existing `PATCH /players/preferences` with `{ displayName, wallet }` (no
-  currency: the handler leaves it untouched and a brand-new `OperatorPlayer` row defaults to USD).
+  currency: that field no longer exists — see the banner).
   Client-side validation mirrors the backend's 1–20 trimmed characters. `Enter` in the field saves.
 - **No backend, DB, DTO or SignalR change.** Nothing new was added to the API for this.
 
 ## Two supporting changes it required
 
 - **`loadPreferences` now returns whether the read succeeded.** `displayName` in
-  `useDisplayCurrency` is a shared singleton that keeps its previous value when the GET fails — which
+  `usePlayerPreferences` is a shared singleton that keeps its previous value when the GET fails — which
   would read as "this player has no name" (and, right after a wallet switch, holds the **previous**
   wallet's name). The prompt only fires on a confirmed-empty name. Existing callers ignore the return
   value.
-- **`walletForPrefs` in `App.vue` now also treats "the launch token has no usable `sub`" as a
-  wallet-identity context**, not only "a SolanaToken game is selected" — mirroring
+- ~~**`walletForPrefs` in `App.vue` also treats "the launch token has no usable `sub`" as a
+  wallet-identity context**~~ *(moot — the wallet is the only identity now)*, not only "a SolanaToken
+  game is selected" — mirroring
   `PlayerCustomizationModal`'s `useWalletIdentity` and matching what [[wallet-display-name]] already
   described. This closes a real gap: the **anonymous Main launch token carries no `sub`**
-  ([[main-production-operator]]) and `selectedGame` is null on the lobby, so the lobby was reading
+  (the anonymous Main launch token, since removed) and `selectedGame` is null on the lobby, so the lobby was reading
   preferences against an **empty identity** — the player's saved name never rendered there, and the
   prompt could never fire at the very place the header connect button lives. It cannot mis-route a
   `Standard` player: the new arm only engages when there is no `sub` to route to.
@@ -69,7 +75,7 @@ stay behind the header gear.
 - `src/App.vue` — `isPlayerRoute()`, the widened `walletForPrefs()`, and `refreshPreferences()` which
   loads the preferences then applies the gate; renders `<display-name-prompt />` alongside
   `<mobile-wallet-modal />`.
-- `src/hooks/useDisplayCurrency.ts` — `loadPreferences` returns `Promise<boolean>`.
+- `src/hooks/usePlayerPreferences.ts` — `loadPreferences` returns `Promise<boolean>`.
 
 ## Testing
 
@@ -83,5 +89,5 @@ or integration tests apply — the same position as other frontend-only features
   have no name yet" entry point into it, and finishes the identity rule that doc already described.
 - [[player-customization-modal]] — the full settings modal (name + currency) behind the header menu,
   still the place to **change** a name.
-- [[main-production-operator]] — the anonymous Main launch token with no `sub`.
+- [[remove-operators]] — the launch token (and its empty `sub`) no longer exists.
 - [[iframe-embedding]] — why the prompt never shows when embedded.

@@ -15,7 +15,7 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
 - **Scope:** one chat room per **active game instance** = the existing SignalR group keyed by
   `gameId`. Transport: hub method `SendChatMessage(gameId, displayName, text)`; clients listen
   on `{gameId}/ChatMessage` for `{ displayName, text, sentAt }`.
-- **Identity (client-resolved):** nickname = `displayName` from `useDisplayCurrency` if set, else a
+- **Identity (client-resolved):** nickname = `displayName` from `usePlayerPreferences` if set, else a
   **truncated identifier** (last-4 style of wallet or token `sub`), else `ANON` for regulated players
   with no resolved id. No auto-generated `Player-XXXX` nicknames; no `sessionStorage` guest names.
   **No per-message server/DB lookup** on the realtime path.
@@ -34,7 +34,7 @@ each player's **display name** (same identity as bets/winners). Chat reuses the 
 - **Lifecycle on `/game`:** panel **open by default**; hide/show toggle (not persisted). After game
   `Ended`: messages stay visible, input **read-only**. On rollover to a new instance: message list
   clears, input re-enables, same identity kept, chat re-registers on the new game group.
-- **No REST API** for chat. No operator-specific messaging added.
+- **No REST API** for chat.
 
 > **Update (in flight, `feature/side-panel-cabinet`).** Presentation-only restyle of the chat panel as
 > part of the side-panel cabinet re-housing (see `game-type-stats.md` and INDEX "Feature currently

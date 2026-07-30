@@ -312,7 +312,7 @@ cp deploy/secrets.seeder.example.json deploy/secrets.seeder.json
 `deploy/secrets.seeder.json` is gitignored (only the `*.example.json` templates are tracked). Never
 commit a real key.
 
-> ⚠️ **The seeder wallet must NOT be the operator's token-owner (treasury) wallet.** The backend
+> ⚠️ **The seeder wallet must NOT be the configured token-owner (treasury) wallet.** The backend
 > validates a bet's payment by comparing the transaction's pre/post token balances **by owner**, so a
 > transfer from that wallet to itself nets zero and the bet is rejected as underpaid *after* the
 > money has moved. The app checks this at startup and refuses to run.
@@ -339,7 +339,7 @@ start it again.
 - `send failed … may be out of SOL for transaction fees` — send the wallet some SOL. This one cannot
   be pre-flighted, because the `/rpc` proxy does not allow a SOL balance read.
 - `ORPHAN PAYMENT` — the stake confirmed on chain but no bet was recorded. Nothing auto-refunds this;
-  reconcile the logged signature by hand via the operator-admin `POST /admin/bets/refund`.
+  reconcile the logged signature by hand via the admin `POST /admin/bets/refund`.
 
 ### Known limits (by design)
 

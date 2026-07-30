@@ -13,7 +13,7 @@ scoped to one game type (`GameParameters`) and aggregated across every round it 
 ## Core rules
 
 - **Endpoint.** `GET /games/{parametersId}/stats` returns a `GameTypeStatsDto`. Token-gated by
-  `X-Launch-Token` like the other game reads; operator-scoped.
+  public, like the other game reads.
 - **On-demand, cached — no new table.** Stats are computed by aggregating the type's `Game` / `Bet`
   / `TransactionLog` rows on demand, then cached in Redis per type for ~120 s
   (`CacheHelper.GenerateGameStatsCacheSettings`). There is **no** persistent stats entity and **no
@@ -28,28 +28,26 @@ scoped to one game type (`GameParameters`) and aggregated across every round it 
   `LotteryParameters.LotteryPot` base for lottery types), since `Game` has no persisted pot column.
 - **Free bets excluded.** Bets with `Amount == 0` never contribute to pot, payout, total-paid, or the
   hottest-choice tally. A completed round consisting only of free bets still increments rounds played.
-- **Single currency per type.** Because `PaymentMethod` is a per-`GameParameters` concern, a type is
-  either all-`Standard` (USD) or all-`SolanaToken` (one registered token) — the DTO carries the
-  currency descriptor (`PaymentMethod` + token symbol/decimals) and no cross-method summing ever
-  happens. The client renders `Standard` amounts in the player's preferred display currency and
-  `SolanaToken` amounts token-native (shared `useAmountFormatter`, same as the `> POT:` line).
+- **Single currency, everywhere.** Every game settles in the one configured token, so the DTO carries
+  that token's symbol/decimals and the client renders amounts token-native (shared
+  `useAmountFormatter`, same as the `> POT:` line). *(This rule used to be "single currency per type",
+  because a type was either all-`Standard` (USD) or all-`SolanaToken`.)*
 - **Hottest choice = most-picked, preset types only.** For preset-choice types it is the single choice
   with the most paid bets (all-time), with an ordinal tiebreak. Free-type races return no hottest
   choice.
 - **Empty state.** A type with zero completed reward rounds returns zeroed/null stats; the panel shows
   "No rounds yet".
-- **Operator scoping / vague errors.** The handler resolves the type via
-  `IGameService.GetGameParametersById(parametersId, operatorId)`, which filters by operator and
-  requires an active contract. A cross-operator, expired, unknown, or deactivated type all collapse to
+- **Vague errors.** The handler resolves the type via
+  `IGameService.GetGameParametersById(parametersId)`. An unknown or deactivated type collapses to
   the same vague `ParameterNotFound` — the type's existence and contract status are never revealed.
-- **Type recreation resets stats.** The operator admin portal has no in-place edit (deactivate then
+- **Type recreation resets stats.** The admin portal has no in-place edit (deactivate then
   create → a new `GameParameters` Id), so a recreated type starts its stats fresh; historical rounds
   of the old id are not carried over.
 - **UI (superseded by `fair-stats-menu`).** These per-type stats no longer live in a side-panel STATS
   tab. The tab was pulled out of `GameSidePanel` (now **chat-only**) and this same
   `GET /games/{parametersId}/stats` read is rendered as the **per-game section of the dedicated Stats
   page** (`/space-stroker/game/stats`, reached from the header menu) behind a game-type dropdown,
-  alongside a new operator-wide global section. The endpoint, caching, and data shape are unchanged.
+  alongside a new deployment-wide global section. The endpoint, caching, and data shape are unchanged.
   See `features/fair-stats-menu.md`.
 
 > **Update (in flight, `feature/side-panel-cabinet`).** The side panel was re-housed as a **diegetic
@@ -85,7 +83,7 @@ read-only feature (the stats correctly report whatever the ledger holds). Tracke
 - `SpaceStroker.Infrastructure/Contracts/Games/GameTypeStatsDto.cs` — DTO + `HottestChoiceDto`.
 - `SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` — `GenerateGameStatsCacheSettings`.
 - `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `GetGameParametersById` now
-  `.Include`s `OperatorToken` (for the currency descriptor).
+  reads the token descriptor from `GeneralSettings:Operator:Token`.
 - Tests: `SpaceStroker.Tests/UnitTests/Services/GameStatsServiceTests.cs`,
   `SpaceStroker.Tests/UnitTests/Handlers/GetGameTypeStatsHandlerTests.cs`,
   `SpaceStroker.Tests.Integration/GameStatsFlowTests.cs`.

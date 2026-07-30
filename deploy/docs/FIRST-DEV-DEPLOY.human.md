@@ -74,7 +74,7 @@ the delegation. So DNS is the **last** step, not a blocker.
   so the deployed app will have dev launch buttons, free bets, Swagger, and permissive CORS. For a
   dev environment that's usually what you want — just confirm it's intended.
 
-You do **not** need to touch the Solana / launch-token / FX keys — those are already real devnet
+You do **not** need to touch the Solana / admin-token keys — those are already real devnet
 values.
 
 ---
@@ -178,7 +178,8 @@ This time everything is in place: the corrected secrets get re-uploaded, Terrafo
 Cloud Run services (images exist, database reachable), then the game front-end and landing page are
 built and uploaded. It should run all the way to **"Deploy complete."**
 
-> The "Consumers" service runs the database migrations and seeds the default **Main** operator, so
+> The "Consumers" service runs the database migrations and seeds the configured default game types
+> (`GeneralSettings:Operator:DefaultGames`), so
 > give it a minute after it starts before expecting the API to work.
 
 ### Stage 6 — Check it actually works (before touching DNS)

@@ -3,87 +3,74 @@
 > Status: **shipped.** Authoritative spec: `../specs/player-customization-modal.md`
 > (merged via `feature/player-customization-modal` on 2026-07-02).
 >
-> ⚠️ **Adjusted by `features/payment-methods.md` (2026-07-08).** The preferred **display currency** is
-> now offered to **all** operators (the old crypto/regulated gate is gone), but it affects **rendering of
-> `Standard` games only** — **`SolanaToken`** games always render token-native amounts, regardless
-> of the chosen currency. "Regulated operators only" below now means "**Standard** games only".
-> Settlement stays USD for Standard; conversion remains display-only.
+> ⚠️ **Halved and hardened by `features/remove-operators.md` (2026-07-30).** The **preferred display
+> currency is gone** — it existed to render off-chain USD amounts, and the `Standard` payment method
+> that produced them no longer exists. Every game settles in one configured token, so every amount is
+> token-native and there is nothing to convert: `Player.Currency`, `GET /fx/rates`, the whole
+> `Fx`/`IExchangeRateProvider` stack and `useDisplayCurrency` were deleted. What remains is the
+> **display name**, and saving it now requires an **ed25519 wallet signature** because the endpoint is
+> public and a wallet address is not a secret.
 
 ## What it does
 
-Gives players a **gear icon** in the game header (lobby and live play) that opens a modal to edit
-**display name** (all operators) and **preferred display currency** (regulated operators only). Display
-names render wherever players are identified (own `YOU` label, recent-bets rows, winners). For
-regulated operators, on-screen money amounts re-render in the chosen fiat currency with an `≈`
-indicator; crypto operators keep native SPL token display and see display-name only. **Conversion is
-display-only** — backend REST and SignalR always carry USD; settlement, persistence, and
-operator-wallet API amounts stay USD.
+A **menu entry** in the game header opens a modal where the player sets their **display name**.
+Display names render wherever players are identified — the own `YOU` label, recent-bets rows and
+winners — falling back to a truncated wallet address when unset.
 
 ## Core rules
 
-- **Entry point:** gear icon on the right of `GameHeader.vue` (rendered once in `App.vue`, so it
-  appears on game select and live play). Modal built with the design system (DaisyUI modal +
+- **Entry point:** the header menu button in `GameHeader.vue` (rendered once in `App.vue`, so it is
+  present on the lobby and live play). Modal built with the design system (DaisyUI modal +
   `PrimaryButton`/`SecondaryButton`).
-- **Modal fields:** display name (text, all operators) + preferred currency (dropdown, **regulated
-  only** — hidden for crypto). One **Save** → single `PATCH /players/preferences` with both fields;
-  on success currency state refreshes and live amounts re-render.
-- **Display name validation:** trimmed, **1–20** characters; empty/whitespace-only rejected. Renders
-  for self and others on bet rows and winners; falls back to truncated `externalPlayerId` when unset.
-  Winner names are resolved **client-side** from bets already held — `GameResult` is unchanged.
-- **Currency model:** fiat-only, USD-based, **regulated operators only**. Definitive set = 33 codes
-  from `SupportedCurrencies` (FreeCurrencyAPI `latest` with USD base; USD rate = 1.0). Crypto
-  allow-list = **USD only** (fiat rejected on `PATCH`).
-- **Backend source of truth:** currency metadata (`code → { symbol, name }`) and allow-list served via
-  `GET /fx/rates`; frontend does not hardcode the list.
-- **Conversion:** **client-side only.** Backend returns USD everywhere (REST + SignalR — hubs have no
-  token). Frontend multiplies USD amounts by the chosen currency's USD→code rate via
-  `useDisplayCurrency.formatUsd`. Never feeds settlement, payout, refund, persistence, or operator API.
-- **Rate source:** `IExchangeRateProvider` — `FreeCurrencyApiExchangeRateProvider` (prod; first
-  outbound `HttpClient` in the codebase) or `MockExchangeRateProvider` (dev/tests). Full USD table
-  cached in Redis (`Fx:Rates:USD`, **6-hour TTL**). Provider key is a **MOCK placeholder** in config;
-  real key from environment only.
-- **`GET /fx/rates`** (token-gated, `/fx` in launch-token middleware): returns
-  `{ base: "USD", asOf, rates: [{ code, symbol, name, rate }] }`. Rate may be `null` when provider
-  unavailable and cache empty; never 5xx on provider outage — frontend falls back to USD silently.
-- **`GET /players/preferences`** (token-gated): returns
-  `{ externalPlayerId, displayName, currency }` (defaults `null` / `"USD"` when no `OperatorPlayer`
-  row; **no row created on read**). Regulated identity = token `sub`; crypto = optional `?wallet=`
-  query param (token `sub` is empty for crypto).
-- **`PATCH /players/preferences`:** extended with payment-model-scoped currency allow-list and display
-  name validation (reuses generic validation-failure messaging).
+- **Identity is the connected wallet.** With no wallet connected the modal shows a "Connect wallet to
+  customize" gate; there is no other subject to save against.
+- **Display name validation:** trimmed, **1–20** characters; empty/whitespace-only rejected. Winner
+  names are resolved **client-side** from bets already held — `GameResult` is unchanged.
+- **The write is signature-gated.** Saving is a three-step flow:
+  1. `GET /players/nonce?wallet=<pubkey>&purpose=preferences` → a single-use nonce
+     (`WalletNonce:preferences:{wallet}` in Redis, 5 min).
+  2. The SPA builds the canonical message and signs it with the connected wallet (ed25519).
+  3. `PATCH /players/preferences { wallet, displayName, nonce, signature }`.
+
+  The handler verifies the signature against the claimed wallet and consumes the nonce. A signature
+  from a different keypair, an unsigned body, or a replayed nonce is rejected — otherwise anyone could
+  rename anyone, since wallet addresses are public.
+- **The canonical message is a shared contract.** `UpdatePlayerPreferencesHandler.BuildMessage(wallet,
+  displayName, nonce)` and the frontend's `usePlayerPreferences.ts` must produce byte-identical
+  strings; the integration test deliberately calls the handler's own helper to pin this.
+- **The nonce is purpose-scoped**, so a challenge minted for `preferences` cannot be replayed against
+  `self-exclusion`, which uses the same mechanism. See `features/legal-docs-self-exclusion.md`.
+- **`GET /players/preferences?wallet=<pubkey>`** is **public and unsigned** (reading a public wallet's
+  chosen nickname discloses nothing). Returns `{ externalPlayerId, displayName }`; `displayName` is
+  `null` when no `Player` row exists, and **no row is created on read**.
 - **Bet DTO / SignalR:** `DisplayName` on `BetDto` and `BetNotificationEvent`; `GameService.InsertBet`
-  captures display name before nulling `OperatorPlayer` for the event payload.
-- **Formatting (regulated):** chosen currency primary; when `!= USD` show `≈ {symbol}{value}` (2 dp)
-  with authoritative USD on hover; USD selected → plain USD, no `≈`. Rate unavailable → silent USD
-  fallback, no error toast.
-- **No EF migration** — reuses existing `OperatorPlayer.DisplayName` and `Currency` columns.
-- **Auth failures:** token-gated endpoints return generic **401** (real reason logged server-side only).
+  captures the display name before detaching `bet.Player` for the event payload.
+- **No EF migration** — reuses the existing `Player.DisplayName` column.
 
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
 
-- `SpaceStroker.Api/Controllers/FxController.cs` — `GET /fx/rates`
-- `SpaceStroker.Api/Controllers/PlayersController.cs` — `GET /players/preferences`, `PATCH /players/preferences`
-- `SpaceStroker.Api/Middleware/LaunchTokenValidationMiddleware.cs` — `/fx` protected prefix
-- `SpaceStroker.Domain/Fx/SupportedCurrencies.cs` — definitive currency registry
-- `SpaceStroker.Infrastructure/Services/Fx/IExchangeRateProvider.cs`, `FreeCurrencyApiExchangeRateProvider.cs`,
-  `MockExchangeRateProvider.cs`
-- `SpaceStroker.Infrastructure/Handlers/Fx/GetFxRates/GetFxRatesHandler.cs` — Redis cache
+- `SpaceStroker.Api/Controllers/PlayersController.cs` — `GET /players/nonce`,
+  `GET /players/preferences`, `PATCH /players/preferences`
+- `SpaceStroker.Infrastructure/Handlers/Players/GetWalletNonce/` — purpose-scoped challenge
 - `SpaceStroker.Infrastructure/Handlers/Players/GetPlayerPreferences/GetPlayerPreferencesHandler.cs`
 - `SpaceStroker.Infrastructure/Handlers/Players/UpdatePlayerPreferences/UpdatePlayerPreferencesHandler.cs`
-- `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs`, `Events/BetNotification/BetNotificationEvent.cs`
+  — `BuildMessage` + ed25519 verification
+- `SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` — `GenerateWalletNonceCacheSettings`
+- `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs`,
+  `Events/BetNotification/BetNotificationEvent.cs`
 - `SpaceStroker.Infrastructure/Services/Games/GameService.cs` — `DisplayName` capture on insert
-- `SpaceStroker.Common/spacestrokersettings.json` — `GeneralSettings.Fx` (Provider, BaseUrl, ApiKey mock, CacheTtlHours)
-- Tests: `GetFxRatesHandlerTests`, `GetPlayerPreferencesHandlerTests`, `UpdatePlayerPreferencesHandlerTests`,
-  `BetDtoTests`, `FreeCurrencyApiExchangeRateProviderTests`, `MockExchangeRateProviderTests`
+- Tests: `GetPlayerPreferencesHandlerTests`, `UpdatePlayerPreferencesHandlerTests`, `BetDtoTests`;
+  integration `PlayerPreferencesTests` (signs with real Solnet keypairs — a made-up wallet string
+  cannot sign)
 
 **Frontend (`monkify-front`)**
 
-- `src/components/header/PlayerCustomizationModal.vue` — modal UI
-- `src/components/GameHeader.vue` — gear icon + modal trigger
-- `src/hooks/useDisplayCurrency.ts` — rates, prefs, `formatUsd`
-- `src/services/mainService.ts` — `getFxRates()`, `getPlayerPreferences(wallet?)`
-- `src/components/game/GameTerminal.vue` — display names + converted amounts
-- `src/hooks/useGame.ts`, `src/types/index.ts` — `AppliedBet.displayName`, FX types
-- `src/App.vue` — loads rates + preferences on mount
+- `src/components/header/PlayerCustomizationModal.vue` — modal UI + the wallet-signature save step
+- `src/hooks/usePlayerPreferences.ts` — nonce fetch, canonical message, sign, PATCH
+- `src/components/GameHeader.vue` — header menu entry
+- `src/services/mainService.ts` — `getPlayerNonce()`, `getPlayerPreferences(wallet)`,
+  `updatePlayerPreferences()`
+- `src/components/game/GameTerminal.vue` — display names
+- `src/hooks/useGame.ts`, `src/types/index.ts` — `AppliedBet.displayName`

@@ -1,6 +1,17 @@
 # SpaceStroker — "Remove Operators" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged to `main` on **2026-07-30** via branch `feature/remove-operators` in
+> `monkify-backend`, `monkify-front` and `monkify-meta`. Distilled summary:
+> `features/remove-operators.md`. 492 unit + 77 integration tests green.
+>
+> **Post-ship notes.** (1) The mandatory integration test (`OperatorlessFlowTests`) found a real bug:
+> `GameService.InsertBet` detaches `bet.Game` and `bet.Player` before `AddAsync` but restored only
+> `Game`, so every placement ledger row persisted a blank `Wallet`. (2) `sales/` and `pitch/` were
+> left describing the multi-tenant product, as scoped — they need their own card. (3) `constraints.md`
+> §6 (vague operator-contract messaging) was rewritten around auth/wallet-proof failures, since there
+> is no contract state left to conceal.
+>
+> Refined via Trello card
 > [Remove the entire concept of operators from the system.](https://trello.com/c/TWf2oXxi) (2026-07-29).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc + `deploy/` in `monkify-meta`.
 >

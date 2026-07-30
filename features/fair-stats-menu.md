@@ -6,7 +6,7 @@
 ## What it does
 
 **Stats** and **Fair** are now first-class surfaces reached from the header menu, not tabs inside the
-`/game` side panel. **Stats** is a dedicated page with a new **operator-wide global** section plus the
+`/game` side panel. **Stats** is a dedicated page with a new **deployment-wide global** section plus the
 existing per-game-type stats behind a dropdown. **Fair** is a full-screen modal that always teaches
 players *how to verify a game* and, on `/game` after a round ends, runs the same current-round checks
 the old FAIR tab did. Freed of both, the right-docked arcade cabinet is now **chat only** (its chrome
@@ -17,7 +17,7 @@ kept). The only new backend surface is one read: `GET /games/stats`.
 - **Header menu = Settings · Stats · Fair · History** (+ dev Admin). `Stats` and `Fair` are new rows,
   rendered only when **not embedded** (`useEmbed().isEmbedded`) — regulated iframes keep today's
   menu (no in-frame stats/fairness). Audio + wallet stay on the header bar. The menu shows wherever
-  operator context boots (lobby, `/game`, history, stats).
+  player preferences load (lobby, `/game`, history, stats).
 - **Side panel is chat-only.** `GameSidePanel` keeps its arcade-cabinet chrome (collapse / dock-rail /
   maximize) but the CHAT/STATS/FAIR tab bar is gone — it renders only `GameChatPanel`. Chat identity,
   limits, and lifecycle are unchanged.
@@ -26,7 +26,7 @@ kept). The only new backend surface is one read: `GET /games/stats`.
 
 ### Stats page (`/space-stroker/game/stats`, route name `GameStats`)
 
-- Arcade-panel page (mirrors `GameHistoryPage`), inside the app shell; `App.vue` boots operator
+- Arcade-panel page (mirrors `GameHistoryPage`), inside the app shell; `App.vue` loads player
   context (token + display prefs) for the `GameStats` route like the lobby/game/history.
 - **One page-level house-cut badge** at the top (`"{n}% HOUSE CUT"` + trust blurb), from the global
   read's `commissionPercentage`. It is shown **once** for the whole page — not per section.
@@ -38,34 +38,34 @@ kept). The only new backend surface is one read: `GET /games/stats`.
   drives `GET /games/{parametersId}/stats` and renders the existing per-type tiles (biggest pot,
   biggest single payout, total paid out, rounds played, hottest choice for preset types). A
   request-sequence guard drops stale dropdown responses.
-- Money renders through the shared `useDisplayCurrency().formatGameAmount` descriptor
-  (`{ paymentMethod, tokenSymbol }`): `SolanaToken` amounts token-native (`{n} USDC`), `Standard`
-  amounts in the player's preferred display currency.
+- Money renders token-native through the shared amount formatter (`{n} USDC`). *(It used to branch on
+  a `{ paymentMethod, tokenSymbol }` descriptor: `SolanaToken` token-native, `Standard`
+  amounts rendered in the player's preferred display currency; both are gone.)*
 
 ### `GET /games/stats` (backend — new)
 
-- **Operator-scoped, single dominant-currency, all-time global stats.** No `parametersId`; the
-  operator comes from the validated `X-Launch-Token`. Read-only on the stateless **API**.
-- **On-demand + Redis-cached** (`CacheHelper.GenerateGlobalStatsCacheSettings`, 120s per operator),
+- **Deployment-wide, all-time global stats.** No `parametersId` and no tenant — the endpoint is
+  public. Read-only on the stateless **API**.
+- **On-demand + Redis-cached** (`CacheHelper.GenerateGlobalStatsCacheSettings`, 120s, one global key),
   aggregated from existing `Game` / `GameBets` / `TransactionLogs` / `GameParameters` rows — **no new
   entity and no migration** (a direct generalization of `GameStatsService`).
-- **Which types.** Only the operator's **active** types (contract-checked). Among them, only the
-  **dominant** `(PaymentMethod, OperatorTokenId)` group is aggregated (most active types wins,
+- **Which types.** All **active** types. *(There used to be a dominant-group rule: only the
+  **dominant** `(PaymentMethod, OperatorTokenId)` group was aggregated (most active types wins,
   deterministic tiebreak) — global is strictly **single-currency**, no cross-currency summing. For the
-  production **Main** operator every type is `SolanaToken` (USDC), so there is exactly one group.
+  production deployment every type was `SolanaToken` (USDC), so there was exactly one group. With one
+  configured token there is nothing left to group by.)*
 - **Which rounds / money.** Only `RewardForWinnersCompleted` rounds count. Free bets (`Amount == 0`)
   are **excluded from money** (volume, pot, payouts, multiplier) but **counted in participation**
   (total bets placed, unique players). `BiggestPot` is reconstructed per round as `Σ paid Bet.Amount`
   + that type's `LotteryParameters.LotteryPot` base (mirrors game-type-stats; `Game.CarriedExtra` not
   included). Payouts/winners/multiplier come from `Credit` `TransactionLog` rows;
   `BiggestWinMultiplier` is the max `payout ÷ stake` over paid winning bets.
-- **Currency descriptor + house cut.** The DTO carries `PaymentMethod`, `TokenSymbol`,
-  `TokenDecimals`, and `CommissionPercentage` (the configured crypto rate for `SolanaToken`, 0 for
-  `Standard`), so the client formats amounts and shows the badge.
-- **Non-leaking (vague messaging).** An unknown / expired / cross-operator caller resolves to an
+- **Currency descriptor + house cut.** The DTO carries `TokenSymbol`, `TokenDecimals`, and
+  `CommissionPercentage` (the configured rate). *(It also carried `PaymentMethod`, and the rate was 0 for
+  `Standard`.)* The client formats amounts and shows the badge from it.
+- **Non-leaking (vague messaging).** An unknown type resolves to an
   **empty active-type set → zeroed stats**, never a thrown or existence-revealing error. There is no
-  vague-error path because there is nothing to reveal — the operator id comes from the caller's own
-  token.
+  vague-error path because there is nothing to reveal.
 
 ### Fair modal (`GameFairModal`)
 

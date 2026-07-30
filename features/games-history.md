@@ -16,7 +16,7 @@ covers the current round). See `features/provably-fair-final.md`.
 ## Core rules
 
 - **Endpoint.** `GET /games/{parametersId}/history?pageNumber&pageSize&mineOnly&wallet` returns a
-  `PaginatedList<GameHistoryDto>` (newest first). Token-gated by `X-Launch-Token`, operator-scoped.
+  `PaginatedList<GameHistoryDto>` (newest first). Public — no auth header.
 - **One game type at a time.** The page is scoped to a single `GameParameters` via a dropdown (defaults
   to the first active type from `getGamesTypes`); there is no cross-type "all rounds" view.
 - **Paginated, lazy.** `pageSize` is clamped to `[1, 30]`, `pageNumber` to `>= 1`; an out-of-range page
@@ -30,10 +30,8 @@ covers the current round). See `features/provably-fair-final.md`.
   character stream is never returned or shown.
 - **Money rules mirror game-type-stats.** Pot is reconstructed per round as `Σ paid Bet.Amount`
   (+ `LotteryParameters.LotteryPot` + `Game.CarriedExtra` for lottery types). Free bets (`Amount == 0`)
-  are excluded from pot and winner count. A type is single-currency (`PaymentMethod` per
-  `GameParameters`); the DTO carries the currency descriptor (`PaymentMethod` + token symbol/decimals)
-  so the client renders `Standard` in the player's display currency and `SolanaToken` token-native
-  (shared `useDisplayCurrency().formatGameAmount`).
+  are excluded from pot and winner count. Every game settles in the one configured token, so the DTO
+  carries that token's symbol/decimals and the client renders amounts token-native.
 - **Bet count includes free bets.** `BetCount` is the total number of bets placed in the round (free
   bets included) — a participation metric, unlike pot/winners which are paid-only.
 - **Own-bet columns (nullable).** On rounds the caller bet in, the row carries `MyChoice`, `MyStake`,
@@ -41,29 +39,27 @@ covers the current round). See `features/provably-fair-final.md`.
   0 when lost, and 0 for a free-bet win). Null on rounds they didn't bet in. If the caller placed
   multiple bets in one round, the winning bet is surfaced, else the first by `CreatedDate` (one row per
   round).
-- **"Mine" identity.** Resolved exactly like the prefs handlers: `wallet` (when provided, SolanaToken)
-  takes precedence over the launch-token `sub` (`ExternalPlayerId`); the handler resolves an
-  `OperatorPlayer` by `(OperatorId, ExternalPlayerId)` and filters bets by `Bet.OperatorPlayerId`
+- **"Mine" identity.** The connected `wallet` is the only identity: the handler resolves a `Player`
+  by `ExternalPlayerId` and filters bets by `Bet.PlayerId`
   (`Bet` carries no raw wallet). `mineOnly` with no identifiable player returns an empty page while the
   public list still loads.
 - **Caching.** The **public** page (player-independent facts) is cached in Redis for **5 minutes** per
-  `(operator, parametersId, pageNumber, pageSize)` (`CacheHelper.GenerateGamesHistoryCacheSettings`),
+  `(parametersId, pageNumber, pageSize)` (`CacheHelper.GenerateGamesHistoryCacheSettings`),
   with no invalidation (completed rounds are immutable). The caller's **own-bet columns are joined
   live** on every request and never cached under another player's key (the service clones cached rows
   before stamping own columns, so it never poisons a shared cache entry). Accepted trade: a
   just-completed round can lag on page 1 by up to the 5-min TTL; own columns are always current.
 - **On-demand, no new table.** History is aggregated on demand from existing `Game` / `Bet` /
-  `TransactionLog` / `OperatorPlayer` rows — **no new entity and no migration**. Read-only on the
+  `TransactionLog` / `Player` rows — **no new entity and no migration**. Read-only on the
   stateless API; no Consumers/typer change.
-- **Operator scoping / vague errors.** The handler resolves the type via
-  `IGameService.GetGameParametersById(parametersId, operatorId)` (operator filter + active contract). A
-  cross-operator, expired, unknown, or deactivated type all collapse to the same vague
+- **Vague errors.** The handler resolves the type via
+  `IGameService.GetGameParametersById(parametersId)`. An unknown or deactivated type collapses to the same vague
   `ParameterNotFound` — existence and contract status are never revealed.
 - **Verify = link-out only.** The per-row Verify button fetches the round's payload from the existing
   `GET /games/{id}/verification`, copies + downloads the JSON, and points the player at
   `public/verify.html`. There is no in-app FAIR panel or in-browser replay on the history page (the live
   FAIR tab keeps that); zero new verification logic.
-- **Header menu.** The old header settings gear is folded into a **menu button** (gated by operator
+- **Header menu.** The old header settings gear is folded into a **menu button** (gated by
   context) holding **Settings** (the customization modal) and **History** (+ the dev-only **Admin**
   shortcut). Audio (mute/volume) and the wallet cluster stay directly on the header. The menu opens on
   click and closes on an item click or an outside click (no hover). (`fair-stats-menu` later added
@@ -93,6 +89,6 @@ covers the current round). See `features/provably-fair-final.md`.
 - `src/components/GameHeader.vue` — the header menu button (Settings + History + dev Admin), click-away
   close; `src/components/header/DevAdminButton.vue` renders as a menu row.
 - `src/routes.ts` — the `GameHistory` route at `/space-stroker/game/history`.
-- `src/App.vue` — boots operator context (token + display prefs) for the `GameHistory` route.
+- `src/App.vue` — loads player preferences for the `GameHistory` route once a wallet is connected.
 - `src/services/mainService.ts` — `getGamesHistory(parametersId, opts)`; `src/types/index.ts` —
   `GameHistoryRow` + `PaginatedList<T>`.

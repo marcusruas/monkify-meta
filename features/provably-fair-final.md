@@ -78,10 +78,10 @@ is cheap enough to open freely.
   seconds later, so caching at `Ended` would pin a stale status for the whole TTL. Caching requires a
   final status **and** a revealed seed **and** a populated count. Every field is immutable by then, so
   **no invalidation path exists or is needed**.
-- **The operator check runs before the cache read.** The key is per-game (the payload is
-  operator-independent), so serving a hit first would leak a round across operators. One indexed
+- ~~**The operator check runs before the cache read.**~~ *(Moot since `remove-operators`: the endpoint
+  is public and there are no tenants to leak a round across, so the cache is read first.)* One indexed
   `GetGameById` therefore stays on the cached path — it *is* the security check; the cache eliminates
-  the bets query, the typer construction and the DTO rebuild. Unknown or other-operator games keep the
+  the bets query, the typer construction and the DTO rebuild. Unknown games keep the
   existing vague `GameNotValidForBets` message on both paths.
 - Reveal gating is unchanged: `serverSeedHash` is published as soon as it exists, the raw `serverSeed`
   only once the round has ended. Pre-`Ended` responses are never cached.
@@ -92,7 +92,7 @@ is cheap enough to open freely.
 **Reach (deliberate limits)**
 
 - **In-app FAIR tab covers the current round only** — no game-id lookup and no tokenless/public
-  verification; the endpoint stays launch-token + operator scoped. **Re-checking older rounds now
+  verification; the endpoint is public. **Re-checking older rounds now
   ships** via the **Games History** page (`features/games-history.md`): its per-row Verify button
   fetches this same `GET /games/{id}/verification` payload for any completed round and hands it to the
   offline `public/verify.html` (link-out only — no in-app replay on the history page).
@@ -111,7 +111,7 @@ is cheap enough to open freely.
   `GenerateGameVerificationCacheSettings(gameId)` (12h).
 - `SpaceStroker.Infrastructure/Contracts/Games/GameVerificationDto.cs` — `CharactersTyped`.
 - Tests: `UnitTests/Handlers/GetGameVerificationHandlerTests.cs` (derived flag, cache-only-when-final,
-  operator scoping on the cached path), `UnitTests/Services/GameServiceTests.cs` (count write),
+  the cached path), `UnitTests/Services/GameServiceTests.cs` (count write),
   `SpaceStroker.Tests.Integration/ProvablyFairFlowTests.cs` (`HappyPath_EndedGame_VerificationReproducesWinnerAndHashHolds`,
   `SettledGame_SecondVerificationRequest_ReturnsIdenticalPayload`,
   `FallbackFlow_CapReached_VerificationReproducesFallbackWinner`).

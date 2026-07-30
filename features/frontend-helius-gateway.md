@@ -24,7 +24,7 @@ provider does not cost credits in proportion to player count.
 - `GET /solana/balance/live` is the same read with the cache **bypassed**. It is a separate **route**,
   not a query flag, because `AspNetCoreRateLimit` matches on `{verb}:{path}` and cannot budget a
   query-string value — only a distinct path can carry the tighter per-IP rule the bypass needs.
-- The `mint` must belong to an **active `OperatorToken`** (any operator — the endpoint has no operator
+- The `mint` must be the **configured mint** (the endpoint has no tenant
   context). Anything else is rejected **before** any upstream RPC call. This is what stops the endpoint
   becoming a free public balance API for every mint on Solana.
 - **Every rejection returns one identical vague message** (`ErrorMessages.TokenNotAvailable`, 400):
@@ -75,7 +75,7 @@ provider does not cost credits in proportion to player count.
 
 ### Deleted RPC round-trips
 
-- **Mint decimals** — read from `ActiveGame.tokenDecimals` (the registered `OperatorToken`) and passed
+- **Mint decimals** — read from `ActiveGame.tokenDecimals` (the configured token) and passed
   explicitly into `buildTransferTransaction` / `sendToken`. A `SolanaToken` game with no
   `tokenDecimals` **aborts the bet**; it never falls back to a hard-coded 6/9, because a wrong exponent
   transfers the wrong amount of real money.
@@ -96,13 +96,14 @@ provider does not cost credits in proportion to player count.
 ### Seeding (bug fix that shipped with this feature)
 
 - The Consumers host **must not cache the game types it has just constructed** when seeding Main on a
-  fresh database. Those objects carry `OperatorTokenId` but no hydrated `OperatorToken` navigation, so
+  fresh database. *(Historically those objects carried an `OperatorTokenId` with no hydrated navigation, so
   caching them served a **fully null token block** (`tokenSymbol`, `tokenDecimals`, `tokenMintAddress`,
   `tokenReceiverPublicKey`) on `/games/active-types` for the entire 12h TTL. It now **removes** the key
   and lets the next read repopulate it from the query that `Include`s the token.
 - This was a latent **money** bug, not a cosmetic one: the SPA silently defaulted mint and receiver to
   `VUE_APP_*` env vars, so for 12h after a fresh seed a paid bet could transfer to the env defaults
-  rather than the operator's registered token and receiver.
+  rather than the configured token and receiver. The token now comes from config, so there is no
+  navigation to leave unhydrated.)*
 
 ## Key code touchpoints
 

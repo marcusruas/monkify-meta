@@ -39,7 +39,7 @@ Solana/Fx secrets).
   `> 1` is a documented app caveat). Released **before** the API.
 - **front + lp → GCS website buckets + Cloud CDN** behind the LB. The front bucket carries **two** CDN
   response headers: `Content-Security-Policy: frame-ancestors *` (reproducing the retired nginx header so
-  regulated operators can still embed) and **`X-Robots-Tag: noindex`**. The lp bucket deliberately carries
+  a site can still embed the app) and **`X-Robots-Tag: noindex`**. The lp bucket deliberately carries
   **neither** — the landing page is the property that must stay indexable. The `noindex` header is the half
   of the crawler policy that actually **de-indexes** `app.spacestroker.com`: `robots.txt` only stops
   crawling, and blocking the crawl also stops Google ever reading a `noindex` *meta* tag, so a URL it
@@ -260,7 +260,7 @@ CPU/memory/disk + connections against `max_connections`, Redis memory/evictions/
   every 6h. A **pure client of shipped endpoints** — `POST /launch-token/default` (re-minted every pass:
   the token's TTL is 3600s, shorter than the interval), `GET /games/active-types` (both types resolved
   **by name**; `GameParametersDto` already carries mint/decimals/receiver/stake/presets as public data,
-  so **no admin token and no operator signing key**), `GET /games/{id}` (the emptiness check),
+  so **no admin token and no signing key**), `GET /games/{id}` (the emptiness check),
   `GET /solana/balance` (pre-flight), `POST /rpc` for build→send→confirm, `POST /games/{id}/bets`.
   **Self-limiting:** its own bet from the previous pass is what makes the round non-empty, so at most
   one seeded bet is outstanding per game and no state file exists. Config lives in the unversioned
@@ -341,6 +341,6 @@ CPU/memory/disk + connections against `max_connections`, Redis memory/evictions/
   first live run.
 - **Backend readiness:** `monkify-backend/src/SpaceStroker.Common/Cors/CorsOriginResolver.cs`,
   `SpaceStroker.Domain/Configs/Entities/CorsSettings.cs`, `SpaceStroker.Api/Program.cs` (forwarded headers + CORS),
-  `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + Main-operator seed URLs), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).
+  `SpaceStroker.Consumers/Program.cs` (`/health` + CORS + config-driven game seeding), `SpaceStroker.Common/spacestrokersettings.json` (`GeneralSettings:Cors`).
 - **Front:** `monkify-front/.env.example` (production build documentation).
 - **Not in this repo:** the real `terraform apply` (ops), domain registration, real Solana mainnet / Fx keys.

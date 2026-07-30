@@ -33,8 +33,9 @@ from data the client already receives, with no backend, DB, SignalR-contract, or
   which is the **single source of truth** for `currentPot`. It does **not** separately zero the pot —
   a prior `currentPot.value = 0` that ran *after* `getBets` clobbered the seeded lottery base to `0` on
   every load/rollover (the "`POT: 0` on a fresh Space Jackpot" bug, Trello #88); it was removed.
-- **Currency/format:** rendered via the existing `formatAmount` helper — `USDC` for crypto operators,
-  the player's preferred display currency for regulated operators (identical to the `> BET:` line).
+- **Currency/format:** rendered via the existing `formatAmount` helper — always token-native, at the
+  configured token's symbol and decimals (identical to the `> BET:` line). *(It used to branch on the
+  game's payment method and render a preferred fiat for `Standard` games; both are gone.)*
   Settlement stays USD; this is display-only.
 - Settlement/payout math is untouched — `BetDomainService.SetPotAmount` remains the source of truth
   for actual winnings; this feature only mirrors the pot for display.

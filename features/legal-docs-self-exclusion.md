@@ -60,9 +60,8 @@ feature.
 
 **Self-exclusion**
 
-- Flags the **`OperatorPlayer`** row — which for a `SolanaToken` game is keyed by the wallet, so this
-  is literally "per wallet"; a `Standard` launch-token player falls out for free. Scoped to one
-  operator: a partner casino's own RG system owns its players.
+- Flags the **`Player`** row, which is keyed by the wallet — so this is literally "per wallet".
+  (It used to be an `OperatorPlayer` scoped to one tenant; there is one deployment now.)
 - Two columns: **`SelfExcludedAt`** is the flag (non-null ⇒ excluded) and **`SelfExcludedUntil`** the
   expiry, where **null with the flag set means PERMANENT**. One nullable expiry could not tell "never
   excluded" apart from "excluded forever", which is why there are two.
@@ -97,8 +96,9 @@ feature.
    rather than bouncing off a guard. No money moves.
 2. **Backend authority.** The check runs in `RegisterBetHandler` **before `ValidateSolanaPayment`** —
    i.e. before the handler validates (and thereby accepts) the on-chain payment — and for **every**
-   operator always. It is deliberately **not** routed through `IPreBetCheckResolver`, which is opt-in
-   per operator and returns `null` for Main.
+   game always. *(It was deliberately not routed through the opt-in per-operator
+   `IPreBetCheckResolver`, which never had an adapter configured — that hook has since been deleted
+   outright, leaving self-exclusion as the only RG control that runs.)*
 3. **Refund backstop.** A stale tab or a direct API call can still transfer before we reject; that
    stake is refunded (see below).
 
@@ -122,7 +122,7 @@ Refunds are therefore issued **bet-less, from the event**:
   persisted bet (the 12h sweep, the admin refund) leave both null and take the unchanged bet-backed path.
 - The consumer resolves the game's registered token and refunds a **detached, never-saved** `Bet`
   carrying the wallet and amount, with `Id` left empty so the ledger row records a null `BetId`.
-- **Idempotency** keys on a new indexed **`CryptoTransactionLog.RelatedSignature`** — the payment a
+- **Idempotency** keys on the indexed **`TransactionLog.RelatedSignature`** — the payment a
   refund reverses. It could not key on `Signature`, which holds the **refund's own** transaction; that
   mistake shipped in the spec and was caught only by the integration test.
 - The same treatment now applies to the RG adapter's `Denied` and `Unavailable` arms, which also
@@ -130,31 +130,33 @@ Refunds are therefore issued **bet-less, from the event**:
 
 ⚠️ **Known limitation:** a bet-less refund that exhausts its retries has **no automated recovery** —
 the 12h `PendingRefundSweepJob` only picks up `NeedsRefunding` **bets**, and `POST /admin/bets/refund`
-finds bets by `ExternalTransactionReference`. It logs at `Error`; recovery is a manual on-chain
+finds bets by `Bet.Signature`. It logs at `Error`; recovery is a manual on-chain
 transfer.
 
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
 
-- `SpaceStroker.Domain/Games/Entities/OperatorPlayer.cs` — `SelfExcludedAt`, `SelfExcludedUntil`,
+- `SpaceStroker.Domain/Games/Entities/Player.cs` — `SelfExcludedAt`, `SelfExcludedUntil`,
   `IsSelfExcluded(now)` (the single source of truth for "blocked").
 - `SpaceStroker.Domain/Games/ValueObjects/SelfExclusionDuration.cs` — the enum + `ToTimeSpan()` and
   `ToDisplayText()`. **The display text goes into the signed message**, so it is mirrored in
   `monkify-front` and pinned by a test.
-- `SpaceStroker.Domain/Bets/Entities/CryptoTransactionLog.cs` — `BetId` nullable, new `RelatedSignature`.
+- `SpaceStroker.Domain/Bets/Entities/TransactionLog.cs` — `BetId` nullable, `RelatedSignature`
+  (the columns survived the ledger merge; `CryptoTransactionLog` was folded in and dropped).
 - `.../Handlers/Players/GetSelfExclusionNonce/*`, `.../SetSelfExclusion/*` (`BuildMessage` is the
   canonical message; signature verify; extend-only upsert).
 - `SpaceStroker.Api/Controllers/PlayersController.cs` — `GET /players/self-exclusion/nonce`,
   `POST /players/self-exclusion`. `/players` is already in
-  `LaunchTokenValidationMiddleware.ProtectedPrefixes`, so both are launch-token gated for free.
+  the nonce is now **purpose-scoped** (`self-exclusion` vs `preferences`) so it cannot be replayed
+  across flows. Both endpoints are public — the ed25519 signature *is* the authentication.
 - `.../GetPlayerPreferences/*` — `selfExcluded` + `selfExcludedUntil` on the existing boot read.
 - `.../RegisterBet/RegisterBetHandler.cs` — the exclusion check, the enriched refund event, the RG
   deny/unavailable refunds.
-- `.../Consumers/RefundInvalidBet/*` — the bet-less branch; `.../Services/Payments/SolanaTokenPaymentMethodService.cs`
+- `.../Consumers/RefundInvalidBet/*` — the bet-less branch; `.../Services/Solana/SolanaService.cs`
   — null-`BetId` ledger write + `RelatedSignature`.
 - Migration `AddSelfExclusionAndCryptoLogRefundLink`.
-- Tests: `OperatorPlayerSelfExclusionTests`, `SetSelfExclusionHandlerTests` (real keypairs),
+- Tests: `PlayerSelfExclusionTests`, `SetSelfExclusionHandlerTests` (real keypairs),
   `RefundInvalidBetWithoutBetTests`, self-exclusion cases in `RegisterBetHandlerTests`, exclusion cases
   in `GetPlayerPreferencesHandlerTests`; integration `SelfExclusionFlowTests`.
 
@@ -171,7 +173,7 @@ transfer.
   `src/hooks/useMobileWallet.ts` — the pending-self-exclusion stash and return decode.
   ⚠️ A wallet's return params are **identical** for `signAllTransactions` and `signMessage`, so what was
   stashed before leaving is the only thing that tells the two hops apart.
-- `src/hooks/useDisplayCurrency.ts` — `loadPreferences` folds the exclusion state in, so every caller
+- `src/hooks/usePlayerPreferences.ts` — `loadPreferences` folds the exclusion state in, so every caller
   keeps the guard current with no extra request.
 
 **Landing page (`monkify-lp`)**
@@ -185,6 +187,7 @@ transfer.
 - **The mobile deeplink `signMessage` hop is device-unverified.** It mirrors the shipped transfer hop
   and compiles, but no phone was in the loop at ship time.
 - **No legal entity or governing law** is published (deliberate — see above).
-- **The crypto RG-deny path has no integration test.** The RG fixture operator seeds only `Standard`
+- ~~**The crypto RG-deny path has no integration test.**~~ Moot: the RG pre-bet hook was deleted with
+  operators. *(Original note: the RG fixture operator seeded only `Standard`
   game types, and giving it a crypto catalogue collides with the existing RG seeds. Covered by two unit
-  tests, and the refund mechanism itself is proven end-to-end by `SelfExcludedPlayer_PaidBet_IsRefunded`.
+  tests, and the refund mechanism itself is proven end-to-end by `SelfExcludedPlayer_PaidBet_IsRefunded`.)*
