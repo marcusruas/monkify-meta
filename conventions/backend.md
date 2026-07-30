@@ -21,55 +21,67 @@
 
   ```csharp
   // Prefer — the main method shows the shape of the work:
-  var service = paymentResolver.Resolve(game.Parameters);   // by game PaymentMethod
-  var result = await service.Refund(bet, refundAmount, message.Reason, ct);
+  var refund = await _solanaService.RefundTokens(bet, refundAmount, ct);
+  await WriteRefundLedgerRow(bet, refund, message.Reason, ct);
 
   // Avoid — the whole method branch (resolve + call + persist + log) inlined in the main method.
   ```
 
   Each extracted method should have one clear purpose and a name that says what it does
-  (`DebitOperatorWallet`, `CreditWinner`, `WritePlacementCryptoLog`). This keeps the entry method
+  (`ValidateBetParameters`, `CreditWinner`, `WritePlacementLedgerRow`). This keeps the entry method
   short and the behaviours independently readable/testable.
 - **Controllers are thin:** extend `BaseController`, build a MediatR request, return
   `ProcessRequest(...)` (wraps `ApiResult<T>` = `{ data, messages }`). Validation failures via
   `IMessaging.ReturnValidationFailureMessage(...)`.
-- **Operator/player identity comes from the launch token, not headers.**
-  `LaunchTokenValidationMiddleware` (`SpaceStroker.Api/Middleware/`) validates the `X-Launch-Token` (RS256)
-  on operator-scoped paths and populates the scoped `ILaunchContext` (`{ operatorId, externalPlayerId }`);
-  controllers read it instead of binding a header. Any token failure → generic **HTTP 401** (vague;
-  real reason logged with a correlation id). The old `x-operator-id` `[FromHeader]` binding is gone.
-- **Cached operator lookups:** use `IOperatorService.GetActiveOperatorById` (cached under the
-  per-operator key) rather than querying `Operators` directly — it's shared by the middleware,
-  `GetOperatorByIdHandler`, and `RegisterBetHandler`. When signing/validating JWTs, build the
-  `RsaSecurityKey` from exported `RSAParameters` with provider caching off (avoids a disposed-RSA error).
-- **Async messaging via MassTransit/RabbitMQ:** consumers in `SpaceStroker.Infrastructure/Consumers/…`
-  (one receive endpoint each), registered in `SpaceStroker.Consumers/Program.cs`. Publish via
-  `IRabbitMQService`.
-- **Caching via `ICacheService`** (Redis or in-memory). Keys built by `CacheHelper`; active-params
-  cache is operator-aware.
+- **Player endpoints are public; identity is the wallet in the request.** There is no launch token and
+  no request-scoped tenant — `/games/*` and `/players/*` take no auth header. A paid bet proves who the
+  player is by carrying a confirmed on-chain transfer signature from their wallet.
+- **A write that only a wallet's owner may make must be signature-gated.** A wallet address is public,
+  so an unproven `PATCH` would let anyone act as anyone. Mint a purpose-scoped single-use nonce
+  (`GET /players/nonce?wallet=…&purpose=…`, `WalletNonce:{purpose}:{wallet}` in Redis, 5 min), have the
+  client sign a canonical message, verify with `PublicKey.Verify`, and consume the nonce. **Give every
+  new flow its own `purpose`** or a nonce minted for one becomes a replay against another. The
+  canonical message must be built by a shared helper (e.g.
+  `UpdatePlayerPreferencesHandler.BuildMessage`) that the frontend duplicates byte-for-byte.
+- **The admin token is the only auth left.** `AdminTokenValidationMiddleware` validates `X-Admin-Token`
+  (`scope=admin`) against `GeneralSettings:Operator:AdminToken:PublicKeyPem` — no `iss`, no contract
+  check — and guards `/admin` only. Failures → generic **HTTP 401** (vague; real reason logged with a
+  correlation id). When signing/validating JWTs, build the `RsaSecurityKey` from exported
+  `RSAParameters` with provider caching off (avoids a disposed-RSA error).
+- **Async messaging via the MassTransit Postgres SQL transport** (no broker): consumers in
+  `SpaceStroker.Infrastructure/Consumers/…` (one receive endpoint each), registered in
+  `SpaceStroker.Consumers/Program.cs`. Publish via `IMessageBus`. See
+  `features/masstransit-postgres-transport.md`.
+- **Caching via `ICacheService`** (Redis or in-memory). Keys built by `CacheHelper`. There is one
+  deployment, so `ActiveParameters` and the global-stats key are **global** — they carry no tenant
+  suffix, which means they are shared across tests too (assert deltas, invalidate explicitly).
 - **Domain stays pure:** entities/value-objects/domain-services in `SpaceStroker.Domain` have no
   EF/infra dependencies. All entities extend `TableEntity`.
-- **Money movement routes by the game's `PaymentMethod`, via `IPaymentMethodResolver`.** Handlers and
-  consumers call `paymentResolver.Resolve(game.Parameters).Debit/Credit/Refund(...)` — **never** branch
-  on an operator enum (`Operator.PaymentModel` is gone). `StandardPaymentMethodService` settles off-chain
-  via `IOperatorWalletService` (USD; resolved per operator by `IOperatorWalletResolver` from
-  `GeneralSettings.OperatorWallets`); `SolanaTokenPaymentMethodService` settles on-chain via
-  `ISolanaService` using a per-call `SolanaTokenDescriptor` built from the game's registered
-  `OperatorToken` (its private key decrypted via `ISecretProtector` in Consumers only). Every movement is
-  recorded in the **unified `TransactionLog`** ledger (`TransactionLogType` = `Credit`/`Debit`/`Refund`,
-  carrying `PaymentMethod` + `ExternalTransactionReference`), plus a `CryptoTransactionLog` for SolanaToken;
-  the ledger backs reward/refund idempotency (subtract by type). There is **no commission** in pot math.
-  See `features/payment-methods.md`.
-- **Secrets encrypted at rest** go through `ISecretProtector` (`AesSecretProtector`, AES-256-GCM keyed
-  from the `GeneralSettings.SecretProtection.Key` passphrase): `Protect` in the API before persisting,
-  `Unprotect` in Consumers only when the plaintext is needed for an outbound call. Never return an
-  encrypted secret in a DTO or log it.
+- **There is one settlement path: `ISolanaService`, against the token in
+  `GeneralSettings:Operator:Token`.** No strategy, no resolver, no per-game branch — the
+  `PaymentMethod` enum and the off-chain `Standard` method are gone, so every amount is token-native.
+- **Every money movement is exactly one `TransactionLog` row** — `Debit` for the stake placement,
+  `Credit` for a payout, `Refund` for a returned stake — carrying the on-chain detail inline
+  (`Signature`, `RelatedSignature`, `Wallet`, `MintAddress`, `SenderAccount`, `RawTokenAmount`,
+  `Decimals`). `CryptoTransactionLog` was merged in and dropped.
+  **`BetId` is nullable**: a stake rejected before `InsertBet` still gets a row, keyed for idempotency
+  on `RelatedSignature` (the payment being reversed) rather than a bet id. Any query that filters by bet
+  id must exclude nulls first, or the `Contains` will not translate. A `Debit` must **never** be read
+  as a payout — reward subtraction reads `Credit`, the already-refunded guard reads `Refund`.
+  See `features/remove-operators.md`.
+- **No application-level secret encryption.** `ISecretProtector`/`AesSecretProtector` are deleted: the
+  token owner private key lives in `GeneralSettings:Operator:Token`, and encrypting a config value
+  with a key stored in the same config bought nothing once no user could type a private key into the
+  admin portal. Deployed environments inject it via **Secret Manager**; the committed
+  `spacestrokersettings.json` carries a placeholder. Never return a secret in a DTO or log it, and
+  mask RPC URLs (the provider api-key rides in the query string).
 - **Tests:** `SpaceStroker.Tests` (xUnit + Shouldly + Moq + Bogus, in-memory EF). Update + add + report
   changed tests on every behavior change (see `constraints.md`).
 - **Game-flow changes MUST update the integration tests.** End-to-end coverage of the game
   lifecycle lives in the separate **`SpaceStroker.Tests.Integration`** project (Testcontainers:
-  PostgreSQL + RabbitMQ + Redis; boots the `SpaceStroker.Api` + `SpaceStroker.Consumers` hosts and runs real
-  games bet→run→reward with Solana/operator-wallet mocked). It is **excluded** from the default
+  PostgreSQL + Redis; boots the `SpaceStroker.Api` + `SpaceStroker.Consumers` hosts and runs real
+  games bet→run→reward with Solana mocked, on a client that sends **no auth header**). It is
+  **excluded** from the default
   fast suite (`scripts/run_tests.bat`, which scopes to `SpaceStroker.Tests` / `~UnitTests`) and runs on
   demand via **`scripts/run_integration_tests.bat`**. **Any change to the game lifecycle/flow**
   (consumers `BetPlaced`/`RunGame`/`RewardGame`/`RefundInvalidBet`, `GameService`,

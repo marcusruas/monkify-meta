@@ -18,8 +18,8 @@ bets at the API and hide the UI toggle.
   `paymentSignature`. No `isFreeBet` request field. Mixed signals (`amount == 0` with a signature, or
   `amount > 0` with empty signature) are **invalid**, not free bets.
 - **Wallet (register-bet body):** optional for free bets. Required for paid bets (unchanged). When
-  provided, backend upserts `OperatorPlayer` and sets `Bet.OperatorPlayerId`; anonymous free bets
-  omit wallet and keep `OperatorPlayerId` NULL.
+  provided, backend upserts `Player` and sets `Bet.PlayerId`; anonymous free bets
+  omit wallet and keep `PlayerId` NULL.
 - **UI toggle:** when the frontend flag is on and `allowFreeBet` is true on the game type, the
   game shows **"Free bet mode"** (off by default). Toggle on skips wallet connect and `sendToken`
   even if a wallet is connected.
@@ -32,24 +32,24 @@ bets at the API and hide the UI toggle.
 - **Refunds:** invalid free bets, lottery under-subscription, and duplicate free bets do **not**
   publish `RefundInvalidBetEvent` or append `RefundWarning`. `RefundInvalidBetConsumer` skips when
   `Value == 0`.
-- **Duplicates:** when `OperatorPlayerId` set — `(gameId, operatorPlayerId, choice)`. Anonymous
+- **Duplicates:** when `PlayerId` set — `(gameId, playerId, choice)`. Anonymous
   free (NULL FK) — `(gameId, choice)` only.
 - **Min players (free bets count individually):** in `BetPlacedConsumer` every **free** bet counts as
   an **individual player** (distinct key = `Bet.Id`), even when the bets resolve to the **same**
-  `OperatorPlayer` (e.g. a regulated operator's token `sub`, or one wallet placing several free bets).
-  Paid/identified bets still de-duplicate by `OperatorPlayerId`. So one user can satisfy
+  `Player` (one wallet placing several free bets).
+  Paid/identified bets still de-duplicate by `PlayerId`. So one user can satisfy
   `MinimumNumberOfPlayers` on their own with several free bets.
 - **Exempt from the per-round bet limits.** The caps added by `fix-bets-logic` (one bet per player per
   round in preset types; no second bet while you are the round's only bettor) apply **only to paid,
-  identified** bets — the gate is `!isFreeBet && OperatorPlayerId != null`, **not** a bare null check,
-  because a free bet in a `SolanaToken` game *does* resolve an `OperatorPlayer` (the client sends the
+  identified** bets — the gate is `!isFreeBet && PlayerId != null`, **not** a bare null check,
+  because a free bet placed with a wallet connected *does* resolve a `Player` (the client sends the
   wallet on free bets too). Without that `!isFreeBet` half, filling a round solo — the point of the
   bullet above — would stop working. See `features/games.md` §9 and `specs/fix-bets-logic.md`.
-- **Game types:** all types (race + lottery). Dev seed sets `AllowFreeBet = true` on all six
-  default game types; DB default for new rows remains `false`.
-- **Operators:** a valid **launch token** (`X-Launch-Token`) is required and its operator must match
-  the game; anonymous free bets in dev use a DEV-minted token (see
-  `features/launch-token-validation.md`). Wallet-skip/free logic is keyed on `Operator.PaymentModel`.
+- **Game types:** all types (race + lottery). Outside production a startup self-heal forces
+  `AllowFreeBet = true` on the config-seeded types (`ExecuteUpdate`, since the DbContext is
+  `NoTracking`); DB default for new rows remains `false` and production keeps free bets off.
+- **No auth:** the bet endpoint is public — there is no launch token to present. A free bet is
+  gated only by the backend `AllowFreeBets` switch and the type's `AllowFreeBet`.
 
 ## Key code touchpoints
 

@@ -123,7 +123,7 @@ dotnet run -- deploy --env development
 Now: corrected secrets re-synced (new versions), `terraform apply` creates `cloud_run_*` (images
 present, DB reachable) → Ready; `DeployComponent` rebuilds/pushes (idempotent) and updates the Cloud
 Run revisions, then builds + `gsutil rsync`es front (yarn) and lp (npm) to their buckets and
-invalidates CDN. Runs to `Deploy complete.` Consumers boots first and owns EF migrate + Main-operator
+invalidates CDN. Runs to `Deploy complete.` Consumers boots first and owns EF migrate + config-driven
 seed — allow ~1 min before the API is fully functional.
 
 ### Phase 5 — verify (no DNS yet)

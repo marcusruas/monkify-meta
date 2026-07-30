@@ -7,7 +7,7 @@
 
 Lottery pots now behave like a real jackpot. When a lottery round pays out **no one**, the un-won
 money **stacks** into the next round of that same lottery instead of vanishing, so the pot grows until
-someone finally wins. When an operator **deactivates** a lottery that is still holding un-won money,
+someone finally wins. When an admin **deactivates** a lottery that is still holding un-won money,
 they must nominate **another eligible lottery to transfer the pot to** — it is never destroyed. A
 running "carried jackpot" is stored per game and shown to players in the `> POT:` line.
 
@@ -37,14 +37,14 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
   passes it on the under-subscription rollover; the Consumers **startup backfill** inherits it from a
   type's most recent game so a restart mid-jackpot does not reset the pot. Non-lottery types always
   carry `0`. The carry is applied exactly once per predecessor (one successor per rollover).
-- **Applies to both payment methods.** `Standard` (off-chain USD) and `SolanaToken` (on-chain)
+- **Applies to every game type.** *(It used to be stated as "both payment methods"; `Standard` is
+  gone and every game settles in the one configured token.)* On-chain
   lotteries both stack.
 - **Deactivation transfers an un-won pot.** `POST /admin/game-types/{id}/deactivate` accepts an
   optional body `{ targetLotteryId }`. When the lottery's current game holds `CarriedExtra > 0`:
   - A `TargetLotteryId` is **required**; omitting it returns an admin validation error and the lottery
     stays active.
-  - The target must be **eligible**: same operator, `Active`, a lottery, the **same `PaymentMethod`**,
-    and — for `SolanaToken` — the **same `OperatorTokenId`** (same mint/currency), and not the source
+  - The target must be **eligible**: `Active`, a lottery, and not the source
     itself. No eligible target → deactivation is **blocked** with a clear admin error; the pot is
     neither destroyed nor refunded.
   - On success the source's `CarriedExtra` is added to the **target's current bet-accepting game**
@@ -58,7 +58,7 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
   `LotteryPot + CarriedExtra + Σ live bets`, so the growing jackpot is visible before, during, and
   after a round (settlement math is unchanged — display only).
 - **Testable in dev.** ⚠️ **No longer seeded (2026-07-23).** The dev-only 1-minute preset lottery
-  `6L Minute Menagerie` lived in `GenerateDefaultParameters()`, which the dev operator stopped seeding
+  `6L Minute Menagerie` lived in `DefaultGameParameters.cs`, which stopped being seeded
   when it moved to the production catalogue (see `games.md`). The seeded dev lottery is now
   **Space Jackpot** — a **24h, non-preset** draw, so it neither rolls every minute nor can produce the
   preset no-winner carry. Exercising pot stacking locally now means creating a 1-minute preset lottery
@@ -82,7 +82,7 @@ running "carried jackpot" is stored per game and shown to players in the `> POT:
 - Admin transfer: `SpaceStroker.Api/Controllers/AdminController.cs`,
   `SpaceStroker.Infrastructure/Handlers/Admin/DeactivateGameType/{DeactivateGameTypeRequest,DeactivateGameTypeHandler}.cs`,
   `SpaceStroker.Infrastructure/Contracts/Admin/DeactivateGameTypeBody.cs`,
-  `SpaceStroker.Infrastructure/Handlers/Admin/GetOperatorGameTypes/GetOperatorGameTypesHandler.cs`,
+  `SpaceStroker.Infrastructure/Handlers/Admin/GetGameTypes/GetGameTypesHandler.cs`,
   `SpaceStroker.Infrastructure/Contracts/Admin/GameTypeAdminDto.cs`.
 - Player DTO: `SpaceStroker.Infrastructure/Contracts/Games/ActiveGameDto.cs`.
 - Seed: `SpaceStroker.Consumers/DefaultGameParameters.cs` (`PresetLottery` factory + `6L Minute Menagerie`).

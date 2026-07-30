@@ -47,10 +47,10 @@ wallet-connect path so `SolanaToken` bets can be placed from a phone.
   - **One key per configured choice, no cap** — the keys come straight from `presetChoices`, so a
     12-choice game is fully playable and a 5-choice game shows exactly 5 keys. (The old fixed
     `[...Array(8)]` keypad made choices 9+ unreachable and rendered dimmed ghost keys below 8. The
-    backend sets **no maximum** on `PresetChoices`, so operators can and do exceed 8.)
+    backend sets **no maximum** on `PresetChoices`, so a configured type can exceed 8.)
   - **Keys carry the choice NAME** plus its 1-based index (`1 RABBIT`), the index matching the
     terminal's `> CHOICES:` order. The label is `> PICK YOUR CHOICE` — deliberately generic, because
-    preset choices are operator-configured free text and are not always animals or numbers.
+    preset choices are configured free text and are not always animals or numbers.
   - **Selection is derived from `userWord`, never stored locally**, so it clears itself when
     `placeBet()` succeeds and when `GamePage` resets on a round/game change. Exactly one key is lit
     (`bg-primary` + amber glow, the same active idiom as `GameMobileTabs`).

@@ -2,6 +2,13 @@
 
 > Status: **shipped.** Authoritative spec: `../specs/sales-technical-documents.md`
 > (merged via `feature/sales-technical-documents` on 2026-07-01).
+>
+> ⚠️ **The product these documents describe no longer exists** (`features/remove-operators.md`,
+> 2026-07-30). The whole `sales/` set is written around **multi-tenant operators** — Model A
+> (regulated, operator wallet, launch-token `sub`) and Model B (crypto) — and every one of those
+> concepts was deleted: there is no operator, no launch token, no `Standard`/off-chain settlement and
+> no RG pre-bet hook. **Rewriting `sales/` (and `pitch/`) was explicitly out of scope for that card
+> and needs its own.** Treat the content below and the files under `sales/` as historical until then.
 
 ## What it does
 
@@ -20,6 +27,7 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
   doc via the canonical track table and `MODEL-A-PROFILE` / `MODEL-B-PROFILE` blocks (EN + PT-BR).
   - **Model A (Regulated):** operator-owned wallet; player = launch-token `sub` (`ExternalPlayerId`);
     settlement via operator wallet API (debit / credit / refund); optional RG pre-bet hook.
+    ⚠️ **This model no longer exists in the product** — see the banner at the top of this file.
   - **Model B (Crypto-native):** SpaceStroker-hosted on-chain payments; player = wallet public key;
     settlement via Solana SPL transfers; launch token has empty `sub`.
 - **Per-model docs:** `sales/model-a/` and `sales/model-b/` each hold `01-pitch` and
@@ -28,7 +36,7 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
   fee only** (no %NGR / revenue share); 12-month minimum and exclusivity-as-paid-add-on are editable
   levers tagged **Draft**.
 - **Doc 02** is **Confidential — under NDA**; single-path launch→bet→settle flow per model, grounded
-  read-only in shipped backend behavior; mock-only secrets; operator/token failures described as
+  read-only in shipped backend behavior; mock-only secrets; auth failures described as
   generic **401 / not found / unavailable** (never contract status).
 - **Doc 03** is internal: anti-clone positioning + pre-sales-call checklist; links to per-model docs.
 - **Discipline:** placeholders only (`[OWNER]`, `[ENTITY]`, `MOCK_…`); operator names (BetMGM,
@@ -49,7 +57,7 @@ documents in `legal/` (`specs/legal-pitch-documents-batch-1.md`).
 
 **Backend features Doc 02 is grounded in (read-only; unchanged by this card):**
 
-- `features/launch-token-validation.md` — `X-Launch-Token` RS256, `iss`/`sub`, vague 401
-- `features/operator-wallet-api.md` — Model A debit/credit/refund, unified `TransactionLog`, no commission
-- `features/rg-pre-bet-hook.md` — optional pre-bet allow/deny/fail-closed before wallet debit
+- `specs/launch-token-validation.md` — `X-Launch-Token` RS256, `iss`/`sub`, vague 401 *(removed)*
+- `specs/operator-wallet-api.md` — Model A debit/credit/refund, unified `TransactionLog` *(removed)*
+- `specs/rg-pre-bet-hook.md` — optional pre-bet allow/deny/fail-closed *(removed)*
 - `features/games.md` — game state machine (BetPlaced → RunGame → RewardGame)

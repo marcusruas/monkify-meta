@@ -4,6 +4,16 @@
 > (merged via `feature/wallet-display-name` on 2026-07-14).
 >
 > Full-stack. Child of the umbrella **#46 refactor solana wallet flow** (escrow-independent).
+>
+> ⚠️ **Largely absorbed by `features/remove-operators.md` (2026-07-30).** This card fixed a
+> *conditional*: preferences keyed off the wallet **in a SolanaToken context**, else off the
+> launch-token `sub`. Both the launch token and the `Standard` method are gone, so the wallet is now
+> the **only** identity and the condition is unconditional — the `walletForPrefs` gymnastics, the
+> `sub` fallback and the currency selector it hid no longer exist. What survives from this card is the
+> part that still matters: **`GameService.InsertBet` must capture the wallet before detaching the
+> player navigation**, or live bet notifications ship a null `ExternalPlayerId`. (Removing operators
+> then found the mirror-image bug: `InsertBet` restored only `bet.Game`, not `bet.Player`, so every
+> placement ledger row was written with a blank `Wallet`.)
 
 ## What it does
 
@@ -12,7 +22,8 @@ games, everywhere: the name they set now shows on their own `YOU` label, on rece
 in the winners list for crypto play, instead of coming back blank / `ANON`. For Standard games
 identity stays the launch-token `sub`, unchanged. The customization modal also gates itself behind a
 connected wallet when there is no other identity to write to, and hides the (irrelevant) currency
-selector in a crypto game.
+selector in a crypto game. *(Read the banner above: the wallet is now the only identity in every
+game, and there is no currency selector.)*
 
 ## Core rules
 
@@ -80,5 +91,6 @@ selector in a crypto game.
 ## Related
 
 - [[player-customization-modal]] — the modal this extends (display name + currency).
-- [[payment-methods]] — per-game `PaymentMethod`; SolanaToken identity = wallet.
-- [[operator-player-identity]] — `OperatorPlayer(OperatorId, ExternalPlayerId)`; crypto id = wallet.
+- [[remove-operators]] — the `PaymentMethod` split and the launch token are gone; the wallet is the
+  only identity, in every game.
+- [[player-identity]] — the `Player` row this writes to (was `OperatorPlayer`).

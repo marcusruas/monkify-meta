@@ -1,23 +1,31 @@
-# Feature — Crypto commission (house cut on SolanaToken winnings)
+# Feature — House commission (cut on winnings)
+
+> ⚠️ **Scope widened by `features/remove-operators.md` (2026-07-30).** The commission was
+> `SolanaToken`-only because `Standard` (off-chain USD) games existed and took no cut. `Standard` is
+> gone — every game settles in the one configured token — so the commission now applies to **every**
+> game type, and the `PaymentMethod` branch that gated it is deleted. The rate moved from
+> `GeneralSettings.Token.CommissionPercentage` to
+> **`GeneralSettings.Operator.Token.CommissionPercentage`**. The math below is otherwise unchanged.
 
 > Status: **shipped.** Authoritative spec: `../specs/crypto-commission.md`
 > (merged via `feature/crypto-commission` on 2026-07-17).
 
 ## What it does
 
-For **`SolanaToken` (crypto) game types only**, SpaceStroker retains a small **house commission** on
+SpaceStroker retains a small **house commission** on
 winnings instead of paying out the whole pot. The cut is taken only from each winner's **profit above
 their own stake** (a winner always gets their stake back), defaults to **0.5%**, and is realized by
-crediting winners less on-chain — the retained amount simply stays in the operator's token account.
-**Standard/USD games are unchanged** (winners still split 100% of the pot). The rate is shown to
+crediting winners less on-chain — the retained amount simply stays in the house token account.
+The rate is shown to
 players as a **house-cut badge** in the `/game` STATS side panel. This re-adds a commission that was
 removed in the operator-wallet-api refactor (see `operator-wallet-api.md`).
 
 ## Core rules
 
-- **Scope: SolanaToken only.** The commission is applied in `BetDomainService.CalculateRewardForBet`
-  only when the game's `PaymentMethod == SolanaToken`. Standard games never apply it (full pot to
-  winners, 0% cut).
+- **Scope: every game type.** The commission is applied in `BetDomainService.CalculateRewardForBet`
+  unconditionally (there is one settlement token, so there is nothing to branch on).
+  *(Historically it was gated on `PaymentMethod == SolanaToken`; Standard games applied none — full pot to
+  winners, 0% cut.)*
 - **What is taxed = player-funded profit above the winner's own stake.** Per winner:
   `commission = rate × max(0, winnerReward − ownStake − houseFundedShare)`, then
   `netReward = winnerReward − commission`.

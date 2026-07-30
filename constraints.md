@@ -54,7 +54,7 @@ agents work different features at once without colliding.
   two worktrees, which backstops this.
 - **A branch (for the PR) is still created and pushed in EACH affected repository**
   (`monkify-backend`, `monkify-front`, and `monkify-meta` when the spec lives there). Use the
-  feature's agreed name, e.g. `feature/operators` — same name in every repo — created via the
+  feature's agreed name, e.g. `feature/remove-operators` — same name in every repo — created via the
   worktree above, and pushed to `origin` right after (see `AGENTS.md` → push after branch work).
 - Never commit directly to the default branch. Only commit when the user asks; never push force or
   destructive git operations unless explicitly requested. **Exception:** the `monkify-ship-feature`
@@ -109,11 +109,23 @@ agents work different features at once without colliding.
   or request is needed, **ask the user to run it** and share only what is safe.
 - Do not point tools at production endpoints. Local docker-compose is the safe environment.
 
-## 6. User-facing messaging (Operators feature)
+## 6. User-facing messaging
 
-- For expired/inactive operators, only ever surface a **vague** "not found / unavailable" message.
-  **Never reveal contract status** (e.g. never say "the contract expired"). Reuse the existing
-  generic error messages; do not add expiry-specific ones.
+> The original rule here concealed **operator contract status** ("expired" / "not yet started").
+> Operators are gone (`features/remove-operators.md`), so there is no contract state left to leak.
+> What survives is the reason that rule existed: an error message must not tell an unauthenticated
+> caller more about the system than they are entitled to know.
+
+- **Auth failures are vague.** Any rejection on `/admin/*` returns one generic **401** ("The request
+  could not be processed."); never distinguish a bad signature from an expired token from a wrong key.
+  The real reason is logged server-side only.
+- **Wallet-proof failures are vague.** A bad signature, an unknown nonce, and a replayed nonce all
+  return the same message — a distinguishable response would tell an attacker which half of the proof
+  they got right.
+- **Unknown or inactive game types** surface a generic "not found / unavailable"; do not add
+  state-specific copy.
+- Field-level validation errors are fine on the **authenticated** admin endpoints — they are not the
+  vague-auth path.
 
 ## 7. Asking the user to decide — pick the answer mode first, then give the trade-offs
 
@@ -182,10 +194,10 @@ Issues that this approach brings: <the problem stays unsolved, ...>
 
 ### What must appear on those two lines (Complete mode)
 
-- **Benefits** — the problem it actually solves and for whom (player, operator, ops), plus anything
-  it makes cheaper or simpler later.
+- **Benefits** — the problem it actually solves and for whom (player, ops), plus anything it makes
+  cheaper or simpler later.
 - **Issues that this approach brings** — be specific, not generic: added complexity, blast radius
-  across other features (game/bet lifecycle, payments & payouts, refunds, operators/multi-tenancy,
+  across other features (game/bet lifecycle, payments & payouts, refunds, the single ledger,
   SignalR contracts, caching, scheduling), schema/migration impact, performance, ops burden, new test
   surface (including the mandatory integration test if it is a `Feature`), **how hard it is to undo**
   once shipped (config flip vs. migration + data backfill vs. a public contract we can't take back),

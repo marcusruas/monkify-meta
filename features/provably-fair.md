@@ -43,7 +43,7 @@ independently reproducible.
 - **Two verification layers.** (a) Anyone reproduces the outcome from `ServerSeed` + canonically
   ordered `Bet.Seed`s and confirms `SHA256(ServerSeed) == ServerSeedHash`. (b) A bettor privately
   confirms their `Bet.Seed == HMAC(theirClientSeed, nonce)` — proof their entropy was used unmodified.
-- **Verification surface.** `GET /games/{id}/verification` (operator-scoped, reveal-gated) returns
+- **Verification surface.** `GET /games/{id}/verification` (public, reveal-gated) returns
   `serverSeedHash`, the ordered bet seeds/choices/nonces, `characterPool`, `queueLength`,
   `maxCharacters`, and — once Ended — `serverSeed` + `winningChoice` + `winnerDecidedByFallback`
   (plus `charactersTyped`, added by `provably-fair-final.md`). The raw `clientSeed` is never returned.

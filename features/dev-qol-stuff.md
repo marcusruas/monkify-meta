@@ -3,10 +3,14 @@
 > Status: **shipped.** Authoritative spec: `../specs/dev-qol-stuff.md`
 > (merged via `feature/dev-qol-stuff` on 2026-06-30).
 >
-> ⚠️ **The dev launch picker is gone (`features/main-only-player-entry.md`, 2026-07-24).** The
-> `DevLandingPage` "Crypto/Regulated" buttons and the `VUE_APP_DEV_LAUNCH` flag are retired;
-> `/space-stroker/game` now always lands a **player** in the Main lobby. `POST /dev/launch-token` remains
-> (non-prod) but mints a **Main** token. The Testcontainers integration-test guidance below still applies.
+> ⚠️ **Mostly historical as of `features/remove-operators.md` (2026-07-30).** Everything this card did
+> to the *launch* flow is moot: there is no launch token, no `POST /dev/launch-token`, no operator to
+> decode from an `iss` claim, and no `GET /operators/{id}`. Player routes are param-free because they
+> are **unauthenticated**, not because the operator moved into a token. The dev endpoint that exists
+> today is **`POST /dev/admin-token`** (non-production only).
+>
+> **What still applies is the second half of this card: the `SpaceStroker.Tests.Integration`
+> Testcontainers suite**, which is now mandatory for every new feature (`constraints.md` §3).
 
 ## What it does
 
@@ -22,7 +26,8 @@ shape.
   param-free (`/space-stroker/game/games`, `/space-stroker/game/play`). The frontend decodes the operator id
   from the launch token's `iss` claim (`getOperatorIdFromToken`) and calls `GET /operators/{id}` with
   it. The production casino launch URL is `…/space-stroker/game/games#launch_token=<jwt>`. Full launch
-  details live in `features/launch-token-validation.md`.
+  details lived in the deleted `features/launch-token-validation.md`; the design archive is
+  `specs/launch-token-validation.md`.
 - **Dev launch endpoint returns `{ token }` only.** `POST /dev/launch-token?paymentModel=Crypto|Regulated`
   no longer returns `operatorId` (recoverable from `iss`); the minted dev token is long-lived
   (effectively non-expiring) for local convenience. Still 404 in production.

@@ -135,7 +135,7 @@ local Docker stack for the user to test before the card advances.
    the affected tests, add tests for new behavior, and **report which unit tests changed** at the end.
 4. **Multi-repo work:** create the feature's worktree — and its branch (for the PR) — in **EACH
    affected repository** (`monkify-backend` and `monkify-front`) — never commit a cross-repo feature
-   to a single repo only. Use the agreed feature name (e.g. `feature/operators`), same branch name in
+   to a single repo only. Use the agreed feature name (e.g. `feature/remove-operators`), same branch name in
    every repo. The branch still goes to `origin` for the PR; the worktree is where the work lives
    (see rule 6 and `constraints.md` → "Git").
 5. **Push after branch work (Monkify skills):** when a skill **creates or updates** a git branch
@@ -220,4 +220,5 @@ local Docker stack for the user to test before the card advances.
   `SpaceStroker.Consumers`** at startup.
 - **Do not run production queries or external API requests** that could expose sensitive
   data — ask the user to run them.
-- For expired/inactive operators, only ever surface a **vague** "not found / unavailable" message.
+- Auth and wallet-proof failures surface one **vague** message; unknown/inactive game types surface a
+  generic "not found / unavailable". See `constraints.md` §6.

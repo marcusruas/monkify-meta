@@ -7,7 +7,7 @@ Use this when drafting a spec from a refined card. Search and **read** the live 
 
 - `monkify-meta/constraints.md`
 - Relevant `monkify-meta/features/*.md`
-- `monkify-meta/specs/operator-feature.md` (format reference only)
+- `monkify-meta/specs/remove-operators.md` (format reference only)
 
 ## By feature area
 
@@ -41,12 +41,13 @@ For each area the card touches, find the current implementation and note **file 
 - `Monkify.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` — min players, lottery refunds
 - `Monkify.Tests/UnitTests/Background/RewardWinnersHandlerTests.cs`
 
-### Operators / multi-tenancy
+### Tenancy / configuration (there is no multi-tenancy)
 
-- `Monkify.Api/Controllers/SessionsController.cs` — `x-operator-id`, RequireOperatorId
+- `SpaceStroker.Common/spacestrokersettings.json` — `GeneralSettings:Operator` (Token / AdminToken /
+  DefaultGames): the deployment *is* the operator
 - `monkify-front/src/services/mainService.ts` — interceptor
-- `monkify-front/src/hooks/useOperator.ts`
-- `monkify-meta/features/operators.md`
+- `SpaceStroker.Api/Admin/AdminTokenService.cs` + `AdminTokenValidationMiddleware` — the only auth left
+- `monkify-meta/features/remove-operators.md`
 
 ### API & DTOs
 

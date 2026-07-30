@@ -6,53 +6,46 @@
 
 - **Vue 3 with `<script setup>`** components; TypeScript throughout. Build via Vue CLI (webpack).
 - **Composables live in `src/hooks/`** and are the primary state/logic unit (e.g. `useGame`,
-  `useConnection`, `useOperator`, `useDisplayCurrency`). Several use **module-level `ref`s** so state
+  `useConnection`, `usePlayerPreferences`). Several use **module-level `ref`s** so state
   is shared as a singleton across components — be careful with lifecycle/reset.
 - **Shared types & enums live in `src/types/`** (`ActiveGame`, `BodyGameBet`,
-  `OperatorBranding`, `DefaultResponse<T>`, …). Mirror backend enums exactly (codes must match).
+  `DefaultResponse<T>`, …). Mirror backend enums exactly (codes must match).
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
-  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches the **`X-Launch-Token`**
-  (from the `src/utils/launchToken.ts` store); a response interceptor routes any `401` to `/error`.
-  Add new endpoints here and export them from the default object. (Only `401` is intercepted — a `429`,
-  `5xx` or network error rejects and each caller handles it locally: a toast in `GameTypes.vue` /
-  `GamePage.vue`, a silent swallow in `useDisplayCurrency`.)
+  interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches **no auth header** (player
+  endpoints are public; only `adminService.ts` sends a token). Add new endpoints here and export them
+  from the default object. Nothing is intercepted by status any more — a `401`, `429`, `5xx` or network
+  error rejects and each caller handles it locally (a toast in `GameTypes.vue` / `GamePage.vue`).
 - **Concurrent-request dedupe (`singleFlight`)** — `mainService.ts` holds a module-local
   `Map<string, Promise>`; while a request for a key is in flight every later caller receives **that same
   promise**, and the entry is deleted in `finally`. It is **not a cache**: nothing survives across time,
   so a caller can never be served a value fetched before it asked — which is what makes it safe near the
   money path. Keys are `method + path + deterministically-serialized params`; the params matter, because
-  `getPlayerPreferences(wallet)` and `getPlayerPreferences()` resolve **different players** (connected
-  wallet vs launch-token `sub`) and must never share a promise.
-  **Applied to an explicit allow-list of five boot-path functions only** — `getGamesTypes`,
-  `getPlayerPreferences`, `getFxRates`, `getOperator`, `getDefaultLaunchToken`. **Never wrap it around
+  `getPlayerPreferences(walletA)` and `getPlayerPreferences(walletB)` resolve **different players** and
+  must never share a promise.
+  **Applied to an explicit allow-list of boot-path functions only** — `getGamesTypes` and
+  `getPlayerPreferences`. **Never wrap it around
   the interceptor or apply it to every GET:** `getTokenBalance(..., { live: true })` exists precisely for
   the reads that must not be stale (own bet, post-win settle, refund), and collapsing it into a
   concurrent poll would turn a rate-limit fix into a payout bug. Adding an endpoint to the list is a
   deliberate, reviewable line of code. Every waiter also shares the **same resolved object** — treat
   these responses as read-only, and clone before mutating. Shipped by Trello #104; see
   `specs/player-lockouts.md` §6.
-- **Launch token:** `src/hooks/useLaunch.ts` captures the token from the launch URL fragment
-  (`…#launch_token=<jwt>`), strips it from the URL, and persists it per-tab in `sessionStorage`
-  (a fresh fragment overrides a stored one). In dev, tokens come from the Crypto/Regulated buttons on
-  the `/space-stroker/game` landing — no silent auto-mint (see `features/dev-qol-stuff.md`).
-- **Operator entry:** game routes are **param-free** (`/space-stroker/game/games`, `/space-stroker/game/play`);
-  the operator is decoded from the token's `iss` (`getOperatorIdFromToken` in `utils/launchToken.ts`),
-  not the URL. Missing/undecodable token, inactive operator, or any token `401` → `/error`.
-  `useOperator.loadOperator()` ensures a launch token, fetches `GET /operators/{id}`, and applies
-  `--color-secondary` when branding includes a color. Branding no longer carries a payment model —
-  payment UX is driven by the **selected game's `paymentMethod`**, not the operator.
-- **Wallet UX gated on the game's `paymentMethod`:** the game header (`GameHeader.vue`) shows the
-  wallet cluster — the Connect Wallet button (`WalletButtons.vue`) **and** the `TokenBalance` — **only**
-  when the current game is `SolanaToken` (`selectedGame?.paymentMethod === PaymentMethod.SolanaToken`),
-  using the game's `tokenSymbol` / `tokenMintAddress`; `Standard` games and the games list hide
-  it. `GameConsole.vue` requires a connected wallet to bet only for SolanaToken. The settings gear is
-  gated on operator context from the launch token (`operatorId ?? getOperatorIdFromToken()`) so it
-  survives an operatorId reset on a hard reload. See `features/payment-methods.md`.
-- **Bet/pot display:** the play-page terminal (`GameTerminal.vue`) `formatAmount` branches on the
-  game's method — **`SolanaToken`** → `{amount} {tokenSymbol}` (token decimals); **`Standard`** →
-  `useDisplayCurrency.formatUsd` (preferred fiat with `≈` when not USD; silent USD fallback when rates
-  unavailable). The preferred currency has no effect on SolanaToken amounts. See
-  `features/payment-methods.md` + `features/player-customization-modal.md`.
+- **Entry is unauthenticated.** Game routes are **param-free** (`/space-stroker/game/games`,
+  `/space-stroker/game/play`) and carry no token: there is no launch token, no `useLaunch`, no
+  `utils/launchToken.ts`, and no blanket `401 → /error`. The only fragment still handled is
+  `#admin_token=<jwt>` on the game page, which hands off to the admin portal (`hooks/useAdmin.ts`).
+- **Wallet UX is unconditional.** Every game settles in the one configured token, so the header wallet
+  cluster (`WalletButtons.vue` + `TokenBalance`) uses the `tokenSymbol` / `tokenMintAddress` published
+  on the game-type payload — there is no `paymentMethod` branch. `GameConsole.vue` requires a connected
+  wallet to place a **paid** bet.
+- **A write that proves wallet ownership must be signed.** `usePlayerPreferences.ts` is the pattern:
+  fetch a purpose-scoped nonce (`GET /players/nonce`), build the canonical message **byte-for-byte
+  identical** to the backend's `BuildMessage`, sign it with the connected wallet, then send
+  `{wallet, …, nonce, signature}`. Drifting from the backend's string silently breaks every save.
+- **Amounts are token-native, always.** `formatAmount` renders `{amount} {tokenSymbol}` at the token's
+  decimals — there is no preferred display currency, no `useDisplayCurrency`, and no FX conversion.
+  Pass it the amount, never an object: `formatAmount` reading a whole game/bet object is how
+  `[object Object] USDC` reached the terminal.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`: one connection per tab, owned by `useGameHub`.**
   `src/hooks/useGameHub.ts` is the only module that builds a `HubConnection` — a single socket to the
@@ -75,11 +68,10 @@
   line. Timing (2 s stall-reset loop, win type-out) lives in the composable; the detector stays pure
   and side-effect-free. See `features/characters-away.md`.
 - **Solana wallet** via `solana-wallets-vue` + `@solana/web3.js` + `@solana/spl-token`
-  (`useConnection.sendToken`) — used **only for `SolanaToken` games**. `useGame.bet()` branches on
-  `selectedGame.paymentMethod`: SolanaToken transfers to the game's `tokenReceiverPublicKey` /
-  `tokenMintAddress` and posts the returned signature + wallet; Standard posts `{ amount, choice, seed }`
-  with no wallet/signature (identity via the launch token `sub`). The `Bet.PaymentSignature` field is
-  gone — the reference is carried as `ExternalTransactionReference` server-side.
+  (`useConnection.sendToken`). `useGame.bet()` transfers to the configured token's
+  `tokenReceiverPublicKey` / `tokenMintAddress` and posts the returned signature + wallet; a free bet
+  (amount 0) skips the transfer and posts anonymously. Server-side the reference is carried as
+  `Bet.Signature`.
 - **Web Workers** (`src/workers/`, first introduced by the FAIR panel's outcome replay): instantiate as
   a **classic** worker — `new Worker(new URL('@/workers/x.worker.ts', import.meta.url))` **without**
   `{ type: 'module' }`. Webpack emits the chunk as a plain IIFE bundle; asking for a module worker made
@@ -110,8 +102,9 @@
   - This class of bug is **invisible on phones and on hardware-acceleration-off desktops**, because
     `arcade.css` strips `backdrop-filter` under `html.light-graphics` — so always check a
     GPU-rasterizing desktop. See `specs/fair-modal-off-screen.md`.
-- **Styling:** Tailwind CSS + DaisyUI. Operator theming overrides `--color-secondary` at runtime
-  (see `useOperator.applyOperatorTheme`).
+- **Styling:** Tailwind CSS + DaisyUI. `--color-secondary` is a **static token** in `colors.css` —
+  the runtime operator-branding override (`useOperator.applyOperatorTheme`) was removed with operators,
+  so the value never changes at runtime.
 - **`arcade.css` beats Tailwind utilities — do not fight it with classes (learned the hard way):**
   `src/main.css` `@import`s `colors.css` + `arcade.css` **after** `@tailwind utilities`, and the arcade
   material classes are plain single-class rules (deliberately **not** in `@layer components` — Vue CLI's
@@ -164,7 +157,7 @@
 - **Design system (required):** **always build new UI with the existing frontend design system** —
   Tailwind CSS + DaisyUI plus the shared UI components under `src/components/ui/`
   (e.g. `PrimaryButton`, `SecondaryButton`) and the established layout/spacing/theming patterns
-  (including operator `--color-secondary`). Do **not** introduce ad-hoc inline styles, one-off
+  (including `--color-secondary`). Do **not** introduce ad-hoc inline styles, one-off
   component libraries, or bespoke controls when a design-system primitive already exists; reuse and
   extend the existing components so new screens (modals, headers, forms) match the current look and
   feel. If a needed primitive is missing, add it to the design system rather than styling in place.

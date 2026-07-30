@@ -12,7 +12,7 @@ popup on the game host** (a top-level window where the extension *does* inject);
 the on-chain signature + wallet to the iframe, and the existing bet POST runs unchanged. **Frontend-only**,
 no backend surface. Builds directly on [[iframe-embedding]] and reuses its embed detection, token handoff,
 and lifecycle `postMessage` machinery — it adds **no new parent-facing contract**, only an internal
-same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaToken` game is.
+same-origin iframe↔popup channel. *(Every game is on-chain now — see [[remove-operators]].)*
 
 ## Core rules
 
@@ -25,7 +25,7 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
   (`connected || wallet.readyState === 'Installed'`). In a real cross-origin iframe no adapter injects →
   popup.
 - **Popup is same-origin and opened synchronously in the bet-click gesture** (dodges popup-blockers) at
-  `<origin>/space-stroker/wallet-bridge`. It carries **no launch token and no operator context** in its URL. If
+  `<origin>/space-stroker/wallet-bridge`. It carries **no auth context** in its URL (there is none to carry). If
   the browser still blocks it, a visible **"Connect wallet"** affordance appears — **never a silent
   failure**.
 - **Internal handshake envelope `{ source: 'space-stroker-wallet', … }`** (distinct from the parent-facing
@@ -46,12 +46,12 @@ same-origin iframe↔popup channel. See [[payment-methods]] for what a `SolanaTo
   in-frame connection is not required to start the bet); standalone the gate is identical.
 - **Vague messaging holds:** a 401 / expired token on the bet POST while embedded goes through
   [[iframe-embedding]]'s `token-expired` + relaunch path; contract status is never revealed.
-- **The wallet-bridge route is registered in production too** and boots without operator/launch context
-  (`App.vue` runs `loadOperator` only for the Game/Game routes), so the popup can never dead-end on
+- **The wallet-bridge route is registered in production too** and boots without any player context
+  (`App.vue` loads preferences only for the Game routes), so the popup can never dead-end on
   `/error`.
-- **No backend change:** SolanaToken settlement (on-chain signature validation) already runs API-side; the
-  frame changes nothing server-side (the bet POST carries the same `X-Launch-Token` + `wallet` +
-  `paymentSignature` as standalone).
+- **No backend change:** on-chain signature validation already runs API-side; the frame changes
+  nothing server-side (the bet POST carries the same `wallet` + `paymentSignature` as standalone —
+  and, since operators were removed, no auth header in either case).
 
 ## Key code touchpoints
 

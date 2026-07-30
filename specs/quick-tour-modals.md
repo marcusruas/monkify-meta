@@ -3,7 +3,18 @@
 > **Status: Shipped** — merged via `feature/quick-tour-modals` on **2026-07-30**. Distilled summary:
 > `../features/quick-tour-modals.md` (read that first; this file is the design archive).
 >
-> **Shipped deltas from this spec.** (1) The mode header art is **one sprite reel**
+> ⚠️ **The whole backend chapter of this spec (§4, §6, §10.1, §11.1) was NOT shipped.** While the
+> branch was in flight, `remove-operators` replaced `OperatorPlayer` with `Player` and made
+> `PATCH /players/preferences` a **signature-proved, display-name-specific** write. Persisting a tour
+> dismissal would then require prompting the player to sign a Solana message to close an onboarding
+> modal — and the overview fires on the lobby, where no wallet is connected. A new *unsigned* endpoint
+> was rejected too (it would let anyone suppress a stranger's tutorial). So `SeenTours`, its migration,
+> `SeenToursSerializer`, both handler edits and their tests were **all dropped**: the seen-set is
+> `localStorage` only, and the accepted cost is that a tour can reappear on another browser. The
+> feature shipped **frontend-only**. See `../features/quick-tour-modals.md` → "Why there is no server
+> half".
+>
+> **Other shipped deltas.** (1) The mode header art is **one sprite reel**
 > (`src/assets/tours/game-modes.gif` + `TourModeReel.vue`), not the three separate gifs copied from
 > `monkify-lp` that §7.8 lists. (2) The auto-open guards gained **two** overlays that did not exist
 > when this was written — the **18+/Terms gate** (`z-[70]`, which *outranks* the modal, so both
