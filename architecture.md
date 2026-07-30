@@ -13,7 +13,7 @@
                           HTTPS (axios)               WebSocket (SignalR)
                                  │                           │
                  ┌───────────────▼───────────────┐          │
-                 │        SpaceStroker.Api             │◄─────────┘  (Hubs: /Hubs/Games, /Hubs/RecentBets)
+                 │        SpaceStroker.Api             │◄─────────┘  (Hub: /Hubs/Games)
                  │  Controllers → MediatR handlers│
                  └───────┬────────────────────────┬────────┘
                          │                        │ publish events
@@ -169,18 +169,24 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
 
 ## 6. Real-time: SignalR
 
-- Hubs in `SpaceStroker.Infrastructure/Hubs`: `ActiveGamesHub` (mapped at `/Hubs/Games`) and
-  `RecentBetsHub` (mapped at `/Hubs/RecentBets`), both registered in `SpaceStroker.Api/Program.cs`.
+- **One hub**: `ActiveGamesHub` in `SpaceStroker.Infrastructure/Hubs`, mapped at `/Hubs/Games` in
+  `SpaceStroker.Api/Program.cs`. (`RecentBetsHub` / `/Hubs/RecentBets` was removed by
+  `unified-websocket-connection` — it carried no logic of its own and only ferried `…/Bets`.)
 - Clients join a per-game group (`JoinGame`). During a run, the typer streams:
   - `…/Terminal` — batched characters,
   - `…/DisplaySpeed` — current typing speed,
   - `…/Status` — game status transitions (incl. winners on `Ended`),
   - `{gameId}/ChatMessage` — per-game chat (`SendChatMessage` on the same hub/group),
-  - and `GameReceived` / a recent-bets `…/Bets` channel.
+  - `{gameId}/Bets` — each new bet, published by `BetNotificationConsumer`,
+  - and the `GameReceived` broadcast (`Clients.All`) announcing the next round.
+- **A player holds one connection per browser tab.** It is opened lazily on the first game load and
+  kept across round rollovers, game-type switches and trips back to the lobby — a round change swaps
+  the group (`LeaveGame`/`JoinGame`) instead of reconnecting. See
+  `specs/unified-websocket-connection.md`.
 - JSON uses camelCase. Both the API and Consumers configure SignalR (Consumers emits during runs).
 - **The client hangs up when nobody is watching.** The server keeps no idle policy of its own
   (`KeepAliveInterval` / `ClientTimeoutInterval` are untouched); instead the SPA proactively closes
-  **both** hubs after an idle period and refuses to reconnect until the player clicks, so abandoned
+  the connection after an idle period and refuses to reconnect until the player clicks, so abandoned
   tabs stop pinning Cloud Run instances. See the frontend section below and
   `specs/idle-websocket-disconnect.md`.
 
@@ -398,8 +404,11 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   when the current game's `paymentMethod === SolanaToken` (using the game's `tokenSymbol` /
   `tokenMintAddress`), never for `Standard` or on the games list — driven by the game, not an
   operator flag.
-- **Real-time:** `useGame` opens two SignalR hubs (`Games`, `RecentBets`) at
-  `VUE_APP_WEBSOCKET_BASE_URL`, joins the game group, and renders the streamed terminal output,
+- **Real-time:** `useGameHub` (`src/hooks/useGameHub.ts`) owns **one** SignalR connection per tab to
+  the `Games` hub at `VUE_APP_WEBSOCKET_BASE_URL` — opened lazily on the first game load and kept
+  across rollovers, game switches and lobby round-trips, with each round joining/leaving its group and
+  binding/unbinding `{gameId}/…` handlers over the same socket (`GameReceived` is bound once for the
+  tab). `useGame` consumes it and renders the streamed terminal output,
   speed, status, incoming bets, and **game chat** (`GameChatPanel` + `useGameChat` on
   `{gameId}/ChatMessage`). See `features/game-chat.md`. On `/game` the right-docked, collapsible cabinet
   (`GameSidePanel`) is now **chat-only** — the STATS and FAIR tabs moved to the header menu
@@ -407,17 +416,21 @@ have no `OperatorPlayer`). See `features/payment-methods.md`.
   (`GameStatsPage.vue`, `/space-stroker/game/stats`): a global section via `GET /games/stats` plus a
   per-type section via `GET /games/{parametersId}/stats`. See `features/fair-stats-menu.md` +
   `features/game-type-stats.md`.
-- **Idle disconnect (cost control):** `useIdleDisconnect` (a module singleton armed by `GamePage` on
-  mount, torn down on unmount) watches two independent thresholds — **30 min** with the tab
+- **Idle disconnect (cost control):** `useIdleDisconnect` (a module singleton armed when `useGameHub`
+  opens the connection and stopped when it closes it — the watch follows the socket, not the page,
+  since the connection outlives `GamePage`; `GamePage` still arms it on mount so arriving never shows
+  a stale overlay) watches two independent thresholds — **30 min** with the tab
   continuously `document.hidden` (`VUE_APP_IDLE_DISCONNECT_HIDDEN_MS`) and **60 min** with zero user
   input whether visible or not (`VUE_APP_IDLE_DISCONNECT_INACTIVE_MS`); whichever fires first wins,
   and a visible + interacting tab is never disconnected. Elapsed time is derived from **timestamps**
   re-evaluated on a 30s tick plus `visibilitychange`/`focus`/`pageshow` — never from a `setTimeout`
-  callback, because background and mobile tabs throttle or freeze timers. On firing, `useGame` runs
-  the existing `disconnectAllPreviousConnections()` teardown on both hubs, sets a flag that gates
-  `initalizeWebsocketConnections`, blocks `bet()` (a stale `gameId` must never be POSTed to), and
-  emits the embedded `idle-disconnected` event. Both hubs also carry `onreconnecting` idle checks so
-  `.withAutomaticReconnect()` cannot revive a frozen tab's dropped socket. Recovery is explicit — a
+  callback, because background and mobile tabs throttle or freeze timers. On firing, `useGame` calls
+  `useGameHub.stopForIdle()`, which stops the tab's connection and the watch with it, blocks `bet()`
+  (a stale `gameId` must never be POSTed to), and emits the embedded `idle-disconnected` event. The
+  connection also carries an `onreconnecting` idle check so `.withAutomaticReconnect()` cannot revive
+  a frozen tab's dropped socket; an explicit game load, by contrast, reconnects and re-arms the watch
+  (there is no idle gate on the connect path, or a lobby click after an idle stop would land on a dead
+  screen). Recovery is explicit — a
   `GameIdleOverlay` **RECONNECT** button calls `resumeFromIdle()`, which re-runs the *full* join path
   (`updateNewGame(true)`) because the round has rolled over; there is no silent auto-resume. An
   in-flight mobile wallet hop is exempt from the hidden timer. Only the game **play** page is

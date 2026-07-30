@@ -205,6 +205,15 @@
   distinct ⇒ preset games still share choices). Same-player repeats still hit the `DuplicateBet` path.
   Consequence: a free-text winning sequence maps to exactly one bet ⇒ **winner-takes-all** (no
   reward-math change). See `features/choice-exclusivity.md`.
+- **Per-round bet limits** — two caps on how many bets one player may hold in a single round, applied
+  to **paid, identified** bets only (free bets are exempt, which is what keeps solo free-bet QA
+  working). In **preset** types: **one bet per player per round** whatever the choice
+  (`ErrorMessages.OneBetPerPresetRound`). In **every** type: while a player is the round's **only**
+  bettor, a second bet is rejected (`ErrorMessages.SecondBetNeedsAnotherPlayer`) until a bet from a
+  different `OperatorPlayerId` exists — after which there is no further cap. Every persisted `Bet` row
+  counts regardless of `Status`; the limits reset on rollover. Enforced in
+  `RegisterBetHandler.ValidateBetParameters` only (no unique index, unlike choice exclusivity), with
+  blocked bets refunded/rejected via the shared `RefundInvalidBet` path. See `specs/fix-bets-logic.md`.
 - **LotteryParameters** — config for lottery-style games (`Frequency`, base `LotteryPot`); scheduled
   via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the game as
   **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
@@ -296,3 +305,20 @@
   replaced `Connection.confirmTransaction`. A WebSocket subscription cannot be proxied and the public
   RPC's socket is unusable on mainnet, so desktop, the embedded popup and the mobile deeplink return
   all confirm this way. A **timeout is not a failed payment** — the transfer has most likely landed.
+- **Self-exclusion** — a player-set, **per-wallet** block on betting, stored on the `OperatorPlayer`
+  row as `SelfExcludedAt` (the flag) + `SelfExcludedUntil` (the expiry; **null with the flag set means
+  permanent**). Blocks paid **and** free bets for that wallet at that operator, is **extend-only**, and
+  **cannot be lifted early** — there is no support desk and no account recovery, so expiry is the only
+  reversal offered. Setting it requires an **ed25519 signature** over a single-use nonce, because
+  wallet addresses are public and an unproven request would let anyone lock anyone out. Distinct from
+  the opt-in **RG pre-bet hook**, which is an operator's *external* system. See
+  `features/legal-docs-self-exclusion.md`.
+- **`ss_terms`** — the 18+/Terms acceptance cookie, scoped to `.spacestroker.com` so one acceptance
+  covers `www` and `app`. Its value is a **version string**, not a boolean, so bumping it re-prompts
+  everyone after a material change to the Terms. Sibling of `ss_consent`; the cookie banner waits for
+  it, because consent to analytics must stay separable from accepting the Terms.
+- **Bet-less refund** — a refund issued from `RefundInvalidBetEvent` alone, for a stake whose `Bet` row
+  was never persisted (every inline rejection in `RegisterBetHandler` runs before `InsertBet`).
+  Idempotency keys on `CryptoTransactionLog.RelatedSignature` — the payment being reversed — because
+  the row's own `Signature` is the *refund's* transaction. ⚠️ It has **no automated recovery** if its
+  retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.

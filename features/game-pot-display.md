@@ -20,8 +20,10 @@ from data the client already receives, with no backend, DB, SignalR-contract, or
   `+ Σ bets`. The lottery base now comes from **`ActiveGameDto.LotteryPot`** on the instance itself
   (added for this fix), not the separately-fetched game-type `selectedGame.lotteryParameters` — so the
   base can't be silently dropped when the two fetches are out of sync.
-- **Realtime:** each new bet on the `RecentBets` `/Bets` SignalR stream increments the pot, for every
-  game type (the previous lottery-only gate is removed).
+- **Realtime:** each new bet on the `{gameId}/Bets` SignalR stream increments the pot, for every
+  game type (the previous lottery-only gate is removed). That stream moved from the removed
+  `RecentBets` hub onto the single `Games` hub in `unified-websocket-connection`; the event name and
+  payload are unchanged.
 - **Free bets** (`amount = 0`) contribute nothing, so a dev free-bet race pot reads `0` while a
   lottery still shows its base pot.
 - **Always visible while a game is loaded:** the pot renders in the pre-run/waiting view **and** in
