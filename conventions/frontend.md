@@ -206,6 +206,27 @@ Two rules that are easy to get wrong and expensive to debug:
   bug; see the note further up about click-away backdrops, which for the same reason **cannot** be
   teleported and use `useClickOutside` instead.
 
+### `useClickOutside` is for DROPDOWNS, not modals
+
+`useClickOutside(target, handler, active)` requires `target` to wrap **its own toggle button** — the
+header menu (`GameHeader`) and the wallet popover (`WalletButtons`) both do, and its doc comment says
+so. A **modal** cannot: its trigger lives elsewhere (a menu item, a header button), so the click that
+OPENS it lands outside the panel and dismisses it in the same click. The modal appears never to open.
+
+It really does fire in time. A microtask checkpoint runs **between event-listener invocations**, so
+Vue's watcher attaches the `document` listener before the opening click finishes bubbling to
+`document`. Reasoning "the watcher is a microtask, so it runs after the event" is wrong, and cost a
+debugging session on `OrbitModal`.
+
+**Every modal in the app dismisses with an explicit backdrop element** instead:
+
+```html
+<div class="absolute inset-0 …" @click="emit('close')"></div>
+<div class="relative z-10 …"><!-- panel, above the backdrop --></div>
+```
+
+See `GameFairModal.vue`, `PlayerCustomizationModal.vue`, `OrbitModal.vue`.
+
 There is no shared shell component yet. `OrbitModal.vue` hand-rolls this chrome and is the reference
 implementation a future shared shell should be extracted from.
 

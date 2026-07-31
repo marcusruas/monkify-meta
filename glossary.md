@@ -278,3 +278,19 @@
   row's own `Signature` is the *refund's* transaction. The row carries a **null `BetId`**, which is
   precisely why the merged ledger had to make that column nullable. ⚠️ It has **no automated recovery** if its
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.
+
+- **Orbit** — the custodial wallet: a house-held per-player balance, funded by fixed on-chain
+  deposits and withdrawable on demand. Card 1 of 3 builds the money; the auto-betting that spends it
+  is a later card. On `release/orbit`, not yet on `main`. See `features/orbit-custodial-wallet.md`.
+- **Orbit pool** — the `(OrbitAccount, MintAddress)` pair a balance or ledger row belongs to. Rotating
+  the configured Orbit keypair or mint starts a **new** pool at zero and leaves the old one intact and
+  withdraw-only, so a balance is never silently re-pointed at different money.
+- **Orbit session** — a stateless HMAC token (`X-Orbit-Session`, ~7 days) proving a caller owns a
+  wallet. Authorizes **reads only**: every movement of money additionally needs a fresh,
+  purpose-scoped ed25519 signature. Not revocable before expiry.
+- **Reserve (a cash-out)** — writing the `Pending` ledger row and debiting the balance in one
+  transaction at *request* time, so the money is immediately unavailable to anything else. The
+  opposite of paying on confirmation, which would let a later operation spend money already promised.
+- **Release train** — a `release/<name>` branch that several cards merge into, landing on `main` only
+  once the whole set is coherent. Used for Orbit. A card on a train stays in **Implemented**, because
+  its code is genuinely not on `main`.

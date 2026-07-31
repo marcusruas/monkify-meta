@@ -1,6 +1,10 @@
 # Space Stroker — "Orbit (1/3) — Custodial Orbit Wallet" — Implementation Spec
 
-> **Status: Ready for implementation** — re-refined via Trello card
+> **Status: SHIPPED to `release/orbit` (2026-07-31)** — merged via `feature/orbit-custodial-wallet`;
+> **not on `main`** until #122 and #123 join the train. Distilled into
+> `../features/orbit-custodial-wallet.md`, which also records what shipped differently.
+>
+> Originally re-refined via Trello card
 > [Orbit (1/3) — custodial Orbit wallet: deposits, balance ledger, cash-out + design pass](https://trello.com/c/R4Qe0jxX)
 > (2026-07-30). Product decisions for the whole epic live on the umbrella card
 > [Orbit #118](https://trello.com/c/yxwdNTrb) — **read it and its four comments first**.
