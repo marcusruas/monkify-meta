@@ -282,6 +282,30 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   (`GeneralSettings.Operator.Token.CommissionPercentage`, default 0.5%) — see
   `features/crypto-commission.md`.
 
+## 8b. Custody: the Orbit wallet
+
+> ⚠️ **On `release/orbit`, not `main`** — see `features/orbit-custodial-wallet.md`.
+
+The first place the platform holds player money rather than passing it straight through.
+
+- A **second house keypair** (`GeneralSettings:Operator:Token:Orbit`) holds every player's deposited
+  USDC in one on-chain token account, kept **separate from the bet/payout keypair** so "what we owe
+  players" is checkable against "what the account holds", and so an Orbit-funded transfer is never a
+  same-account no-op.
+- Balances live in `OrbitBalance` and are authoritative **only** as a cache: the truth is
+  `SUM(OrbitTransaction.Amount)` for the same **pool** `(OrbitAccount, MintAddress)` and player, over
+  all rows regardless of status. Money is never corrected by editing a row — the opposite row is
+  appended.
+- The **API only reserves**; every transfer happens in `SpaceStroker.Consumers` (`constraints.md` §8).
+  A cash-out writes a `Pending` row and takes an atomic conditional debit in one DB transaction, then
+  publishes; the consumer claims the row with `SET Executing WHERE Status = Pending`, so at-least-once
+  bus delivery cannot pay twice.
+- Two new Hangfire jobs join the schedule (§7): an **hourly** cash-out sweep that re-drives stuck
+  `Pending` rows and never touches `Executing` ones, and a **6-hourly** reconciliation that compares
+  each player's ledger to their column and each pool's total to its on-chain balance, logging only.
+- Five new **public** `/orbit/*` endpoints, authorized by a stateless HMAC session for reads and a
+  fresh purpose-scoped wallet signature for anything that moves money.
+
 ## 9. The game mechanic (the "Typer")
 
 - `SpaceStrokerTyper` (`SpaceStroker.Domain/Games/Services`) is the heart of a running game.
