@@ -644,6 +644,41 @@ New services registered `AddScoped` in `Infrastructure/DependencyInjection.cs` b
 services #121 added (`DependencyInjection.cs:55`): `IOrbitBetPlacementService`,
 `IOrbitBetSettlementService`.
 
+### 6.14 Settings refinements — a clearable threshold and the re-enable cool-off
+
+Two gaps that only became reachable once the engine made these settings *do* something. Both live in
+`PATCH /orbit/settings` (#121 §6.6); neither changes what disabling does.
+
+**a) The threshold could be set but never unset.** `UpdateOrbitSettingsHandler` applies
+`CashOutAtThreshold` only `if (HasValue)`, and null already means "leave it alone" on a PATCH — so
+there was no request a player could send that meant *off*. The body gains an explicit flag:
+
+```csharp
+public bool ClearCashOutAtThreshold { get; set; }   // wins over CashOutAtThreshold when both are sent
+```
+
+Clearing is **not** measured against `MinimumCashOut` — checking it there would make "off" unreachable
+for every operator whose minimum is above zero, which is all of them.
+
+**b) Disabling is a withdrawal, so the re-enable waits.** Turning Orbit off reserves a
+`ForcedOnDisable` cash-out for the whole balance with `enforceLimits: false` (#121 decision 3), which
+is correct — a rate limit must never trap funds — but it left off/on/off as an *uncapped* withdrawal
+button sitting next to the one manual cash-out a player gets per UTC day. The withdrawal stays free
+and the **enable** carries the cool-off:
+
+- `OrbitSettings.ReEnableLockHours` (default **24**, `0` disables the rule entirely).
+- `Services/Orbit/OrbitReEnableLock.ResolveLockedUntil` — the single resolver both sides share, so the
+  greyed-out toggle and the refusal can never disagree. It returns the most recent `ForcedOnDisable`
+  row's `CreatedDate + ReEnableLockHours`, or null.
+- `GetOrbit` exposes it as `enableLockedUntil` (UTC, null when unlocked); `UpdateOrbitSettings`
+  refuses `Enabled = true` while it is set, with `ErrorMessages.OrbitEnableLocked`.
+
+Keyed on the **cash-out row**, not the enrolment flag: a disable with an empty balance writes no row
+and therefore locks nothing — nothing was withdrawn. And the lock is on the way **in** only; a player
+already auto-playing can always stop. A rolling window, deliberately, not the manual cap's UTC-day
+window: "24 hours after you took the money out" is the promise the UI makes, and a calendar day would
+make a 23:50 disable expire ten minutes later.
+
 ---
 
 ## 7. Frontend behaviour
@@ -704,6 +739,54 @@ No Orbit badge on the live bet list, no "waiting for auto-bets" state, no per-ro
 for anyone but the owner (AC23). Nothing new is gated on `isEmbedded` because nothing new is added to
 the header — the ORBIT menu entry and balance cluster are #121's and already sit inside
 `GameHeader.vue`'s `!isEmbedded` block.
+
+### 7.5 Settings refinements — the control, the toast and the post-round redirect
+
+Three gaps QA hit on the local stack once the engine was live. All three are about a player who cannot
+see what Orbit is doing with their money.
+
+**a) "Cash out at" had no control.** The threshold was in the DTO and acted on by §6.11, but the modal
+never rendered a field for it — the one auto-play setting the engine reads most visibly was unreachable.
+`OrbitModal.vue`'s AUTO-PLAY section gains a `CASH OUT AT` row: a text-bound number input, `SAVE`, and
+an `OFF` button that sends `clearCashOutAtThreshold`. Bound as **text**, not `v-model.number`, because
+empty and `0` mean opposite things here (off vs. a value that gets refused under the minimum).
+Validated client-side against `minimumCashOut` purely to save a round-trip; §6.14 stays authoritative.
+
+**b) Disabling looked like the money vanished.** The forced cash-out was silent, so the player came
+back to a balance of 0, a dead CASH OUT button and no explanation. `onToggleEnabled` now reads the
+balance **before** the patch (afterwards it is already 0) and toasts what was sent, and the toggle
+carries a standing "Turning this off cashes your whole balance out" line plus, once §6.14's lock is
+live, the instant it can be switched back on.
+
+Same complaint, second half: after a reload the header sat on `SIGN IN` and the balance was unreadable
+to someone whose money was right there. `useOrbit.loadIfSignedIn(wallet)` restores the state when — and
+only when — a session is already in `localStorage`, so it costs **no** wallet prompt and issues no
+request at all for anyone else. `GameHeader` runs it on every wallet connect. This is what #121's
+composable header comment always promised ("a session … lasts about a week, so the header balance does
+not prompt the wallet on every page load"); nothing was calling it.
+
+**c) Orbit bet somewhere else and the player never knew.** A player who leaves Orbit on and keeps
+watching one game type gets no signal when it bets for them on another — the bet lands in a different
+round's SignalR group, on a page they are not on, so they sit on a finished round while their money
+rides a live one. `src/hooks/useOrbitRedirect.ts` (mounted by `GamePage.vue`, page-scoped so it cancels
+itself on leave): when the watched round hits `Ended`, poll `GET /games/{orbitGameTypeId}?wallet=` every
+2s for up to 45s for a round carrying a bet of the player's own with `viaOrbit`, then toast and navigate
+there after **3 seconds** (`selectedGame` + `router.push({name:'Game', query:{type}})` +
+`updateNewGame(true)` — the same three steps the lobby's `chooseGame` takes, because the route record
+is the one already mounted and nothing remounts).
+
+Skipped outright when the Orbit target **is** the type being watched: the ordinary rollover already
+lands there, and racing it for the same destination is the only way this can misfire. 45s because an
+Orbit stake is a confirmed on-chain transfer and can land well after the previous round ends; past that
+the round was simply never viable for Orbit.
+
+> Polled, not pushed. The alternative was a per-wallet SignalR group — a hub change plus a join, for a
+> once-a-round hint — and a socket subscription that can outlive the page. A handful of reads against
+> the type the player already configured is cheaper and cannot leave state behind.
+
+⚠️ This is the **only** Orbit-session dependency on the game screen, and it is a soft one: no stored
+session ⇒ `orbit` is null ⇒ the redirect does nothing. §7.3's rule still holds unchanged — nothing on
+this screen may ever *mint* a session, because that costs a wallet prompt.
 
 **Verification:** `yarn lint` + `yarn build` (there is no test runner) + §13. ⚠️ Prettier violations are
 ESLint **errors** (`printWidth: 100`), and the build has been broken by reflow before.
@@ -788,7 +871,7 @@ sequenceDiagram
 | 2 | `Domain/Games/Entities/Game.cs` | add `ExpectedOrbitBets`, `OrbitGateExpiresAt` |
 | 3 | `Domain/Orbit/Entities/OrbitTransaction.cs` | add `GameId` (the claim) |
 | 4 | `Domain/Orbit/Services/OrbitChoiceGenerator.cs` | **new** — pure seed/choice derivation (§6.8) |
-| 5 | `Domain/Configs/Entities/OrbitSettings.cs` | add `OrbitBetGateTimeoutSeconds` |
+| 5 | `Domain/Configs/Entities/OrbitSettings.cs` | add `OrbitBetGateTimeoutSeconds`, `ReEnableLockHours` (§6.14) |
 | 6 | `Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | 3 property lines + the unique claim index + `BetId` index (§4.2) |
 | 7 | `Infrastructure/Migrations/*_AddOrbitAutoBetEngine.cs` | **new** migration (generated) |
 | 8 | `Infrastructure/Services/Games/GameService.cs` | publish `GameCreatedEvent` on the bus; commit the seed in `CreateGame`; add `ScheduleOrbitGateExpiry` |
@@ -811,6 +894,10 @@ sequenceDiagram
 | 25 | `Infrastructure/DependencyInjection.cs` | register the two new Orbit services |
 | 26 | `Consumers/Program.cs` | `AddConsumer` + `ReceiveEndpoint` × 2 (§6.13) |
 | 27 | `Common/spacestrokersettings.json` | `OrbitBetGateTimeoutSeconds: 45` |
+| 28 | `Infrastructure/Services/Orbit/OrbitReEnableLock.cs` | **new** — the shared cool-off resolver (§6.14b) |
+| 29 | `Infrastructure/Handlers/Orbit/UpdateOrbitSettings/*` | `ClearCashOutAtThreshold`; refuse a locked enable (§6.14) |
+| 30 | `Infrastructure/Handlers/Orbit/GetOrbit/*` | `EnableLockedUntil` on the DTO (§6.14b) |
+| 31 | `Common/Resources/ErrorMessages.resx` + `.Designer.cs` | `OrbitEnableLocked` |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -821,9 +908,16 @@ sequenceDiagram
 | 3 | `src/components/game/GameConsole.vue` | owner-only "Orbit has this round" note, both layouts |
 | 4 | `src/components/game/GameTerminal.vue` | `betPlayerLabel` → `'YOU · ORBIT'` |
 | 5 | `src/pages/GameHistoryPage.vue` | ORBIT chip in the desktop `YOU` cell and the mobile card |
+| 6 | `src/types/orbit.ts` | `OrbitState.enableLockedUntil`; `OrbitSettingsPatch.clearCashOutAtThreshold` (§7.5) |
+| 7 | `src/hooks/useOrbit.ts` | `loadIfSignedIn` — restore from a STORED session only, never mint (§7.5b) |
+| 8 | `src/components/orbit/OrbitModal.vue` | `CASH OUT AT` row; disable toast; the cool-off on the toggle (§7.5a/b) |
+| 9 | `src/components/GameHeader.vue` | run `loadIfSignedIn` on wallet connect (§7.5b) |
+| 10 | `src/hooks/useOrbitRedirect.ts` | **new** — follow Orbit out of a finished round (§7.5c) |
+| 11 | `src/pages/GamePage.vue` | mount `useOrbitRedirect()` (§7.5c) |
 
-> **No change to `useOrbit.ts`, `orbitService.ts`, `OrbitModal.vue`, `OrbitBalance.vue` or
-> `GameHeader.vue`** — this card adds no Orbit session traffic (§7.3).
+> **§7.1–7.4 add no Orbit session traffic at all** (§7.3). §7.5 is the exception and a deliberately
+> soft one: it only ever *reads* a session that already exists in `localStorage`, so it never costs a
+> wallet prompt and does nothing for a player who has not signed into Orbit.
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -854,6 +948,7 @@ Run via `scripts/run_tests.bat`.
 | `UnitTests/Background/PendingRefundSweepJobTests.cs` | **existing** — the flag is carried onto the event | a swept Orbit refund still lands in Orbit |
 | `UnitTests/Background/CreateGameTests.cs` | **existing** — `GameCreatedEvent` published on the bus; `ServerSeed` committed at creation | the trigger and the commitment exist before any bet (AC1/AC13) |
 | `UnitTests/Api/OrbitSettingsBindingTests.cs` | **existing** — extend with `OrbitBetGateTimeoutSeconds` | binds to 45 from the committed config |
+| `UnitTests/Handlers/Orbit/UpdateOrbitSettingsTests.cs` | **new** (§6.14) — clear the threshold; an absent field leaves it alone; below the minimum refused; clearing is not measured against the minimum; re-enable inside the lock, past it, with no forced cash-out at all, and with `ReEnableLockHours = 0`; disabling never blocked | "off" is reachable, and the cool-off gates the way IN only |
 
 ⚠️ `IOrbitLedgerService`'s writes and the claim's `23505` **cannot** be unit-tested — `ExecuteUpdateAsync`
 and Postgres unique violations do not exist on the EF in-memory provider. Mock the ledger in the
