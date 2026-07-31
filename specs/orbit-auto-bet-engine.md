@@ -679,6 +679,24 @@ already auto-playing can always stop. A rolling window, deliberately, not the ma
 window: "24 hours after you took the money out" is the promise the UI makes, and a calendar day would
 make a 23:50 disable expire ten minutes later.
 
+**c) The cool-off closes the deposit door too.** Otherwise money flows straight back into an Orbit that
+cannot play with it, and simply parks there waiting out the very window that stops it playing.
+`CreditOrbitDepositHandler` refuses while `ResolveLockedUntil` is set — placed **after** the
+idempotency check, because a replay of an already-credited deposit is not a new deposit and the client
+replays on every modal open.
+
+Two things make this the odd one out in that handler:
+
+- It is the **only refusal that names its reason** (`ErrorMessages.OrbitDepositCoolOff`). Every other
+  one answers with the deliberately vague `OrbitDepositRejected` so a caller cannot tell an unknown
+  wallet from a full pool — but this is also the only refusal that turns away money that has **already
+  moved on-chain**, and the cool-off is state the player is already shown, so naming it leaks nothing.
+- It is a **deferral, not a rejection.** The client keeps its pending-deposit stash across this
+  particular 4xx and replays the transfer once the lock lifts (§7.5d).
+
+The `Reject` helper is untouched — this path logs and returns on its own, precisely so the vague
+message stays the default for everything else.
+
 ---
 
 ## 7. Frontend behaviour
@@ -787,6 +805,22 @@ the round was simply never viable for Orbit.
 ⚠️ This is the **only** Orbit-session dependency on the game screen, and it is a soft one: no stored
 session ⇒ `orbit` is null ⇒ the redirect does nothing. §7.3's rule still holds unchanged — nothing on
 this screen may ever *mint* a session, because that costs a wallet prompt.
+
+**d) Deposits, and the stash that has to survive the cool-off.** §6.14c refuses the credit during the
+cool-off, but it can only do that once the transfer has **already left the player's wallet** — so the
+deposit buttons go dead first, with the unlock time under them, and `useOrbit.deposit` refuses before
+it signs anything.
+
+The stash needed two matching changes, both in `resumePendingDeposit`:
+
+- It drops the stash on **any** 4xx, on the reasoning that the backend has looked at that signature and
+  will refuse it identically forever. The cool-off is the one 4xx where that is false, and this stash
+  is exactly what carries the transfer to the other side.
+- It ages the stash out at **24h** — the same length as the cool-off, so the two raced. A stash that
+  expired underneath a live lock would strand a transfer already sent.
+
+Both now check `isEnableLocked()` (read from `enableLockedUntil` on the loaded state) before giving up.
+The modal loads before it resumes, so that state is always fresh at the point it matters.
 
 **Verification:** `yarn lint` + `yarn build` (there is no test runner) + §13. ⚠️ Prettier violations are
 ESLint **errors** (`printWidth: 100`), and the build has been broken by reflow before.
@@ -897,7 +931,8 @@ sequenceDiagram
 | 28 | `Infrastructure/Services/Orbit/OrbitReEnableLock.cs` | **new** — the shared cool-off resolver (§6.14b) |
 | 29 | `Infrastructure/Handlers/Orbit/UpdateOrbitSettings/*` | `ClearCashOutAtThreshold`; refuse a locked enable (§6.14) |
 | 30 | `Infrastructure/Handlers/Orbit/GetOrbit/*` | `EnableLockedUntil` on the DTO (§6.14b) |
-| 31 | `Common/Resources/ErrorMessages.resx` + `.Designer.cs` | `OrbitEnableLocked` |
+| 31 | `Common/Resources/ErrorMessages.resx` + `.Designer.cs` | `OrbitEnableLocked`, `OrbitDepositCoolOff` |
+| 32 | `Infrastructure/Handlers/Orbit/CreditOrbitDeposit/CreditOrbitDepositHandler.cs` | defer the credit during the cool-off (§6.14c) |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -909,8 +944,8 @@ sequenceDiagram
 | 4 | `src/components/game/GameTerminal.vue` | `betPlayerLabel` → `'YOU · ORBIT'` |
 | 5 | `src/pages/GameHistoryPage.vue` | ORBIT chip in the desktop `YOU` cell and the mobile card |
 | 6 | `src/types/orbit.ts` | `OrbitState.enableLockedUntil`; `OrbitSettingsPatch.clearCashOutAtThreshold` (§7.5) |
-| 7 | `src/hooks/useOrbit.ts` | `loadIfSignedIn` — restore from a STORED session only, never mint (§7.5b) |
-| 8 | `src/components/orbit/OrbitModal.vue` | `CASH OUT AT` row; disable toast; the cool-off on the toggle (§7.5a/b) |
+| 7 | `src/hooks/useOrbit.ts` | `loadIfSignedIn` (§7.5b); `isEnableLocked` gating the deposit + both stash escape hatches (§7.5d) |
+| 8 | `src/components/orbit/OrbitModal.vue` | `CASH OUT AT` row; disable toast; the cool-off on the toggle and on the deposit buttons (§7.5a/b/d) |
 | 9 | `src/components/GameHeader.vue` | run `loadIfSignedIn` on wallet connect (§7.5b) |
 | 10 | `src/hooks/useOrbitRedirect.ts` | **new** — follow Orbit out of a finished round (§7.5c) |
 | 11 | `src/pages/GamePage.vue` | mount `useOrbitRedirect()` (§7.5c) |
@@ -948,6 +983,7 @@ Run via `scripts/run_tests.bat`.
 | `UnitTests/Background/PendingRefundSweepJobTests.cs` | **existing** — the flag is carried onto the event | a swept Orbit refund still lands in Orbit |
 | `UnitTests/Background/CreateGameTests.cs` | **existing** — `GameCreatedEvent` published on the bus; `ServerSeed` committed at creation | the trigger and the commitment exist before any bet (AC1/AC13) |
 | `UnitTests/Api/OrbitSettingsBindingTests.cs` | **existing** — extend with `OrbitBetGateTimeoutSeconds` | binds to 45 from the committed config |
+| `UnitTests/Handlers/Orbit/CreditOrbitDepositTests.cs` | **existing** (§6.14c) — refused during the cool-off, before the RPC call; credited once it expires; a replay of an already-credited signature still succeeds inside it | the cool-off defers a NEW deposit and never turns a replay into an error |
 | `UnitTests/Handlers/Orbit/UpdateOrbitSettingsTests.cs` | **new** (§6.14) — clear the threshold; an absent field leaves it alone; below the minimum refused; clearing is not measured against the minimum; re-enable inside the lock, past it, with no forced cash-out at all, and with `ReEnableLockHours = 0`; disabling never blocked | "off" is reachable, and the cool-off gates the way IN only |
 
 ⚠️ `IOrbitLedgerService`'s writes and the claim's `23505` **cannot** be unit-tested — `ExecuteUpdateAsync`
