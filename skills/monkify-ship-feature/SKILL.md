@@ -1,6 +1,6 @@
 ---
 name: monkify-ship-feature
-description: Ship a completed Monkify feature — sync the monkify-meta knowledge base on the feature branch, then merge the branch into main in every affected repo and clean up. Use when the user wants to ship, land, or merge a feature. Takes a Trello card name on the monkaify board; reads branch, spec, worktree, and repos from the card's Implementation section. Updates the KB on the feature branch BEFORE merging (so it lands with the feature), moves the card to Shipped, and deletes the merged branches and worktrees when done.
+description: Ship a completed Monkify feature — sync the monkify-meta knowledge base on the feature branch, then merge the branch into main in every affected repo and clean up. Use when the user wants to ship, land, or merge a feature. Takes a Trello card name on the monkaify board; reads branch, spec, worktree, repos and an optional release branch from the card's Implementation section. Supports RELEASE TRAINS: when the card names a release branch, the feature merges into that branch instead of main and the card stays in Implemented; invoking the skill with a release/<name> branch then merges the whole train into main and ships every card on it. Updates the KB on the feature branch BEFORE merging (so it lands with the feature), moves the card to Shipped, and deletes the merged branches and worktrees when done.
 disable-model-invocation: true
 ---
 
@@ -17,6 +17,42 @@ land on `main` in the same merge as the feature — not as a separate follow-up 
 This skill **syncs docs and merges code**; it does not implement features (that's
 `monkify-implement-feature`) or write specs (that's `monkify-create-spec`).
 
+## Release trains (when `main` must not see the feature yet)
+
+Some features are split across several cards and are only coherent once **all** of them land — the
+Orbit epic is the case this exists for. Merging each child straight to `main` would leave `main`
+carrying a half-built capability: a visible surface whose engine ships two cards later.
+
+So a card may nominate a **release branch** in its `## Implementation` block:
+
+```markdown
+- **Release branch:** `release/orbit`
+```
+
+That one line changes three things, and nothing else:
+
+| | no release branch (default) | release branch named |
+| --- | --- | --- |
+| Step 8 merges `feature/<slug>` into | `main` | **`release/<name>`** |
+| Step 9 moves the card to | **Shipped** | nowhere — it **stays in Implemented** |
+| Step 10 deletes | the feature branch | the feature branch (the **release branch survives**) |
+
+Everything else — the verification in Step 5, the KB sync in Step 7, the worktree discipline — is
+unchanged. **The KB is still synced per card**, onto its own feature branch, so each card's docs
+travel with its code and reach `main` together with the rest of the train.
+
+The train is then landed by **form B**:
+
+> `/monkify-ship-feature release/orbit`
+
+which merges `release/<name>` → `main` in every repo that has that branch, moves **every** card
+naming it to **Shipped**, and deletes the release branch. See **Step R** at the end of this file.
+
+⚠️ **Children stay in `Implemented` on purpose.** A card whose code is on a release branch is genuinely
+not shipped — `main` has never seen it — and the board must not claim otherwise. The trade-off,
+accepted deliberately: a finished card can sit in Implemented for a while, so the ship comment written
+in Step 9 is what tells a reader it is done and waiting on the train.
+
 ## Pipeline position
 
 ```
@@ -26,9 +62,18 @@ Backlog → Refined → Specs created → Implemented → Shipped
 
 ## Input (required)
 
-The user names the **Trello card** (exact title or unambiguous substring), e.g.:
+Two forms. Which one the user typed decides everything downstream, so resolve it first.
+
+**A — ship a card.** The user names the **Trello card** (exact title or unambiguous substring):
 
 > `/monkify-ship-feature Add Free bet mode`
+
+**B — ship a release train.** The user names a **`release/<name>` branch** instead of a card:
+
+> `/monkify-ship-feature release/orbit`
+
+Form B is recognised by the argument starting with `release/`. It merges that branch into `main` in
+every repo that has it and ships **every** card riding the train — see "Release trains" below.
 
 **Branch**, **spec file**, **worktree**, and **repos** are **not** asked separately — read them from
 the card's **`## Implementation`** section (written by `/monkify-create-spec`). See
@@ -65,10 +110,23 @@ Copy this checklist and track progress:
 - [ ] Step 5: Verify the feature on its branch (backend unit + integration tests)
 - [ ] Step 6: Extract feature knowledge (spec + Trello + code on the branch)
 - [ ] Step 7: Update the KB on the monkify-meta feature branch; show diff; commit + push feature/<slug>
-- [ ] Step 8: Merge feature/<slug> → main in each affected repo (incl. monkify-meta); push
-- [ ] Step 9: Trello — move card to Shipped
-- [ ] Step 10: Clean up — remove worktrees, delete the merged branch (local + origin), clear the deployed-stack marker
+- [ ] Step 8: Merge feature/<slug> → the TARGET (main, or release/<name>) in each affected repo; push
+- [ ] Step 9: Trello — move card to Shipped, or leave it in Implemented on a release train
+- [ ] Step 10: Clean up — remove worktrees, delete the merged FEATURE branch (never the release branch), clear the deployed-stack marker
 - [ ] Step 11: Report
+```
+
+**Form B (`/monkify-ship-feature release/<name>`) runs a different, much shorter checklist:**
+
+```
+- [ ] Step 0: Verify prerequisites (Trello MCP, clean main hubs)
+- [ ] Step R1: Find every card naming this release branch
+- [ ] Step R2: Confirm the release plan with the user (repos, cards, commit counts)
+- [ ] Step R3: Verify the release branch (backend unit + integration tests)
+- [ ] Step R4: Merge release/<name> → main in each repo that has it; push
+- [ ] Step R5: Trello — move EVERY card on the train to Shipped
+- [ ] Step R6: Clean up — delete the release branch (local + origin) and any ship worktrees
+- [ ] Step R7: Report
 ```
 
 ### Step 1: Resolve board, find card, read everything + parse Implementation
@@ -88,7 +146,10 @@ Board: `https://trello.com/b/Yi42y6Xy/monkaify` (short id `Yi42y6Xy`).
      `monkify-meta`-relative path `specs/free-bet-mode.md`)
    - **`repos`** — from `**Repos:**` (comma-separated; default all three if the line is missing)
    - **`worktree`** — from `**Worktree:**` (base path, e.g. `.worktrees/<slug>`; each repo at
-     `<base>/<repo>`) — where the feature work lives
+     `<base>/<repo>`)
+   - **`releaseBranch`** — from `**Release branch:**` if present (e.g. `release/orbit`). **Absent is
+     the normal case** and means "merge to `main`, ship the card". Present means this card rides a
+     release train — see "Release trains" above. — where the feature work lives
    - **`level`** — from `**Level:**` (`Feature` or `Minor change`; case-insensitive — anything not
      clearly `Minor change` is treated as `Feature`). If absent, fall back to the card's `## Level`
      section, else default to **`Feature`**. This drives the integration-test check (Step 5) and the
@@ -122,7 +183,11 @@ merged:
 
 Present a short plan **before any KB commit or merge**:
 
-> Ship `<branch>` → `main` in: [repos, incl. monkify-meta]. Spec: `<specPath>`. Card: [title + link].
+> Ship `<branch>` → `<target>` in: [repos, incl. monkify-meta]. Spec: `<specPath>`. Card: [title + link].
+
+where `<target>` is `main`, or the card's **release branch** when it names one. On a release train, say so
+plainly in the plan — **`main` will not receive this feature today, and the card will stay in
+Implemented** — so the user is agreeing to that and not to a normal ship.
 > KB files to update on the branch first: [list]. Card will move **Backlog→…→Shipped**.
 
 **Wait for explicit confirmation** before Step 5 onward. Merging is not reversible from this skill.
@@ -244,30 +309,43 @@ git -C <workspace-root>/.worktrees/<slug>/monkify-meta push origin feature/<slug
 This auto-commit exception is scoped to the **KB sync in `monkify-ship-feature`**. It does **not**
 authorize any other unreviewed commit. The KB now rides along in the same branch that Step 8 merges.
 
-### Step 8: Merge feature/<slug> → main (each affected repo)
+### Step 8: Merge feature/<slug> → the target branch (each affected repo)
+
+The **target** is `main` normally, or the card's `releaseBranch` when it names one.
 
 Per `constraints.md` → "Git", the hub stays on `main` and is never switched. Do the merge in a
-**short-lived ship worktree** checked out to `main`, then push to `main`. For **each** affected repo
-(**including `monkify-meta`**, so the KB commit from Step 7 lands too):
+**short-lived ship worktree**, then push to the target. For **each** affected repo (**including
+`monkify-meta`**, so the KB commit from Step 7 lands too):
 
 ```bash
-# create a fresh main worktree for the merge (does not touch the hub's HEAD/working tree)
 git -C <workspace-root>/<repo> fetch origin
-git -C <workspace-root>/<repo> worktree add ../.worktrees/ship-<slug>/<repo> -b ship-<slug> origin/main
-# merge the feature branch and push to main:
+
+# TARGET = main, or the card's release branch.
+# On a release train, create the release branch from origin/main the FIRST time a card ships into it
+# — it must branch from main, never from a feature branch, or it inherits work nobody reviewed:
+git -C <workspace-root>/<repo> ls-remote --heads origin <target>          # exists?
+# if absent and <target> is a release branch:
+git -C <workspace-root>/<repo> push origin origin/main:refs/heads/<target>
+
+git -C <workspace-root>/<repo> worktree add ../.worktrees/ship-<slug>/<repo> -b ship-<slug> origin/<target>
 git -C <workspace-root>/.worktrees/ship-<slug>/<repo> merge --no-edit origin/<branch>
-git -C <workspace-root>/.worktrees/ship-<slug>/<repo> push origin HEAD:main
-# keep the hub current (fast-forward only — the hub is already on main):
+git -C <workspace-root>/.worktrees/ship-<slug>/<repo> push origin HEAD:<target>
+
+# keep the hub current ONLY when the target was main (the hub is a main hub):
 git -C <workspace-root>/<repo> fetch origin && git -C <workspace-root>/<repo> merge --ff-only origin/main
 ```
 
-(The ship worktree uses a throwaway `ship-<slug>` branch pointed at `origin/main` and pushes via
-`HEAD:main`, so `main` is never checked out in two places. `ship-<slug>` is deleted in Step 10.)
+(The ship worktree uses a throwaway `ship-<slug>` branch pointed at `origin/<target>` and pushes via
+`HEAD:<target>`, so no branch is ever checked out in two places. `ship-<slug>` is deleted in Step 10.)
+
+⚠️ **A repo with nothing to merge still needs the release branch to exist** before a later card tries
+to merge into it there. Create it from `origin/main` even when this card touches no code in that repo,
+so the train has the same shape in every affected repo.
 
 **Register the merge on the card** — once, before merging, `add_comment`:
 
 ```markdown
-🌳 Shipping (YYYY-MM-DD) — merging <branch> → main from `.worktrees/ship-<slug>/<repo>` (per repo)
+🌳 Shipping (YYYY-MM-DD) — merging <branch> → <target> from `.worktrees/ship-<slug>/<repo>` (per repo)
 ```
 
 **On merge conflict:** stop immediately. Report the repo and conflicting files; do **not** continue to
@@ -285,18 +363,37 @@ the ship worktree.
 
 After all merges succeed, summarize per repo: commits merged, notable files touched.
 
-### Step 9: Trello — move card to Shipped
+### Step 9: Trello — Shipped, or held on the train
 
-Using `cardId`:
+**If the card named NO release branch** (the normal case), using `cardId`:
 
 1. `get_lists` → capture the **`Shipped`** list id. If no list is named exactly `Shipped`, ask the
    user which list to use (the pipeline's final list). Do not silently fall back to `Implemented`.
 2. `move_card` with `cardId`, the **`Shipped`** list id, and `boardId`.
 3. Optionally `add_comment` with a one-line ship note (branch merged, spec file, date).
 
+**If the card named a release branch**, do **NOT** move it. Its code is on the release branch and
+`main` has never seen it, so calling it Shipped would be false. Leave it in **Implemented** and
+`add_comment` instead — this comment is the only thing distinguishing "done, waiting on the train"
+from "not started", so it is not optional:
+
+```markdown
+🚉 **On the release train (YYYY-MM-DD)** — `<branch>` merged into **`<releaseBranch>`** in <repos>.
+**Not on `main` yet**, which is why this card stays in Implemented.
+
+Ships when someone runs `/monkify-ship-feature <releaseBranch>`, which merges the whole train into
+`main` and moves every card on it to Shipped.
+```
+
 Do **not** rename the card — only move it to **Shipped**. Preserve the title and description.
 
 ### Step 10: Clean up — remove worktrees and delete the merged branch
+
+⚠️ **On a release train, delete ONLY the feature branch.** The release branch is still accumulating
+cards and must survive; deleting it would strand every card already merged into it, with their work
+reachable only through the reflog. The `ship-<slug>` worktree and throwaway branch are still removed
+as usual.
+
 
 The feature branch (incl. its KB commit) is now on `main` in every affected repo, so its worktree(s)
 and the branch are redundant. For **each** affected repo, run from `<workspace-root>/<repo>` (its
@@ -374,6 +471,15 @@ Tell the user:
   existing affected `features/*.md` and the rest of the KB must still be kept current). The
   classification comes from refinement, not an ad-hoc call here.
 - **Confirm before merge** — never merge without explicit user approval of the plan in Step 3.
+- **A `**Release branch:**` on the card changes the target, the card move, and the cleanup — nothing
+  else.** The feature merges into that branch instead of `main`, the card **stays in Implemented**
+  (its code is not on `main`, so calling it Shipped would be false), and the release branch is
+  **never** deleted while cards are still joining it. Absent — the normal case — is unchanged
+  behaviour: merge to `main`, move to Shipped.
+- **A release branch is cut from `origin/main`, never from a feature branch**, or it silently inherits
+  work nobody reviewed.
+- **Never force-push a release branch.** It is long-lived and shared across cards; if `main` has moved
+  under it, resolve the merge in the ship worktree.
 - **Stop on conflict or test failure** — a half-shipped feature or docs that contradict failing tests
   are worse than stopping.
 - Honor `constraints.md` — vague operator messaging, mock-only secrets, **worktree-first (the hub
@@ -382,6 +488,56 @@ Tell the user:
   card** captures refinement decisions — reconcile all three in the digest.
 - This skill does **not** implement features or write specs — use `monkify-implement-feature` and
   `monkify-create-spec` earlier in the pipeline. **Branch and spec come from the Trello card.**
+
+## Step R — form B: land the release train (`/monkify-ship-feature release/<name>`)
+
+This is the second half of a release train: every card has merged into `release/<name>`, and now the
+whole thing goes to `main` at once.
+
+**R1 — find the cards on the train.** Search the board for cards whose description contains
+`**Release branch:** release/<name>` (check **Implemented** first, then every open list — a card may
+have been moved by hand). Report the list you found; if it is empty, **stop** — merging a train with no
+cards means the release branch was created by something other than this skill and you do not know what
+is on it.
+
+**R2 — confirm the plan.** Present, and wait:
+
+> Land `release/<name>` → `main` in: [repos]. Cards shipping: [N cards, titled + linked].
+> Commits per repo: [counts]. After this, all N cards move to **Shipped**.
+
+**R3 — verify the release branch, not the individual features.** The whole point of a train is that
+the cards are only coherent together, so the tests that matter are the ones run on the **merged**
+result. In a worktree checked out to `origin/release/<name>`:
+
+- `monkify-backend`: `scripts/run_tests.bat` **and** `scripts/run_integration_tests.bat` — both green.
+- `monkify-front`: `yarn lint` and `yarn build` — both clean.
+
+⚠️ Green on each feature branch separately does **not** substitute for this. Two cards can each pass
+alone and conflict once merged; catching that here is the reason the train exists.
+
+**R4 — merge to `main`.** For each repo that has the branch, same worktree discipline as Step 8:
+
+```bash
+git -C <workspace-root>/<repo> fetch origin
+git -C <workspace-root>/<repo> ls-remote --heads origin release/<name>   # skip repos without it
+git -C <workspace-root>/<repo> worktree add ../.worktrees/ship-release-<name>/<repo> -b ship-release-<name> origin/main
+git -C <workspace-root>/.worktrees/ship-release-<name>/<repo> merge --no-edit origin/release/<name>
+git -C <workspace-root>/.worktrees/ship-release-<name>/<repo> push origin HEAD:main
+git -C <workspace-root>/<repo> fetch origin && git -C <workspace-root>/<repo> merge --ff-only origin/main
+```
+
+**On conflict:** stop and report. `main` has moved under a long-lived release branch — resolve in the
+ship worktree, never by force-pushing the release branch.
+
+**R5 — Trello.** Move **every** card found in R1 to **Shipped**, and comment on each with the release
+branch, the merge date, and the repos. Also comment on the **umbrella card** if the train has one.
+
+**R6 — clean up.** Remove the `ship-release-<name>` worktrees and delete their throwaway branches, then
+delete `release/<name>` **local and origin** — the train has arrived and the branch is now a
+duplicate of `main`. Clear the deployed-stack marker if it named the release.
+
+**R7 — report.** Per repo: commits merged and files touched. Then the cards shipped, and what is now on
+`main` that was not before.
 
 ## Trello tools used (server `trello` / `user-trello`)
 

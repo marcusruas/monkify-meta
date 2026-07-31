@@ -14,6 +14,7 @@ above). Update **`## Status`** to `Spec created — ready for implementation`.
 - **Spec:** `monkify-meta/specs/<slug>.md`
 - **Repos:** monkify-backend, monkify-front, monkify-meta
 - **Level:** Feature
+- **Release branch:** `release/orbit`   ← OPTIONAL; omit entirely for a normal ship
 
 ## Status
 Spec created — ready for implementation.
@@ -44,6 +45,11 @@ Extract with regex or line match:
 - `**Branch:**` → branch inside backticks (the merge/PR ref)
 - `**Spec:**` → path inside backticks
 - `**Repos:**` → remainder of line (split on commas, trim)
+- `**Release branch:**` → branch inside backticks, **optional**. Present ⇒ this card rides a RELEASE
+  TRAIN: `monkify-ship-feature` merges the feature into that branch instead of `main`, and leaves the
+  card in **Implemented** (its code is not on `main`, so Shipped would be false). The train is landed
+  separately with `/monkify-ship-feature <release branch>`, which merges it to `main` and ships every
+  card naming it. **Absent is the normal case** and means merge straight to `main`.
 - `**Level:**` → `Feature` or `Minor change` (case-insensitive; anything not clearly `Minor change`
   is treated as `Feature`). If the line is absent (older cards), default to `Feature`.
 
