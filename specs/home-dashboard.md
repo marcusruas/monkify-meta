@@ -27,13 +27,14 @@
 | **Player's own numbers** | Nothing. `GET /games/{id}/history?mineOnly&wallet` is per-type and paginated ≤30 — no honest total, no win rate | **New public read `GET /players/stats?wallet=`** → 11 aggregate metrics + the currency descriptor |
 | **Quick Tour `overview@1`** | Auto-opens on the first **lobby** visit | Auto-opens on the first **`/`** visit, every guard intact |
 | **Embedded (iframe)** | `/` redirects to the lobby | `/` **redirects to `/game`** — there is no embedded dashboard variant |
+| **Cross-mode round feed** | Nothing. `GET /games/{id}/history` is per game type, so a cross-mode feed costs one request per mode | **New public read `GET /games/history?take=`** → the newest settled rounds across every active type, in one call |
 
-Backend adds exactly one read (`GET /players/stats`), modelled directly on the shipped
-`GlobalStatsService`: **on-demand aggregation over existing rows + a short Redis TTL — no new entity,
-no migration, no Consumers change, no SignalR change.**
+Backend adds exactly two reads (`GET /players/stats`, `GET /games/history`), both modelled directly on
+shipped services: **on-demand aggregation over existing rows + a short Redis TTL — no new entity, no
+migration, no Consumers change, no SignalR change.**
 
-Everything else is frontend: one new page, a small set of section components built from the design
-pass, one new route + two redirect rules, and a handful of prefix/comment/doc corrections.
+Everything else is frontend: one new page, a small set of panelled section components, one new route +
+two redirect rules, and a handful of prefix/comment/doc corrections.
 
 ---
 
@@ -90,7 +91,18 @@ From `monkify-meta/constraints.md` (full list there):
 | 17 | **Money rules mirror `fair-stats-menu` / `game-type-stats` exactly:** only `RewardForWinnersCompleted` rounds count; free bets (`Amount == 0`) are **excluded from money** but **counted in participation**; payouts come from `Credit` `TransactionLog` rows; amounts are token-native from the one configured token. |
 | 18 | **Streaks (settled here, §6.4):** ordered by `Game.EndDate` (ties by `Game.CreatedDate`) over the completed rounds the player bet in; a round counts as a **win** if **any** of that player's bets in it matched the winning choice (case-insensitive, the shipped `GameHistoryService` rule); **free bets included** — it is a participation metric. `CurrentStreak` is the trailing win-run at the newest end (0 if the most recent round was a loss); `BestStreak` is the longest win-run anywhere in the sequence. |
 | 19 | **Cache TTL is short — 30 seconds** (`PlayerStats:{wallet}`), a quarter of the 120 s global/per-type TTL. A player's own just-settled win going invisible behind a long TTL is exactly the complaint `wallet-balance-refresh` was filed for; 30 s still collapses the boot burst and a couple of refreshes. |
-| 20 | **A new claude.ai/design project is a blocking prerequisite for markup** (see §2). Both page states, desktop **and** phone. Its URL is recorded on the card. |
+| 20 | **A new claude.ai/design project is a blocking prerequisite for markup** (see §2). Both page states, desktop **and** phone. Its URL is recorded on the card. **⚠️ AC22 STATUS (2026-07-31):** the 2026-07-31 revision was **not** taken through a claude.ai/design project. The layout was agreed with the product owner up front (hero shape, section plan, panel rule) against the Bull Rush reference, then built and iterated on live screenshots at 1440 and 390 in both states. This is a deliberate, owner-approved deviation from AC22 for the revision — **not** evidence that AC22 was satisfied. Either record a design project before shipping, or have the owner waive AC22 on the card. |
+| 22 | **REVISED 2026-07-31 — the page is FRAMED, not frameless, and the frame is the MODAL system's.** The first build deliberately drew no panel on any section ("the type hierarchy is the structure"). In review it read as loose text on a starfield: the mode cards were the only objects on the page, and nothing else looked pressable. Every section below the hero is now a frame via one shared `HomeSection.vue`. **The material is `.arcade-frame`, not `.arcade-panel`** — see decision 27. **The hero stays unframed** — it is the page's title card, so a border there would be a border around everything. |
+| 27 | **REVISED 2026-07-31 — new `.arcade-frame` primitive; sections mix cyan and grey.** The owner's reference is the [Space Stroker Modals design project](https://claude.ai/design/p/de972618-1d9c-4ac5-9fa2-37206d9866eb?file=Space+Stroker+Modals.dc.html): a **thin border on near-black, flat** — no bevel, no gradient, no key-drop. `.arcade-panel` is the wrong material for this page; its amber bevel is the *cabinet the machine is built from*, while these sections are screens. `QuickTourModal` had already written exactly this surface inline as `.tour-frame` ("deliberately NOT .arcade-panel … a CRT overlay — a thin cyan frame on near-black"), so it is **promoted into `arcade.css` as `.arcade-frame` / `.arcade-frame--cyan` / `.arcade-frame__rule`** and the tour modal now consumes the primitive instead of redefining it — one definition, no drift (`constraints.md`: add the missing primitive to the system rather than styling in place). **Tone alternates down the page** — cyan on the two sections that are about the player (`TRY IT FREE`, `YOUR RECORD`), the neutral line elsewhere — because five identical rectangles read as a list. Section titles take the modal's `+ TITLE +` amber marks so a section header and a modal header read as the same object. |
+| 23 | **REVISED 2026-07-31 — the hero is the SHIP art, simplified and UNFRAMED.** It used to float `edson.png` (a cropped HEAD, no body, no context) beside five stacked copy blocks. It is now `edson-ship.gif` (Edson at the keyboard in his saucer — the same asset `monkify-lp` and the OG card use, so the product looks like one product), beside a headline, one two-line sub, two CTAs and one fine-print line. **No plate around it** (owner's call, 2026-07-31): a saucer in space should be *in* space, and a border turns the mascot into a product photo — it sits directly on `App.vue`'s starfield with a flat drop-shadow glow. The GIF is a 545 KB infinite loop, so `html.light-graphics` gets an extracted first-frame PNG (26 KB) — §7.10 bans infinite animation there outright, and a `drop-shadow` (not a `filter: blur` on a backdrop) survives that mode unchanged. |
+| 24 | **REVISED 2026-07-31 — the quick-links row is gone; its entries became sections and a footer.** Five 9px dotted links at the foot of the page read as a chart legend, not as navigation. Now: **Provably Fair** and **Try it free** are panelled sections with copy and a button; **How to play** is a `READ THE WIKI` button on the how-a-round-goes panel; **Stats** and **History** are buttons on The Floor; **Settings**, **Responsible gaming** and **Terms** are a real footer. Terms uses the existing `TERMS_URL`; there is no Privacy route in the SPA and none was invented. |
+| 25 | **REVISED 2026-07-31 — `HomeLastRounds` + `HomeGlobalTeaser` merged into `HomeFloor`.** Both rendered **nothing** when they had no data, which left a ~400px hole in the middle of the front door on a quiet backend. One section that always renders — and says the floor is quiet when it is — beats two that can vanish. |
+| 26 | **REVISED 2026-07-31 — new endpoint `GET /games/history`.** `HomeLastRounds` built its cross-mode feed with one `GET /games/{id}/history` per game type (three today, more per mode added) on the app's landing path — the exact cost decision 10 rejected live pots for, and its own header comment flagged it as not ship-ready. Replaced by a single public read (§6.9). |
+| 28 | **REVISED 2026-07-31 — the hero carries NO dynamic figures, and its two buttons are a matched pair.** Owner's call. Removed: the live **jackpot chip** (`HomeJackpotChip.vue`, now deleted — it had no other consumer) and the live **ticket-price line**, both read off the catalogue. Also removed the `1–2 USDC A TICKET` eyebrow above the mode cards — same dynamic figure, and already printed on every card below it. A front door's opening statement is a claim about the game, not a readout; the prices live on the cards and the jackpot on its own surface. The only fine print left is static ("Every round is seed-locked before it starts"), and the sub is one line. **Buttons:** a filled Connect beside an outlined Practice read as two unrelated controls, so `PrimaryButton` gained `variant="ghost"` and `WalletButtons` gained `variant` + `size` — both defaulting to today's header behaviour, so the sticky header is untouched. The hero renders the same real wallet cluster, outlined and full-size. **Art:** enlarged to `md:max-w-[620px]` on the larger flex basis. ⚠️ The h1 dropped to `lg:text-[32px]` because Press Start 2P advances ~1em per character — "FIRST WORD OUT" needs ~14× the font size and broke to three lines at 38px once the art took its bigger share. Re-check that if either basis changes. |
+| 29 | **REVISED 2026-07-31 (third pass) — the CONNECTED hero states what is HAPPENING, not who you are.** Owner's call: the connected fold read `Welcome back / 22nv…nQ1S / CURRENT STREAK 0` — "not fun, and it does not make sense". Both halves fail for a concrete reason. An **address is an identifier, not a greeting**, and the player may already have set a name (`usePlayerPreferences().displayName`, shipped by `wallet-display-name`), so the raw key is now the **fallback**, not the label. A **zero streak with seven empty segments** is a metric that only reads once you have already played — it renders **only when `currentStreak >= 1`**, unchanged when it is alive. What takes the freed space is **one live line** off the same snapshot the cards use (§7.11): `> COSMIC SPRINT is filling — 3 in, 6 USDC pot`, or, when nothing is open, `> Floor's quiet. Be the one who starts a round.` This does **not** reintroduce the dynamic figures decision 28 removed: 28 banned *catalogue readouts* (a jackpot chip and a ticket price already printed on the cards below); this is the state of a round the player can join **right now**, and it is the only reason a returning player is on this page. |
+| 30 | **REVISED 2026-07-31 (third pass) — the picker gets the loudest header on the page.** `PICK A MACHINE` was a bare `<h2>`, quieter than every panel below it — so the *least* important sections looked the most designed. It becomes a full-width header in the `+ TITLE +` idiom (`+ PICK YOUR MACHINE +`) at hero-adjacent size with a live eyebrow (`3 MACHINES · 1 ROUND FILLING NOW`). It is **not** wrapped in a `HomeSection` frame: the cards already carry their own frames, and a frame around framed things is a box in a box. |
+| 31 | **REVISED 2026-07-31 (third pass) — the mode cards carry the POT, live, and it is the loudest figure on them.** Today the only number on a card is the **ticket price** — the *cost*. The prize is absent, and the three cards differ only by picture, with the one real differentiator (how many characters you call, how many players, which character set) buried in clamped 10px grey description text. The card is rebuilt around a live **POT** at display size, the ticket price demoted to a support line, a live **status pill** (`● LIVE NOW` / `FILLING n/m` / `STARTING…` / `IDLE — BE FIRST`), a hairline **meta row** that replaces the description as the differentiator, a **real `btn-arcade--primary` button** in place of the dashed blinking box (a dashed border reads as a placeholder or a disabled control — the weakest-looking element on the most important object), and a **per-archetype accent** so three cards stop being three identical rectangles. **Scope guard (owner's call):** the cards are enriched, they do **not** become the centrepiece — the hero keeps the fold and gains vertical room (§7.11), the cards gain weight underneath it. |
+| 32 | **The live snapshot costs three GETs and no backend.** `GET /games/{gameTypeId}` (the shipped read the game page already makes on entry) returns status + bets + lottery pot, so pot, players-in and status are derivable **frontend-only**. One call per active type, fired in parallel **once on mount** and again **when the tab regains focus** — no interval polling (free while the tab is away, and a pot that is minutes stale is a lie), no SignalR on this page, **no new endpoint**. The page already fires four reads (`games/active-types`, `players/stats`, `games/stats`, `games/history`); this makes seven. Rejected: a new one-call snapshot endpoint — cleaner at scale, but it is a backend contract plus a mandatory integration test (rule 8) for three cards, and it can replace the fan-out later without touching this component. Because `GameTypes.vue` owns the fetch, **`/game`'s lobby gets the enriched cards too** — deliberate; §7.3 forbids the two grids drifting. **This partially supersedes decision 10** ("dropped: live pots per mode — 3 extra REST calls *and* joining 3 SignalR groups, a direct violation of the one-connection/one-group design `useGameHub` owns"). **Decision 10's SignalR objection stands in full and is not touched**: this page joins **no** hub group and opens **no** socket — `useGameHub` keeps its one-connection/one-group invariant, and the price of that is that a figure can be up to one focus-cycle stale, which is why the status pill is coarse (`FILLING`, not a per-second counter). Only the "3 extra REST calls" half is accepted, because the owner has since made the pot the *point* of the picker (decision 31), and the cards had no live signal at all. |
 | 21 | **No new rate-limit rule.** `RateLimitSettingsTests.GeneralRules_AreExactlyTheThreeQuotaProtectingPatterns` pins the rule set to `*:/rpc`, `*:/solana/*`, `*:/solana/balance/live` — every other endpoint is deliberately unlimited app-side. `/players/stats` joins `/players/preferences` and `/games/*/history` as an unlimited read behind Cloud Armor's per-IP rule. Adding a rule here would be a money-path decision, and would break that exact-set test by design. |
 
 ---
@@ -318,6 +330,37 @@ nothing), and the 30 s TTL bounds any key growth from an address scan.
 services.AddScoped<IPlayerStatsService, PlayerStatsService>();
 ```
 
+### 6.9 New endpoint — `GET /games/history` (decision 26)
+
+```
+GET /games/history?take=<1..10>
+```
+
+- **Public, wholly.** No wallet, no caller identity, no own-bet columns — which is exactly what lets one
+  Redis key serve every visitor.
+- `take` defaults to **6** and is clamped to **10** in the handler. The clamp is not cosmetic: `take` is
+  part of the cache key, so an unclamped value would let a caller mint unbounded keys.
+- **200 always**, including an empty catalogue and a deployment with nothing settled yet — an empty
+  list, never a validation failure (`constraints.md` §6).
+- Returns `List<GameHistoryDto>` — the **same DTO** the per-type history page returns, with the `My*`
+  columns left null.
+
+`Handlers/Games/GetRecentRounds/` resolves the active catalogue through
+`IGameService.GetAllActiveGameParameters()` (the shipped, cached lookup — a deactivated type drops out
+of the feed with its catalogue entry) and hands it to a new
+`IGameHistoryService.GetRecentRounds(activeTypes, take)`.
+
+The service is a re-shaping of the existing `BuildPageAsync`, not a second implementation:
+**round → public row is now one private `BuildRow`** shared by the per-type page and this feed, so the
+pot rule (Σ paid stakes, `+ lotteryPot + CarriedExtra` for lottery types), the free-bet rule (excluded
+from money, counted in `BetCount`) and the winner rule cannot drift between the two surfaces.
+
+Cache: `CacheHelper.GenerateRecentRoundsCacheSettings(take)` → `RecentRounds:{take}`, **30 s** —
+deliberately shorter than the 5-minute per-type history TTL, because this section's whole job is to
+show the game is alive and a five-minute-old "latest round" says the opposite. The empty result is
+cached too, so a quiet deployment does not turn every landing-page load into a scan. Cached rows are
+returned as `ClonePublic()` copies so a caller cannot mutate the cache.
+
 ### 6.8 What does **not** change
 
 - No Consumers change, no typer/game-flow change, no SignalR contract change.
@@ -394,17 +437,29 @@ routed nowhere). **Overwrite it deliberately** — do not leave two home pages.
 `HomePage.vue` is a thin composition shell (like `GameSelectPage.vue`): it owns the section order and
 nothing else. The sections live under `src/components/home/`:
 
-| Component | Renders | State |
-| --- | --- | --- |
-| `HomeHero.vue` | The hero banner / wordmark / primary CTA | Both (copy differs cold vs connected) |
-| `HomeConnectCta.vue` | The connect invitation + onboarding-led welcome | **Cold only** |
-| `HomePlayerStats.vue` | The 11 personal metrics; zeroed "no rounds yet" empty state | **Connected only** |
-| `HomeQuickLinks.vue` | Stats · History · Fair · Settings (+ the how-it-works entry) | Both, hidden when embedded |
-| `HomeGlobalTeaser.vue` | 2–3 tiles from `GET /games/stats` | Both |
+**Component inventory — REVISED 2026-07-31** (decisions 22–26). Section order is: hero → mode cards →
+how a round goes → the two-up → your record (connected) → the floor → footer.
 
-Game modes are **`@/components/game-selection/GameTypes.vue` reused verbatim** (decision 5) — no
-props, no variant, no copy of its fetch. It already routes to `{ name: 'Game', query: { type } }` and
-already fires `game_type_selected`.
+| Component | Renders | Frame | State |
+| --- | --- | --- | --- |
+| `HomeSection.vue` | **The shared section shell** — eyebrow, `+ title +`, body, hairline-ruled actions row. Takes `tone="line" \| "cyan"`. One place decides what a frame looks like, so sections cannot drift. `mt-auto` on the actions row aligns buttons across a side-by-side pair | — | — |
+| `HomeHero.vue` | **Cold:** headline · one-line sub · CTAs · static fine print. **Connected:** name · live round line · CTAs (+ streak only when it is alive) — decisions 28–29. Beside the **free-floating saucer** in both | **None** (decisions 22–23) | Both (copy differs cold vs connected; the art is identical) |
+| `HomeHowItWorks.vue` | The three beats + `READ THE WIKI` (#130) | Frame, **line** | **Both** — it used to be cold-only, which left a returning player who still did not understand the game with no way back to the explanation |
+| `HomeFeatureCards.vue` | Two-up: `TRY IT FREE` → practice (#129) · `PROVABLY FAIR` → the shared Fair modal | Frames, **cyan + line** | Both; the Fair card is hidden when embedded |
+| `HomePlayerStats.vue` | The 11 personal metrics; zeroed "no rounds yet" empty state | Frame, **cyan** | **Connected only** |
+| `HomeFloor.vue` | Three global figures (`GET /games/stats`) **+** the cross-mode feed (`GET /games/history`) + `FULL STATS` / `ALL HISTORY` | Frame, **line** | Both. **Never renders empty** — a quiet floor says so |
+| `HomeFooter.vue` | Wordmark · Settings · Responsible gaming · Terms | Rule | Both, hidden when embedded |
+
+**Deleted:** `HomeLastRounds.vue` and `HomeGlobalTeaser.vue` (folded into `HomeFloor`),
+`HomeQuickLinks.vue` (became the footer and the section buttons). `HomeConnectCta.vue` was never built —
+the cold state is the hero's own copy variant plus the always-present sections.
+
+Game modes are **`@/components/game-selection/GameTypes.vue` reused** (decision 5) — **no variant and no
+copy of its fetch**; it already routes to `{ name: 'Game', query: { type } }` and already fires
+`game_type_selected`. ⚠️ **Amended:** decision 5 originally said "no props" as well. It takes exactly
+one, `bare`, which drops the component's own `GAME SELECTION` banner and outer padding for this page
+(and, from decision 30, swaps in the picker header). That is a presentational switch on one shared
+component — the opposite of the two-grids-drifting failure decision 5 exists to prevent.
 
 **Final ordering, hero content and the exact tile set are design-pass outputs** (decision 7) — this
 table is the component inventory, not the layout.
@@ -582,6 +637,156 @@ Two bounded edits, no flow changes:
 - No horizontal overflow at any width — `<html>` carries the horizontal guard; a new section must not
   reintroduce one.
 
+### 7.11 Third design pass — live picker, enriched cards, connected hero (decisions 29–32)
+
+Added **2026-07-31**, after the owner reviewed the built connected state: *"the logged-in version of the
+new main page is lame — the info there is not fun nor does it make sense"*, *"revamp the game cards, it
+should have A LOT OF FOCUS, it's the main game picker"*, *"we can increase y padding in general in the
+hero"*. Everything here is **frontend-only**; §6 is untouched.
+
+#### 7.11.1 `useLiveGames.ts` — the one live snapshot (new hook)
+
+A **module singleton**, the same shape as `usePlayerStats` and for the same reason: two surfaces read it
+(the hero's live line and every card), and they must never show two snapshots or fire two bursts.
+
+```ts
+// src/hooks/useLiveGames.ts
+export interface LiveGame {
+  gameTypeId: string;
+  status: GameStatus;
+  pot: number;          // computePot(instance) — see 7.11.2
+  players: number;      // distinct players — see 7.11.2, NOT bets.length
+  bets: number;
+  minimumPlayers: number; // from the ActiveGame catalogue entry, not the instance
+}
+```
+
+- **Input is the catalogue `GameTypes` already fetched** — the hook takes the `ActiveGame[]` and does
+  **not** re-request `/games/active-types`.
+- Fires `mainService.getGameInstance(id)` for every type **in parallel**, `Promise.allSettled`.
+- **Every failure is silent and per-card.** A rejected or empty instance leaves that entry `undefined`;
+  the card renders its **IDLE** variant and the grid renders normally. A live figure is decoration on a
+  picker — it must never produce a toast, a boot-recovery state or `/error` (`constraints.md` §6, and the
+  same rule §7.4 applies to personal stats).
+- **Refresh:** on mount, and on `visibilitychange` → visible **when the last read is older than 15 s**
+  (the guard is what stops an alt-tab-happy user re-firing three GETs a second). Nothing else. No
+  interval, no hub group — decision 32.
+- Wallet-agnostic: this data is public and does **not** clear or refetch on a wallet switch.
+
+#### 7.11.2 Pot and player count — extracted, never re-derived
+
+**Both figures already exist in shipped code, and both have a nuance that a fresh implementation would
+get wrong.** Extract, do not copy.
+
+**Pot** — `useGame.getBets` owns the rule (`fix-pricing`, `lottery-pot-stacking`):
+
+```
+pot = Σ bets.amount  +  (isLottery ? (lotteryPot ?? 0) + (carriedExtra ?? 0) : 0)
+```
+
+A card pot that disagrees with the terminal by the lottery base is exactly the `POT:0` class of bug
+those two specs were filed for. Move it to `src/utils/pot.ts` as
+`computePot(instance: GameInstance): number` and have **`useGame` call it too**, so there is one
+definition.
+
+**Players** — `GameTerminal.countPlayers` owns the rule, and ⚠️ **`AppliedBet` has no `wallet` field**;
+the identity is `externalPlayerId`, which is **nullable** (free bets carry none, so
+`new Set(...).filter(Boolean)` would count every free bet as zero players):
+
+```ts
+// free-bet mode active: each null id is its own player (`free:${index}`)
+// otherwise: distinct non-null externalPlayerId
+```
+
+Move it to `src/utils/players.ts` as `countPlayers(bets, { freeBets: boolean })`, called by both
+`GameTerminal` and `useLiveGames`. On the picker, `freeBets` is the game's own
+`allowFreeBet` — the terminal's `isFreeBetActive` additionally depends on the *player's* free-bet toggle,
+which is meaningless on a card that is not about one player.
+
+#### 7.11.3 `GameTypeCard.vue` — the enrichment (decision 31)
+
+New optional prop `live?: LiveGame` — **optional on purpose**: the card renders completely without it
+(that is the IDLE variant), so nothing breaks if the snapshot is slow, fails, or if a future caller
+renders the grid without live data.
+
+| Region | Today | After |
+| --- | --- | --- |
+| Top strip | Lottery badge only | **Status pill** left, lottery badge right (they no longer overlap) |
+| Art | `h-40`, 150px sprite | Taller; unchanged treatment |
+| Name | `text-sm font-bold` | `press-start-2p`, the second-loudest thing on the page |
+| Money | Ticket price is the ONLY figure | **`POT` at display size** (`vt323`, tabular-nums), ticket price demoted to the support line under it |
+| Differentiator | 10px description, clamped to one line on phones | **Hairline meta row** — `{choiceRequiredLength} chars · {minimumNumberOfPlayers} players · {A–Z \| 0–9 \| A–Z 0–9}` from `gameCharacterType`. The description stays, below it, still clamped on phones |
+| CTA | Dashed box, blinking text | **`btn-arcade--primary`, full width** |
+
+**Status pill states** — derived from `live.status` + `live.players`, never invented:
+
+| Condition | Pill | Tone |
+| --- | --- | --- |
+| `InProgress` | `● LIVE NOW` | cyan |
+| `GameStarting` | `STARTING…` | cyan |
+| `WaitingBets`, `players > 0` | `FILLING {players}/{minimumPlayers}` | amber |
+| `WaitingBets`, `players == 0`, or **no snapshot at all** | `IDLE — BE FIRST` | mute |
+
+`Ended` / `RewardForWinners*` / error statuses fall through to **`IDLE — BE FIRST`**: a settled round is
+not a state a picker can act on, and the next round opens within `VUE_APP_NEW_GAME_DELAY` (30 s).
+`NotEnoughPlayersToStart` and `ErrorWhenProcessingRewards` land there too — a picker never narrates a
+failure it cannot explain (`constraints.md` §6). Never surface a raw status enum.
+
+**Per-archetype accent** — matched by SHAPE, reusing the archetype rule `quick-tour-modals` already
+settled (never by `gameTypeId`, which changes on every teardown + reseed, and never by name):
+
+| Shape | Accent |
+| --- | --- |
+| lottery (`lotteryParameters.lotteryFrequency`) | `--color-primary` (amber) |
+| preset (`presetChoices.length > 0`) | `--color-cyan` |
+| free-text | neutral `--color-line`, amber on hover (today's behaviour) |
+
+The accent tints **the frame and the pill only** — not the art, not the button. Hover stays amber for
+every card, so "this one is hoverable" never competes with "this one is a lottery".
+
+**Light-graphics obligations (§7.10, and the `.blink` precedent):** the pill must not animate infinitely
+— if it pulses, register the class in the `html.light-graphics … { animation: none !important }` block in
+`arcade.css` alongside `.blink` / `.lottery-badge`. Removing `.blink` from the CTA **removes** one
+infinite animation from the page. No new `backdrop-filter` (`.card-content`'s existing one is already
+neutralised centrally).
+
+#### 7.11.4 `GameTypes.vue` — owns the fetch and the louder header (decision 30)
+
+- After the catalogue resolves, hand it to `useLiveGames()` and pass `:live="liveByType[game.gameTypeId]"`
+  into each card. **Both surfaces get it** — the lobby at `/game` and the picker on `/` — because §7.3
+  forbids the two grids drifting, and the lobby wants a live pot at least as much.
+- **`bare` mode grows a header** instead of the caller printing an `<h2>`: `+ PICK YOUR MACHINE +` in the
+  `HomeSection` title idiom at hero-adjacent size, with the live eyebrow `{n} MACHINES · {k} ROUNDS
+  FILLING NOW` (the count comes from the same snapshot; with `k == 0` it reads `{n} MACHINES · PICK ONE`).
+  Not wrapped in a frame — the cards are already framed (decision 30). `HomePage.vue` drops its own `h2`.
+- The non-`bare` lobby banner (`GAME SELECTION`) is unchanged.
+
+#### 7.11.5 `HomeHero.vue` — padding, and the connected rebuild (decision 29)
+
+- **Vertical room, both states:** `pt-6 pb-6 md:pt-10 md:pb-10` → `pt-10 pb-14 md:pt-20 md:pb-24`. Art
+  size, flex bases and the `lg:text-[32px]` headline ceiling are **untouched** — decision 28's warning
+  about Press Start 2P breaking `FIRST WORD OUT` onto three lines still stands.
+- **Connected stack becomes:** `Welcome back` → **`displayName || shortAddress`** → **live line** →
+  buttons → **streak, only when `currentStreak >= 1`**.
+  - The name comes from `usePlayerPreferences().displayName`; the short address stays as the fallback.
+    Both render in the same slot, so a player who never named themselves sees exactly today's label.
+  - The **live line** reads `useLiveGames()`: the first game by priority `InProgress` > `GameStarting` >
+    `WaitingBets with players > 0`, rendered as `> {NAME} is filling — {players} in, {pot} {symbol}`
+    (amount through `formatGameAmount`, never raw). Nothing live, still loading, or the snapshot failed →
+    `> Floor's quiet. Be the one who starts a round.` **There is no error state and no spinner**: the
+    fallback line is true in all three cases.
+  - **Primary button follows the live line.** A joinable game → `JOIN {NAME}`, routing
+    `{ name: 'Game', query: { type } }` exactly as a card does (and firing the same
+    `game_type_selected` analytics — route through the shared handler, do not re-implement it). Nothing
+    live → today's `PLAY AGAIN`, which scrolls to the picker. `PRACTICE` is unchanged.
+  - The streak block keeps its current markup verbatim; it is only wrapped in `v-if="streak >= 1"`.
+
+#### 7.11.6 Housekeeping found while specifying this
+
+- `arcade.css`'s light-graphics block still names **`.hero-mascot`**, a class no component renders any
+  more (the hero art is `.hero-ship`, decision 23). Dead selector — either repoint it or delete it, but
+  do not leave a rule that looks like it protects the hero and does not.
+
 ---
 
 ## 8. Flow diagrams
@@ -624,7 +829,11 @@ sequenceDiagram
 ## 9. Out of scope
 
 - **Card #130 (How to play)** — the how-it-works page itself. This card only adds the entry point.
-- **Live pots / live round status on the dashboard** (decision 10) — needs `useGameHub` rearchitected.
+- ⚠️ **SUPERSEDED IN PART 2026-07-31 (decision 32).** This read "live pots / live round status on the
+  dashboard (decision 10) — needs `useGameHub` rearchitected". Live pot + status **are now in scope**,
+  fetched over REST (§7.11). What stays out of scope is the part that actually required the
+  rearchitecture: **push updates**. `/` opens no socket and joins no hub group, so the figures are a
+  snapshot refreshed on mount and on tab-refocus — never a live-ticking counter.
 - **Leaderboards** or any cross-player ranking.
 - **Card #116** (better mode-card art) and **#129** (practice mode) — they land here automatically via
   the reused `GameTypes.vue`, but neither is built here.
@@ -654,8 +863,12 @@ sequenceDiagram
 | 5 | `src/SpaceStroker.Infrastructure/Services/Players/PlayerStatsService.cs` | **New** — on-demand aggregate + Redis, §6.3/§6.4 |
 | 6 | `src/SpaceStroker.Infrastructure/Services/Players/PlayerStats.cs` | **New** — plain result model + `Empty` |
 | 7 | `src/SpaceStroker.Infrastructure/Contracts/Players/PlayerStatsDto.cs` | **New** — DTO + `From(stats, token)` |
-| 8 | `src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GeneratePlayerStatsCacheSettings(wallet)` (30 s) |
+| 8 | `src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GeneratePlayerStatsCacheSettings(wallet)` (30 s) **and `GenerateRecentRoundsCacheSettings(take)` (30 s)** |
 | 9 | `src/SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `IPlayerStatsService` |
+| 10 | `src/SpaceStroker.Api/Controllers/GamesController.cs` | Add `GET history` (cross-mode feed, §6.9) |
+| 11 | `src/SpaceStroker.Infrastructure/Handlers/Games/GetRecentRounds/GetRecentRoundsRequest.cs` | **New** — `record GetRecentRoundsRequest(int Take)` |
+| 12 | `src/SpaceStroker.Infrastructure/Handlers/Games/GetRecentRounds/GetRecentRoundsHandler.cs` | **New** — clamp `take`, resolve the active catalogue, delegate |
+| 13 | `src/SpaceStroker.Infrastructure/Services/Games/IGameHistoryService.cs` · `GameHistoryService.cs` | Add `GetRecentRounds`; extract the shared `BuildRow` + `LoadBetsAsync` so both surfaces share one money rule |
 
 ### 10.2 Frontend (`monkify-front`)
 
@@ -663,21 +876,44 @@ sequenceDiagram
 | --- | --- | --- |
 | 1 | `src/routes.ts` | `Home` at `/`; drop the prefix everywhere; strip-prefix shim; generic catch-all → `/error` |
 | 2 | `src/main.ts` | `beforeEach`: embedded `Home` → `GameLobby`; comment prefix fix |
-| 3 | `src/pages/HomePage.vue` | **Overwrite the stale stub** — the dashboard shell |
-| 4 | `src/components/home/HomeHero.vue` | **New** |
-| 5 | `src/components/home/HomeConnectCta.vue` | **New** — cold state |
-| 6 | `src/components/home/HomePlayerStats.vue` | **New** — fetch + seq guard + zeroed/failed states |
-| 7 | `src/components/home/HomeQuickLinks.vue` | **New** — Stats·History·Fair·Settings + how-it-works; `v-if="!isEmbedded"` |
-| 8 | `src/components/home/HomeGlobalTeaser.vue` | **New** — 2–3 tiles from `GET /games/stats` |
+| 3 | `src/pages/HomePage.vue` | **Overwrite the stale stub** — the dashboard shell; panelled section order (decision 22) |
+| 4 | `src/components/home/HomeSection.vue` | **New** — the shared panel shell |
+| 5 | `src/components/home/HomeHero.vue` | **New** — frameless, saucer art plate, GIF/still swap |
+| 6 | `src/components/home/HomePlayerStats.vue` | **New** — fetch + seq guard + zeroed/failed states, in a panel |
+| 7 | `src/components/home/HomeHowItWorks.vue` | **New** — the three beats + `READ THE WIKI` |
+| 8 | `src/components/home/HomeFeatureCards.vue` | **New** — `TRY IT FREE` + `PROVABLY FAIR` two-up |
+| 9 | `src/components/home/HomeFloor.vue` | **New** — global figures + the cross-mode feed + Stats/History |
+| 10 | `src/components/home/HomeFooter.vue` | **New** — wordmark, Settings, Responsible gaming, Terms |
+| 11 | `src/assets/edson-ship.gif` · `edson-ship.png` | **New** — the saucer art (copied from `monkify-lp`) plus its extracted first frame for `html.light-graphics` |
+| 12 | `src/assets/styles/arcade.css` | **New primitive** `.arcade-frame` / `--cyan` / `__rule` (decision 27) |
+| 13 | `src/components/game/QuickTourModal.vue` | Consume `.arcade-frame arcade-frame--cyan`; drop the duplicated local surface (`.tour-frame` survives only as the transition hook) |
+| 14 | `src/components/ui/PrimaryButton.vue` | Add `variant="primary" \| "ghost"` (default `primary` — no existing caller changes) |
+| 15 | `src/components/header/WalletButtons.vue` | Add `variant` + `size` passthrough (defaults keep the header exactly as-is) |
+| 16 | `src/components/home/HomeJackpotChip.vue` | **Deleted** (decision 28) — the hero was its only consumer |
 | 9 | `src/hooks/useHeaderModals.ts` | **New** — shared open state for Settings / Fair / Responsible Gaming |
 | 10 | `src/components/GameHeader.vue` | Use `useHeaderModals`; move the overview watcher `GameLobby` → `Home` |
 | 11 | `src/App.vue` | `isPlayerRoute()` += `Home`; comment prefix fixes |
-| 12 | `src/services/mainService.ts` | `getPlayerStats(wallet)` + `singleFlight` allow-list entry + export |
+| 12 | `src/services/mainService.ts` | `getPlayerStats(wallet)` **and `getRecentRounds(take)`** + `singleFlight` allow-list entries + exports |
 | 13 | `src/types/index.ts` | `PlayerStats` interface |
-| 14 | `src/hooks/useAnalytics.ts` | `trackHomeLinkClick` |
+| 14 | `src/hooks/useAnalytics.ts` | `trackHomeLinkClick` (label set gains `practice`) |
 | 15 | `src/hooks/useEmbeddedWallet.ts` | Wallet-bridge popup URL → `/wallet-bridge` |
 | 16 | `src/pages/ErrorPage.vue` | RETRY target → `/game` |
 | 17 | `src/hooks/useAdmin.ts`, `src/hooks/useMobileWallet.ts`, `src/pages/BackgroundPage.vue`, `src/pages/WalletBridgePage.vue` | Comment prefix fixes |
+
+**Third pass — decisions 29–32 (§7.11), all frontend:**
+
+| # | File | Change |
+| --- | --- | --- |
+| 18 | `src/hooks/useLiveGames.ts` | **New** — the shared live snapshot: one `GET /games/{id}` per active type, parallel, `allSettled`, silent per-card failure, refresh on mount + guarded tab-refocus |
+| 19 | `src/utils/pot.ts` | **New** — `computePot(instance)` extracted from `useGame.getBets`; `useGame` calls it |
+| 20 | `src/utils/players.ts` | **New** — `countPlayers(bets, { freeBets })` extracted from `GameTerminal`; `GameTerminal` calls it |
+| 21 | `src/components/game-selection/GameTypeCard.vue` | Status pill · live POT as the headline figure · price demoted · meta row · real `btn-arcade--primary` (drops `.blink`) · per-archetype accent · optional `live` prop |
+| 22 | `src/components/game-selection/GameTypes.vue` | Own `useLiveGames`, pass `:live` per card; `bare` grows the `+ PICK YOUR MACHINE +` header + live eyebrow |
+| 23 | `src/pages/HomePage.vue` | Drop the local `PICK A MACHINE` `<h2>` (moved into `GameTypes`) |
+| 24 | `src/components/home/HomeHero.vue` | Hero y-padding up (both states); connected: `displayName` fallback address, live round line, `JOIN {NAME}` / `PLAY AGAIN`, streak only when `>= 1` |
+| 25 | `src/components/game/GameTerminal.vue` | Call the extracted `countPlayers` |
+| 26 | `src/hooks/useGame.ts` | Call the extracted `computePot` |
+| 27 | `src/assets/styles/arcade.css` | Register any new infinitely-animated class in the `html.light-graphics` kill block; fix the dead `.hero-mascot` selector (§7.11.6) |
 | 18 | `EMBEDDING.md`, `public/embed-example.html` | Paths + the stale `#launch_token` examples (§7.9) |
 
 ### 10.3 Meta (`monkify-meta`)
@@ -712,7 +948,16 @@ sequenceDiagram
 | `UnitTests/Handlers/GetPlayerStatsHandlerTests.cs` **(new)** | Null / whitespace `wallet` | Zeroed DTO, 200, service never called |
 | | Wallet with no `Player` row | Zeroed DTO, 200 — no thrown validation message |
 | | Known wallet | Service result mapped 1:1; `TokenSymbol`/`TokenDecimals` from `GeneralSettings.Operator.Token` |
-| `UnitTests/Api/RateLimitSettingsTests.cs` | **Unchanged — must still pass.** | The exact-set assertion proves no rate-limit rule was added for `/players/stats` (decision 21) |
+| `UnitTests/Api/RateLimitSettingsTests.cs` | **Unchanged — must still pass.** | The exact-set assertion proves no rate-limit rule was added for `/players/stats` or `/games/history` (decision 21) |
+| `UnitTests/Services/GameHistoryServiceTests.cs` **(extended)** | Rounds interleaved in time across two types | `GetRecentRounds` spans both, newest first, completed only; each row names its own type |
+| | `take` honoured; a type outside the passed catalogue | Clamped count; deactivated types never appear |
+| | Paid + free bets on a lottery type | Same pot/free-bet/winner rules as the per-type page (this is what pins the shared `BuildRow`) |
+| | A player's bet and credit present in the DB | Every `My*` column stays null — the read is wholly public |
+| | Empty catalogue | Empty list, cache never written |
+| | Cache hit with a newer round in the DB | Served from cache; DB not consulted; returned rows are copies, so a caller mutating one cannot poison the cache |
+| `UnitTests/Handlers/GetRecentRoundsHandlerTests.cs` **(new)** | The live catalogue is passed through | Service receives every active type |
+| | `take` = 0 / negative / in-range / over the cap | 6 / 6 / honoured / 10 — the clamp bounds cache-key growth |
+| | Empty catalogue | Empty list, no validation failure (§6 non-leaking) |
 
 ### 11.2 Integration (mandatory — `AGENTS.md` rule 8)
 
@@ -729,6 +974,20 @@ sequenceDiagram
    `TotalWagered` counts paid only, `MostPlayedTypeName` is the seeded type, and — on the winning arm —
    `TotalWon > 0`, `Net`, `BiggestSingleWin`, `CurrentStreak == 1`, `BestStreak == 1`, `WinRate == 1`.
    `TokenSymbol`/`TokenDecimals` equal the fixture's.
+
+`SpaceStroker.Tests.Integration/RecentRoundsFlowTests.cs` **(new)** — the mandatory happy path for
+`GET /games/history`:
+
+1. `CompletedRound_AppearsInTheCrossModeFeed` — seed an isolated type, drive one round to
+   `RewardForWinnersCompleted` with two paid bets on distinct winning-eligible choices plus one free
+   bet, then assert the round is in the feed with `Pot == 2` (free excluded), `BetCount == 3` (free
+   counted), `WinnerCount == 1`, the seeded type name, the fixture's token descriptor — and **every
+   `My*` column null**.
+2. `Feed_IsNewestFirst_AndHonoursTake` — two rounds on one isolated type, completed in order; the newer
+   one ranks ahead of the older, and `take=500` / `take=1` are clamped server-side.
+
+`IntegrationTestFixture.InvalidateGlobalCaches()` now also clears `RecentRounds:{1..10}` — the full
+clamp range, so the invalidation is complete rather than a guess at which page a test asked for.
 
 Run with `scripts/run_integration_tests.bat` (Docker required). Unit suite: `scripts/run_tests.bat`
 — **not** a bare `dotnet test`, which pulls in the `ProductionGames` Monte Carlo suite the script
@@ -769,6 +1028,14 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 22. **AC22** — Given implementation is starting, when any markup for this page is written, then a new claude.ai/design project covering BOTH page states at desktop and phone widths exists, is built on the committed arcade tokens, and its URL is recorded on this card.
 23. **AC23** — Given the backend change ships, when the suites run, then `SpaceStroker.Tests.Integration` contains a happy-path test (bet → round completes → `GET /players/stats` returns the aggregate) and the `SpaceStroker.Tests` unit suite is green, with changed/added tests reported by name.
 
+**Added 2026-07-31 with the third design pass (§7.11, decisions 29–32) — frontend-only, no backend AC:**
+
+24. **AC24** — Given a game type whose round is open with bets on it, when the picker renders (on `/` **and** on `/game`), then that card shows the live pot, `FILLING n/m` with the distinct-player count, and the pot equals what the game terminal shows for the same round to the last decimal (lottery base included).
+25. **AC25** — Given `GET /games/{id}` fails, returns nothing, or the type has no open round, when the picker renders, then that card shows `IDLE — BE FIRST` with its static content intact, the other cards are unaffected, and no toast, boot-recovery state or `/error` appears.
+26. **AC26** — Given a connected player, when `/` renders, then the hero shows their display name (or short address if they never set one), shows a streak **only** when it is at least 1, and shows one live round line — `JOIN {NAME}` routing into that machine when a round is joinable, `PLAY AGAIN` scrolling to the picker when none is.
+27. **AC27** — Given the player leaves the tab and returns after more than 15 s, when `/` regains visibility, then the live figures refresh exactly once; and given they alt-tab repeatedly inside 15 s, then no additional request is made; and at no point does `/` open a SignalR connection or join a hub group.
+28. **AC28** — Given a phone viewport and `html.light-graphics`, when the enriched cards render, then no card element animates infinitely (the CTA no longer blinks) and no new `backdrop-filter` is introduced.
+
 ---
 
 ## 13. Manual QA (local Docker stack)
@@ -793,7 +1060,24 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 10. Open `public/embed-example.html` (or any page with `?embed=1`) pointing at `/` → redirected to
     `/game`, no dashboard section, quick links absent (**AC15/AC16**).
 11. DevTools device toolbar at 390×844 → single column, no horizontal scroll, both states (**AC21**);
-    force `html.light-graphics` and confirm no blur/infinite animation/blend in the new sections.
+    force `html.light-graphics` and confirm no blur/infinite animation/blend in the new sections
+    (including the cards — the CTA must not blink, **AC28**).
+
+**Third pass (§7.11):**
+
+12. With a round open and at least one bet on it, compare the card's POT against the terminal's
+    `> POT:` for the same type — identical, lottery base included — and the pill's `n` against the
+    terminal's player count (**AC24**). Repeat on `/game`'s lobby: same cards, same figures.
+13. Stop the API (or block `/games/*` in DevTools) and reload `/` → every card renders
+    `IDLE — BE FIRST`, no toast, no `/error` (**AC25**).
+14. Connected, having never set a display name → the hero shows the short address; set one via the
+    player-customization modal and reload → the hero shows the name (**AC26**).
+15. With **no** round joinable → hero reads `PLAY AGAIN` and scrolls to the picker; with one filling →
+    it reads `JOIN {NAME}` and enters that machine (**AC26**). Confirm the streak block is absent at 0
+    and present at 1.
+16. Network tab: exactly **three** `/games/{id}` calls on load, **zero** WebSocket/SignalR connections
+    on `/`; alt-tab away and back inside 15 s → no new calls; after 15 s → exactly three more
+    (**AC27**).
 
 ---
 
@@ -811,4 +1095,6 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 
 | Date | Change |
 | --- | --- |
+| 2026-07-31 | **Third design pass — live picker, enriched cards, connected hero** (decisions 29–32, §7.11, AC24–AC28). Owner review of the built connected state: the fold read `Welcome back / <address> / CURRENT STREAK 0`, the picker was a bare `<h2>` above cards whose only figure was the ticket price, and the hero was vertically cramped. Changes, all **frontend-only**: new `useLiveGames` singleton reads `GET /games/{id}` per active type (3 calls, on mount + guarded tab-refocus, **no SignalR** — decision 10's hub objection stands); the cards gain a live **POT** as their headline figure, a status pill, a meta row that replaces the description as the differentiator, a real button in place of the dashed blinking box, and a per-archetype accent; `GameTypes` grows the `+ PICK YOUR MACHINE +` header with a live eyebrow; the connected hero swaps the address for `displayName`, hides a zero streak, and carries one live round line whose CTA joins that machine; hero y-padding roughly doubles in both states. `computePot` and `countPlayers` are **extracted** from `useGame`/`GameTerminal` rather than re-derived (the lottery base and the nullable `externalPlayerId` are the two things a fresh copy gets wrong). Enrichment lands on `/game`'s lobby too — same component, by design. |
+| 2026-07-31 | **Design revision after review of the first build** (decisions 22–26). The page was rejected as reading like loose text on a starfield with a footnote row for navigation. Changes: every section below the hero is an `.arcade-panel` via a new shared `HomeSection.vue`; the hero is simplified and now uses the **saucer art** in a labelled plate (with a first-frame PNG for `html.light-graphics`) instead of the cropped mascot head; the five-link footnote row became two panelled sections, buttons on two other panels, and a real footer; `HomeLastRounds` + `HomeGlobalTeaser` merged into `HomeFloor`, which never renders empty. Backend: **new `GET /games/history`** (§6.9) replaces the per-type fan-out `HomeLastRounds` was wired to and that its own comment flagged as not ship-ready; `BuildRow`/`LoadBetsAsync` extracted so both history surfaces share one money rule. Verified: unit suite 519 green, integration suite 79 green, `yarn lint` clean, screenshots at 1440 and 390 in both states. **Second pass the same day** (decisions 22/23/27, owner review against the Space Stroker Modals design project): sections moved off `.arcade-panel` onto the new shared `.arcade-frame` primitive with alternating cyan/line tones, `QuickTourModal` repointed at the same primitive (verified visually unchanged), and the hero art unframed. |
 | 2026-07-30 | Initial spec from the refined card (#131, refined 2026-07-30). Settled decision 18 (streak semantics, §6.4) and decision 19 (30 s TTL, §6.6). Code findings added: the shared-modal-state blocker for Fair/Settings (§7.5), the stale `HomePage.vue` stub (§7.3), the rate-limit exact-set constraint (decision 21), the shim/catch-all ranking caveat (§7.1), and the verified "LB path rules are prefix-agnostic" claim (§9). |
