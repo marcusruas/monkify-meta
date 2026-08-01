@@ -107,6 +107,18 @@ From `monkify-meta/constraints.md` (full list there):
 | 34 | **`useGamePicker` — the entry into a game is ONE handler.** There are two entry points now (a mode card, and the hero's `JOIN`/`WATCH`), and they must do the same four things in the same order — select the game, fire `game_type_selected`, route, `updateNewGame(true)`. Extracted out of `GameTypes.vue` rather than copied into the hero, or a player entering from the hero lands in a game the app never selected and that never fired its analytics event. |
 | 35 | **REVISED 2026-07-31 (owner review of the built card) — the card is the OWNER'S MOCK, and it is SHORT.** Two problems with the first build of decision 31. (a) **Height:** six stacked blocks below the art (status strip, name, pot, price, spec row, copy) made each card **~530 px** — the picker ran the height of the fold. (b) **It was not the design that already existed:** the owner had a card mock — art → a row of **stat tiles** → a **highlighted title chip** → a **highlighted price chip** → copy → button. The shipped card is that mock, at **376 px**. What changed to get there: the **status pill and lottery badge OVERLAY the art** (a full-width strip cost ~38 px and said nothing the art did not); the **spec row is dropped** (the description already carries the shape, and the player count is now a tile); **pot + players share one tile row**; the **price is a chip on the title**, not its own line; the **description clamps to two lines at EVERY width** — the old rule clamped to one line on phones and ran full at `lg+`, which is precisely what made three cards three different heights. The lottery badge sits **bottom**-right: every sprite holds its sign top-right. The mock's own tiles (`PLAYING NOW`, `USDC SPENT TODAY`) are **#117 and have no endpoint**, so the tiles carry the two figures that exist — the pot and `players/minimum`. The **real USDC mark** rides the pot figure (owner's call): `src/assets/usdc.svg`, **guarded on `tokenSymbol === 'USDC'`** so a future token cannot inherit another currency's logo, and with `image-rendering: auto` set explicitly, since the card root sets `pixelated` for the sprite art and a mangled logo reads as a knock-off. |
 | 36 | **REVISED 2026-07-31 — they are GAMES, not "machines".** The metaphor entered with the second pass's `PICK A MACHINE` heading and spread into the picker header, the eyebrow, and two empty states. The product, the API (`/games/*`, `gameTypeId`) and the lobby's own `GAME SELECTION` banner all say **game**; nothing else in the app calls them machines. Copy is now `+ PICK YOUR GAME +`, `{n} games · pick one`, and "Pick a game above/below…". |
+| 37 | **REVISED 2026-07-31 (fourth pass) — the picker's art is the LP's, mapped by SHAPE.** Card art was picked by `gameCharacterType` out of four sprites that differ only in the text on the sign the monkey holds — and `abc-type.png` is the fallback, so **Cosmic Sprint and Space Jackpot rendered the identical image**. The art block is the largest element on the card and on two of the three shipping cards it carried no information at all. `monkify-lp/src/components/GameModes.vue` already solved this with real per-mode art — Edson hammering a keyboard through speed-lines, a red-eyed jacked chimp, Edson drowning in gold coins — each a poster PNG plus an animated GIF. Those six files are copied into `monkify-front/src/assets/types/` and chosen by the **archetype** rule the card already computes. Never by name: the LP hard-codes by mode name and the app cannot, because operators create their own types and `gameTypeId` is a fresh GUID on every teardown + reseed. `lottery → preset → race` is exhaustive, so every type — including an operator's own — gets real art and no fallback can duplicate. The four sign sprites stay on disk (still imported by `main` and the `wallet-autoconnect-mobile-only` worktree) but this component no longer references them. GIF weight (80 + 318 + 596 KB) is paid **on first hover only** and never on a phone. |
+| 38 | **REVISED 2026-07-31 (fourth pass) — the card leads with the GAME, not a figure, and the player count is gone.** Owner review of decision 35's card: *"these cards UI just suck, the info in them is all bad too… we gotta make these cards APPEALING they are the most important cards in the app"*, and specifically *"the 0/2 must go, we need to show the game name and description clearly. numbers are addons, but gotta be meaningful like ticket price and highest paid pot"*. Decision 35's tile row headlined `POT FROM 2` and `PLAYERS 0/2`; on a quiet floor — most of the time before launch and every slow hour after — the card's two loudest figures both read as zero, so the most important object in the app advertised that nothing was happening. The order becomes art → **name** (the loudest text on the card) → a derived **tag line** → the **description at three lines, aligned across the row** → a quiet two-cell money row → the button. Deleted outright: the amber name chip, the magenta price chip, the floating lottery badge, the `POT FROM` tile, `PLAYERS n/m`, the `IDLE — BE FIRST` pill, and the duplicate price line — decision 35 printed the price twice in two formats (`$2` beside a USDC mark, then `1 USDC PER TICKET`) with the `2 = 1 × 2 players` relation invisible, which reads as a contradiction rather than two facts. The status pill now renders **only when there is something to say** (`LIVE NOW` / `STARTING` / `FILLING`); an idle card renders none, because a badge identical on every card is chrome, not signal. **Supersedes AC29 and the tile-row half of decision 35**; AC30's height and equal-height guarantees stand. |
+| 39 | **REVISED 2026-07-31 (fourth pass) — one accent per card, on the LP's mapping, and hover stops repainting the frame.** Decisions 31/35 put up to four accents on one card at once — amber name chip, magenta price chip, cyan-or-grey frame, orange button — so nothing read as the focal point; and the accent mapping (lottery = amber, preset = cyan, race = neutral grey) disagreed with the one already published on the LP. The app adopts the LP's: **race → `--color-primary`, preset → `--color-cyan`, lottery → `--color-magenta`**, so the marketing page and the app finally give each game the same colour. The accent drives the frame, the name and the pill; nothing else on the card is coloured. Hover no longer repaints every frame amber — on an amber card that erased the accent entirely — and uses the LP's treatment instead: `translateY(-6px)`, an accent glow, a warmed border, all dropped under `prefers-reduced-motion`. |
+| 40 | **REVISED 2026-07-31 (fourth pass) — `BIGGEST POT`, all-time and frontend-only, in a money cell that can never render a zero.** `GET /games/{parametersId}/stats` is already built, already Redis-cached (120 s) and already wired in `mainService.getGameTypeStats`; only `/game/stats` read it. The picker now fans it out too. ⚠️ `GameStatsService`'s own doc comment says it was built *"on-demand… never a lobby fan-out"* — **accepted on query cost, overruled on traffic**: the 120 s TTL is shared across every client through the Redis backplane, so a fan-out costs at most three cold aggregates per two minutes no matter how many people are on the page. What stays true is that the aggregate loads every paid bet of every completed round into memory and so degrades as history grows — already the case for `/game/stats`, a scaling card of its own, not a blocker here. The endpoint has **no time window**; every figure is all-time. "Biggest pot **today**" was considered and rejected: cross-repo (service change, unit tests, a rule-8 integration test), it needs a timezone decision with no right answer, and it reads **zero** on a quiet day — the exact failure this pass exists to kill. The money row is two cells: `TICKET` (one place, one format, tooltip kept) and a second cell that reads **`POT NOW {live}`** when a round has real money in it, **`BIGGEST POT {all-time}`** otherwise, and is **omitted entirely** when both are zero, with `TICKET` spanning the row. No figure on this card is ever printed as `0`. |
+| 41 | **REVISED 2026-08-01 (fourth pass, owner review of the built card) — the 2-font arcade system, applied correctly.** The card put the game NAME in VT323 — the **body** face — so the loudest element read as body text, while the description inherited the browser's default sans and so matched nothing else in the app. `tailwind.config.js` has carried a deliberate 2-font system since the LP port (`font-display` = Press Start 2P for titles, `font-body` = VT323 for copy) and this card was using neither correctly. The name is now `press-start-2p-regular` at **13 px** (Press Start 2P is wide — it reads as the biggest thing on the card at a small px size) and the description is explicitly VT323 at **17 px**, which is *narrower per character* than the 11 px sans it replaces, so it fits more copy in less height. |
+| 42 | **REVISED 2026-08-01 (fourth pass) — the money row becomes two chips on the tag's row.** A bordered full-width row for two figures cost ~52 px on the object that most needs to fit on a screen, and it framed the numbers as the card's conclusion when they are an aside. `TICKET` and one live chip now sit right-aligned on the same line as the tag, which was half-empty. **The second chip asks the question that fits the game:** `PLAYERS {n}` on a race or preset (who else is in), and `POT {n}` on a lottery, where nobody is "in" and the pot fattens on its own. **`BIGGEST POT` is dropped**, and with it the whole `useGameTypeStats` fan-out — the picker is back to 3 GETs, and decision 40's hook is deleted rather than left dead. Only the tag may truncate; a clipped price is worse than a clipped `PICK 1 OF 8`. |
+| 43 | **REVISED 2026-08-01 (fourth pass) — art to 16:10, and the crop is aimed at the MONKEY.** 4:3 art made a 500 px card. At 16:10 it is 398 px — inside the same ballpark as decision 35's 376 px while still carrying a real illustration. The crop percentages are now where Edson actually sits in each source file, **not `center` / `top`**: Cosmic Sprint `50% 48%` (near-square scene, him mid-frame), Space Jackpot `50% 32%` (840×1190 portrait where he occupies the top third — a plain `center` shows only coins and `top` cuts his head). Beast Mode stays contained and bottom-anchored: it is a transparent bust with no background of its own. |
+| 44 | **FOUND IN THE BROWSER 2026-08-01 — `loading="lazy"` NEVER FIRES inside a `clip-path` frame.** The art was copied from the LP complete with `loading="lazy"`, and every card rendered an **empty black frame**: after 4+ seconds on screen and fully scrolled into view, all three images reported `complete: false` / `naturalWidth: 0` — **including the one webpack had inlined as a `data:` URI**, which cannot fail on the network. Cause: `.pixel-border-outer` / `.pixel-border-inner` clip the card with `clip-path` polygons (the pixel bevel), and Chrome folds ancestor clips into the intersection check that drives lazy loading, so the load is deferred forever. Removing the attribute loads the same image instantly. The LP gets away with it because its cards sit far down a long marketing page in **unclipped** frames. Three above-the-fold posters are also exactly the wrong thing to defer — they are what the player came to look at. **Any future `loading="lazy"` inside these frames is the same bug.** |
+| 45 | **REVISED 2026-08-01 (fourth pass, third cut) — the chips are a HUD on the ART, not a row of the card.** They moved from the tag's row into the artwork's **bottom-right corner**, opposite the status pill, which costs the card **zero height** (398 px → **387 px**) and reads them as what they are: an aside over the picture, not the card's conclusion. They carry their own `rgba(0,0,0,.78)` scrim and sit above the scanline layer — Space Jackpot's art is bright gold and a translucent chip vanished into it. |
+| 46 | **REVISED 2026-08-01 — one price colour, and a green dot that only lights when it is true.** The chip value was tinted with the archetype accent, so the ticket price was amber on one card, cyan on the next and magenta on the third: **three colours for one kind of fact**, which reads as three different kinds of fact. Every chip value is now `--color-ink` on every card. The `PLAYERS` chip gains a dot on a **new semantic `--color-live` green** — deliberately outside the primary/cyan/magenta trio the cards are keyed on, so it means the same thing everywhere — and it is **lit only when `players > 0`**, falling back to `--color-ink-mute`. A green light over an empty round is the one lie this card could tell. |
+| 47 | **FIXED 2026-08-01 — the Space Jackpot crop was cutting Edson's head off.** `object-position: 50% 32%` on an 840×1190 portrait scaled ~0.40 into a 16:10 frame hid **~213 px** of source at the top, straight through his head. Now **8%**, hiding ~54 px — above the hair tuft, which starts ~90 px down. The rule to keep: on this frame each 1% of `object-position` hides ~6.7 px of the original, so aim the crop with the source's own geometry rather than by eye. |
+| 48 | **REVISED 2026-08-01 — the header wordmark goes to the FRONT DOOR, and unbuilt CTAs go to `/soon`.** Two leftovers from before the starting page existed. (a) `GameHeader`'s logo + wordmark was hard-coded to `{ name: 'GameLobby' }`, so the app's most obvious "take me home" control landed on the **old bare lobby** — it now resolves to `{ name: 'Home' }`, except **when embedded**, where it stays the lobby because `main.ts` redirects a framed `/` to GameLobby anyway and routing through Home would only burn a redirect and log a pageview for a page that never renders in a frame. ⚠️ The `gameHomeRoute` const had to move **below** `isEmbedded`'s declaration: `<script setup>` consts are not hoisted. (b) `PRACTICE` (#129) and `READ THE WIKI` (#130) both quietly opened the **Quick Tour overview modal** — which is not what either button says it does. A control that does something other than its label is worse than one that admits it is not ready: it teaches a first-time player that this page's buttons cannot be trusted. Both now route to a shared **`/soon?feature=`** placeholder. One page for both, because they are unbuilt for the same reason and will be replaced independently — shipping either is a one-line repoint plus deleting its entry. An unknown or missing `feature` renders a safe fallback rather than an empty heading, so a stale or hand-typed URL cannot produce a broken-looking page. `/soon` is deliberately **not** in `App.vue`'s `isPlayerRoute()`: it has no identity to render. |
 | 21 | **No new rate-limit rule.** `RateLimitSettingsTests.GeneralRules_AreExactlyTheThreeQuotaProtectingPatterns` pins the rule set to `*:/rpc`, `*:/solana/*`, `*:/solana/balance/live` — every other endpoint is deliberately unlimited app-side. `/players/stats` joins `/players/preferences` and `/games/*/history` as an unlimited read behind Cloud Armor's per-IP rule. Adding a rule here would be a money-path decision, and would break that exact-set test by design. |
 
 ---
@@ -713,8 +725,11 @@ New optional prop `live?: LiveGame` — **optional on purpose**: the card render
 (that is the IDLE variant), so nothing breaks if the snapshot is slow, fails, or if a future caller
 renders the grid without live data.
 
-⚠️ **REVISED 2026-07-31 (owner review of the built card) — see decision 35.** The table below is the
-FIRST build of this card and is kept for the reasoning; the shipped layout is decision 35's.
+⚠️ **REVISED TWICE — do not implement from this section.** The table below is the FIRST build of this
+card, kept only for its reasoning. Decision 35 replaced its layout; **§7.12 (decisions 37–40) replaces the
+layout, the art source, the accent table and the status-pill table below in full.** Specifically, from
+§7.12 onward: there is no `POT FROM` figure, no `PLAYERS n/m`, no meta row, no `IDLE — BE FIRST` pill and
+no per-archetype accent as tabled here.
 
 | Region | Today | After |
 | --- | --- | --- |
@@ -800,6 +815,204 @@ neutralised centrally).
 - `arcade.css`'s light-graphics block still names **`.hero-mascot`**, a class no component renders any
   more (the hero art is `.hero-ship`, decision 23). Dead selector — either repoint it or delete it, but
   do not leave a rule that looks like it protects the hero and does not.
+
+### 7.12 Fourth design pass — the picker card, rebuilt on the LP's art (decisions 37–40)
+
+Added **2026-07-31**, after the owner reviewed decision 35's shipped card: *"these cards UI just suck,
+the info in them is all bad too… we gotta make these cards APPEALING they are the most important cards
+in the app"*, and *"the 0/2 must go, we need to show the game name and description clearly. numbers are
+addons, but gotta be meaningful like ticket price and highest paid pot"*. Everything here is
+**frontend-only**; §6 is untouched and no endpoint is added.
+
+The seven concrete defects this pass answers, all visible in the owner's screenshot at 1440:
+
+1. **Two of the three cards are the same picture** — `abc-type.png` is the `gameCharacterType` fallback,
+   so Cosmic Sprint and Space Jackpot render identical art (decision 37).
+2. **The card leads with its weakest number** — `POT FROM 2` and `PLAYERS 0/2`, both in the dim
+   treatment, are the loudest readout on a quiet floor (decisions 38, 40).
+3. **The same money, twice, in two formats** — `$2` beside a USDC mark and `1 USDC PER TICKET`, with the
+   `2 = 1 × 2 players` relation invisible (decision 38).
+4. **Every description truncates mid-sentence** at the two-line clamp — the one field that could say what
+   the game *is* says nothing (decision 38).
+5. **Nothing says how you win.** `gameCharacterType`, `presetChoices` and `choiceRequiredLength` are all
+   on the card object and none of them reach the screen (§7.12.3).
+6. **Four accents per card** — amber chip, magenta chip, cyan/grey frame, orange button — so there is no
+   focal point, and the mapping disagrees with the LP's (decision 39).
+7. **`BE FIRST` renders on all three cards**, i.e. a badge that is always the same is chrome (decision 38).
+
+#### 7.12.1 `src/utils/gameArt.ts` — art by archetype (new)
+
+```ts
+export type GameArt = { poster: string; gif: string; fit: 'cover-center' | 'cover-top' | 'contain-bottom' };
+export const artFor = (game: ActiveGame): GameArt => { /* lottery → preset → race */ };
+```
+
+Six files copied from `monkify-lp/src/assets/cards/` into `monkify-front/src/assets/types/`:
+
+| archetype | rule | poster + gif | fit | why |
+| --- | --- | --- | --- | --- |
+| `lottery` | `lotteryParameters.lotteryFrequency` | `spacejackpot-*` | `cover-top` | tall scene (840×1190) — a centre crop loses Edson's face |
+| `preset` | `presetChoices.length > 1` | `beastmode-*` | `contain-bottom` | transparent portrait, no background of its own |
+| `race` | everything else | `cosmicsprint-*` | `cover-center` | near-square scene (1320×1290) carrying its own starfield |
+
+**Matched by SHAPE, never by name or `gameTypeId`** — the same rule `quick-tour-modals` settled and
+§7.11.3 already uses for the accent. The LP can hard-code by mode name because its three cards are
+marketing copy; the app cannot, because operators create their own types and the GUID is fresh after
+every teardown + reseed. The three branches are **exhaustive**, so there is no fallback art and no way
+for two shipping cards to collide again.
+
+`GameTypes.vue` stops assigning `img` / `imgClass` from `gameCharacterType`; `ActiveGameCard`'s `img` /
+`imgClass` fields go with it (this component was their only consumer). The four sign sprites
+(`abc-type`, `123-type`, `a9-type`, `horse-type`) **stay on disk** — `main` and the
+`wallet-autoconnect-mobile-only` worktree still import them, and deleting them here would conflict on
+merge.
+
+**The GIF is lazy and desktop-only.** The LP preloads all three on mount; the app must not — that is
+~994 KB on the front door. The poster renders always; on a card's first `mouseenter` the GIF is fetched
+with `new Image()` and swapped **only once decoded**, so there is no decode flash and no layout shift.
+Gated on `matchMedia('(hover: hover)')` **and** `!prefers-reduced-motion` **and**
+`!document.documentElement.classList.contains('light-graphics')` — a phone is always `light-graphics`
+(`usePerfMode` short-circuits below `lg`) and has no hover, so it downloads none of it.
+
+#### 7.12.2 `src/hooks/useGameTypeStats.ts` — the all-time snapshot (new)
+
+A **module singleton, deliberately the same shape as `useLiveGames`** (§7.11.1) and for the same reasons:
+
+- **Input is the catalogue `GameTypes.vue` already fetched** — it does not re-request `/games/active-types`.
+- Fires `mainService.getGameTypeStats(id)` per type **in parallel**, `Promise.allSettled`.
+- **Every failure is silent and per-card.** A rejected entry stays `undefined` and that card simply omits
+  its pot cell. A picker figure must never produce a toast, boot-recovery or `/error` (`constraints.md` §6).
+- **Never gates paint.** `GameTypes.vue` fires it un-awaited, exactly as it does `refreshLive`.
+- **Staleness guard 60 s** (vs `useLiveGames`' 15 s): these are all-time aggregates behind a 120 s
+  server-side Redis TTL, so a tighter client guard would only ever re-fetch the same cached bytes.
+- Wallet-agnostic — public data, no clear/refetch on a wallet switch.
+
+Server cost is bounded by the **shared** 120 s Redis TTL, not by traffic: at most three cold aggregates
+per two minutes across all clients (decision 40). This takes the page from seven reads to ten, all
+parallel, all fail-silent, none blocking.
+
+#### 7.12.3 `GameTypeCard.vue` — the rebuild
+
+Order, top to bottom: **art → name → tag → description → money row → button.**
+
+| Region | Decision 35 (today) | Fourth pass |
+| --- | --- | --- |
+| Art | `h-36`, 140px sign sprite, status pill + lottery badge overlaid | `aspect-[4/3]` LP art, per-archetype `fit`, GIF on hover; **status pill only when live** |
+| Name | amber `.name-chip` (solid block, black text) | plain text, **accent-coloured, the loudest thing on the card** |
+| Tag | — | **new** — the derived one-liner below |
+| Description | 2-line clamp, `min-height: 2.6em` | **3-line clamp**, `min-height` fixed so all cards in a row align, full text in `title` |
+| Money | tile row: `POT FROM {n}` + `PLAYERS {n}/{m}`, plus a magenta `.price-chip` | **two quiet cells**: `TICKET` + adaptive `POT NOW` / `BIGGEST POT`, or one full-width `TICKET` |
+| CTA | `btn-arcade--primary` full width | unchanged |
+
+**The tag line** — derived, never hard-coded, so it stays true for an operator's own type:
+
+| archetype | reads | source |
+| --- | --- | --- |
+| lottery | `DAILY DRAW` · `DRAW EVERY 3 DAYS` · `DRAW EVERY 30 MIN` | `formatLotteryFrequencyCompact(lotteryFrequency)` — the shared helper, so it cannot drift from the terminal or the quick tour |
+| preset | `PICK 1 OF 8` | `presetChoices.length` |
+| race | `6 CHARS · A–Z + 0–9` | `choiceRequiredLength` + `gameCharacterType` (`1 → 0–9`, `2 → A–Z`, `3 → A–Z + 0–9`); with no `choiceRequiredLength`, the charset alone |
+
+⚠️ The compact formatter returns a **noun phrase** (`DAILY`, `EVERY 3 DAYS`, `30 MIN`), so the preposition
+has to bend around it — a naive `` `DRAW EVERY ${compact}` `` renders **"DRAW EVERY DAILY"** on the one
+lottery that actually ships. `DAILY` → `DAILY DRAW`; anything already starting `EVERY ` → `DRAW {compact}`;
+otherwise → `DRAW EVERY {compact}`.
+
+This is what replaces the floating `LOTTERY / EVERY 24 DAYS` badge — the frequency is now a sentence in
+the reading order instead of a pulsing chip over the art, which also removes one infinite animation from
+the page.
+
+⚠️ **SUPERSEDED BY DECISIONS 42 + 45–46** — the bordered money row below became **two chips floating over
+the artwork's bottom-right corner**, and `BIGGEST POT` was dropped for a live figure. The shipped money
+block is:
+
+| Chip | Value | Mark | Absent when |
+| --- | --- | --- | --- |
+| `TICKET` | `formatGameAmount(game, requiredAmount)` — one place, one format | USDC coin (guarded on `tokenSymbol`) | never |
+| `PLAYERS` (race · preset) | `live.players` | dot, `--color-live` when `> 0`, else `--color-ink-mute` | no live snapshot at all |
+| `POT` (lottery) | `formatGameAmount(game, live.pot)` — `computePot` folds in the configured base | USDC coin | no live snapshot at all |
+
+Every chip **value** is `--color-ink` on every card — never the archetype accent (decision 46). With **no
+snapshot at all** the chip is omitted entirely: an absent chip says nothing, a fabricated one says
+something false.
+
+⚠️ **A zero can still reach these chips, and both instances are seed data, not card bugs.** On the local
+stack `PLAYERS 0` is honest (no open rounds) and `POT 0` is real: `spacestrokersettings.json` seeds Space
+Jackpot with **`"LotteryPot": 0`**, though `fix-pricing` records the intent as **5**. The same block sets
+**`"LotteryFrequency": "24:00:00"`**, which .NET parses as **24 DAYS** (a 3-part TimeSpan whose first field
+exceeds 23 is read as `d:hh:mm`; 24 hours is `"1.00:00:00"`) — so the card truthfully renders
+`DRAW EVERY 24 DAYS`, and the live lottery genuinely draws monthly. Note `MaxLotteryFrequency` is 7 days,
+so the seed path is bypassing its own validation. **Both are backend config and belong to their own card.**
+
+<details><summary>Superseded — decision 40's money row, kept for its reasoning</summary>
+
+**The money row** — two cells, hairline-separated, `vt323`, tabular-nums, deliberately quieter than the
+name:
+
+Since the display-currency feature was removed, `formatGameAmount` returns `{ text }` with **no `title`** —
+the tooltip decision 35's card passed through is dead code and is dropped rather than carried. Both cells
+render the **USDC mark + a bare figure** when `tokenSymbol` is USDC, and the **spelled-out symbol** when it
+is not, so a non-USDC game never shows a bare number with no unit.
+
+| Cell | Value | Absent when |
+| --- | --- | --- |
+| `TICKET` | `formatGameAmount(game, requiredAmount)` — **one place, one format** | never |
+| `POT NOW` | `formatGameAmount(game, live.pot)` when `live.pot > 0` | no live money |
+| `BIGGEST POT` | `formatGameAmount(stats, stats.biggestPot)` when `> 0` — `GameTypeStats` satisfies the formatter's currency descriptor (`usePlayerPreferences.ts:15`), so it formats in the type's own token | no completed round yet |
+
+`POT NOW` wins over `BIGGEST POT` when both exist: a record is worth less than money on the table right
+now. When neither exists the cell is **omitted** and `TICKET` spans the row — **no figure on this card is
+ever rendered as `0`** (decision 33's rule, now applied by omission rather than by a `POT FROM` floor).
+
+</details>
+
+**The USDC mark** keeps decision 35's guard verbatim: rendered only when `tokenSymbol.toUpperCase() ===
+'USDC'`, with `image-rendering: auto` set explicitly against the card root's `pixelated`.
+
+**Status pill** — reduced to the three states that say something:
+
+| Condition | Pill | Tone |
+| --- | --- | --- |
+| `InProgress` | `● LIVE NOW` | accent |
+| `GameStarting` | `STARTING` | accent |
+| `WaitingBets` and `players > 0` | `● FILLING` | accent |
+| anything else, or **no snapshot at all** | **no pill** | — |
+
+`FILLING` no longer prints `n/m` — the count is the figure the owner cut. `live.players` is still read
+(it is what distinguishes `FILLING` from an untouched round) but is **never displayed**. Settled, errored
+and `Ended` rounds fall through to no pill, as before: a picker never narrates a failure it cannot
+explain (`constraints.md` §6), and never surfaces a raw status enum.
+
+⚠️ **HEIGHT — settled at 398 px (decisions 41–43).** The first build of this pass measured **500 px** and
+the owner rejected it ("the height is too big"), as they had rejected decision 31's ~530 px. Three changes
+took it to **398 px** at 1440 (card width 351 px), all three cards equal: art `4/3 → 16/10` (−51 px), the
+bordered money row folded into two chips on the tag's row (−52 px), and the title moved to a 13 px
+Press Start 2P line instead of a 26 px VT323 one. That is within a rounding error of decision 35's 376 px
+**while carrying a real illustration**, which is what this pass exists for, so **AC30 is met in spirit and
+its number is relaxed to ≤ 400 px**.
+
+**Accent (decision 39)** — one per card, replacing §7.11.3's table:
+
+| archetype | accent | matches LP |
+| --- | --- | --- |
+| `race` | `--color-primary` | `cosmicsprint` |
+| `preset` | `--color-cyan` | `beastmode` |
+| `lottery` | `--color-magenta` | `spacejackpot` |
+
+Drives the frame, the name and the pill — nothing else. Hover is `translateY(-6px)` + accent glow +
+warmed border (the LP's `.mode-card` treatment), **not** the old repaint-to-amber, which erased the
+accent on the amber card.
+
+**Light-graphics obligations (§7.10):** no new `backdrop-filter` — `.card-content` keeps its class name
+so `arcade.css`'s existing `html.light-graphics .card-content` rule keeps neutralising it. The lottery
+badge's `pulse` goes away with the badge. The hover lift is behind `(hover: hover)` and
+`prefers-reduced-motion`, so it never runs on a phone. **Net effect: two infinite animations removed
+(`.blink` went with decision 31, `pulse` goes here) and none added.**
+
+#### 7.12.4 `GameTypes.vue` — the second fan-out
+
+Alongside `refreshLive(data)`, call `refreshStats(data)` — same catalogue, same un-awaited call, same
+silent failure. Drop the `img` / `imgClass` mapping and the four sprite imports. The `bare` header, the
+eyebrow and the non-`bare` `GAME SELECTION` banner are untouched.
 
 ---
 
@@ -931,6 +1144,23 @@ sequenceDiagram
 | 27 | `src/assets/styles/arcade.css` | Register any new infinitely-animated class in the `html.light-graphics` kill block; fix the dead `.hero-mascot` selector (§7.11.6) |
 | 18 | `EMBEDDING.md`, `public/embed-example.html` | Paths + the stale `#launch_token` examples (§7.9) |
 
+**Fourth pass — decisions 37–40 (§7.12), all frontend:**
+
+| # | File | Change |
+| --- | --- | --- |
+| 28 | `src/assets/types/cosmicsprint-poster.png` · `cosmicsprint.gif` · `beastmode-poster.png` · `beastmode.gif` · `spacejackpot-poster.png` · `spacejackpot.gif` | **New** — copied verbatim from `monkify-lp/src/assets/cards/` (decision 37) |
+| 29 | `src/utils/gameArt.ts` | **New** — `artFor(game) → { poster, gif, fit }`, keyed on the archetype rule; exhaustive, no fallback art |
+| 30 | ~~`src/hooks/useGameTypeStats.ts`~~ | **Built, then deleted by decision 42** — with `BIGGEST POT` dropped for a live chip it had no consumer, and the picker is back to 3 GETs. Recoverable from this spec if the all-time figure is ever wanted again |
+| 31 | `src/components/game-selection/GameTypeCard.vue` | **Rewrite** — 16:10 LP art (monkey-aimed `object-position`, **no `loading="lazy"`** — decision 44) + hover GIF · Press Start 2P name · derived tag line sharing its row with a `TICKET` chip and a live `PLAYERS`/`POT` chip · VT323 description · pill only when live · one accent on the LP mapping · LP hover treatment. Drops the name chip, price chip, lottery badge, `POT FROM` tile, `PLAYERS n/m` tile, `BE FIRST` and the duplicate price line |
+| 32 | `src/components/game-selection/GameTypes.vue` | Drop the `img`/`imgClass` mapping and the four sprite imports |
+| 33 | `src/types/index.ts` | `ActiveGameCard` loses `img` / `imgClass` (this card was their only consumer) |
+| 35 | `src/pages/ComingSoonPage.vue` | **New** (decision 48) — the shared `/soon?feature=` placeholder for practice (#129) and the wiki (#130); unknown/missing `feature` falls back safely |
+| 36 | `src/routes.ts` | New `ComingSoon` route at `/soon` |
+| 37 | `src/pages/HomePage.vue` | `startPractice` / `openWiki` route to `/soon` instead of opening the Quick Tour overview; drops the now-unused `useQuickTour` import |
+| 38 | `src/components/GameHeader.vue` | `gameHomeRoute` → `Home` (lobby only when embedded); moved below `isEmbedded` since `<script setup>` consts are not hoisted |
+| 39 | `src/assets/styles/colors.css` | New semantic `--color-live` green (decision 46) |
+| 34 | `src/assets/types/abc-type.png` · `123-type.png` · `a9-type.png` · `horse-type.png` | **Kept on disk, no longer imported** — `main` and the `wallet-autoconnect-mobile-only` worktree still reference them |
+
 ### 10.3 Meta (`monkify-meta`)
 
 | # | File | Change |
@@ -975,6 +1205,27 @@ sequenceDiagram
 | | Empty catalogue | Empty list, no validation failure (§6 non-leaking) |
 
 ### 11.2 Integration (mandatory — `AGENTS.md` rule 8)
+
+⚠️ **AS BUILT 2026-08-01 (decision 49) — two deviations from the design below, both forced by the code.**
+
+1. **No pre-read of the wallet under test.** The design's step 1 snapshots a fresh wallet's stats *before*
+   the round. That cannot work: `GeneratePlayerStatsCacheSettings(wallet)` caches the **zeroed** result
+   under the **same key** for 30 s, so the pre-read would pin zeros across the round and step 5 would read
+   them back. `InvalidateGlobalCaches()` does not clear per-wallet keys (it clears active-parameters,
+   global-stats and `RecentRounds:{1..10}`), so there is no bypass to reach for. The unknown-wallet arm it
+   was proving is instead its **own test** — `UnknownOrMissingWallet_ReturnsZeroedStats`, over a wallet
+   that never bets, plus the `wallet` omitted entirely. Same coverage, no cache trap, no 30 s sleep.
+2. **The free bet belongs to a THIRD wallet, not the wallet under test.** A free bet on the *other*
+   choice would make that wallet win whichever way the typer landed (its paid choice **or** its free one),
+   and a free bet on its *own* choice is rejected by the duplicate guard `(GameId, PlayerId, Choice)`.
+   Either way the winner/loser pair stops being deterministic. A dedicated `free` wallet proves the same
+   thing more cleanly: `RoundsPlayed == 1`, `BetsPlaced == 1`, **`TotalWagered == 0`**, `TotalWon == 0`,
+   `Net == 0`. Its win/streak fields are deliberately **not** asserted — a free bet still counts as an
+   outcome, so they turn on the typer's coin-flip.
+
+Note for anyone extending this: a free bet **may** carry a wallet. `RegisterBetHandler` only rejects
+`Amount == 0` when a payment signature is also present, and it resolves a `PlayerId` from any non-empty
+wallet — which is the only reason a free bet can land in a per-wallet aggregate at all.
 
 `SpaceStroker.Tests.Integration/PlayerStatsFlowTests.cs` **(new)**, following `GlobalStatsFlowTests`:
 
@@ -1045,15 +1296,34 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 
 **Added 2026-07-31 with the third design pass (§7.11, decisions 29–32) — frontend-only, no backend AC:**
 
-24. **AC24** — Given a game type whose round is open with bets on it, when the picker renders (on `/` **and** on `/game`), then that card shows the live pot, `FILLING n/m` with the distinct-player count, and the pot equals what the game terminal shows for the same round to the last decimal (lottery base included).
-25. **AC25** — Given `GET /games/{id}` fails, returns nothing, or the type has no open round, when the picker renders, then that card shows `IDLE — BE FIRST` with its static content intact, the other cards are unaffected, and no toast, boot-recovery state or `/error` appears.
+24. **AC24** — *(amended by §7.12: the card no longer prints a player count, so `FILLING` carries no `n/m`)* Given a game type whose round is open with bets on it, when the picker renders (on `/` **and** on `/game`), then that card shows the live pot as `POT NOW` and a `FILLING` pill, and the pot equals what the game terminal shows for the same round to the last decimal (lottery base included).
+25. **AC25** — *(amended by §7.12: an idle card renders no pill at all)* Given `GET /games/{id}` fails, returns nothing, or the type has no open round, when the picker renders, then that card renders with its static content intact and no status pill, the other cards are unaffected, and no toast, boot-recovery state or `/error` appears. The same holds independently for `GET /games/{id}/stats`.
 26. **AC26** — Given a connected player, when `/` renders, then the hero shows their display name (or short address if they never set one), shows a streak **only** when it is at least 1, and shows one live round line — `JOIN {NAME}` routing into that machine when a round is joinable, `PLAY AGAIN` scrolling to the picker when none is.
 27. **AC27** — Given the player leaves the tab and returns after more than 15 s, when `/` regains visibility, then the live figures refresh exactly once; and given they alt-tab repeatedly inside 15 s, then no additional request is made; and at no point does `/` open a SignalR connection or join a hub group.
 28. **AC28** — Given a phone viewport and `html.light-graphics`, when the enriched cards render, then no card element animates infinitely (the CTA no longer blinks) and no new `backdrop-filter` is introduced.
-29. **AC29** — Given a game type with no money in its round, when its card renders, then the pot figure reads `POT FROM {ticket price × minimum players}` in the dim treatment — never `POT 0` — and switches to `POT {live}` in the amber treatment as soon as the round has a pot.
+29. **AC29** — ~~Given a game type with no money in its round, when its card renders, then the pot figure reads `POT FROM {ticket price × minimum players}` in the dim treatment — never `POT 0` — and switches to `POT {live}` in the amber treatment as soon as the round has a pot.~~ **Superseded by AC34** (§7.12): the `POT FROM` floor is dropped and the zero case is handled by omitting the cell. The underlying rule — *never headline a zero* — is unchanged.
 30. **AC30** — Given the picker renders on any surface, when a card is measured, then it is no taller than ~380 px at desktop width, all three cards in the row are the same height regardless of description length, and the status pill and lottery badge sit over the art rather than adding a strip.
 31. **AC31** — Given any surface of the app, when copy refers to the things a player picks between, then it calls them **games** — no "machine" anywhere in player-facing text.
 32. **AC32** — Given a game whose `tokenSymbol` is not `USDC`, when its card renders, then the USDC logo is not shown next to its amounts.
+
+**Added 2026-07-31 with the fourth design pass (§7.12, decisions 37–40) — frontend-only, no backend AC.
+AC29 is superseded by AC34:**
+
+33. **AC33** — Given the three seeded game types, when the picker renders on `/` and on `/game`, then each card shows a **different** artwork (Cosmic Sprint at a keyboard, Beast Mode's chimp, Space Jackpot's coins), the artwork is chosen by game shape rather than by name or id, and a game type created by an operator still gets one of the three rather than a blank or duplicated frame.
+34. **AC34** — Given a game type with no live round and no completed round, when its card renders, then **no `0` appears anywhere on it**: the pot cell is omitted entirely and `TICKET` spans the money row; given the type has completed rounds, the cell reads `BIGGEST POT {all-time}`; and given its round currently holds money, the cell reads `POT NOW {live}` in preference to the record.
+35. **AC35** — Given any card, when it renders, then the game **name and full description are legible without truncation mid-word**, a tag line states how the game is played (`{n} CHARS · {charset}` / `PICK 1 OF {n}` / `DAILY DRAW`) derived from the catalogue rather than hard-coded, **no player count is shown anywhere**, and the price appears exactly once.
+36. **AC36** — Given a phone viewport and `html.light-graphics`, when the picker renders, then **no GIF is requested at all** (posters only), no card element animates infinitely, and no new `backdrop-filter` is introduced; and given a desktop pointer, when a card is hovered, then its GIF is fetched once, swapped only after it decodes, and the card lifts rather than repainting its frame amber.
+
+**Added 2026-08-01 with decisions 41–44 — frontend-only:**
+
+37. **AC37** — Given any card, when it renders, then the game name is set in **Press Start 2P** and the description in **VT323**; no card text falls back to the browser's default sans.
+38. **AC38** — Given any card, when it renders, then the two chips float over the **artwork's bottom-right corner** (no bordered money row, no card height spent on them), the second chip reads `PLAYERS` on a race or preset and `POT` on a lottery, it is **omitted entirely** when there is no live snapshot, and both chip values use the same neutral colour on every card rather than the archetype accent.
+38b. **AC38b** — Given a race or preset card, when its round has at least one player, then the `PLAYERS` dot is green; and when the round is empty, the dot is muted — never green.
+39. **AC39** — Given the picker on any surface, when a card is measured, then it is **no taller than 400 px** at desktop width and all cards in the row are equal (relaxes AC30's 380 px).
+41. **AC41** — Given a player loads `/` cold, when the app boots, then the **starting page** renders (hero, picker, panels) and never the bare `GAME SELECTION` lobby; and given they load `/game`, then the old lobby still renders unchanged, because that is the URL `EMBEDDING.md` points integrators at.
+42. **AC42** — Given the player is anywhere in the app, when they click the header logo or wordmark, then they land on `/`; and when the app is embedded, then it goes to the lobby instead (a framed `/` never renders).
+43. **AC43** — Given `PRACTICE` or `READ THE WIKI`, when either is clicked, then the player lands on `/soon?feature=…` naming that feature — **not** the Quick Tour modal — and `Back to the games` returns them to `/`; and given `/soon` with a missing or unknown `feature`, then a generic placeholder renders rather than an empty or broken page.
+40. **AC40** — Given a cold load, when the picker paints, then **every card's artwork is visibly rendered** — `complete === true` and `naturalWidth > 0` on all three — with no `loading="lazy"` on any image inside a `clip-path` frame (decision 44).
 
 **Verification status (2026-07-31, local Docker stack + `yarn lint`):**
 
@@ -1067,6 +1337,20 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 | AC30 (card height) | ✅ verified — measured **376 px** at 1440 and at 390, equal across all three cards (was ~530 px) |
 | AC31 (no "machine") | ✅ verified — `grep -i machine` over `src/` leaves only unrelated prose ("recomputes the round on your machine") |
 | AC32 (logo guard) | ⚠️ **not exercisable today** — Main is all-USDC, so no non-USDC game exists to render. The guard is `symbol.toUpperCase() === 'USDC'` on one `v-if` |
+| AC33 (different art per shape) | ✅ verified — `cosmicsprint` / `beastmode` (inlined as a data URI, it is under webpack's 8 KB threshold) / `spacejackpot`, each with its own `fit`, selected by archetype |
+| AC34 (no zero) | ✅ verified — empty floor, all three cards read `TICKET 1/1/2` + `BIGGEST POT 2`; no `0` anywhere on the grid. ⚠️ The `POT NOW` branch is **not** exercised — it needs a funded wallet, same gap as AC24 |
+| AC35 (name/description/tag, no player count) | ✅ verified — `6 CHARS · A–Z`, `PICK 1 OF 8`, `DRAW EVERY 24 DAYS`; descriptions render in full (`scrollHeight == clientHeight` on all three), no name or tag clipped at 390 or 1440, price appears once |
+| AC36 (mobile + hover) | ✅ verified — at a true 390×844 mobile emulation `(hover: hover)` is false and a cold reload requests **zero** `.gif`; on desktop a single `mouseenter` fetches **one** GIF (only the hovered card's), swaps after decode, and reverts on leave |
+| AC37 (fonts) | ✅ verified — computed `font-family` is `"Press Start 2P"` on all three names and `VT323` on all three descriptions |
+| AC38 (chips) | ✅ verified — every `.chips` node resolves inside `.art`; all three chip values compute to the same `oklch(0.975 0.012 85)` (`--color-ink`), not the accent; `TICKET 1 / PLAYERS 0`, `TICKET 1 / PLAYERS 0`, `TICKET 2 / POT 0`. ⚠️ The zero-value path is the only one exercisable locally — see the seed-data note above |
+| AC38b (green dot) | ⚠️ **half verified** — the muted state is confirmed (both dots compute to `--color-ink-mute` on empty rounds). The **green** state needs a funded round, same gap as AC24 |
+| AC39 (height ≤ 400 px) | ✅ verified — **387 px**, identical across all three cards at 351 px card width |
+| AC41 (`/` is the front door) | ✅ verified — a cold `/` renders `FIRST WORD OUT… / + PICK YOUR GAME + / HOW A ROUND GOES / TRY IT FREE / PROVABLY FAIR / THE FLOOR` with 3 cards and **no** `GAME SELECTION` banner; `/game` polled for 6 s stays on `/game` and still renders `GAME SELECTION` |
+| AC42 (wordmark → `/`) | ✅ verified — `href="/"`, and clicking it from `/game` lands on `/` with the dashboard rendered. ⚠️ The embedded branch is **not** exercisable locally (needs a real frame) |
+| AC43 (`/soon`) | ✅ verified — `PRACTICE` → `/soon?feature=practice` ("PRACTICE ROUND"), `READ THE WIKI` → `/soon?feature=wiki` ("THE WIKI"), bare `/soon` → the "THIS PAGE / It is on the way." fallback, and `Back to the games` returns to `/` |
+| AC47 (Jackpot crop) | ✅ verified — `object-position: 50% 8%` hides **54 px** of source at the top (was 213 px at 32%); Edson's full head is inside the frame, confirmed by zoomed screenshot |
+| AC40 (art actually paints) | ✅ verified — after the `loading="lazy"` removal all three report `complete: true` with real `naturalWidth`, and the crop lands on Edson in each (zoomed screenshot) |
+| ~~AC30 (card height ≤ ~380 px)~~ | ➖ **Relaxed to ≤ 400 px by AC39** (decisions 41–43). The 500 px first build of this pass was rejected by the owner; the shipped card is 398 px |
 | **AC24 (live pot == terminal pot)** | ⚠️ **NOT verified against real bets.** The FILLING / LIVE NOW / `JOIN {NAME}` variants and the header's live eyebrow were exercised with a **temporary local stub** (reverted; `git status` clean) and render correctly, and the pot arithmetic is the shipped `computePot` the terminal itself now calls — but no real bet has been placed through this build, so the card-vs-terminal comparison is still owed. Needs a funded wallet on the local stack (`SpaceStroker.Seeder` cannot run without one). |
 
 ---
@@ -1110,7 +1394,14 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
     and present at 1.
 16. Network tab: exactly **three** `/games/{id}` calls on load, **zero** WebSocket/SignalR connections
     on `/`; alt-tab away and back inside 15 s → no new calls; after 15 s → exactly three more
-    (**AC27**).
+    (**AC27**). Since §7.12 there are also exactly **three** `/games/{id}/stats` calls on load, on
+    their own 60 s guard — so a refocus inside 15 s adds none, and between 15 s and 60 s adds only the
+    three instance calls.
+17. **Fourth pass (§7.12).** All three cards show different art and the same height; no `0` anywhere on
+    the grid with an empty floor (**AC33**, **AC34**); every name and description is fully legible and
+    no player count appears (**AC35**). Throttle to Slow 3G and confirm the posters paint without the
+    GIFs; hover one card and confirm exactly **one** `.gif` request, after which it animates
+    (**AC36**). At 390 px, filter the network tab by `gif` → **zero** requests.
 
 ---
 
@@ -1128,6 +1419,10 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 
 | Date | Change |
 | --- | --- |
+| 2026-08-01 | **Entry routing + a placeholder for the two unbuilt CTAs** (decision 48, AC41–AC43). Owner: *"make sure routing is going to this page and not the old game-select one — this is our default route upon entering the app"*, *"create a placeholder page with a coming soon message for both read the wiki and practice round"*, *"upon clicking on space stroker in the header (logo + name) it should send to new home page"*. `/` already resolved to the starting page and `/game` still holds the old lobby for embedding — both re-verified in-browser. What was actually wrong: **`GameHeader`'s logo/wordmark was hard-coded to `GameLobby`**, so the app's most obvious "home" control landed on the bare lobby; it now goes to `Home`, staying the lobby only when embedded (a framed `/` is redirected anyway). New **`/soon?feature=`** page replaces the Quick Tour modal that `PRACTICE` (#129) and `READ THE WIKI` (#130) were both quietly opening — a control that does something other than its label teaches players the page's buttons cannot be trusted. One page for both, keyed by query, with a safe fallback for an unknown/missing `feature`. Verified: `yarn lint` + `yarn build` clean; every route, both CTAs, the fallback and the wordmark click exercised in-browser. |
+| 2026-08-01 | **Fourth pass, third cut — chips onto the art, one price colour, Jackpot crop** (decisions 45–47, AC38/38b/39/47). Owner review: *"the jackpot image the monkey is cut, gotta move it down so the head is fully showing"*, *"I don't like the badges, I feel like they could even be floating at the bottom right corner in the image container"*, *"for live players it could be something with a green dot, and for ticket something that indicates price and not a different color for every card"*. The chips became a **HUD in the artwork's bottom-right corner** (opposite the status pill) with their own dark scrim — zero card height, **398 px → 387 px**. Chip values are now `--color-ink` on every card: tinting a ticket price with the archetype accent made one fact wear three colours. `PLAYERS` gains a dot on a new semantic **`--color-live`** green, lit **only** when the round actually has players. The Space Jackpot crop went `32% → 8%`: on an 840×1190 portrait scaled ~0.40 into a 16:10 frame, 32% hid ~213 px of source and cut through Edson's head; 8% hides ~54 px, above the hair tuft. Verified: `yarn lint` + `yarn build` clean, measured in-browser at 1440. |
+| 2026-08-01 | **Fourth pass, second cut — height, fonts, chips, and a lazy-loading trap** (decisions 41–44, AC37–AC40). Owner review of the built card: *"the height is too big"*, *"you reverted the fonts for title and descriptions — press start is for big titles, vt for longer descs"*, *"the whole line for ticket and pot could simply be 2 badges or chips in the same row as something else"*, *"we can make the images a bit smaller too, but always keep the monkey centralized"*. **500 px → 398 px**, from three changes: art `4/3 → 16/10`, the bordered money row folded into two chips riding the tag's row, and the title moved from 26 px VT323 to 13 px Press Start 2P. The fonts now follow the repo's own 2-font system (`font-display` / `font-body`) — the name had been set in the *body* face and the description in the browser's default sans. **`BIGGEST POT` is dropped** for a live chip that asks the question fitting the game (`PLAYERS` on a race/preset, `POT` on a lottery), which also deletes `useGameTypeStats` and returns the picker to 3 GETs. Crops are aimed at Edson per-asset (`50% 48%` / `50% 32%`), not at the image box. **One real bug found in the browser:** `loading="lazy"`, copied from the LP, **never fires inside the card's `clip-path` frame** — all three images sat at `complete: false` / `naturalWidth: 0` indefinitely (including one inlined as a `data:` URI), rendering empty black frames; removing the attribute fixes it, and any future `lazy` in these frames is the same bug. **Two backend seed defects surfaced and NOT fixed here** (own card): Space Jackpot seeds `"LotteryPot": 0` where `fix-pricing` records the intent as 5, and `"LotteryFrequency": "24:00:00"` which .NET reads as **24 days**, not 24 hours — so the lottery genuinely draws monthly and the card truthfully says so. Verified: `yarn lint` and `yarn build` clean, browser at 1440. |
+| 2026-07-31 | **Fourth design pass — the picker card rebuilt on the LP's art** (decisions 37–40, §7.12, AC33–AC36). Owner review of decision 35's shipped card: *"these cards UI just suck, the info in them is all bad too… they are the most important cards in the app"*, and *"the 0/2 must go, we need to show the game name and description clearly. numbers are addons, but gotta be meaningful like ticket price and highest paid pot"*. Root cause of "they look bad" was that **two of the three cards rendered the identical sprite** — `abc-type.png` is the `gameCharacterType` fallback — so the largest element on the card carried no information on 2/3 of the grid. Fixed by porting the LP's real per-mode art (poster + hover GIF, six files from `monkify-lp/src/assets/cards/`) and selecting it by **archetype**, which is exhaustive and survives the GUID churn the LP's name-keyed mapping could not. Root cause of "the info is bad" was an inverted hierarchy: `POT FROM 2` / `PLAYERS 0/2` were the loudest figures and both read as zero on a quiet floor, the price was printed twice in two formats, and the description truncated mid-word. The order is now art → **name** → a **derived tag line** (`6 CHARS · A–Z + 0–9` / `PICK 1 OF 8` / `DAILY DRAW`, the "how do I win" the card never said) → a **3-line aligned description** → a quiet `TICKET` + adaptive `POT NOW`/`BIGGEST POT` row → button. The player count, the name chip, the price chip, the lottery badge, the `POT FROM` tile, the `BE FIRST` pill and the duplicate price line are all deleted. New `useGameTypeStats` singleton fans `GET /games/{id}/stats` — already built, already Redis-cached at 120 s, previously read only by `/game/stats` — so the card can headline a real all-time figure; **"biggest pot today" was rejected** as cross-repo, timezone-ambiguous and zero on a quiet day. Accents adopt the LP's mapping (race amber / preset cyan / lottery magenta) so the two properties finally agree, one accent per card instead of four, and hover lifts instead of repainting the frame. **Net: two infinite animations removed, none added; GIFs cost 0 bytes to a phone or a non-hovering visitor.** Frontend-only — no backend, no endpoint, no test change. |
 | 2026-07-31 | **Card revision after the owner reviewed the built picker** (decisions 35–36, AC30–AC32). Two rejections: the cards were "way too long" (~530 px, six stacked blocks below the art), and nothing in the product calls a game a "machine" — that metaphor entered with the second pass's `PICK A MACHINE` heading and had spread into the header, the eyebrow and two empty states. The card is now the **owner's own mock** (art → stat tiles → highlighted title chip → highlighted price chip → copy → button) at **376 px**: the status pill and lottery badge overlay the art, the spec row is dropped, pot and player count share a tile row, the price is a chip, and the description clamps to two lines at every width (the old one-line-on-phones rule was what made three cards three heights). The mock's own `PLAYING NOW` / `USDC SPENT TODAY` tiles are #117 and have no endpoint, so the tiles carry the pot and `players/minimum` instead. The **real USDC mark** now rides the pot figure, guarded on `tokenSymbol`. All copy says **game**. |
 | 2026-07-31 | **Third design pass — live picker, enriched cards, connected hero** (decisions 29–32, §7.11, AC24–AC28). Owner review of the built connected state: the fold read `Welcome back / <address> / CURRENT STREAK 0`, the picker was a bare `<h2>` above cards whose only figure was the ticket price, and the hero was vertically cramped. Changes, all **frontend-only**: new `useLiveGames` singleton reads `GET /games/{id}` per active type (3 calls, on mount + guarded tab-refocus, **no SignalR** — decision 10's hub objection stands); the cards gain a live **POT** as their headline figure, a status pill, a meta row that replaces the description as the differentiator, a real button in place of the dashed blinking box, and a per-archetype accent; `GameTypes` grows the `+ PICK YOUR MACHINE +` header with a live eyebrow; the connected hero swaps the address for `displayName`, hides a zero streak, and carries one live round line whose CTA joins that machine; hero y-padding roughly doubles in both states. `computePot` and `countPlayers` are **extracted** from `useGame`/`GameTerminal` rather than re-derived (the lottery base and the nullable `externalPlayerId` are the two things a fresh copy gets wrong). Enrichment lands on `/game`'s lobby too — same component, by design. **Two decisions came out of building it:** 33 (a card never headlines `POT 0` — found by looking at the real page) and 34 (`useGamePicker`, so the hero's `JOIN` is the same handler as a card click). Verified: `yarn lint` clean, browser at 1440 and 390 in both states, 3 GETs and no socket — with AC24 (card pot vs terminal pot on a real bet) still owed, see §12. |
 | 2026-07-31 | **Design revision after review of the first build** (decisions 22–26). The page was rejected as reading like loose text on a starfield with a footnote row for navigation. Changes: every section below the hero is an `.arcade-panel` via a new shared `HomeSection.vue`; the hero is simplified and now uses the **saucer art** in a labelled plate (with a first-frame PNG for `html.light-graphics`) instead of the cropped mascot head; the five-link footnote row became two panelled sections, buttons on two other panels, and a real footer; `HomeLastRounds` + `HomeGlobalTeaser` merged into `HomeFloor`, which never renders empty. Backend: **new `GET /games/history`** (§6.9) replaces the per-type fan-out `HomeLastRounds` was wired to and that its own comment flagged as not ship-ready; `BuildRow`/`LoadBetsAsync` extracted so both history surfaces share one money rule. Verified: unit suite 519 green, integration suite 79 green, `yarn lint` clean, screenshots at 1440 and 390 in both states. **Second pass the same day** (decisions 22/23/27, owner review against the Space Stroker Modals design project): sections moved off `.arcade-panel` onto the new shared `.arcade-frame` primitive with alternating cyan/line tones, `QuickTourModal` repointed at the same primitive (verified visually unchanged), and the hero art unframed. |
