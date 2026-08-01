@@ -103,6 +103,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 30 | **REVISED 2026-07-31 (third pass) — the picker gets the loudest header on the page.** `PICK A MACHINE` was a bare `<h2>`, quieter than every panel below it — so the *least* important sections looked the most designed. It becomes a full-width header in the `+ TITLE +` idiom (`+ PICK YOUR MACHINE +`) at hero-adjacent size with a live eyebrow (`3 MACHINES · 1 ROUND FILLING NOW`). It is **not** wrapped in a `HomeSection` frame: the cards already carry their own frames, and a frame around framed things is a box in a box. |
 | 31 | **REVISED 2026-07-31 (third pass) — the mode cards carry the POT, live, and it is the loudest figure on them.** Today the only number on a card is the **ticket price** — the *cost*. The prize is absent, and the three cards differ only by picture, with the one real differentiator (how many characters you call, how many players, which character set) buried in clamped 10px grey description text. The card is rebuilt around a live **POT** at display size, the ticket price demoted to a support line, a live **status pill** (`● LIVE NOW` / `FILLING n/m` / `STARTING…` / `IDLE — BE FIRST`), a hairline **meta row** that replaces the description as the differentiator, a **real `btn-arcade--primary` button** in place of the dashed blinking box (a dashed border reads as a placeholder or a disabled control — the weakest-looking element on the most important object), and a **per-archetype accent** so three cards stop being three identical rectangles. **Scope guard (owner's call):** the cards are enriched, they do **not** become the centrepiece — the hero keeps the fold and gains vertical room (§7.11), the cards gain weight underneath it. |
 | 32 | **The live snapshot costs three GETs and no backend.** `GET /games/{gameTypeId}` (the shipped read the game page already makes on entry) returns status + bets + lottery pot, so pot, players-in and status are derivable **frontend-only**. One call per active type, fired in parallel **once on mount** and again **when the tab regains focus** — no interval polling (free while the tab is away, and a pot that is minutes stale is a lie), no SignalR on this page, **no new endpoint**. The page already fires four reads (`games/active-types`, `players/stats`, `games/stats`, `games/history`); this makes seven. Rejected: a new one-call snapshot endpoint — cleaner at scale, but it is a backend contract plus a mandatory integration test (rule 8) for three cards, and it can replace the fan-out later without touching this component. Because `GameTypes.vue` owns the fetch, **`/game`'s lobby gets the enriched cards too** — deliberate; §7.3 forbids the two grids drifting. **This partially supersedes decision 10** ("dropped: live pots per mode — 3 extra REST calls *and* joining 3 SignalR groups, a direct violation of the one-connection/one-group design `useGameHub` owns"). **Decision 10's SignalR objection stands in full and is not touched**: this page joins **no** hub group and opens **no** socket — `useGameHub` keeps its one-connection/one-group invariant, and the price of that is that a figure can be up to one focus-cycle stale, which is why the status pill is coarse (`FILLING`, not a per-second counter). Only the "3 extra REST calls" half is accepted, because the owner has since made the pot the *point* of the picker (decision 31), and the cards had no live signal at all. |
+| 33 | **FOUND IN THE BROWSER 2026-07-31 — a card never headlines a zero.** The first build of decision 31 was verified against the local stack and every card led with **`0 USDC`**: on a floor with no bets, "lead with the prize" was advertising that there is nothing to win. With no live pot the card now shows `POT FROM {requiredAmount × minimumNumberOfPlayers}`, dimmed (`--color-ink-dim`) rather than amber, and switches to `POT {live}` in full amber the moment a round has money in it. It is a **floor, not a promise** — the round cannot start below it — and it is the figure the player is actually deciding against. A lottery type is usually already above it, because `computePot` includes the configured base and any carried jackpot. |
+| 34 | **`useGamePicker` — the entry into a game is ONE handler.** There are two entry points now (a mode card, and the hero's `JOIN`/`WATCH`), and they must do the same four things in the same order — select the game, fire `game_type_selected`, route, `updateNewGame(true)`. Extracted out of `GameTypes.vue` rather than copied into the hero, or a player entering from the hero lands in a game the app never selected and that never fired its analytics event. |
 | 21 | **No new rate-limit rule.** `RateLimitSettingsTests.GeneralRules_AreExactlyTheThreeQuotaProtectingPatterns` pins the rule set to `*:/rpc`, `*:/solana/*`, `*:/solana/balance/live` — every other endpoint is deliberately unlimited app-side. `/players/stats` joins `/players/preferences` and `/games/*/history` as an unlimited read behind Cloud Armor's per-IP rule. Adding a rule here would be a money-path decision, and would break that exact-set test by design. |
 
 ---
@@ -714,7 +716,7 @@ renders the grid without live data.
 | Top strip | Lottery badge only | **Status pill** left, lottery badge right (they no longer overlap) |
 | Art | `h-40`, 150px sprite | Taller; unchanged treatment |
 | Name | `text-sm font-bold` | `press-start-2p`, the second-loudest thing on the page |
-| Money | Ticket price is the ONLY figure | **`POT` at display size** (`vt323`, tabular-nums), ticket price demoted to the support line under it |
+| Money | Ticket price is the ONLY figure | **`POT` at display size** (`vt323`, tabular-nums) — or **`POT FROM {price × min players}`, dimmed**, when no round has money in it yet (decision 33). Ticket price demoted to the support line under it |
 | Differentiator | 10px description, clamped to one line on phones | **Hairline meta row** — `{choiceRequiredLength} chars · {minimumNumberOfPlayers} players · {A–Z \| 0–9 \| A–Z 0–9}` from `gameCharacterType`. The description stays, below it, still clamped on phones |
 | CTA | Dashed box, blinking text | **`btn-arcade--primary`, full width** |
 
@@ -770,15 +772,22 @@ neutralised centrally).
   buttons → **streak, only when `currentStreak >= 1`**.
   - The name comes from `usePlayerPreferences().displayName`; the short address stays as the fallback.
     Both render in the same slot, so a player who never named themselves sees exactly today's label.
-  - The **live line** reads `useLiveGames()`: the first game by priority `InProgress` > `GameStarting` >
-    `WaitingBets with players > 0`, rendered as `> {NAME} is filling — {players} in, {pot} {symbol}`
-    (amount through `formatGameAmount`, never raw). Nothing live, still loading, or the snapshot failed →
-    `> Floor's quiet. Be the one who starts a round.` **There is no error state and no spinner**: the
-    fallback line is true in all three cases.
-  - **Primary button follows the live line.** A joinable game → `JOIN {NAME}`, routing
-    `{ name: 'Game', query: { type } }` exactly as a card does (and firing the same
-    `game_type_selected` analytics — route through the shared handler, do not re-implement it). Nothing
-    live → today's `PLAY AGAIN`, which scrolls to the picker. `PRACTICE` is unchanged.
+  - The **live line** reads `useLiveGames()` and picks **the most ACTIONABLE game, not the most
+    advanced one** — priority `WaitingBets with players > 0` > `GameStarting` > `InProgress`. A round
+    still taking bets is one the player can *join*; a round already typing can only be watched, and
+    offering it first would send them to a screen where the only control is disabled. Copy per state:
+
+    | State | Line | CTA |
+    | --- | --- | --- |
+    | `WaitingBets`, `players > 0` | `> {NAME} is filling — {n} in, {pot} {sym} pot.` | `JOIN {NAME}` |
+    | `GameStarting` | `> {NAME} is starting — {pot} {sym} pot.` | `WATCH {NAME}` |
+    | `InProgress` | `> {NAME} is live right now — {pot} {sym} on the line.` | `WATCH {NAME}` |
+    | nothing live / still loading / snapshot failed | `> Floor's quiet. Be the one who starts a round.` | `PLAY AGAIN` (scrolls to the picker) |
+
+    Amounts go through `formatGameAmount`, never raw. **There is no error state and no spinner** — the
+    quiet line is true in all three of its cases.
+  - The CTA routes `{ name: 'Game', query: { type } }` exactly as a card does and fires the same
+    `game_type_selected` analytics. `PRACTICE` is unchanged.
   - The streak block keeps its current markup verbatim; it is only wrapped in `v-if="streak >= 1"`.
 
 #### 7.11.6 Housekeeping found while specifying this
@@ -905,6 +914,7 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 18 | `src/hooks/useLiveGames.ts` | **New** — the shared live snapshot: one `GET /games/{id}` per active type, parallel, `allSettled`, silent per-card failure, refresh on mount + guarded tab-refocus |
+| 18b | `src/hooks/useGamePicker.ts` | **New** (decision 34) — selection + `game_type_selected` + route + `updateNewGame`, extracted from `GameTypes` so the hero's `JOIN` cannot drift from a card click |
 | 19 | `src/utils/pot.ts` | **New** — `computePot(instance)` extracted from `useGame.getBets`; `useGame` calls it |
 | 20 | `src/utils/players.ts` | **New** — `countPlayers(bets, { freeBets })` extracted from `GameTerminal`; `GameTerminal` calls it |
 | 21 | `src/components/game-selection/GameTypeCard.vue` | Status pill · live POT as the headline figure · price demoted · meta row · real `btn-arcade--primary` (drops `.blink`) · per-archetype accent · optional `live` prop |
@@ -1035,6 +1045,18 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 26. **AC26** — Given a connected player, when `/` renders, then the hero shows their display name (or short address if they never set one), shows a streak **only** when it is at least 1, and shows one live round line — `JOIN {NAME}` routing into that machine when a round is joinable, `PLAY AGAIN` scrolling to the picker when none is.
 27. **AC27** — Given the player leaves the tab and returns after more than 15 s, when `/` regains visibility, then the live figures refresh exactly once; and given they alt-tab repeatedly inside 15 s, then no additional request is made; and at no point does `/` open a SignalR connection or join a hub group.
 28. **AC28** — Given a phone viewport and `html.light-graphics`, when the enriched cards render, then no card element animates infinitely (the CTA no longer blinks) and no new `backdrop-filter` is introduced.
+29. **AC29** — Given a game type with no money in its round, when its card renders, then the headline figure reads `POT FROM {ticket price × minimum players}` in the dim treatment — never `POT 0` — and switches to `POT {live}` in the amber treatment as soon as the round has a pot.
+
+**Verification status (2026-07-31, local Docker stack + `yarn lint`):**
+
+| AC | Status |
+| --- | --- |
+| AC25 (silent per-card failure) | ✅ verified — the local floor has no open rounds, so all three cards rendered the IDLE variant with no toast and no `/error` |
+| AC26 (name / no zero streak / quiet line) | ✅ verified connected — hero reads `Welcome back / 22nv…nQ1S / > Floor's quiet…`, no streak block at 0 |
+| AC27 (3 GETs, no socket) | ✅ verified — exactly three `GET /games/{id}` 200s, **zero** WebSocket requests on `/` |
+| AC28 (phone + light graphics) | ✅ verified at 390 px — single column, no horizontal overflow, no blinking CTA |
+| AC29 (`POT FROM`) | ✅ verified — `POT FROM 2/2/4 USDC` across the three types |
+| **AC24 (live pot == terminal pot)** | ⚠️ **NOT verified against real bets.** The FILLING / LIVE NOW / `JOIN {NAME}` variants and the header's live eyebrow were exercised with a **temporary local stub** (reverted; `git status` clean) and render correctly, and the pot arithmetic is the shipped `computePot` the terminal itself now calls — but no real bet has been placed through this build, so the card-vs-terminal comparison is still owed. Needs a funded wallet on the local stack (`SpaceStroker.Seeder` cannot run without one). |
 
 ---
 
@@ -1095,6 +1117,6 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist.
 
 | Date | Change |
 | --- | --- |
-| 2026-07-31 | **Third design pass — live picker, enriched cards, connected hero** (decisions 29–32, §7.11, AC24–AC28). Owner review of the built connected state: the fold read `Welcome back / <address> / CURRENT STREAK 0`, the picker was a bare `<h2>` above cards whose only figure was the ticket price, and the hero was vertically cramped. Changes, all **frontend-only**: new `useLiveGames` singleton reads `GET /games/{id}` per active type (3 calls, on mount + guarded tab-refocus, **no SignalR** — decision 10's hub objection stands); the cards gain a live **POT** as their headline figure, a status pill, a meta row that replaces the description as the differentiator, a real button in place of the dashed blinking box, and a per-archetype accent; `GameTypes` grows the `+ PICK YOUR MACHINE +` header with a live eyebrow; the connected hero swaps the address for `displayName`, hides a zero streak, and carries one live round line whose CTA joins that machine; hero y-padding roughly doubles in both states. `computePot` and `countPlayers` are **extracted** from `useGame`/`GameTerminal` rather than re-derived (the lottery base and the nullable `externalPlayerId` are the two things a fresh copy gets wrong). Enrichment lands on `/game`'s lobby too — same component, by design. |
+| 2026-07-31 | **Third design pass — live picker, enriched cards, connected hero** (decisions 29–32, §7.11, AC24–AC28). Owner review of the built connected state: the fold read `Welcome back / <address> / CURRENT STREAK 0`, the picker was a bare `<h2>` above cards whose only figure was the ticket price, and the hero was vertically cramped. Changes, all **frontend-only**: new `useLiveGames` singleton reads `GET /games/{id}` per active type (3 calls, on mount + guarded tab-refocus, **no SignalR** — decision 10's hub objection stands); the cards gain a live **POT** as their headline figure, a status pill, a meta row that replaces the description as the differentiator, a real button in place of the dashed blinking box, and a per-archetype accent; `GameTypes` grows the `+ PICK YOUR MACHINE +` header with a live eyebrow; the connected hero swaps the address for `displayName`, hides a zero streak, and carries one live round line whose CTA joins that machine; hero y-padding roughly doubles in both states. `computePot` and `countPlayers` are **extracted** from `useGame`/`GameTerminal` rather than re-derived (the lottery base and the nullable `externalPlayerId` are the two things a fresh copy gets wrong). Enrichment lands on `/game`'s lobby too — same component, by design. **Two decisions came out of building it:** 33 (a card never headlines `POT 0` — found by looking at the real page) and 34 (`useGamePicker`, so the hero's `JOIN` is the same handler as a card click). Verified: `yarn lint` clean, browser at 1440 and 390 in both states, 3 GETs and no socket — with AC24 (card pot vs terminal pot on a real bet) still owed, see §12. |
 | 2026-07-31 | **Design revision after review of the first build** (decisions 22–26). The page was rejected as reading like loose text on a starfield with a footnote row for navigation. Changes: every section below the hero is an `.arcade-panel` via a new shared `HomeSection.vue`; the hero is simplified and now uses the **saucer art** in a labelled plate (with a first-frame PNG for `html.light-graphics`) instead of the cropped mascot head; the five-link footnote row became two panelled sections, buttons on two other panels, and a real footer; `HomeLastRounds` + `HomeGlobalTeaser` merged into `HomeFloor`, which never renders empty. Backend: **new `GET /games/history`** (§6.9) replaces the per-type fan-out `HomeLastRounds` was wired to and that its own comment flagged as not ship-ready; `BuildRow`/`LoadBetsAsync` extracted so both history surfaces share one money rule. Verified: unit suite 519 green, integration suite 79 green, `yarn lint` clean, screenshots at 1440 and 390 in both states. **Second pass the same day** (decisions 22/23/27, owner review against the Space Stroker Modals design project): sections moved off `.arcade-panel` onto the new shared `.arcade-frame` primitive with alternating cyan/line tones, `QuickTourModal` repointed at the same primitive (verified visually unchanged), and the hero art unframed. |
 | 2026-07-30 | Initial spec from the refined card (#131, refined 2026-07-30). Settled decision 18 (streak semantics, §6.4) and decision 19 (30 s TTL, §6.6). Code findings added: the shared-modal-state blocker for Fair/Settings (§7.5), the stale `HomePage.vue` stub (§7.3), the rate-limit exact-set constraint (decision 21), the shim/catch-all ranking caveat (§7.1), and the verified "LB path rules are prefix-agnostic" claim (§9). |
