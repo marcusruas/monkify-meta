@@ -6,14 +6,16 @@
 
 - **Brand — "Space Stroker" (consumer) vs `SpaceStroker` (technical)** — as of the #74 frontend rebrand
   (shipped 2026-07-21, `specs/rebrand-space-stroker.md`), the **consumer-facing brand is Space
-  Stroker**: the frontend wordmark/copy, the routes `/space-stroker/*`, the client-storage `space-stroker.*`
-  keys, and the embed `source:'space-stroker'` (`'space-stroker-wallet'`). The **technical/backend
+  Stroker**: the frontend wordmark/copy, the client-storage `space-stroker.*` keys, and the embed
+  `source:'space-stroker'` (`'space-stroker-wallet'`). The **technical/backend
   name stays `SpaceStroker`** and is **still current** in this KB — C# namespaces (`SpaceStroker.*`), the
   domain source, DB, `spacestrokersettings.json`, `api.spacestroker.com`, and SignalR hub names are unchanged
   (the backend/infra rename is the separate follow-up card #75). So `SpaceStroker.*` /
-  `spacestrokersettings.json` / backend-host references throughout these docs are accurate; older
-  **`/space-stroker/*` route and `space-stroker.*` storage-key** references describe paths now served under
-  `/space-stroker/*` and `space-stroker.*` (a full frontend-path sweep of `features/` is deferred).
+  `spacestrokersettings.json` / backend-host references throughout these docs are accurate. **The
+  `/space-stroker/*` route prefix is gone** — `home-dashboard` dropped it (the app is hosted at
+  `app.spacestroker.com`, so the segment was redundant) and swept every path reference in `features/`,
+  `conventions/` and `architecture.md`. Old URLs still resolve via a strip-prefix redirect shim.
+  **`space-stroker.*` client-storage keys are unchanged** — they are not paths and were not touched.
 - **Game** — one round of the game for a given game type. Has a status lifecycle
   (`WaitingBets → GameStarting → InProgress → Ended → RewardForWinners…`). Entity: `Game`.
 - **GameParameters** — a "game type" / configuration (name, required amount, allowed characters,
@@ -115,7 +117,7 @@
   `GeneralSettings:Operator:AdminToken:PrivateKeyPem` and validated by `AdminTokenValidationMiddleware`
   against the matching `PublicKeyPem` — **no `iss` check, no contract check**. It is the **only**
   authenticated surface left; player endpoints are public. Entry:
-  `/space-stroker/admin#admin_token=<jwt>`; `POST /dev/admin-token` mints one outside production. See
+  `/admin#admin_token=<jwt>`; `POST /dev/admin-token` mints one outside production. See
   `features/admin-page.md`.
 - **IAdminContext** — scoped request identity set by the admin middleware. It no longer carries a
   tenant (there is none) — it exists so admin handlers keep a uniform request-identity shape.

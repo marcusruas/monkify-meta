@@ -12,12 +12,12 @@
 > `main-only-player-entry` had removed. *(Renamed from `operator-admin-page.md`.)*
 >
 > ⚠️ **Earlier access note, now historical:** the portal was briefly reachable only by presenting an
-> offline-minted token at `/space-stroker/game#admin_token=<jwt>`. That fragment hand-off still works;
+> offline-minted token at `/game#admin_token=<jwt>`. That fragment hand-off still works;
 > the dev mint endpoint is simply available again outside production.
 
 ## What it does
 
-A password-less admin portal at `/space-stroker/admin`, entered by presenting an **admin-scoped RS256
+A password-less admin portal at `/admin`, entered by presenting an **admin-scoped RS256
 JWT**, where game types (game configurations) are **created**, **listed** and **soft-deactivated**
 across all three modes (free-type race, preset-choice, lottery), and a single bet can be flagged for
 refund. There is **no in-place edit** — to change a type, deactivate the old one and create a new row.
@@ -26,7 +26,7 @@ refund. There is **no in-place edit** — to change a type, deactivate the old o
 
 - **Auth:** an RS256 JWT with `scope = "admin"` and **no `sub`**, signed with the configured admin
   private key and validated by `AdminTokenValidationMiddleware` against the configured public key.
-  Transport: `/space-stroker/admin#admin_token=<jwt>`; the SPA stores it per-tab in `sessionStorage`
+  Transport: `/admin#admin_token=<jwt>`; the SPA stores it per-tab in `sessionStorage`
   and sends **`X-Admin-Token`** on admin REST calls.
 - **It is the only authenticated surface left.** Player endpoints (`/games/*`, `/players/*`) are
   public, so there is no launch/admin token separation rule any more — there is only one token.
@@ -85,7 +85,7 @@ refund. There is **no in-place edit** — to change a type, deactivate the old o
 
 **Frontend (`monkify-front`)**
 
-- Route: `/space-stroker/admin` (`AdminPage.vue`) — the token is the access control.
+- Route: `/admin` (`AdminPage.vue`) — the token is the access control.
 - Token: `utils/adminToken.ts`, `hooks/useAdmin.ts` (fragment capture/strip/store).
 - Service: `services/adminService.ts` — dedicated axios instance with `X-Admin-Token`; 401 → `/error`.
 - UI: `components/admin/{GameTypeManager,GameTypeList,GameTypeForm}.vue` (create + list + deactivate

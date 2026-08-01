@@ -331,7 +331,7 @@ another operator means **deploying the app again with a different `spacestrokers
   type is inserted only when no row with that name exists and an existing row is never rewritten, so a
   restart cannot resurrect an admin-deactivated type or mutate one under a live round. The exception is
   the free-bet self-heal (`AllowFreeBet = !IsProduction()`).
-- **Admin portal** (`/space-stroker/admin`): the one authenticated surface. `X-Admin-Token` is an
+- **Admin portal** (`/admin`): the one authenticated surface. `X-Admin-Token` is an
   admin-scoped RS256 JWT validated against the configured public key with **no `iss` and no contract
   check**; `POST /dev/admin-token` mints one outside production. Game types: create/list/deactivate,
   no in-place edit. See `features/admin-page.md`.
@@ -357,17 +357,21 @@ another operator means **deploying the app again with a different `spacestrokers
   - `types/` — shared TS types/enums (`ActiveGame`, `BodyGameBet`, …).
   - `pages/` — `GameSelectPage`, `GamePage`, `ErrorPage`. `components/` — UI, game, header,
     background. `constants/`, `assets/`.
-- **Routing (param-free, unauthenticated):** `/` redirects to `/space-stroker/game` → game
-  select (`GameLobby`, the entry point — an `#admin_token=<jwt>` fragment here hands off to the admin
-  portal);
-  `/space-stroker/game/play` → live game; `/space-stroker/game/history` + `/space-stroker/game/stats` →
-  the header-menu pages; `/space-stroker/admin` → admin portal; `/space-stroker/wallet-bridge` → the
-  same-origin wallet popup; `/space-stroker/background` → the backdrop-only page; `/error`. Player
-  preferences are loaded **only** for `GameLobby`/`Game`/`GameHistory`/`GameStats` (`App.vue`), and only
-  once a wallet is connected.
+- **Routing (param-free, unauthenticated, prefix-free):** `/` → the **starting page** (`Home` —
+  hero, the game picker, the player's own stats, and entries to every other surface); `/game` → the
+  plain lobby (`GameLobby`, still the documented iframe target and `?type=` deep-link fallback — an
+  `#admin_token=<jwt>` fragment here hands off to the admin portal); `/game/play` → live game;
+  `/game/history` + `/game/stats` → the header-menu pages; `/admin` → admin portal;
+  `/wallet-bridge` → the same-origin wallet popup; `/background` → the backdrop-only page;
+  `/soon` → the placeholder for unbuilt entries; `/error`. Two catch-alls, ranked by vue-router
+  **specificity** rather than declaration order: a strip-prefix shim `/space-stroker/*` → the stripped
+  path (query and hash preserved), and a generic catch-all → `/error`. **Embedded `/` redirects to
+  `/game`**, so the dashboard never mounts in a frame. Player preferences are loaded **only** for
+  `Home`/`GameLobby`/`Game`/`GameHistory`/`GameStats` (`App.vue`), and only once a wallet is connected.
+  See `features/home-dashboard.md`.
 - **Chromeless routes:** routes flagged `meta: { chromeless: true }` in `routes.ts` render without
   `GameHeader` — the wallet-bridge popup (whose header `RouterLink` would navigate the popup away) and
-  `/space-stroker/background`, a chrome-free URL that shows **only** the animated backdrop (both
+  `/background`, a chrome-free URL that shows **only** the animated backdrop (both
   `GameBackground` layers + `.section-vignette`, all global in `App.vue`) for embedding/screen-recording;
   its page component is intentionally empty. See `specs/background-page.md`.
 - **API access:** `mainService` axios instance. A request interceptor sets `baseURL` from
@@ -385,7 +389,7 @@ another operator means **deploying the app again with a different `spacestrokers
   "Connect wallet to customize" gate with no wallet. **Amounts are token-native everywhere** — there is
   no preferred display currency and no FX conversion. See `features/player-customization-modal.md`
   and `features/games-history.md`.
-- **Games history:** `GameHistoryPage.vue` at `/space-stroker/game/history` (route `GameHistory`,
+- **Games history:** `GameHistoryPage.vue` at `/game/history` (route `GameHistory`,
   reached from the header menu) browses one game type's completed rounds via
   `GET /games/{parametersId}/history` — paginated, "mine only" toggle (keyed on the connected wallet),
   per-row Verify link-out to `public/verify.html`. See `features/games-history.md`.
@@ -401,7 +405,7 @@ another operator means **deploying the app again with a different `spacestrokers
   `{gameId}/ChatMessage`). See `features/game-chat.md`. On `/game` the right-docked, collapsible cabinet
   (`GameSidePanel`) is now **chat-only** — the STATS and FAIR tabs moved to the header menu
   (`fair-stats-menu`). Per-game-type **stats** render on the dedicated **Stats page**
-  (`GameStatsPage.vue`, `/space-stroker/game/stats`): a global section via `GET /games/stats` plus a
+  (`GameStatsPage.vue`, `/game/stats`): a global section via `GET /games/stats` plus a
   per-type section via `GET /games/{parametersId}/stats`. See `features/fair-stats-menu.md` +
   `features/game-type-stats.md`.
 - **Idle disconnect (cost control):** `useIdleDisconnect` (a module singleton armed when `useGameHub`

@@ -6,8 +6,8 @@
 
 ## What it does
 
-Makes SpaceStroker's two main player pages — the games lobby (`/space-stroker/game/games`) and the game
-screen (`/space-stroker/game/play`) — usable on phones, in portrait and landscape, standalone **and** inside
+Makes SpaceStroker's two main player pages — the games lobby (`/game`) and the game
+screen (`/game/play`) — usable on phones, in portrait and landscape, standalone **and** inside
 a regulated casino's mobile `<iframe>`. The desktop-first arcade layout (a single non-wrapping flex row
 of terminal + monkey + docked chat/stats cabinet with JS/`vh`-driven widths) reflows for narrow
 viewports while keeping the pixel / arcade / space identity. It also adds a mobile crypto

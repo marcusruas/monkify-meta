@@ -47,7 +47,7 @@ the landing page all advertised a daily draw.
   whose status is outside `GameAcceptingBets`, and `GameService.TryStartGame` is a conditional
   `UPDATE … WHERE "Status" = WaitingBets`, so only the first caller ever starts a round.
 - **The anchor is config-only.** The admin portal has no draw-time input, so a lottery created through
-  `/space-stroker/admin` cannot be anchored and keeps the rolling schedule.
+  `/admin` cannot be anchored and keeps the rolling schedule.
 - **There is no seed-time validation.** `GameParametersValidation`'s 1 min – 7 day bound still applies
   only to admin-created types. Because the self-heal makes config authoritative, a wrong value now
   overwrites previously-correct rows on every boot — a knowingly accepted trade. Write the anchor as

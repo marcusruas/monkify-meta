@@ -46,7 +46,7 @@ scoped to one game type (`GameParameters`) and aggregated across every round it 
 - **UI (superseded by `fair-stats-menu`).** These per-type stats no longer live in a side-panel STATS
   tab. The tab was pulled out of `GameSidePanel` (now **chat-only**) and this same
   `GET /games/{parametersId}/stats` read is rendered as the **per-game section of the dedicated Stats
-  page** (`/space-stroker/game/stats`, reached from the header menu) behind a game-type dropdown,
+  page** (`/game/stats`, reached from the header menu) behind a game-type dropdown,
   alongside a new deployment-wide global section. The endpoint, caching, and data shape are unchanged.
   See `features/fair-stats-menu.md`.
 

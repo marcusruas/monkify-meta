@@ -23,20 +23,20 @@ shape.
 ## Core rules
 
 - **Operator identity comes from the token, not the URL.** Operator-scoped frontend routes are
-  param-free (`/space-stroker/game/games`, `/space-stroker/game/play`). The frontend decodes the operator id
+  param-free (`/game`, `/game/play`). The frontend decodes the operator id
   from the launch token's `iss` claim (`getOperatorIdFromToken`) and calls `GET /operators/{id}` with
-  it. The production casino launch URL is `…/space-stroker/game/games#launch_token=<jwt>`. Full launch
+  it. The production casino launch URL is `…/game#launch_token=<jwt>`. Full launch
   details lived in the deleted `features/launch-token-validation.md`; the design archive is
   `specs/launch-token-validation.md`.
 - **Dev launch endpoint returns `{ token }` only.** `POST /dev/launch-token?paymentModel=Crypto|Regulated`
   no longer returns `operatorId` (recoverable from `iss`); the minted dev token is long-lived
   (effectively non-expiring) for local convenience. Still 404 in production.
-- **Explicit dev entry, no silent auto-mint.** `/space-stroker/game` is a dev-only landing
+- **Explicit dev entry, no silent auto-mint.** `/game` is a dev-only landing
   (`DevLandingPage.vue`) with **Crypto** and **Regulated** buttons; each mints a token and enters the
   game-select page. The old silent `mintDevToken` fallback in `useLaunch` is removed.
 - **`VUE_APP_DEV_LAUNCH` gates the dev landing** (`featureFlags.ts` — `devLaunchEnabled =
   VUE_APP_DEV_LAUNCH !== 'false'`, default **on**, mirroring `VUE_APP_ALLOW_FREE_BETS`). Production
-  (`.env.production`) sets it `false` → `/space-stroker/game` redirects to `/error` and the buttons never
+  (`.env.production`) sets it `false` → `/game` redirects to `/error` and the buttons never
   ship. Gating is **not** on `NODE_ENV`, because the local docker environment builds the SPA in
   production mode; `scripts/setup_local_environment.bat` materialises `VUE_APP_DEV_LAUNCH=true` into
   the generated `.env.production.local` so the buttons appear there (the api/consumers containers run

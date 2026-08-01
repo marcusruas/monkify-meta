@@ -5,7 +5,7 @@
 
 ## What it does
 
-Players can open a standalone **Games History** page (`/space-stroker/game/history`, reached from a new
+Players can open a standalone **Games History** page (`/game/history`, reached from a new
 header **menu button**) to browse the completed rounds of one game type: when each round ended, its
 winning choice, pot, number of bets, winners, and a short server-seed fingerprint — plus, on rounds
 they bet in, their own choice / stake / win / payout. A **"mine only"** toggle narrows the list to
@@ -88,7 +88,7 @@ covers the current round). See `features/provably-fair-final.md`.
   paginated table + mobile cards, per-row Verify link-out, request-sequence guard).
 - `src/components/GameHeader.vue` — the header menu button (Settings + History + dev Admin), click-away
   close; `src/components/header/DevAdminButton.vue` renders as a menu row.
-- `src/routes.ts` — the `GameHistory` route at `/space-stroker/game/history`.
+- `src/routes.ts` — the `GameHistory` route at `/game/history`.
 - `src/App.vue` — loads player preferences for the `GameHistory` route once a wallet is connected.
 - `src/services/mainService.ts` — `getGamesHistory(parametersId, opts)`; `src/types/index.ts` —
   `GameHistoryRow` + `PaginatedList<T>`.

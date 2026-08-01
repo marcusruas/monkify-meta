@@ -26,7 +26,11 @@ the launch/social links + LP domain are real (no more placeholders). No backend,
   Jackpot uses `object-top` so the character's head isn't cropped); the transparent Beast character
   stays contained + bottom-anchored. All three cards share one uniform square art frame.
 - **Launch + social links are real** (no longer `TODO(ship)` placeholders):
-  - App URL (`PLAY_URL`, used by every "Play now" CTA): `https://app.spacestroker.com/space-stroker/game`.
+  - App URL, used by every "Play now" CTA: `https://app.spacestroker.com`. ⚠️ **Corrected 2026-08-01:**
+    the constant is `GAME_URL` (not `PLAY_URL`) in `monkify-lp/src/constants.ts` and it is the **bare
+    origin** — no `/space-stroker/game` path. That is now the right target anyway: since
+    `home-dashboard` dropped the route prefix, the origin resolves to the app's **starting page**
+    rather than the bare lobby.
   - Socials: **X** `https://x.com/SpaceStroker`, **Telegram** `https://t.me/spacestroker`. **Discord
     was removed** (the socials grid is 2-up). LP self-domain `https://spacestroker.com` is set as the
     Astro `site` (for canonical/sitemap).

@@ -30,6 +30,8 @@ of the arcade-overhaul redesign.
 - **Ship-blocking placeholders (must be filled before the real public launch):** the app URL
   (`PLAY_URL = https://PLACEHOLDER-app-url/space-stroker/game` — real route confirmed, **domain
   undecided**) and the Twitter/Telegram/Discord links (`#`). Both carry a `// TODO(ship)` in source.
+  ⚠️ **Both were filled by `lp-final-adjustments`**; the constant is now `GAME_URL =
+  "https://app.spacestroker.com"` (bare origin, no route prefix — see `features/lp-final-adjustments.md`).
 - Edson, all art/sprites, the 6-slide story, and the retro/space/arcade skin are **unchanged** from the
   arcade-overhaul redesign this shipped on top of. Verification is `npm run build` + browser QA (no
   test suite); the built site contains no user-visible `monkify`/`$MONKIFY`.

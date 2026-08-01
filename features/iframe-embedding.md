@@ -26,7 +26,7 @@ is the sibling feature [[iframe-crypto-games]].
   for local testing), evaluated once at load. Loaded standalone, behavior is exactly as before and **no
   `postMessage` is emitted**.
 - **Token handoff is unchanged:** the casino sets the iframe `src` to
-  `…/space-stroker/game/games#launch_token=<jwt>`; the existing `useLaunch` fragment capture stores the token
+  `…/game#launch_token=<jwt>`; the existing `useLaunch` fragment capture stores the token
   in `sessionStorage`, strips it from the URL, and decodes the operator from the token's `iss` claim. *(Historical — there is no launch token.)* The
   signed **RS256 launch token is the security boundary**, not the frame header.
 - ~~**No `/error` when embedded:**~~ *(historical — there is no token to expire)* on a 401 / invalid / expired token / inactive operator, the app emits a

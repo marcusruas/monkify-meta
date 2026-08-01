@@ -37,7 +37,7 @@ feature.
   freely given and separable from accepting the Terms, and bundling them would invalidate the cookie
   consent that `analytics.md` depends on.
 - **Not shown** when embedded (`useEmbed()`), on `meta.chromeless` routes
-  (`/space-stroker/wallet-bridge`, `/space-stroker/background`), on `/error`, in the admin portal, or on
+  (`/wallet-bridge`, `/background`), on `/error`, in the admin portal, or on
   the LP's own legal pages — someone in trouble must reach the responsible-gambling page and its help
   links **without** accepting anything first.
 

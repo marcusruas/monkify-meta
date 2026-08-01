@@ -60,7 +60,7 @@ no player identity, and is switched off entirely wherever the data would be nois
 - **Embedded (iframe) sessions are fully excluded** — no script, no banner, no cookie — via the
   existing `useEmbed`. Partner-casino traffic would otherwise pollute our own acquisition data, and we
   must not set cookies inside a partner's page outside their consent flow.
-- The `chromeless` routes `/space-stroker/wallet-bridge` and `/space-stroker/background` send no
+- The `chromeless` routes `/wallet-bridge` and `/background` send no
   pageview.
 - `monkify-front/public/verify.html` and `public/embed-example.html` never load the SPA bundle, so
   they are excluded by construction.

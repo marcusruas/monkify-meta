@@ -30,8 +30,8 @@
   deliberate, reviewable line of code. Every waiter also shares the **same resolved object** — treat
   these responses as read-only, and clone before mutating. Shipped by Trello #104; see
   `specs/player-lockouts.md` §6.
-- **Entry is unauthenticated.** Game routes are **param-free** (`/space-stroker/game/games`,
-  `/space-stroker/game/play`) and carry no token: there is no launch token, no `useLaunch`, no
+- **Entry is unauthenticated.** Game routes are **param-free** (`/game`, `/game/play`) and carry no
+  token: there is no launch token, no `useLaunch`, no
   `utils/launchToken.ts`, and no blanket `401 → /error`. The only fragment still handled is
   `#admin_token=<jwt>` on the game page, which hands off to the admin portal (`hooks/useAdmin.ts`).
 - **Wallet UX is unconditional.** Every game settles in the one configured token, so the header wallet
@@ -171,9 +171,15 @@
   keeps its subscription. Mobile SolanaToken bets use an "open in wallet app" deep link
   (`src/utils/walletDeepLink.ts`). Prefer `max-lg:`/`lg:` Tailwind variants + `dvh` heights over new
   breakpoints. See `features/mobile-layout.md`.
-- **Routing:** `src/routes.ts` — `/space-stroker/game/games`, `/space-stroker/game/play`, `/error`;
-  `/space-stroker/game` is the dev launch landing (gated by `VUE_APP_DEV_LAUNCH`; prod → `/error`); root
-  `/` redirects to `/error`.
+- **Routing:** `src/routes.ts`, **prefix-free** since `home-dashboard` — `/` (`Home`, the starting page)
+  · `/game` (the plain lobby, and the URL `EMBEDDING.md` points integrators at) · `/game/play` ·
+  `/game/history` · `/game/stats` · `/admin` · `/wallet-bridge` · `/background` · `/soon` · `/error`.
+  Two catch-alls, and they coexist by vue-router **specificity ranking, not declaration order**: a
+  **strip-prefix shim** `/space-stroker/:pathMatch(.*)*` → the stripped path **preserving query and
+  hash** (it exists because a mobile wallet deeplink hop straddling a deploy returns a player to the old
+  path mid-bet), and a **generic `/:pathMatch(.*)*` → `/error`**, so an unmatched path is never a blank
+  page. **Embedded `/` redirects to `/game`** — `HomePage` never mounts in a frame. Navigate by **route
+  name**, never by literal path. See `features/home-dashboard.md`.
 - **Transient vs terminal failures on the boot path (required):** a failed boot call must be
   **classified** before it decides anything. `src/utils/transientError.ts` → `isTransient(error)` is the
   single rule: **transient = no response at all, or 429 / 5xx / 408**; terminal = any other 4xx that

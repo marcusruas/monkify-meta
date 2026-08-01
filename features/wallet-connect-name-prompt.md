@@ -24,7 +24,7 @@ stay behind the header gear.
 - **Trigger.** After the preferences load for the active identity, the prompt opens only when **all**
   of the following hold:
   - the route is a player route (`GameLobby` / `Game` / `GameHistory` / `GameStats`) — so the
-    `/space-stroker/wallet-bridge` popup and the admin portal are never interrupted;
+    `/wallet-bridge` popup and the admin portal are never interrupted;
   - not embedded (`useEmbed().isEmbedded`) — a modal over a regulated casino's iframe is not ours to
     show (see [[iframe-embedding]]);
   - a **wallet-identity context** with a wallet actually connected (see below);

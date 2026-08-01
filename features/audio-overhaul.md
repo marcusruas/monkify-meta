@@ -43,7 +43,8 @@ audio never affects bets, settlement, winners, or game state.
 - **Tab-visibility gating preserved.** Nothing starts while the tab is inactive; on refocus the
   background loop re-syncs to the current status — but the time-aligned `game_starting` one-shot is
   **never replayed on refocus**.
-- **`/` now redirects to `/space-stroker/game`** (was `/error`).
+- **`/` now redirects to `/space-stroker/game`** (was `/error`). ⚠️ **Superseded by `home-dashboard`:**
+  `/` is a real page now (the starting page), not a redirect, and the prefix is gone.
 
 ## Notable fixes shipped alongside
 
@@ -79,5 +80,6 @@ audio never affects bets, settlement, winners, or game state.
 - `src/hooks/useGame.ts` — victory/lose on `Ended` (bettors only, once) **and**
   `disconnectAllPreviousConnections()` on game switch/rollover.
 - `src/pages/GameSelectPage.vue` (mounts `LobbyAudio`), `src/pages/AdminPage.vue` (no lobby).
-- `src/routes.ts` — `/` → `/space-stroker/game`. `src/App.vue` — preloads the new tracks.
+- `src/routes.ts` — `/` → `/space-stroker/game` (**since superseded**: `/` is the starting page and the
+  prefix is dropped — see `features/home-dashboard.md`). `src/App.vue` — preloads the new tracks.
 - `src/assets/audios/` — the 9 mp3s + retained `error1.wav`. `src/shims-vue.d.ts` — `*.mp3` shim.

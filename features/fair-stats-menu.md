@@ -24,7 +24,7 @@ kept). The only new backend surface is one read: `GET /games/stats`.
 - **Mobile segmented control is `GAME | CHAT`** (was `GAME | CHAT·STATS`); the mobile side panel is
   chat-only. Stats and Fair are reached from the mobile header menu.
 
-### Stats page (`/space-stroker/game/stats`, route name `GameStats`)
+### Stats page (`/game/stats`, route name `GameStats`)
 
 - Arcade-panel page (mirrors `GameHistoryPage`), inside the app shell; `App.vue` loads player
   context (token + display prefs) for the `GameStats` route like the lobby/game/history.

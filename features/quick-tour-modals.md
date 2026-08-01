@@ -40,9 +40,11 @@ already open; the key is already seen; the **boot-recovery**, **idle-disconnect*
 prompt** is open. A modal teleported to `#app` is a *sibling* of those overlays, not a descendant, so
 nothing about the DOM prevents it painting over them — only these checks do.
 
-- `overview` opens on the **first lobby visit** (`/space-stroker/game`), gated on the game catalogue
-  having loaded so it opens over a populated lobby.
-- A mode tour opens **after the game type resolves** on `/space-stroker/game/play`, driven by a
+- `overview` opens on the **first visit to the starting page** (`/`), gated on the game catalogue
+  having loaded so it opens over a populated page. ⚠️ It moved off the lobby with `home-dashboard`:
+  `/` is where almost everyone now enters, so leaving the watcher on `/game` would have silently
+  stopped it firing. **Accepted gap:** a player deep-linking straight to `/game` gets no overview.
+- A mode tour opens **after the game type resolves** on `/game/play`, driven by a
   `watch` on `gameTypeId` — not by either `selectedGame` assignment site — so a `?type=` deep link is
   covered. It does **not** re-fire on round rollover (the instance changes, the type does not).
 - **Never two at once.** A first-timer who dismisses the overview and walks straight into a game gets

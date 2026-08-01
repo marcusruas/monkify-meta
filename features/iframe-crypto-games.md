@@ -25,7 +25,7 @@ same-origin iframe↔popup channel. *(Every game is on-chain now — see [[remov
   (`connected || wallet.readyState === 'Installed'`). In a real cross-origin iframe no adapter injects →
   popup.
 - **Popup is same-origin and opened synchronously in the bet-click gesture** (dodges popup-blockers) at
-  `<origin>/space-stroker/wallet-bridge`. It carries **no auth context** in its URL (there is none to carry). If
+  `<origin>/wallet-bridge`. It carries **no auth context** in its URL (there is none to carry). If
   the browser still blocks it, a visible **"Connect wallet"** affordance appears — **never a silent
   failure**.
 - **Internal handshake envelope `{ source: 'space-stroker-wallet', … }`** (distinct from the parent-facing
@@ -56,7 +56,7 @@ same-origin iframe↔popup channel. *(Every game is on-chain now — see [[remov
 ## Key code touchpoints
 
 - `monkify-front/src/hooks/useEmbeddedWallet.ts` — **new.** `inFrameWalletAvailable()` (sync),
-  `openWalletPopup()` (sync, same-origin `/space-stroker/wallet-bridge`), `requestSignatureFromPopup()`
+  `openWalletPopup()` (sync, same-origin `/wallet-bridge`), `requestSignatureFromPopup()`
   (handshake + origin/source validation + `popup.closed` cancel watch), `walletPopupBlocked` state.
 - `monkify-front/src/pages/WalletBridgePage.vue` — **new.** The popup page: posts `bridge-ready`, shows the
   wallet connect UI, on `sign-request` runs `sendToken` (with the payload's `decimals`) → posts `sign-result` +
@@ -68,7 +68,7 @@ same-origin iframe↔popup channel. *(Every game is on-chain now — see [[remov
   lifecycle emits (`tokenSymbol` for SolanaToken).
 - `monkify-front/src/components/game/GameConsole.vue` — relaxes the in-frame `connected` gate in
   `placeBet()` when embedded; adds the popup-blocked "Connect wallet" affordance.
-- `monkify-front/src/routes.ts` — `WalletBridge` route `/space-stroker/wallet-bridge` → `WalletBridgePage.vue`
+- `monkify-front/src/routes.ts` — `WalletBridge` route `/wallet-bridge` → `WalletBridgePage.vue`
   (registered in prod).
 - `monkify-front/public/embed-example.html` + `monkify-front/EMBEDDING.md` — extend [[iframe-embedding]]'s
   example page + README with the SolanaToken in-frame-then-popup flow.
