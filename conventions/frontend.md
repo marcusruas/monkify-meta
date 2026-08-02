@@ -141,8 +141,13 @@
   informative-only-and-brief AND light in tone.** Requiring both is what keeps the set small and
   keeps the meaning legible: a dropped-connection notice is short and informative but *serious*, so
   it stays grey; a long provably-fair explainer is informative but *not brief*, so it stays grey.
-  Today the quick tours are the only black surfaces in the app, and that is the intended density —
-  if black starts showing up on a third and fourth surface, the rule is being read too loosely.
+  ⚠️ **Updated 2026-08-02 (#130): the quick tours were deleted, and the black material's one consumer
+  is now the How to play guide's `GuideTip` callout block** (`.arcade-frame--black`, a *page* sibling
+  of `.dialog--black`). That is still the intended density — **two** tips on the whole guide,
+  bookending it, and at most one per section. If black starts showing up on a third and fourth
+  surface, the rule is being read too loosely. It is also why the material was **not** retired with
+  the tours: a documented rule with zero consumers is exactly the dangling-rule condition #124 was
+  filed to fix.
 
   ⚠️ The "needs BOTH" tiebreak is this document's reading of the two axes above, not something the
   owner stated in those words. If a future surface makes it feel wrong, change it here rather than
@@ -157,7 +162,7 @@
   | Titlebar | title **left**, amber, behind a 6px amber square, on a sunken `--color-surface-bar` | title **centred**, cyan, between two pixel sparkles, on the panel's own fill |
   | Footer | right-aligned button pair on the sunken bar | one centred amber ghost button |
   | Intent | it recedes | it earns the attention it takes |
-  | Today | everything else | the quick tours, and nothing else |
+  | Today | everything else | the How to play guide's tip blocks, and nothing else (#130; was the quick tours) |
 
   **Shared by both, by construction in the shell:** sizes `compact` 380 / `standard` 520 / `wide` 720
   (mobile 100%), titlebar 36px desktop / 44px mobile, 18px body, 12–14px footer, 4px radius, a 90dvh
@@ -171,10 +176,12 @@
     | 18+/Terms gate | grey | compliance — the most serious surface in the app |
     | Provably Fair | grey | informative, but nowhere near brief |
     | Idle / boot-recovery / relaunching | grey | brief and informative, but a broken connection is **not** fun — tone breaks the tie |
-    | The quick tours | **black** | short, purely to read, and light in tone — the only surface that clears both |
+    | ⚰️ The quick tours | **black** | short, purely to read, light in tone — **deleted in #130**; the rule they proved now applies to the guide's tips |
+    | How to play — `GuideTip` | **black** | same two axes, on a page instead of an overlay. The guide's *serious* sections (Refunds, What you win) deliberately get **no** tip: tone breaks the tie |
   - **Cyan stays scarce on a grey panel: at most ONE element carries it.** In practice that is the
     keyboard focus ring, `TRY IT FREE` on the dashboard, and a verified/revealed value in a readout.
-    Documented future exception: the How to play guide page may use cyan on its tip/callout blocks.
+    Exercised exception (#130, no longer "future"): the How to play guide's tip/callout blocks use
+    cyan — and they do it by taking the **black material itself**, where cyan *is* the frame.
     On a **black** panel cyan is the frame itself, so the rule does not apply — the accent inside it
     is amber (badges, step labels, the action).
   - **The anatomy lives in `arcade.css` under "THE DIALOG SHELL"**, not in Tailwind utilities in the
@@ -205,11 +212,19 @@
   - **Pages and sections use `.arcade-frame`**, the same flat hairline family — `.dialog--grey` is
     its overlay member, with the sunken bars a page has no use for. Two fills exist and **which one a
     surface takes is a recorded decision, not a free choice**:
-    - `.arcade-frame` alone — near-black. `/`'s `HomeSection`, `/error`, `/soon`, and the side
+    - `.arcade-frame` alone — near-black. `/`'s `HomeSection`, `/error`, `/soon`, **`/how-to-play`**
+      (#130 — it is the destination of a button on `/`, so the material must not change under the
+      player mid-journey, and it gives the black tip blocks far less contrast to fight), and the side
       panel's mobile chat container.
     - `.arcade-frame .arcade-frame--grey` — the grey panel's `--color-surface` on a 1px hairline, so
-      the page reads as part of the dialog family. **`/game/history` and `/game/stats` only**
-      (owner's call, 2026-08-02).
+      the page reads as part of the dialog family. **`/game/history`, `/game/stats` and
+      `/responsible-gaming`** (owner's call, 2026-08-02; #130 added the third — grey is what this KB
+      pairs with money and compliance, and it made the modal→page conversion **material-preserving**).
+    - `.arcade-frame .arcade-frame--black` — **new in #130.** The black dialog material as a *page*
+      surface (`--color-void-deep` behind a 2px cyan frame), matching `.dialog--black`'s values
+      exactly. **Its one consumer is the How to play guide's `GuideTip` callout**, which inherited the
+      black material when the quick tours — its previous only consumer — were deleted. **At most one
+      per guide section**, and the two-axis rule below is unchanged.
 
     ⚠️ These two lists disagree on purpose. The owner was shown that splitting them recreates the
     `/` vs `/game/stats` mismatch decision 3 was written to close, and chose this scope anyway. **Do
@@ -304,7 +319,18 @@
   breakpoints. See `features/mobile-layout.md`.
 - **Routing:** `src/routes.ts`, **prefix-free** since `home-dashboard` — `/` (`Home`, the starting page)
   · `/game` (the plain lobby, and the URL `EMBEDDING.md` points integrators at) · `/game/play` ·
-  `/game/history` · `/game/stats` · `/admin` · `/wallet-bridge` · `/background` · `/soon` · `/error`.
+  `/game/history` · `/game/stats` · **`/how-to-play`** · **`/responsible-gaming`** (both #130) ·
+  `/admin` · `/wallet-bridge` · `/background` · `/soon` · `/error`.
+  **Embedded redirects live in ONE place** — `main.ts`'s existing `beforeEach` reads a single
+  `EMBED_REDIRECT_ROUTES` set (`Home`, `HowToPlay`, `ResponsibleGaming`) and returns `GameLobby`, so
+  the rules cannot drift apart. It is registered **before** the analytics `afterEach`, so a framed load
+  never counts as a pageview and the component never mounts at all. ⚠️ **Neither new route is an
+  `isPlayerRoute()`** — neither renders a display name, so `App.vue` boots nothing for them and each
+  page fetches what it needs itself (the guide the catalogue, the RG page preferences).
+  ⚠️ **There is no `scrollBehavior` on the router.** A cold load of `/how-to-play#refunds` scrolls
+  nowhere on its own — any page wanting hash anchors must handle `route.hash` itself on mount, after
+  the content has painted, and must match the hash against a **registry** rather than interpolating it
+  into a `querySelector`.
   Two catch-alls, and they coexist by vue-router **specificity ranking, not declaration order**: a
   **strip-prefix shim** `/space-stroker/:pathMatch(.*)*` → the stripped path **preserving query and
   hash** (it exists because a mobile wallet deeplink hop straddling a deploy returns a player to the old

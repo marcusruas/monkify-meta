@@ -165,10 +165,17 @@ transfer.
 - `src/utils/legalGate.ts` — the `ss_terms` contract and the LP page URLs; `src/components/LegalGate.vue`
   (since #124: the shared `ui/ArcadeModal.vue` shell, grey panel, `layer="legal"` = `z-legal` 80,
   `dismissible: false`, dither backdrop — never `backdrop-filter`); `App.vue` mounts it and gates
-  `ConsentBanner`. `ResponsibleGamingModal.vue` is on the same shell (grey, `standard`).
+  `ConsentBanner`. ⚠️ **`ResponsibleGamingModal.vue` no longer exists** — Trello #130 (2026-08-02)
+  converted it into the **`/responsible-gaming` page**, which keeps the same **grey** material
+  (`.arcade-frame .arcade-frame--grey`), so the conversion was material-preserving.
 - `src/hooks/useSelfExclusion.ts` — `buildSelfExclusionMessage` (byte-identical to the backend),
   state, `exclude()` (returns `'submitted' | 'hopped'`), `resumeFromDeeplink()`.
-- `src/components/header/ResponsibleGamingModal.vue` + the `GameHeader.vue` menu entry (hidden when embedded).
+- `src/pages/ResponsibleGamingPage.vue` (route `ResponsibleGaming`, `/responsible-gaming`) + the
+  `GameHeader.vue` ☰ `RouterLink` and the `HomeFooter.vue` link, both hidden when embedded — and the
+  route itself **redirects to `GameLobby` when embedded**, via `main.ts`'s `EMBED_REDIRECT_ROUTES`.
+  It is **not** an `isPlayerRoute()`, so it loads preferences itself on mount and on a wallet change.
+  ⚠️ **The mobile deeplink return targets the route now.** `rememberReturnTo()` stores
+  `pathname + search` before the hop, so a hop started on `/responsible-gaming` comes back to it.
 - `src/hooks/useGame.ts` — the pre-pay guard and the deeplink-return branch;
   `src/components/game/GameConsole.vue` — `allowBets` folds in the exclusion.
 - `src/utils/mobileWalletProtocol.ts` — `buildSignMessageDeeplink` / `parseSignMessageReturn`;
@@ -177,6 +184,13 @@ transfer.
   stashed before leaving is the only thing that tells the two hops apart.
 - `src/hooks/usePlayerPreferences.ts` — `loadPreferences` folds the exclusion state in, so every caller
   keeps the guard current with no extra request.
+  ⚠️ **This was FALSE from `remove-operators` until Trello #130 (2026-08-02).** That rewrite dropped
+  the call and left `applySelfExclusionPreferences` a **dead export** — defined in `useSelfExclusion.ts`,
+  invoked from nowhere. **Consequence for that whole window:** after any page load `selfExcluded` was
+  `false`, the RG surface always rendered the *not-excluded* branch, and the client pre-bet guards
+  (`useGame.ts`, `GameConsole.vue`'s `allowBets`) were dead code. The backend kept enforcing exclusion
+  in `RegisterBetHandler` throughout, so it was a UX/trust regression, **not** a money hole. #130 wired
+  the call back in, which means those client guards are **live again on the money screen**.
 
 **Landing page (`monkify-lp`)**
 

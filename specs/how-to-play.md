@@ -1,5 +1,16 @@
 # Space Stroker — "How to play" — Implementation Spec
 
+> # ✅ Status: **SHIPPED** — merged via `feature/how-to-play` into `main` in `monkify-front` and
+> `monkify-meta` on **2026-08-02**. Distilled in `../features/how-to-play.md`.
+>
+> ⚠️ **It shipped with EIGHT sections, not the five this document was written for.** The five shipped,
+> were reviewed by the owner and were rebuilt the same day — see **§3 D4** for why, **§7.5** for the
+> content contract, **§7.5.-1** for the binding copy rules (*the word is "word"*), and **§7.4.1** for
+> the active-section rule, which this spec got wrong **twice** before landing on "the section filling
+> most of the screen". The UI, section shell, rail, nav, tip and cards were kept wholesale.
+>
+> Original header follows.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [How to play (#130)](https://trello.com/c/mzhftjAl/130-how-to-play) (2026-08-01), re-read against
 > `main` after Trello #124 shipped (2026-08-02).
@@ -16,7 +27,7 @@
 
 | | Today | After this card |
 | --- | --- | --- |
-| Learning the game | `overview@1` auto-opens once on `/`, a mode tour auto-opens once per archetype on `/game/play`, both behind seven guards; ☰ `How to play` re-opens them | A page at `/how-to-play` with five deep-linkable sections. **Nothing auto-opens, ever.** |
+| Learning the game | `overview@1` auto-opens once on `/`, a mode tour auto-opens once per archetype on `/game/play`, both behind seven guards; ☰ `How to play` re-opens them | A page at `/how-to-play` with **eight** deep-linkable sections (D4). **Nothing auto-opens, ever.** |
 | ☰ `How to play` | opens `QuickTourModal` | `RouterLink` to `HowToPlay` |
 | Dashboard `HOW A ROUND GOES` button | says `Read the wiki`, goes to `/soon?feature=wiki` | says `How to play`, goes to `HowToPlay`; the `wiki` entry is deleted from `ComingSoonPage` |
 | Responsible Gaming | ☰ → `ResponsibleGamingModal` (grey `standard` dialog) | ☰ → `RouterLink` to `/responsible-gaming`; the modal is deleted |
@@ -25,9 +36,10 @@
 | `selfExcluded` after a reload | always `false` — `applySelfExclusionPreferences` is a **dead export** | loaded from `GET /players/preferences`, on the RG page too (decision D3) |
 | Analytics | `quick_tour_open` / `quick_tour_dismiss` | both deleted; new consent-gated `guide_section_click`; `trackHomeLinkClick` already reports `how_to_play` |
 
-**Five sections, in this order:** `where-to-start` · `how-the-game-works` · `provably-fair` ·
-`player-settings` · `refunds`. **Orbit is deferred** (unbuilt, unrefined — #121–#123); the page is
-**registry-driven** so adding it later is one entry.
+**Eight sections, in this order** (D4 — the shipped five were rebuilt on review; see §7.5):
+`what-is-this` · `where-to-start` · `how-a-round-goes` · `what-you-win` · `the-modes` ·
+`provably-fair` · `refunds` · `your-setup`. **Orbit is deferred** (unbuilt, unrefined — #121–#123);
+the page is **registry-driven** so adding it later is one entry.
 
 ### 1.1 Where it stands today (verified in code, 2026-08-02, `monkify-front@30d45c5`)
 
@@ -145,10 +157,10 @@ Numbered `C*` = from the card's refinement (2026-08-01); `D*` = decided during t
 | C4 | **Nothing replaces the first-visit nudge** — knowingly accepted. `HomeHowItWorks` ("HOW A ROUND GOES") on `/` is the onboarding now; the app loses its only **unprompted** teaching surface. |
 | C5 | **Five sections + a sticky anchor nav.** Section ids are a **contract** other surfaces deep-link to. Not child routes, not an accordion. |
 | C6 | **Orbit is deferred**; a **new Trello card is created once this ships** (owner's call — a fresh card, not an AC on #122). The page is registry-driven so Orbit is one entry. |
-| C7 | **The adapted tour beats and all per-mode content live inside "How the game works"** — one section, not five top-level ones. |
+| C7 | ~~**The adapted tour beats and all per-mode content live inside "How the game works"** — one section, not five top-level ones.~~ **SUPERSEDED BY D4:** the round, the payout and the modes are three separate sections. |
 | C8 | **Mode content is driven by the live catalogue, archetype-matched by SHAPE** (never by id or name), with the real ticket price and, for a lottery, the real frequency through `formatLotteryFrequency`. |
 | C9 | **Copy stays preset-agnostic** — never "animal", never a numeric cap like "1-8" (Trello #115). |
-| C10 | **Provably Fair and Player Settings sections explain, then deep-link** to the header's existing modal instances via `useHeaderModals` — no second instance, no embedded verifier UI. |
+| C10 | **Provably Fair and the settings section explain, then deep-link** to the header's existing modal instances via `useHeaderModals` — no second instance, no embedded verifier UI. |
 | C11 | **Responsible Gaming becomes `/responsible-gaming` and the modal is deleted.** The mobile wallet-deeplink return for self-exclusion is re-pointed at the route. **The riskiest part of this card.** |
 | C12 | **Neither new route is an `isPlayerRoute()`; embedded loads of either redirect to `GameLobby`.** |
 | C13 | **Analytics:** the two tour events are deleted; a consent-gated **`guide_section_click`** is added, carrying no identifiers. |
@@ -156,6 +168,7 @@ Numbered `C*` = from the card's refinement (2026-08-01); `D*` = decided during t
 | **D1** | **The guide's tip/callout blocks adopt the black panel.** Deleting the tours would otherwise leave the black material with **zero consumers** — the exact dangling-rule condition #124 was filed to fix. `conventions/frontend.md` already reserved *"the How to play guide page may use cyan on its tip/callout blocks"*; this promotes that reservation to the **black material itself**, which needs a new `.arcade-frame--black` page sibling in `arcade.css` (the existing `.dialog--black` is a dialog skin). **Scope: at most one black tip block per section**, and the rule ("black needs BOTH axes: brief-and-informative AND light in tone") is unchanged. Rejected: keeping it documented-but-unused (re-creates the dangling rule), and retiring it (reverses an owner decision made five days ago and leaves Orbit's first-win upsell — #118 decision 15 — with nothing to build on). |
 | **D2** | **The two new pages take different fills, and both are recorded in `conventions/frontend.md`.** `/how-to-play` → **`.arcade-frame`** (near-black), joining `/`, `/error`, `/soon` — it is the destination of a button on `/` and must not change material under the player mid-journey, and it gives D1's black tip block far less contrast to fight. `/responsible-gaming` → **`.arcade-frame .arcade-frame--grey`**, joining `/game/history` + `/game/stats` — grey is what the KB pairs with money/compliance, and it makes the modal→page conversion a **material-preserving swap**, removing a whole class of regression from the riskiest part of this card. ⚠️ The two `.arcade-frame` lists disagree **on purpose** (owner's call, #124) — this adds one entry to each, it does **not** unify them. |
 | **D3** | **The dead `applySelfExclusionPreferences` is fixed in this card.** Wire it into `usePlayerPreferences.loadPreferences` (the place its own comment says it belongs) and have `/responsible-gaming` load preferences itself, since it is not an `isPlayerRoute()`. **Side effect to test deliberately:** the client pre-bet guards on the game screen come back to life for genuinely-excluded wallets — correct behaviour, but a behaviour change on the money screen that this card would not otherwise touch. It gets its own Manual QA step. |
+| **D4** | **The section set and every word of copy were rebuilt after the first version shipped and was reviewed** (owner call, 2026-08-02). **Five sections became eight** — `what-is-this` · `where-to-start` · `how-a-round-goes` · `what-you-win` · `the-modes` · `provably-fair` · `refunds` · `your-setup` — because the shipped page had **no introduction** (it opened on "connect a wallet" and never said what the game was), named three of five sections after **app surfaces** rather than player questions, buried the live mode cards at the tail of a four-job section, answered *how much do I win* in one subordinate clause, and had drifted from the quick tours' voice into whitepaper prose. **The UI is kept wholesale** — section shell, numbered rail, sticky nav, black tip, art slots, mode cards, analytics, hash handling: only the registry, the section components and the copy changed. **Supersedes C7** (per-mode content no longer lives inside one mega-section) and **amends AC #2, #5 and #7**. `GuideHowTheGameWorks.vue` and `GuidePlayerSettings.vue` are deleted; four section components are new; the ids are still a deep-link contract and **nothing outside the registry referenced the old ones** (verified by grep across `src/`), so no external link broke. |
 
 ---
 
@@ -253,7 +266,16 @@ AC #4 is the design constraint: **adding a section must be one entry, with no la
 ```ts
 export interface GuideSection {
   /** The URL fragment. A CONTRACT — other surfaces deep-link to it; never rename one silently. */
-  id: 'where-to-start' | 'how-the-game-works' | 'provably-fair' | 'player-settings' | 'refunds';
+  // D4: eight ids, in order. Renaming one silently breaks every link anyone has shared.
+  id:
+    | 'what-is-this'
+    | 'where-to-start'
+    | 'how-a-round-goes'
+    | 'what-you-win'
+    | 'the-modes'
+    | 'provably-fair'
+    | 'refunds'
+    | 'your-setup';
   /** Sidebar label. Short — it has to survive a horizontal chip row on a phone. */
   navLabel: string;
   /** Section heading, rendered through the shared section shell. */
@@ -307,12 +329,120 @@ Three behaviours, and finding 2 (§1.2) means none of them is free:
    interpolate the raw hash into a selector (AC #3).
 3. **Nav click**: update the hash *and* scroll, so the URL a player copies from the address bar is
    the deep link. Fire `guide_section_click` here (§7.12). Highlighting the active section while
-   scrolling is a nice-to-have; if implemented, use `IntersectionObserver`, never a scroll listener.
+   scrolling is a nice-to-have. ~~If implemented, use `IntersectionObserver`, never a scroll
+   listener.~~ **SUPERSEDED — see §7.4.1:** IO cannot express "the section filling most of the
+   screen", which is the rule the owner asked for; a rAF-coalesced passive `scroll` listener is used
+   instead, and the cost objection this line existed to answer is met by the coalescing.
 
-### 7.5 The five sections — content contract
+#### 7.4.1 ⚠️ Which section is active: AREA, with one anchor exception (settled 2026-08-02)
+
+**The active section is the one filling most of the screen.** That is what a reader means by "the
+section I am on", and it is the owner's own wording: *"it should focus on the panel that is mostly
+focused on the page"*. Area is measured inside the **reading area** — below the sticky 64px header,
+above the viewport bottom — because pixels hidden under the header are not being read.
+
+**Two earlier rules are dead and must not come back.** Both measured proximity to a line instead of
+occupancy:
+
+1. *"The last section whose top has passed a 100px band."* The final section can **never** satisfy
+   it — at maximum scroll its top sits at `viewportHeight − (its height + the page's bottom padding)`,
+   which for a ~500px section over 112px of padding is 288px down a 900px viewport. Only the tail is
+   affected, because every other section is pushed past the band by whatever follows it. The rail sat
+   stuck on the second-to-last entry however far the player scrolled.
+2. *The same rule plus an "at the very bottom, the last section wins" clamp, kept honest by a
+   zero-height sentinel so the observer fired there at all.* This fixed the exact end of the document
+   and nothing else: parked with the last section filling ~70% of the screen and the previous one
+   reduced to a sliver at the top (`top = −125`, 298px visible vs 522px), the rail still highlighted
+   the **previous** section. Reported with a screenshot.
+
+**The one exception — the anchor band — is required, not a fudge.** A nav click scrolls the chosen
+section's top to `scroll-margin-top` (88px). If that section is short and the next is tall, the
+neighbour wins on area **immediately**, so clicking `What you win` highlighted `The modes` — a
+control that visibly disobeys. So: **a section whose top sits within `[64, 184]` wins regardless of
+area.** It cannot resurrect bug 1 or 2, because a section scrolled *past* has a negative top and can
+never qualify; only a section the player has deliberately brought to the top does.
+
+**Implementation:** a `scroll` + `resize` listener, `{ passive: true }`, coalesced through
+`requestAnimationFrame` — at most one recompute per frame, and a recompute is 8
+`getBoundingClientRect()` reads with no interleaved writes, so it never forces a layout flush.
+
+⚠️ **This deliberately replaces the `IntersectionObserver`** the earlier draft of this spec mandated.
+IO **cannot express "most visible"**: it reports threshold crossings of each element's *own* ratio,
+and the moment one section overtakes another in visible area is not a threshold on either of them —
+so the observer went silent exactly where the answer was still changing. Denser thresholds only
+shrink the error; they do not remove it.
+
+`onMounted` runs one eager `resolveActive()` so a cold load lands on the right entry instead of
+waiting for a first scroll. Safe because nothing in the app sets `scroll-behavior: smooth`, so the
+on-mount `scrollIntoView` has already completed synchronously.
+
+**Verified in the browser at 1600×1115:** across 61 scroll positions the highlighted entry matched an
+independently-computed expectation **every time** (0 mismatches); all eight entries activate in
+document order with no skips; **all eight nav clicks stick on what was clicked**; and the exact
+reported screenshot position now resolves to `Your setup`.
+
+### 7.5 The eight sections — content contract
 
 The spec fixes **what each section must say**; the approved mockup fixes how it looks, and the copy
 comes from the decisions here (never from mockup wording — C9, and the convention's own warning).
+
+> **⚠️ REBUILT (D4, 2026-08-02).** The five sections below §7.5's original heading shipped, were
+> reviewed by the owner, and were **rejected on content**. The UI was kept wholesale — the section
+> shell, the numbered rail, the sticky nav, the black tip, the art slots, the mode cards — and only
+> the **section set and the copy** were rebuilt. What was wrong:
+>
+> 1. **No introduction.** The page opened on `WHERE TO START → CONNECT A WALLET` and never said what
+>    the game *was*. Edson first appeared mid-paragraph in section 2. A player arriving from a shared
+>    link met a setup checklist for a product nobody had introduced. The LP opens on the premise; the
+>    app's own manual was the one surface that skipped it.
+> 2. **Sections named after app surfaces, not player questions.** `Provably Fair` and
+>    `Player Settings` are two modals, and `Player Settings` — a display-name field — was billed level
+>    with the entire game at position four of five.
+> 3. **The voice drifted off the tours.** The quick tours ran 14-character titles and
+>    35–42-character captions; the page ran 68ch whitepaper prose ("*Before a round takes a single bet
+>    we commit to the seed that decides it and publish that commitment*"). Uniformity with the tours
+>    was the explicit ask.
+> 4. **The money question was unanswered.** *How much do I win* existed only as the subordinate
+>    clause "they split it". No pot, no split, no house cut, no payout timing anywhere on the page.
+> 5. **The tours' three-beat loop was flattened.** `PLACE YOUR BET → EDSON TYPES → FIRST OUT WINS`,
+>    the shape all three mode tours shared, became two paragraphs of prose.
+>
+> C7 ("all per-mode content lives inside *How the game works*") is **superseded** by D4: the round,
+> the payout and the modes are three sections now. C8, C9, C10 and D1 are unchanged.
+
+**The order is the argument:** the idea → getting in → the round → the money → which table → why
+believe it → what happens when it goes wrong → the optional knobs.
+
+#### 7.5.-1 Copy rules (binding on every section)
+
+1. **⚠️ THE WORD IS "WORD".** *You choose a word and you bet on it* — that one sentence is what the
+   whole page is built on, and it is the tours' own wording (*"Any word you like. That word is your
+   bet."*). A rebuild pass wrote **"a run of characters"**, **"make your call"** and **"back a run"**,
+   which is not a thing anybody says out loud; it was rejected by the owner and must not come back.
+   The character count is a **per-mode** fact and lives on the mode cards, read off
+   `choiceRequiredLength` — never in the prose, which a player reads before choosing a mode.
+2. **Playful, not corporate.** The arcade voice, not a whitepaper: *"smashing keys at random and
+   never, ever stopping"*, *"Great minds, smaller slices."*, *"no forms to fill in"*. Short sentences,
+   the odd aside, no hedging.
+3. **Two deliberate exceptions to (2).** `refunds` and `what-you-win` run a shade drier — a player
+   reading those is asking where their money went, and a joke lands badly there. Tone is also what
+   keeps both off the black material (§7.7).
+4. C9 still binds on top of all of it: never "animal", never a numeric cap like "1-8" (Trello #115).
+
+#### 7.5.0 `what-is-this`
+
+**The premise, and the section whose absence caused the rebuild.** Three facts and nothing more:
+
+- Space Stroker is a betting game with one moving part — **Edson**, a chimp alone in a flying saucer,
+  hitting keys at random and never stopping. **You bet on what he types next.**
+- The infinite-monkey premise stated plainly: hit enough keys at random and everything gets typed
+  eventually. That is the only thing deciding a round — **he is not aiming at anything, and not at
+  you.**
+- A round is therefore a race between the calls players made and the keys he happens to hit.
+- ⚠️ **The idea, not the lore.** Edson's backstory lives on the LP's story carousel. Repeating it here
+  pushes the actual instructions below the fold. He gets a name, a saucer and a job.
+- Art: the saucer-less `typing.gif` loop with the overview tour's `scale-[1.1] origin-bottom`
+  verbatim (§7.6). Carries **one** black tip — `THE WHOLE GAME`, the densest line on the page.
 
 #### 7.5.1 `where-to-start`
 
@@ -322,22 +452,80 @@ pull the lever**. Facts that must survive from `constants/quickTours.ts`:
 - *"No signup. Bets leave it, wins land in it."* — the wallet **is** the identity; there is no
   account to create.
 - The choice length is the game's own `choiceRequiredLength`, so **this section states no number** —
-  the mode cards in §7.5.2 do, per game.
+  the mode cards in §7.5.2c do, per game.
 - On a phone there is no lever: `GameConsole` collapses keyboard + lever + keypad into one bet panel,
   so typing and committing are **one action**. The section must not teach a control the player will
   never be shown (§7.6 keeps the mobile art gate that expresses this).
+- **No black tip** (D4): "the wallet is the account" is step 1's whole body, and a tip restating the
+  row above it is decoration. The page's two black panels bookend it instead — `what-is-this` and
+  `your-setup`.
 
-#### 7.5.2 `how-the-game-works`
+#### 7.5.2a `how-a-round-goes`
 
-The card's biggest section by design (C7). Two layers:
+**The three beats the deleted mode tours all shared, on the numbered rail** — this is where the
+"uniformity with the old tour modals" ask is actually paid:
 
-- **The round, once** — Edson types at random from a seed committed **before** the round; the first
-  landed call splits the pot; nothing is decided after the round starts. This is the narrative the
-  three mode tours shared.
-- **Per-mode cards, driven by the live catalogue** (C8, §7.5.3), one per active game type.
+| Beat | Must say | Art |
+| --- | --- | --- |
+| `PLACE YOUR BET` | every stake in the round goes into **one pot**; betting closes when the round starts | `bet-terminal` |
+| `EDSON TYPES` | random characters, **nothing scripted**; he speeds up but the pace is only for watching | `edson-speed` |
+| `FIRST OUT WINS` | the first call typed out **in full** takes the pot; one character short is still short | `win-reveal` |
 
-Because it is the longest section it needs sub-headings or an inner rhythm — the approved mockup
-decides which. It is the natural home for D1's black tip block.
+Closes on the bridge into Provably Fair: **nothing about the outcome is decided after the round
+starts** — the seed is locked in before the first bet lands and published afterwards. That sentence
+belongs at the *end* of the loop, not inside beat 2: it only means something once the player has seen
+what the start, the middle and the end of a round are.
+
+#### 7.5.2b `what-you-win`
+
+**New in D4** — the section answering the most-asked question the first version left in a subordinate
+clause. Grounded in `features/games.md` §7, `features/crypto-commission.md`,
+`features/lottery-pot-stacking.md`:
+
+- **The pot** = every stake in the round, added up. A lottery adds a configured base pot **and**
+  carries forward whatever an earlier draw failed to pay out.
+- **More than one winner** → `winnerReward = pot / payableWinnerCount`: the pot is **split evenly**.
+- **The house cut** — ⚠️ **state NO number.** The rate is per-deployment
+  (`GeneralSettings.Operator.Token.CommissionPercentage`, mock `0.5`) and published live on
+  `ActiveGame.commissionPercentage`; hard-coding "0.5%" in the manual is a promise that goes stale
+  silently. Point at the game screen's **STATS panel**, which reads the live value. Reading the
+  catalogue in this section was **rejected** — only the mode block may depend on that fetch (AC #7).
+  The base is `max(0, winnerReward − ownStake − houseFundedShare)`, so *"only on what you win above
+  your own stake, never the stake, never a refund"* is true; do not try to explain
+  `houseFundedShare`.
+- **Getting paid** — on-chain, to the wallet that bet, once the round ends. No balance, nothing to
+  withdraw.
+- ⚠️ **Do not write "you can never win less than you staked."** `BetRewardBiggerThanThePot` is an
+  error branch in the reward path, not a payout guarantee.
+- **No black tip** — money is serious in tone, which is what breaks the tie on the black rule. Same
+  reasoning as `refunds`.
+
+#### 7.5.2c `the-modes`
+
+**Promoted to its own section in D4.** Previously the tail of a section also carrying the round
+narrative and the payout, which meant the one block on the page driven by **live** data — real names,
+real prices, real draw times — was the one block nobody scrolled far enough to reach.
+
+- Body is `GuideModeCards` and a one-line lead saying the prices and draw times below are **the real
+  ones, not examples**. ⚠️ The lead must not state a **count** of modes — the catalogue is
+  operator-driven, so "three tables" is a claim that goes false the moment a type is added.
+- **⚠️ The card art is `utils/gameArt.ts` → `artFor(game)`, NOT a `GuideArt` slot.** The first pass
+  drew the guide's live terminal recreations here (`pick-terminal` / `bet-terminal` / `win-reveal`),
+  which was wrong twice over: all three render the same green console, so the one block on the page
+  whose entire job is showing how the modes **differ** showed three near-identical pictures — and
+  none of them depicts a mode at all. `artFor` is the illustration the picker card already uses, so
+  a mode is the same picture in the lobby and in the manual. **Poster only, no hover-GIF swap:**
+  `GameTypeCard` earns that on the front door where the card is the thing you are about to click;
+  here it is a reference image in a manual, and three more GIFs would be ~994 KB nobody hovers. The
+  `.art-img--*` fit classes are copied from `GameTypeCard` so the framing cannot drift.
+  ⚠️ `artFor` uses `gameArt.archetypeOf` (**lottery wins** a preset-lottery tie) while the card's
+  label and blurb use `resolveGameArchetype` (**returns `null`**, so no card renders at all). They
+  answer different questions and the split is deliberate — see the header of `utils/gameArt.ts`.
+- **The only section that depends on the catalogue fetch.** Its three states live inside the
+  component and never reach the page (AC #7).
+- Each blurb says what is **different** about its archetype and nothing else — one pot, first call
+  out wins and "short is still short" are `how-a-round-goes`' job, and repeating them on three cards
+  was how the first version filled space saying the same thing four times.
 
 #### 7.5.3 Mode content — archetype resolution and the catalogue read
 
@@ -382,11 +570,11 @@ export const resolveGameArchetype = (game?: ActiveGame | null): GameArchetype | 
   | loaded, non-empty | one card per resolvable archetype |
   | failed **or** empty | a short inline "we could not load the modes right now" + a retry affordance, in the section's own copy voice |
 
-  **The other four sections render fully in every state.** The page never blanks, never routes to
+  **The other seven sections render fully in every state** (D4). The page never blanks, never routes to
   `/error`, and never toasts on a boot-path retry (`runWithRecovery` marks absorbed errors
   `handled = true`; the final rethrow is caught here — see finding 3, §1.2).
 
-#### 7.5.4 `provably-fair` and `player-settings`
+#### 7.5.4 `provably-fair` and `your-setup`
 
 Explain, then deep-link (C10):
 
@@ -395,6 +583,18 @@ Explain, then deep-link (C10):
 - ⚠️ The Fair modal is now titled **`PROVABLY FAIR`** (`wide`, 720, full screen below `lg`) and
   Settings is **`SETTINGS`** (`standard`, 520, bottom sheet) — write the section copy against those
   names, not the old `FAIR PLAY`.
+- **`provably-fair` is a three-row list, not prose** (D4): `BEFORE THE ROUND` (the seed is generated
+  and locked in before the first bet; its fingerprint is published, the seed is not) → `WHILE YOU BET`
+  (your bet carries a seed derived in your browser from a value only you hold) → `AFTER THE ROUND`
+  (the seed is revealed and must match the fingerprint published before you bet). **The order is the
+  entire proof** — a seed published after the round proves nothing. Vocabulary is capped at *hash*,
+  *seed* and *signed*; the maths explains itself in the panel one click away.
+- **`your-setup` replaces `player-settings`** (D4) and moves to **last**. It covers what the Settings
+  modal actually holds — a display name, why saving it asks for a signature (free, moves nothing,
+  stops anyone else naming your address), and the **client seed** (made in the browser, never leaves
+  it, settable and rotatable). It carries the page's second black tip, `NONE OF IT REQUIRED`, because
+  "you can play a full round without touching any of this" is brief, informative and light in tone —
+  and because a section of optional knobs should say so before a player reads it as a checklist.
 - **The Fair action is absent when embedded** (AC #9). In practice `/how-to-play` never renders in a
   frame (§7.1), so this is belt-and-braces: gate on `useEmbed().isEmbedded` anyway, exactly as
   `GameHeader` does, so the rule survives if the redirect is ever relaxed.
@@ -645,7 +845,7 @@ sequenceDiagram
   P->>R: ☰ How to play / dashboard button / pasted /how-to-play#refunds
   R->>R: beforeEach — embedded? -> GameLobby
   R->>G: mount (NOT an isPlayerRoute -> App.vue boots nothing)
-  G->>G: render all five sections immediately
+  G->>G: render all eight sections immediately
   G->>G: on mount, resolve route.hash against the registry -> scrollIntoView (or stay at top)
   G->>S: getGamesTypes()  [singleFlight + runWithRecovery]
   alt success
@@ -656,7 +856,7 @@ sequenceDiagram
     S->>S: jittered retry behind the shared "> RECONNECTING…" overlay
     S-->>G: rethrow after the budget -> mode block shows its failure state
   end
-  Note over G: The other four sections rendered before the call was ever made.
+  Note over G: The other seven sections rendered before the call was ever made.
 ```
 
 ### 8.2 Self-exclusion from a phone, after the modal becomes a page
@@ -708,11 +908,12 @@ sequenceDiagram
 | --- | --- | --- |
 | 1 | `src/pages/HowToPlayPage.vue` | The guide shell: sticky section nav (mobile chip row below `lg`), registry-driven body, hash handling, the catalogue read + its three states. `.arcade-frame`. |
 | 2 | `src/pages/ResponsibleGamingPage.vue` | Today's RG modal body on `.arcade-frame .arcade-frame--grey`; loads preferences itself; back-to-Home action. |
-| 3 | `src/constants/guideSections.ts` | `GuideSection`, `GuideArt`, `GuideArtKind`, `GUIDE_SECTIONS` (five entries, in order). |
+| 3 | `src/constants/guideSections.ts` | `GuideSection`, `GuideArt`, `GuideArtKind`, `GuideSectionId`, `GUIDE_SECTIONS` (**eight** entries, in order — D4). Carries the ⚠️ VOICE note: the tours' shape (short all-caps headings, captions that say what a thing *does*) is what this page inherits, and drifting into paragraphs is what the first version got wrong. |
 | 4 | `src/components/guide/GuideSectionNav.vue` | Sticky desktop nav + the below-`lg` treatment; fires `guide_section_click`. |
 | 5 | `src/components/guide/GuideTip.vue` | The black tip/callout block (D1), `.arcade-frame--black`. |
-| 6 | `src/components/guide/sections/*.vue` | One component per section (5). |
-| 7 | `src/components/guide/GuideModeCards.vue` | Archetype-matched cards off the live catalogue; loading / failure / empty states. |
+| 5b | `src/components/guide/GuideFactList.vue` | The shared row list used by four sections (`what-you-win`, `provably-fair`, `refunds`, `your-setup`). **Multi-column on purpose:** each list used to be one stack capped at `max-w-[68ch]`, which left ~40% of a desktop section card empty down its whole right-hand side — the page read as *cropped* rather than composed. The cap moved onto the **column**, so the measure stays sane and the card is actually filled. `columns` is a prop, not automatic, because the count is a statement about the content: **2** = an unordered set of facts (order incidental, wrapping costs nothing); **3** = a sequence of exactly three beats read across as a timeline (Provably Fair's before/while/after). ⚠️ The grid class is written out in full, never interpolated — Tailwind scans source text, so `md:grid-cols-${n}` generates nothing and silently produces one column. |
+| 6 | `src/components/guide/sections/*.vue` | One component per section — **8 after D4**: `GuideWhatIsThis`, `GuideWhereToStart`, `GuideHowARoundGoes`, `GuideWhatYouWin`, `GuideTheModes`, `GuideProvablyFair`, `GuideRefunds`, `GuideYourSetup`. (`GuideHowTheGameWorks` and `GuidePlayerSettings` were deleted in the rebuild.) |
+| 7 | `src/components/guide/GuideModeCards.vue` | Archetype-matched cards off the live catalogue; loading / failure / empty states. Hosted by `GuideTheModes` after D4. |
 | 8 | `src/utils/gameArchetype.ts` | `resolveGameArchetype` — extracted verbatim from `useQuickTour.resolveTourKey`. |
 | 9 | `src/hooks/useGuideSections.ts` | *(optional)* shared active-section state if the nav needs it; the registry stays a plain constant. |
 
@@ -796,9 +997,15 @@ Copied 1:1 from the Trello checklist (27 items), with the amendments this spec i
 1. Given implementation has not started, when the design pass runs (`monkify-implement-feature`
    Step 6b), then 5 mockups of the page are produced from the card's attached mockup + the Claude
    Design project and **ONE is approved by the owner before any markup is written**.
-2. Given a player navigates to `/how-to-play`, when the page loads, then it renders exactly five
-   sections — Where to start, How the game works, Provably Fair, Player Settings, Refunds — in that
-   order, with a sticky section nav listing them.
+2. Given a player navigates to `/how-to-play`, when the page loads, then it renders exactly eight
+   sections — What is this, Where to start, How a round goes, What you win, The modes, Provably
+   Fair, Refunds, Your setup — in that order, with a sticky section nav listing them.
+   **⚠️ Amended by D4 (content rebuild, 2026-08-02).** The original AC named five sections —
+   Where to start, How the game works, Provably Fair, Player Settings, Refunds — and that set
+   shipped first. It was rejected on review: it had **no introduction** (the page opened on "connect
+   a wallet" and never said what the game was), it named three of its five sections after **app
+   surfaces** rather than player questions, it buried the live mode cards at the tail of a
+   four-job section, and it answered *how much do I win* in a single subordinate clause. See §7.5.
 3. Given the guide page, when a section id is deep-linked (e.g. `/how-to-play#provably-fair`), then
    the page scrolls to that section with the sticky header offset accounted for; an unknown anchor
    (`#orbit`) lands at the top of the page rather than a blank screen or `/error`.
@@ -807,15 +1014,16 @@ Copied 1:1 from the Trello checklist (27 items), with the amendments this spec i
 4. Given the sections are defined by a registry, when a new section entry is added, then it appears
    in both the nav and the body with no layout rework — demonstrating that adding Orbit later is a
    one-entry change.
-5. Given the game catalogue has loaded, when the "How the game works" section renders, then each
+5. Given the game catalogue has loaded, when the "The modes" section renders, then each
    active game type is described by its **ARCHETYPE** (preset / race / lottery, matched by shape and
    never by id or name) with its real ticket price and, for a lottery, its real frequency through
-   `formatLotteryFrequency`.
+   `formatLotteryFrequency`. *(D4: the mode cards moved out of "How the game works" into their own
+   section; the archetype rule is unchanged.)*
 6. Given a game type that matches no archetype (a preset lottery), when the guide renders, then no
    empty or broken mode card is produced.
 7. Given the catalogue request fails or returns nothing, when `/how-to-play` loads, then the mode
-   content shows a loading/failure state and the other four sections still render fully — the page is
-   never blank and never routes to `/error`. **⚠️ Note (finding 3): the shared
+   content shows a loading/failure state and the other **seven** sections still render fully (D4) —
+   the page is never blank and never routes to `/error`. **⚠️ Note (finding 3): the shared
    `> RECONNECTING…` overlay may legitimately appear over the guide during the retry window; the
    failure state is what shows after it clears.**
 8. Given the guide's copy, when it is reviewed, then it is preset-agnostic — it never says "animal"
@@ -823,7 +1031,7 @@ Copied 1:1 from the Trello checklist (27 items), with the amendments this spec i
 9. Given the Provably Fair section, when the player clicks its action, then the header's own Fair
    modal instance opens via `useHeaderModals` (no second instance, one backdrop, one Esc handler); the
    action is absent when embedded.
-10. Given the Player Settings section, when the player clicks its action, then the header's own
+10. Given the Your setup section (D4 — was Player Settings), when the player clicks its action, then the header's own
     `PlayerCustomizationModal` instance opens via `useHeaderModals`.
 11. Given the app after this card, when the codebase is searched, then `QuickTourModal.vue`,
     `useQuickTour.ts`, `constants/quickTours.ts` and every auto-open watcher and tour guard are gone,
@@ -902,16 +1110,16 @@ Run on **(a)** a GPU-rasterizing desktop, **(b)** a real phone, and **(c)** a de
    still shows the practice blurb.
 2. ☰ → `How to play` navigates (no modal). ☰ → `Responsible Gaming` navigates. Neither row appears
    with `?embed=1`.
-3. On `/how-to-play`: five sections in order; nav click scrolls with the heading clear of the sticky
+3. On `/how-to-play`: eight sections in order (D4); nav click scrolls with the heading clear of the sticky
    header **and** updates the address bar; a copied URL reloaded cold lands on the same section.
 4. `/how-to-play#orbit` → top of the page, no error, no blank.
 5. Kill the network, then hard-load `/how-to-play`: `> RECONNECTING…` appears, then the mode block
-   shows its failure state while the **other four sections stay fully rendered**. No `/error`, no
+   shows its failure state while the **other seven sections stay fully rendered**. No `/error`, no
    toast storm.
 6. Mode cards match the seeded catalogue: the preset type by shape (never by name), the race type,
    and the lottery with its real ticket price and **24 HOURS** (not "1 HOUR") frequency.
 7. Provably Fair action → the `PROVABLY FAIR` modal (one backdrop, Esc closes it, focus returns).
-   Player Settings action → `SETTINGS`. Neither opens a second instance.
+   Your setup action → `SETTINGS`. Neither opens a second instance.
 8. Phone: the sidebar is a usable nav above the content; **every** section image paints (no empty
    black frames); no horizontal scroll at 390px and at 360px.
 9. `html.light-graphics`: every adapted art slot is a readable frozen frame — check

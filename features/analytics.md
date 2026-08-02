@@ -51,6 +51,13 @@ no player identity, and is switched off entirely wherever the data would be nois
   **name** only.
 - `bet_placed` (app) — a **count**: `game_type`, `payment_method`, `is_free`.
 - `game_type_selected` (app), plus a manual `page_view` per SPA route.
+- `guide_section_click` (app, #130) — which section of `/how-to-play` a player clicked in the guide's
+  nav, as `{ section }` and **nothing else**. `page_view` already answers "was the guide read at all";
+  this answers **which** thing confuses players, the only question a help page exists to answer. ⚠️ It
+  fires from the **nav**, never from a scroll observer — a scroll-triggered event counts passive
+  scrolling as interest and drowns the signal.
+- ⚰️ `quick_tour_open` / `quick_tour_dismiss` — **deleted in #130** with the Quick Tour itself. The
+  onboarding funnel they measured no longer exists; `guide_section_click` recovers part of it.
 - **Never sent:** stake or payout amounts, wallet addresses, launch-token claims, display names, chat
   content, or any other player identifier. The backend's `GET /games/stats` and the ledger remain the
   only authoritative source for money; GA4 is deliberately not a second, disagreeing set of figures.

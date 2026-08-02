@@ -1,9 +1,56 @@
-# Feature — Quick Tour Modals
+# Feature — Quick Tour Modals ⚰️ RETIRED
 
-> Status: **shipped.** Authoritative spec: `../specs/quick-tour-modals.md`
-> (merged via `feature/quick-tour-modals` on 2026-07-30). **Frontend-only** — see
-> "Why there is no server half" below; the spec's backend chapters describe a design that was
-> dropped before merge.
+> Status: **DELETED from the product on 2026-08-02** (Trello #130, `feature/how-to-play`). Nothing
+> described below runs any more: `QuickTourModal.vue`, `useQuickTour.ts`, `constants/quickTours.ts`,
+> the seven auto-open guards, the versioned `space-stroker.tour.seen` seen-set and the
+> `quick_tour_open` / `quick_tour_dismiss` GA4 events are all gone. **The replacement is
+> `features/how-to-play.md`** — one readable page at `/how-to-play` that nothing auto-opens.
+>
+> This document is **kept, not deleted**, for the three things it decided that are still binding —
+> see "What survived the deletion" immediately below. Everything after that section is **history**:
+> read it to understand *why* the app works the way it does, never as a description of what runs.
+>
+> Original status: shipped, authoritative spec `../specs/quick-tour-modals.md`, merged via
+> `feature/quick-tour-modals` on 2026-07-30. **Frontend-only** — see "Why there is no server half"
+> below; the spec's backend chapters describe a design that was dropped before merge.
+
+## What survived the deletion
+
+1. **Archetype-by-SHAPE, never by id or name.** `resolveTourKey` was extracted **verbatim** into
+   `src/utils/gameArchetype.ts` → `resolveGameArchetype` before the composable was deleted. The
+   reasoning is unchanged and still load-bearing: `gameTypeId` GUIDs change on every teardown +
+   reseed, and names are operator-chosen, so neither can key content. **A preset lottery matches no
+   archetype and returns `null`** — a deliberate no-op, not an error. ⚠️ Do not confuse it with
+   `utils/gameArt.archetypeOf`, which answers a different question (which picture to draw), lets
+   lottery win the same tie, and never returns `null`.
+2. **The copy rules.** Never "animal", never a numeric cap like "1-8" (Trello #115) — preset choices
+   are operator-configured free text and the mobile keypad is name-based and uncapped. And **the word
+   is "word"**: *"Any word you like. That word is your bet."* is the tours' wording, and the guide
+   page was rebuilt back onto it after a pass tried "a run of characters".
+3. **Why there is no server half** (below) — the reasoning that killed the backend design still
+   applies to anything tempted to persist a UI dismissal: it would mean prompting a **Solana
+   signature** to close an onboarding modal.
+
+The **art survived too**: the ten `Tour*` components, `tourArtTiming.ts`, `tourStream.ts` and
+`assets/tours/game-modes.gif` were renamed into `components/guide/Guide*`, `constants/guideArtTiming.ts`,
+`utils/guideStream.ts` and `assets/guide/`. Their measured `artClass` values were carried over
+**verbatim** — those scale/translate numbers are matched to each sprite's own canvas padding.
+
+## Why it was deleted
+
+Not because it was broken. The tour was **an overlay a player had to be caught by**: it auto-opened
+once, behind seven guards, and was then gone forever — unlinkable, unsearchable, and impossible to
+send to somebody who asked a question. `/how-to-play` is the same content a player can return to.
+
+**Knowingly accepted cost:** the app lost its only **unprompted** teaching surface. This document
+records that the overview was deliberately moved onto `/` because "almost everyone now enters there";
+that reach is given up, and **nothing replaces it** — `HomeHowItWorks` on `/` is the onboarding now.
+
+---
+
+# History — what the Quick Tour did while it existed
+
+⚠️ Everything below this line describes **deleted code**.
 
 ## What it does
 

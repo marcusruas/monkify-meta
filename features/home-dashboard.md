@@ -45,10 +45,16 @@ first-time player has no reason to open. Folded in because it rewrites the same 
   cabinet, not a screen). The hero is deliberately unframed. `QuickTourModal` consumes the same
   primitive instead of redefining it inline.
 - The picker reuses **`GameTypes.vue` verbatim**, so the lobby and the starting page can never drift.
-- The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby visit,
-  with every existing guard intact (catalogue loaded, not embedded, no other tour open, key unseen,
-  no boot-recovery/idle/relaunch overlay, terms accepted, display-name prompt closed). Accepted gap: a
-  player deep-linking straight to `/game` gets no overview.
+- ⚰️ ~~The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby
+  visit, with every existing guard intact (catalogue loaded, not embedded, no other tour open, key
+  unseen, no boot-recovery/idle/relaunch overlay, terms accepted, display-name prompt closed).
+  Accepted gap: a player deep-linking straight to `/game` gets no overview.~~
+  **GONE — Trello #130 (2026-08-02) deleted the Quick Tour outright.** Nothing auto-opens on `/`, or
+  on any route, for any player. `HomeHowItWorks` ("HOW A ROUND GOES") is now the dashboard's **only**
+  onboarding, and its button reads **`How to play`**, pushing to the `HowToPlay` route — it used to
+  say `Read the wiki` and push to `/soon?feature=wiki`, whose `FEATURES` entry is deleted (a
+  bookmarked `?feature=wiki` degrades to the generic fallback rather than breaking). See
+  `features/how-to-play.md`.
 - Fair and Settings modal state is a shared **`useHeaderModals`** singleton — it used to be local to
   `GameHeader.vue`, which the dashboard cannot reach and which a second modal instance cannot fix.
 
