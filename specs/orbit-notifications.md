@@ -178,12 +178,17 @@ Inside `GeneralSettings:Operator:Token:Orbit` (mock values only):
 Inside `GeneralSettings:Games`, alongside the existing endpoint names:
 
 ```json
-"OrbitNotificationEndpoint": "{0}/OrbitNotification"
+"OrbitNotificationEndpoint": "OrbitNotification"
 ```
 
 and the matching `public string OrbitNotificationEndpoint { get; set; }` on
-`Domain/Configs/Entities/GameSettings.cs`. `{0}` is the **`PlayerId`**, exactly as the game endpoints
-format the game id — same convention, one place to change it.
+`Domain/Configs/Entities/GameSettings.cs`.
+
+⚠️ **A constant name, not a `{0}/…` format** (resolving §15 item 1 at build time). The game streams
+embed the round id because they are *per round*; an Orbit notification is already scoped by its
+**per-player group**, so there is nothing to disambiguate. The codebase already has exactly this
+shape: `ActiveGamesEndpoint = "GameReceived"` is constant for the same reason. Consequence:
+**`OrbitDto` carries no `notificationEvent` field** — the client binds the constant.
 
 ### 5.3 Rate-limit rules
 
@@ -206,7 +211,15 @@ rule.
 ### 5.4 Deploy plumbing (decision 11)
 
 `monkify-meta/deploy/terraform/workload/main.tf` → `locals.base_secret_ids` and `base_secret_env`,
-plus `deploy/tools/SpaceStroker.Deploy/EnvNaming.cs` → `DerivedIds()`:
+plus `deploy/secrets.example.json`:
+
+⚠️ **Build-time correction:** `EnvNaming.DerivedIds()` needs **no code change**. It enumerates
+`secrets.<env>.json`'s own `secrets` keys (`EnvNaming.Create(…, s.Secrets.Keys)`), so it already
+validates whatever the operator configures — the card and this spec both said otherwise. What was
+genuinely missing is the **Terraform** list (hardcoded) and the **example secrets file**, which had no
+Orbit entries at all: an operator copying the template would deploy an Orbit-less config and, because
+committed config now carries a real devnet keypair, boot Orbit **against devnet** instead of failing
+closed.
 
 | Secret id | Env var | Owner |
 | --- | --- | --- |
@@ -349,8 +362,6 @@ public class OrbitNotificationConsumer : BaseConsumer<OrbitWinNotificationEvent>
         var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<ActiveGamesHub>>();
         var settings = scope.ServiceProvider.GetRequiredService<GeneralSettings>();
 
-        var endpoint = string.Format(settings.Games.OrbitNotificationEndpoint, message.PlayerId);
-
         // NO balance in the payload: the threshold cash-out may already have emptied it (decision 4).
         var payload = new
         {
@@ -360,7 +371,9 @@ public class OrbitNotificationConsumer : BaseConsumer<OrbitWinNotificationEvent>
             gameId = message.GameId,
         }.AsJson();
 
-        await hubContext.Clients.Group(OrbitNotificationChannel.GroupFor(message.PlayerId)).SendAsync(endpoint, payload);
+        await hubContext.Clients
+            .Group(OrbitNotificationChannel.GroupFor(message.PlayerId))
+            .SendAsync(settings.Games.OrbitNotificationEndpoint, payload);
     }
 }
 ```
@@ -554,13 +567,8 @@ const leaveOrbitChannel = async () => { … };
 ```
 
 - `joinOrbitChannel` calls `ensureConnected()`, then `invoke('JoinOrbitNotifications', token)`, then
-  binds `live.on(<endpoint>, handler)`. The endpoint name is `${playerId}/OrbitNotification`; the
-  client does not know its `PlayerId`, so **the handler binds on the suffix the server sends** — the
-  simplest correct form is for the client to bind a single well-known name. **Resolution:** the
-  server formats `Games.OrbitNotificationEndpoint` with the `PlayerId`, and `GET /orbit` therefore
-  also returns the player's **notification event name** (`notificationEvent`, e.g.
-  `"3f2a…/OrbitNotification"`) so the client binds exactly what the server will send. This is not a
-  secret — the group cannot be joined without the session token.
+  binds `live.on('OrbitNotification', handler)` — the **constant** event name (§5.2). The per-player
+  group is what scopes delivery, so the client needs to know nothing about its own `PlayerId`.
 - `onreconnected` re-joins the Orbit group when `orbitSessionToken` is set, right beside the existing
   `JoinGame` re-join. Without it the channel silently dies on the first network blip.
 - `stopForIdle` clears `orbitSessionToken` and the bound handler with everything else (decision 3).
@@ -726,7 +734,7 @@ sequenceDiagram
 | 15 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/StartTelegramLink/*` | **new** handler + request/body |
 | 16 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/VerifyTelegramLink/*` | **new** handler + request/body |
 | 17 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/UnlinkTelegram/*` | **new** handler + request |
-| 18 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/GetOrbit/GetOrbitRequest.cs` (`OrbitDto`) | `TelegramEnabled`, `TelegramLinked`, `NotificationEvent` |
+| 18 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/GetOrbit/GetOrbitRequest.cs` (`OrbitDto`) | `TelegramEnabled`, `TelegramLinked` |
 | 19 | `src/SpaceStroker.Infrastructure/Handlers/Orbit/GetOrbit/GetOrbitHandler.cs` | fill the three new fields |
 | 20 | `src/SpaceStroker.Infrastructure/DependencyInjection.cs` | `ITelegramNotifier` + named `HttpClient` |
 | 21 | `src/SpaceStroker.Api/Controllers/OrbitController.cs` | 3 routes + `[HttpOptions]` entries |
@@ -736,7 +744,7 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/types/orbit.ts` | `telegramEnabled`, `telegramLinked`, `notificationEvent`, `OrbitTelegramLink`, `OrbitWinNotification` |
+| 1 | `src/types/orbit.ts` | `telegramEnabled`, `telegramLinked`, `OrbitTelegramLink`, `OrbitTelegramState`, `OrbitWinNotification` |
 | 2 | `src/services/orbitService.ts` | `startTelegramLink`, `verifyTelegramLink`, `unlinkTelegram` |
 | 3 | `src/hooks/useGameHub.ts` | `joinOrbitChannel` / `leaveOrbitChannel`, re-join in `onreconnected`, clear in `stopForIdle` |
 | 4 | `src/hooks/useOrbitNotifications.ts` | **new** — join/leave lifecycle, toast, quiet refresh, embedded gate |
@@ -754,7 +762,7 @@ sequenceDiagram
 | 1 | `specs/orbit-notifications.md` | this spec |
 | 2 | `INDEX.md` | spec row + "in flight" entry |
 | 3 | `deploy/terraform/workload/main.tf` | 3 Orbit secret ids in `base_secret_ids` + `base_secret_env` |
-| 4 | `deploy/tools/SpaceStroker.Deploy/EnvNaming.cs` | the same 3 ids in `DerivedIds()` |
+| 4 | `deploy/secrets.example.json` | the 3 secrets + `Orbit:PublicKey` / `Orbit:TelegramBotUsername` in `appConfig`, placeholders only (`EnvNaming.DerivedIds()` needs no change — it reads this file's keys) |
 | 5 | `features/orbit-notifications.md` | **at ship**, by `/monkify-ship-feature` (Level: Feature) |
 
 ---
@@ -879,10 +887,10 @@ environment variable — never committed)**
 
 ## 15. Open items for the implementer
 
-1. **The notification event name** (§7.3). The chosen shape is `{playerId}/OrbitNotification`, with the
-   name returned by `GET /orbit` as `notificationEvent` so the client binds exactly what the server
-   sends. If you prefer a constant event name on a per-player *group*, that is equivalent and simpler
-   — but then drop `notificationEvent` from the DTO rather than leaving it unused.
+1. ✅ **Settled at build time — the notification event name is the constant `"OrbitNotification"`.**
+   The per-player group already scopes delivery, and `ActiveGamesEndpoint = "GameReceived"` is the
+   existing precedent for a constant, non-scoped event name. `OrbitDto` therefore carries no
+   `notificationEvent` field (§5.2, §6.3, §7.3).
 2. **`Context.Items` on a Redis backplane.** It is per-connection and lives on the server that owns
    the connection, which is where `LeaveOrbitNotifications` runs — correct as specified. Do not
    "improve" it into a distributed cache.
@@ -899,3 +907,4 @@ environment variable — never committed)**
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from the refined card (#123), written against `origin/release/orbit` — backend `fe9dab6`, front `c5c708c`, meta `119703a`. |
+| 2026-08-02 | Implemented. Two deviations recorded above: the notification event name is the **constant** `"OrbitNotification"` (§15 item 1 settled; no `notificationEvent` on the DTO), and the deploy fix is **Terraform + `secrets.example.json`**, not `EnvNaming.DerivedIds()`, which turned out to be data-driven from the operator's own secrets file (§5.4). Also: the two Telegram column writes use tracked saves rather than `ExecuteUpdateAsync` — single uncontended rows on a human-paced path, and `ExecuteUpdateAsync` cannot run on the EF in-memory provider, so tracked saves keep them unit-testable. |
