@@ -534,17 +534,23 @@ changing the meaning of the first.
 | Setting | Fires when | Evaluated |
 | --- | --- | --- |
 | `CashOutAtThreshold` (existing) | a **win** lifts the balance to ≥ it | after each `WinCredit` |
-| `CashOutFloor` (new) | the balance falls to ≤ it | after each **bet debit**, and on save |
+| `CashOutFloor` (new) | the balance falls to ≤ it | once the round **settles** |
+
+⚠️ **Both act on a RESOLVED bet, never on a placed one.** The floor first shipped evaluated at
+placement and on save, which was wrong in a way that only shows on the running stack: a stake leaves
+the balance the moment it is placed, so the floor could cash a player out **while the bet they had
+just made was still riding** — their money going home mid-round, the round playing on without them.
+A live bet is not a loss yet. `RewardGameConsumer` now evaluates it for every Orbit-funded bettor
+after the round is settled, and neither the placement path nor the settings save touches it.
 
 - **Schema:** `OrbitEnrollment.CashOutFloor` (`decimal?`, precision 18,9), migration
   `AddOrbitCashOutFloor`, EF mapping inline. Additive and nullable — no backfill.
 - **Source:** a new `OrbitCashOutSource.Floor = 5` rather than reusing `Threshold`. A ledger that
   cannot tell "I won enough" from "I have lost enough" cannot explain to a player why their money came
   back — and `GetOrbitHandler` counts only `Manual` toward the daily cap, so `Floor` is exempt for free.
-- **Where it runs:** `IOrbitBetSettlementService.EvaluateFloor`, called from `PlaceOrbitBetConsumer`
-  **after** the bet is registered (the round already in flight plays out; only the remainder goes
-  home), and from `UpdateOrbitSettingsHandler` after a save, so a floor set at or above the current
-  balance means "get me out now" rather than "after one more bet".
+- **Where it runs:** `IOrbitBetSettlementService.EvaluateFloor`, called from `RewardGameConsumer` once
+  the round is settled, for every distinct `FundedByOrbit` bettor in it. Deliberately **not** from
+  `PlaceOrbitBetConsumer` and **not** from `UpdateOrbitSettingsHandler` — see the warning above.
 - **Guards:** it must be ≥ `MinimumCashOut` (below that the reserver could only ever refuse), and a
   balance of 0 reserves nothing — a zero cash-out row would claim money moved when none did.
 
