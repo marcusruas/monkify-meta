@@ -89,7 +89,9 @@ replaced. Audience: players who bounce from the LP into the app and used to feel
 - `src/components/game/GameMonkey.vue` — relaxed the right-column reservation (monkey placement).
 - Re-tokenized/inherited: `GameSidePanel`, `GameStatsPanel`, `GameChatPanel`, `GameConsole`,
   `GameMobileTabs` (Silkscreen → PS2P/VT323), `LoaderSpinner`, `TokenBalance`, `WalletButtons`,
-  `header/PlayerCustomizationModal.vue` (→ `.arcade-panel`), `header/DevAdminButton.vue`.
+  `header/PlayerCustomizationModal.vue` (→ `.arcade-panel`; **superseded by #124** — it is now the
+  shared `ui/ArcadeModal.vue` shell on the grey panel, as is every other overlay),
+  `header/DevAdminButton.vue`.
 
 ## Not covered / follow-ups
 

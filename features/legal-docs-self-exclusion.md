@@ -163,7 +163,9 @@ transfer.
 **Frontend (`monkify-front`)**
 
 - `src/utils/legalGate.ts` — the `ss_terms` contract and the LP page URLs; `src/components/LegalGate.vue`
-  (`<Teleport to="#app">`, `z-[70]`, no `backdrop-filter`); `App.vue` mounts it and gates `ConsentBanner`.
+  (since #124: the shared `ui/ArcadeModal.vue` shell, grey panel, `layer="legal"` = `z-legal` 80,
+  `dismissible: false`, dither backdrop — never `backdrop-filter`); `App.vue` mounts it and gates
+  `ConsentBanner`. `ResponsibleGamingModal.vue` is on the same shell (grey, `standard`).
 - `src/hooks/useSelfExclusion.ts` — `buildSelfExclusionMessage` (byte-identical to the backend),
   state, `exclude()` (returns `'submitted' | 'hopped'`), `resumeFromDeeplink()`.
 - `src/components/header/ResponsibleGamingModal.vue` + the `GameHeader.vue` menu entry (hidden when embedded).

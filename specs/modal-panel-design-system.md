@@ -1,8 +1,21 @@
 # Space Stroker — "Consolidated modal + panel design system" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-02** — merged to `main` in `monkify-front` + `monkify-meta` from
+> `feature/modal-panel-design-system`. Trello card
 > [Apply the consolidated modal + panel design system #124](https://trello.com/c/NIMydn5I/124-apply-the-consolidated-modal-panel-design-system)
-> (2026-08-01).
+> (refined 2026-08-01, shipped 2026-08-02).
+>
+> ⚠️ **Shipped with two acceptance criteria verified in emulation only.** AC #10 (body scroll lock on
+> **iOS Safari**) and AC #20 (manual QA on **a phone**) were checked with an emulated iPhone 390×844
+> in desktop Chrome with `html.light-graphics` forced on — no real iOS device was available. The
+> scroll-lock-vs-bottom-sheet fight this spec predicts (§7.4) cannot be reproduced in emulation, so
+> **check that first on a real iPhone.** If it misbehaves, the fix is to drop `useBodyScrollLock`'s
+> wiring in `ArcadeModal.vue` — it is a small edit, **not** a revert: the lock did not land as its
+> own commit (decision 12 wanted that; it ended up woven into the shell).
+>
+> ⚠️ **This spec was rewritten mid-implementation.** The first pass was built from the card's prose
+> without reading the design reference and was wrong on nine counts — see §3.1. Decision 1 is
+> superseded by decision 13. Read §3.1 before trusting any pre-2026-08-02 statement here.
 > Repos affected: **`monkify-front`** (the only app repo touched) and this doc + `conventions/frontend.md`
 > in `monkify-meta`. **`monkify-backend` is NOT touched** — frontend-only.
 >
@@ -119,7 +132,7 @@ raised during this spec's code exploration and answered by the user (Short mode)
 
 | # | Decision |
 | --- | --- |
-| 1 | **Two materials, not two "overlay tiers".** Grey `.arcade-frame` is the **default**; the cyan variant is the **accent**. Both stay in the design system. The "tutorial tier" framing (keyed on how often a player sees the overlay) dies with the Quick Tour; the materials do not. `conventions/frontend.md`'s "Two overlay tiers" bullet is rewritten as a **material** rule. |
+| 1 | ⚠️ **SUPERSEDED 2026-08-02 — see decision 13. Two panels, grey and black.** The original wording ("two materials, not two overlay tiers"; the tutorial tier "dies with the Quick Tour") was written without reading the design doc and is the opposite of what the doc specifies. |
 | 2 | **Cyan = at most one accent element per surface, reserved for the no-risk / try-it path.** Matches what already shipped (`TRY IT FREE` on the dashboard). One documented future exception: #130's guide page may use cyan on its tip/callout blocks. |
 | 3 | **Everything content-shaped takes grey-or-cyan** — modals, panels, cards, pages. This closes the shipped `/` (on `.arcade-frame`) vs `/game/stats` (on `.arcade-panel`) split. |
 | 4 | **Named exceptions — do not migrate:** the game page's own content and furniture (`GameTerminal`, `GameConsole`, `GameTyper`, `GameMonkey`, the lever, Edson) **and `GameTypeCard`** (rebuilt on the owner's mock, merged 2026-08-01, with clipped `.pixel-border-outer/-inner` art frames and a deliberate three-way archetype accent — race → primary, preset → cyan, lottery → magenta — that knowingly contradicts decision 2). |
@@ -131,6 +144,31 @@ raised during this spec's code exploration and answered by the user (Short mode)
 | 10 | **Mobile: bottom sheet below `lg` (1023px), no drag-to-dismiss.** Reuses the existing `useIsMobile()` / `max-lg:` boundary rather than inventing a breakpoint. Closes by X, backdrop or Esc only. |
 | 11 | **Scope edges.** `QuickTourModal` and `ResponsibleGamingModal` get the **z-token swap only** (no material or shell change) so AC #6 stays literally true while #130 is still pending — nothing is thrown away, it is two lines. `ComingSoonPage` (`/soon`) **joins the page-migration commit**: it is linked from the shipped dashboard, so leaving it on the cabinet material recreates exactly the split decision 3 exists to close. |
 | 12 | **The page migrations land as their own commit,** separable from the shell work, so they can be dropped if QA gets expensive (AC #21). Scroll lock is a second such commit (decision 7). |
+| 13 | **TWO PANELS — grey and black (2026-08-02, supersedes decision 1).** The reference is the Claude Design project's `Space Stroker Modals.dc.html` (turn 1 → chrome direction **1b hairline** adopted; turn 2 → the full dialog set in it; turn 3 → the second panel). Its own spec card is headed **"SHARED BY BOTH TIERS" / "WHAT DIFFERS"** — the two panels **coexist**; they are not a materials rule and the second one does not die with the Quick Tour. What differs is `FRAME` (1px hairline vs 2px cyan), `FILL` (surface vs near-black), `TITLE` (left+amber vs centred cyan + sparkles), `FOOTER` (right-aligned pair vs one centred ghost), `ATTENTION` (recedes vs earns it) and `FREQUENCY` (every session vs once). What is shared is the whole geometry. **Naming:** the panels are called **`grey`** and **`black`** — prop value, CSS modifier and review vocabulary alike. The doc's own "tier 1 / tier 2" labels are deliberately not used: a tier name encodes a ranking that goes stale (it is how the KB ended up describing a "tutorial tier" with no consumer), a colour name cannot. |
+| 14 | **How to choose a panel (owner's rule, 2026-08-02).** Two axes: **interaction** (is the player *doing* something, or only reading something short?) and **tone** (serious — money, identity, compliance, failure — or light: teaching, welcoming, celebrating). **Grey is the default; a surface goes black only when it is BOTH informative-only-and-brief AND light in tone.** Requiring both keeps the set small and legible: a dropped-connection notice is brief and informative but serious → grey; the provably-fair explainer is informative but long → grey; the quick tours clear both → black, and are the only black surface in the app. ⚠️ The "needs BOTH" tiebreak is the spec's reading of the owner's two axes, not their literal words — change it here, not at a call site. This **replaces** the earlier "did the player ask for it?" heuristic, which was inferred from the design doc's frequency column and produced the same answers for the wrong reason. |
+| 15 | **Grey page fill is scoped to two pages (owner's call, 2026-08-02).** `/game/history` and `/game/stats` take `.arcade-frame--grey` (the grey panel's `--color-surface` on a 1px hairline) so they read as part of the dialog family. `/error`, `/soon`, the dashboard's `HomeSection` and the side panel's mobile chat box **stay on the near-black `.arcade-frame`**. The owner was shown that this recreates the `/` vs `/game/stats` mismatch decision 3 exists to close, and chose this scope anyway — so it is a recorded exception, not drift. Do not unify without asking. |
+
+### 3.1 Where the reference overrode the original spec (2026-08-02)
+
+The first implementation pass was built from the card's prose, not from the design doc. Re-reading the
+doc changed these, and each is now in the code:
+
+| # | Original spec said | The design doc says | Resolution |
+| --- | --- | --- | --- |
+| 1 | One material rule, `tone: 'grey' \| 'cyan'` swapping a border colour | Two whole panels — fill, frame, titlebar layout, title colour, footer layout all differ | `variant: 'grey' \| 'black'`, two skin classes |
+| 2 | Frame fill = near-black (`.arcade-frame`) | Grey panel fill is `--color-surface` — **lifted above** the page, not below it | `.dialog--grey` on `--color-surface`; `--color-void-deep` is the black panel |
+| 3 | Titlebar = an 11px heading + an SVG ✕ | 9px title behind a **6px amber square**, on a sunken bar, with a **bordered VT323 `X`** box (20px desktop / 28px mobile) | Rebuilt |
+| 4 | Titlebar and footer inherit the body fill | Both sink to `--color-surface-bar` (0.175 vs the body's 0.215) | New token + `.dialog--grey >` rules |
+| 5 | No status strip | A full-bleed `ERR` (25°) / `OK` (205°) strip under the titlebar — it is in the doc's own spec list | `#strip` slot + `.dialog__strip*` |
+| 6 | Footer = `px-[18px] py-3`, no button spec | `12px 14px`, and a full primary/ghost × default/hover/focus/disabled matrix | `.dialog__footer` + `.btn-dialog*` |
+| 7 | Everything is a bottom sheet below `lg` | **Two** treatments: sheet for compact/standard (M1), **full screen** for wide (M2) | `.dialog--sheet` / `.dialog--fullscreen` |
+| 8 | Quick Tour gets a z-token swap only | Turn 3 draws it as the second panel, at wide 720 / standard 520 | Rebuilt on `variant="black"` |
+| 9 | `ResponsibleGamingModal` stays bespoke (#130 deletes it) | — | **Migrated anyway.** Leaving one hand-rolled overlay in place means the app still ships a third look, which is the whole thing #124 exists to stop; #130 converts it to a page and reuses the content either way. |
+
+**One place the code deliberately does NOT follow the doc:** the tour's stacked art thumbnail stays at
+`w-24`, not the doc's 52px. The doc draws a dashed placeholder there; these are real sprites drawn for
+a wider box, and at 52px `TourStepArt`'s `overflow-hidden` clips them to an unreadable fragment
+(confirmed in the browser). Noted at the call site.
 
 ---
 
@@ -207,18 +245,43 @@ repeating gradient costs nothing on a software rasterizer — the same reasoning
 
 No `html.light-graphics .overlay-backdrop` override is needed — there is nothing expensive in it.
 
-### 5.4 Geometry tokens (shell-internal, plain Tailwind)
+### 5.4 Dialog fills (`colors.css`) — added 2026-08-02
+
+The design doc's oklch values are literally this app's void ramp, which is how we know it was drawn
+against this codebase. Four steps were missing and are now tokens:
+
+| Token | Value | Used by |
+| --- | --- | --- |
+| `--color-surface-bar` | `oklch(0.175 0.024 280)` | the grey panel's titlebar + footer bar (sunken **below** the body's `--color-surface` 0.215 — do not substitute `--color-bg` 0.158, it kills the separation) |
+| `--color-surface-row` | `oklch(0.19 0.024 280)` | list rows, stat cells |
+| `--color-surface-inset` | `oklch(0.17 0.02 280)` | inset readouts, text inputs |
+| `--color-void-deep` | `oklch(0.09 0.014 280)` | the **black** panel's fill — deeper than `--color-void` |
+
+Already present and reused verbatim: `--color-surface` (0.215 0.026 280), `--color-line`
+(0.4 0.035 282), `--color-void` (0.115 0.018 280), `--color-cyan` (0.83 0.125 205),
+`--color-primary` (#ffa214). All exposed as Tailwind utilities (`bg-surface-bar`, `bg-void-deep`, …).
+
+### 5.5 Geometry — declared in `arcade.css`, not as utilities
 
 | Token | Desktop | Below `lg` (1023px) |
 | --- | --- | --- |
-| `compact` | `max-w-[380px]` | full-width sheet |
-| `standard` | `max-w-[520px]` | full-width sheet |
-| `wide` | `max-w-[720px]` | full-width sheet |
-| Titlebar height | `h-9` (36px) | `h-11` (44px) |
-| Body padding | `p-[18px]` | `p-[18px]` |
-| Footer padding | `px-[18px] py-3` (12px) | same |
-| Border / radius | `border border-[var(--color-line)] rounded-arcade` (1px, 4px) | same |
-| Max height | `max-h-[90dvh]` | `max-h-[90dvh]` |
+| `compact` | `lg:max-w-[380px]` | full-width **sheet** |
+| `standard` | `lg:max-w-[520px]` | full-width **sheet** |
+| `wide` | `lg:max-w-[720px]` | **full screen** (`.dialog--fullscreen`) |
+| `xwide` | `lg:max-w-[1024px]` | **full screen** |
+| Titlebar height | 36px | 44px |
+| Close box | 20px (22px black) | 28px |
+| Body padding | 18px (20/18 black) | same |
+| Footer padding | `12px 14px` | `12px 16px 20px` (safe area) |
+| Buttons | 8px type, `10px 13px` | 9px type, `15px 13px` |
+| Border / radius | 1px `--color-line` (2px cyan on black) / 4px | sheet squares the bottom; full screen squares all four |
+| Max height | 90dvh | 90dvh (sheet) · none (full screen) |
+
+⚠️ **The cap, the radius and the mobile treatments live in `arcade.css`, not as Tailwind utilities on
+the component.** `arcade.css` is imported after `@tailwind utilities` at equal specificity, so a
+`max-h-[90dvh]` / `max-lg:rounded-none` utility would win over `.dialog--fullscreen`'s override — and
+a media query changes neither specificity nor order. This was caught in the browser: the full-screen
+tour was clamped to 761px of an 846px viewport by exactly that utility.
 
 **No env var, no config file, no secret** is introduced by this card.
 
@@ -239,23 +302,33 @@ No `html.light-graphics .overlay-backdrop` override is needed — there is nothi
 
 ```ts
 interface Props {
-  open: boolean;
+  open?: boolean;                           // default true
   /** Rendered in the titlebar AND wired to aria-labelledby. Omit only with chrome="none". */
   title?: string;
-  size?: 'compact' | 'standard' | 'wide';   // default 'standard'
-  tone?: 'grey' | 'cyan';                   // default 'grey' (decision 2: cyan is scarce)
+  size?: 'compact' | 'standard' | 'wide' | 'xwide';   // default 'standard'
+  /** WHICH PANEL. Grey unless the surface interrupts the player (decision 13). */
+  variant?: 'grey' | 'black';               // default 'grey'
   /** false ⇒ no Esc, no backdrop click, no X. A first-class mode, not an escape hatch. */
   dismissible?: boolean;                    // default true
   /** Which named layer this overlay sits on, and whether it clears the 64px header. */
   layer?: 'modal' | 'blocking' | 'legal';   // default 'modal'
   /** 'none' ⇒ no titlebar; the consumer renders its own <h2 :id="titleId"> in the body. */
   chrome?: 'titlebar' | 'none';             // default 'titlebar'
+  /** 'split' when the footer carries a hint / RESET / step dots left of the actions. */
+  footerLayout?: 'end' | 'split';           // default 'end'
 }
-defineEmits<{ (e: 'close'): void }>();
+/** The reason travels with the event — the quick tour reports which route dismissed it. */
+defineEmits<{ (e: 'close', reason: 'x' | 'esc' | 'backdrop'): void }>();
 ```
 
-Slots: `default` (body, receives `{ titleId }`), `footer` (optional), `titlebar-actions` (optional,
-rendered left of the X).
+Slots: `default` (body, receives `{ titleId }`), `strip` (optional, full-bleed under the titlebar and
+**outside the body's scroll**), `footer` (optional), `titlebar-actions` (optional, left of the X).
+
+The **anatomy** — frame, both skins, titlebar, sparkles, close box, body, footer, strip, buttons and
+the content helpers (`.dialog-copy`, `.dialog-eyebrow`, `.dialog-field`, `.dialog-input`,
+`.dialog-label`, `.dialog-row`, `.dialog-cells`) — lives in `arcade.css` under **"THE DIALOG SHELL"**.
+`ArcadeModal.vue` is the only component that writes `.dialog*` **structure** classes; consumers use
+the content helpers and `.btn-dialog`.
 
 Structure:
 
@@ -602,8 +675,11 @@ spec's code exploration, marked **⚠️ amended** and answered by the user on 2
    consumers, at the body heading carrying the shell's `titleId` — §7.1.)*
 10. Given a modal is open, when the player scrolls the page, then the content behind the backdrop does
     not scroll — verified on desktop and iOS Safari. **Its own commit; droppable independently.**
-11. Given a viewport below `lg` (1023px), when a modal opens, then it renders as a bottom sheet capped
-    at `90dvh` with internal scroll for overflowing content, and there is no drag-to-dismiss gesture.
+11. **⚠️ amended.** Given a viewport below `lg` (1023px), when a **compact or standard** modal opens,
+    then it renders as a bottom sheet capped at `90dvh` with internal scroll and no drag-to-dismiss
+    gesture; when a **wide** modal opens, then it renders **full screen** with both bars pinned and
+    the body scrolling. The design doc draws both (M1 sheet, M2 full screen) — a 720 dialog is
+    Provably Fair or the tour, and squeezing its readouts into a 90dvh sheet makes a scroll tube.
 12. Given `html.light-graphics` is active (every phone, and hardware-acceleration-off desktops), when a
     modal opens, then the backdrop renders as a diagonal dither over void at ~55% and never depends on
     `backdrop-filter`.
@@ -623,8 +699,20 @@ spec's code exploration, marked **⚠️ amended** and answered by the user on 2
 17. Given `GameTypeCard` and the game page's own furniture (terminal, console, typer, lever, Edson) —
     **and the docked side-panel cabinet** — when the change ships, then they are visually unchanged:
     clipped pixel-border art frames and the race/preset/lottery archetype accents intact.
-18. Given any surface that uses the cyan accent, when it renders, then at most one element on that
-    surface carries cyan and every other element uses the grey material.
+18. **⚠️ amended.** Given a **grey** panel, when it renders, then at most one element on it carries
+    cyan (in practice: the keyboard focus ring, or a verified/revealed value in a readout). Given a
+    **black** panel, then cyan is the frame itself and the rule does not apply — its interior accent
+    is amber (badges, step labels, the single action). Decision 13.
+
+22. **Added 2026-08-02.** Given the quick tours, when one opens, then it renders on the **black
+    panel** — near-black fill, 2px cyan frame, centred cyan title between pixel sparkles, filled
+    amber step badges on a dashed amber rail with every step visible and no pagination, and one
+    centred amber ghost `GOT IT!` — and its dismissal analytics still distinguish
+    `got_it` / `x` / `esc` / `backdrop`.
+
+23. **Added 2026-08-02.** Given `ResponsibleGamingModal`, when it opens, then it renders through the
+    shell on the grey panel rather than its own hand-rolled teleport, backdrop, frame and close
+    glyph, so no bespoke overlay remains in the app.
 19. Given `monkify-meta/conventions/frontend.md` after the change, then it documents the two materials
     (grey default / cyan accent), the one-accent-per-surface rule, the named z-index scale **and the
     teleport-above-60 rule**, the shell's dismissal + a11y contract, the mobile bottom-sheet rule, and
@@ -698,3 +786,6 @@ the console and re-check steps 1–3 — nothing may lose its backdrop or its fr
 | Date | Change |
 | --- | --- |
 | 2026-08-01 | Initial spec from refined card #124, plus four card-inventory corrections found in code (`MobileWalletModal` teleport/z, boot overlays are page-replacements, the side-panel cabinet, `ComingSoonPage`) and the four resolving decisions (8, 9, 11 + the header carve-out) taken with the user in Short mode. |
+| 2026-08-02 | Owner review: the quick tour came back **squished**. The doc's 720/520 sizing is drawn around 78px dashed placeholders and 8px labels; the real tour is five illustrated steps and shipped at 1024. Added a fourth size token **`xwide` 1024** to the shell ("big modals on PC") and restored the tour's own scale — 4–5 steps → `xwide`, 3 steps → `wide`, 40px badges, 12px labels, the original gaps. `xwide` is ours, not the doc's, and is documented as deliberately rare. |
+| 2026-08-02 | Owner review: **decision 14** (the two-axis rule for choosing a panel — interaction + tone, black needs both) replaces the inferred "did the player ask for it?" heuristic, and the panel **names** are fixed as `grey` / `black` rather than the doc's tier labels. **Decision 15**: `/game/history` and `/game/stats` move to a grey page fill (`.arcade-frame--grey`); the other four `.arcade-frame` consumers deliberately stay near-black. Both written into `conventions/frontend.md`. |
+| 2026-08-02 | **Rewritten against the actual design reference.** The first pass was built from the card's prose; the user supplied the Claude Design project export (`Space Stroker Modals.dc.html` + `support.js`) and the spec was wrong on nine counts — see §3.1. Decision 1 is superseded by **decision 13 (two panels: grey and black)**. Adds §5.4 dialog fills, rewrites §5.5 geometry (including the arcade.css-vs-utilities cap hazard, caught in the browser), §7.1 shell props (`variant`, `footerLayout`, `strip` slot, close reason). Scope additions: the Quick Tour is rebuilt on the black panel and `ResponsibleGamingModal` is migrated rather than left bespoke. Verified in the browser at desktop, 502px and emulated iPhone 390×844 with `html.light-graphics` on. |

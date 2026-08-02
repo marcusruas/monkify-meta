@@ -84,7 +84,8 @@ covers the current round). See `features/provably-fair-final.md`.
   `SpaceStroker.Tests.Integration/GamesHistoryFlowTests.cs` (happy path + mineOnly).
 
 **Frontend (`monkify-front`):**
-- `src/pages/GameHistoryPage.vue` — the history page (arcade-panel; type dropdown, mine-only toggle,
+- `src/pages/GameHistoryPage.vue` — the history page (since #124: `.arcade-frame .arcade-frame--grey`,
+  the grey panel material, **not** `.arcade-panel`; type dropdown, mine-only toggle,
   paginated table + mobile cards, per-row Verify link-out, request-sequence guard).
 - `src/components/GameHeader.vue` — the header menu button (Settings + History + dev Admin), click-away
   close; `src/components/header/DevAdminButton.vue` renders as a menu row.

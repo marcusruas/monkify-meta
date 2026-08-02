@@ -49,7 +49,8 @@ nothing about the DOM prevents it painting over them — only these checks do.
   covered. It does **not** re-fire on round rollover (the instance changes, the type does not).
 - **Never two at once.** A first-timer who dismisses the overview and walks straight into a game gets
   no mode tour on that entry; it opens on the next one.
-- The terms gate is the one overlay that **outranks** the tour (`z-[70]` vs `z-[60]`), so a tour
+- The terms gate is the one overlay that **outranks** the tour (`z-legal` 80 vs `z-modal` 60 — the
+  named scale from #124; it was `z-[70]` vs `z-[60]`), so a tour
   opened under it would be invisible yet still own the Esc handler. Both auto-open watchers therefore
   take `termsAccepted` as a **dependency** and fire the moment ACCEPT is clicked — otherwise the one
   player the overview exists for is the only one who never sees it.
@@ -82,10 +83,15 @@ different browser or device. For a once-ever onboarding modal that is cheaper th
 Consequences worth knowing: there is **no entity, migration, handler change or backend test** for this
 feature, and `useQuickTour` makes **no network call at all**.
 
-**Presentation.** The modal is `<Teleport to="#app">` (the header's `backdrop-blur-md` makes it the
-containing block for `position: fixed` descendants — see `conventions/frontend.md` → Overlays). It is
-the **tutorial/help tier** (black + cyan frame), not the system tier — see the two-tier rule in
-`conventions/frontend.md`. Below `lg` the steps stack vertically in a `max-h-[90dvh] overflow-y-auto`
+**Presentation.** Since #124 the tour renders through the shared `ui/ArcadeModal.vue` shell, which
+owns the teleport to `#app` (the header's `backdrop-blur-md` makes it the containing block for
+`position: fixed` descendants — see `conventions/frontend.md` → Overlays), the dismissal contract,
+Esc routing via `useOverlayStack`, the focus trap and the dither backdrop. This file owns only the
+step rail. It is **the app's one BLACK panel** (`variant="black"`: `--color-void-deep`, 2px cyan
+frame + glow, centred cyan title between pixel sparkles, one centred amber ghost `GOT IT!`) —
+everything else is grey. See `conventions/frontend.md` → "Two panels": black is only for a surface
+that is both brief-and-informative **and** light in tone, and the tours are the only one.
+Size comes from the shell: `xwide` (1024) at 4–5 steps, `wide` (720) at 3. Below `lg` the steps stack vertically in a `max-h-[90dvh] overflow-y-auto`
 panel, the overview folds PULL THE LEVER into "tap PLACE BET" to match the mobile bet panel (a
 **4-step** mobile tour), and every animated art slot freezes under `html.light-graphics` — which every
 phone runs. The connect-wallet step is conditional on the header actually showing a wallet; since

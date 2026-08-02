@@ -88,8 +88,9 @@
   `fixed inset-0` overlay authored **inside the header** resolves against the **64px header box**, not
   the viewport. Two consequences, and they pull in opposite directions:
   - **Modals must be teleported out** — `<Teleport to="#app">` (not `body`: `#app` keeps the app's
-    styling/inheritance chain). `GameFairModal.vue` and `PlayerCustomizationModal.vue` both do this.
-    Their `z-[60]` / `z-50` beat `App.vue`'s root `z-10`, so they paint above everything.
+    styling/inheritance chain). `ArcadeModal.vue` does this unconditionally for every overlay, so
+    individual modals no longer decide it. Their `z-modal` (60) beats `App.vue`'s root `z-app` (10),
+    so they paint above everything below the blocking/legal layers — see the named z-index scale.
   - **Click-away backdrops must *not* be teleported** — they need to sit above the page but **below
     their own dropdown**, which is unexpressible once teleported: `App.vue` renders its root as
     `relative z-10` (its own stacking context), so the header's `z-40` is sealed inside it and a
@@ -119,22 +120,152 @@
   both take the plain-Tailwind route for exactly this reason. Reach for the arcade **tokens**
   (`bg-primary`, `text-terminal-light`, `border-terminal-border`) to stay on-system either way.
   See `specs/mobile-preset-keypad.md` → §7.3.
-- **Two overlay tiers — this is deliberate, do not "consolidate" it away (decided 2026-07-29):** the app
-  runs **two** modal treatments on purpose, chosen by what the overlay is *for*, not by who wrote it.
-  - **System tier — neutral hairline.** Everything the player opens *themselves* and may open again and
-    again: Settings, Provably Fair, Connect Wallet, errors/rejected-tx, and the side panels. Quiet
-    chrome that recedes: 1px `--color-line` border, `--radius-arcade`, amber reserved for the primary
-    action. This is the tier the Claude Design spec below describes.
-  - **Tutorial / help tier — black + cyan frame.** Onboarding and how-to-play overlays: they appear
-    **unprompted**, have to earn attention, and are **shown once then never again** (the Quick Tour,
-    and anything reached from `How to play`). A louder CRT-cyan frame on near-black is correct here
-    precisely *because* it does not have to live comfortably beside repeat-use chrome. The test is
-    frequency, not subject matter: **Provably Fair is system tier even though it explains something**,
-    because the player opens it themselves and reopens it every round.
-  A future agent finding `QuickTourModal` styled differently from `GameFairModal` is looking at the
-  rule, not a bug. What the tiers **do** share: size scale, titlebar/padding geometry, scroll-at-90dvh,
-  dismissal contract (X / Esc / backdrop / primary), and a **dithered** backdrop rather than a blurred
-  one (`backdrop-filter` is stripped under `html.light-graphics`).
+- **Two panels — grey and black (Trello #124, 2026-08-02):** the design source is the Space Stroker
+  modal design doc (`Space Stroker Modals.dc.html`, chrome direction **1b hairline**, adopted). It
+  defines **two skins over one geometry**.
+
+  **The names are `grey` and `black`** — the prop value (`variant="grey" | "black"`), the CSS modifier
+  (`.dialog--grey` / `.dialog--black`, `.arcade-frame--grey`) and the word to use in review. The
+  design doc calls them "tier 1" and "tier 2"; **we deliberately do not.** A tier name encodes a
+  ranking nobody remembers six months later, and it is exactly how the previous KB ended up
+  documenting a "tutorial tier" that no longer matched the code. A colour name cannot rot.
+
+  **HOW TO CHOOSE (owner's rule, 2026-08-02) — two axes, and black needs BOTH:**
+
+  1. **Interaction.** Is the player *doing* something here — typing, choosing, confirming, filtering,
+     signing? → **grey**. Is it purely something to *read*, and short? → black is available.
+  2. **Tone.** Is this serious — money, identity, compliance, a failure, a broken connection? →
+     **grey**. Is it light — teaching, welcoming, celebrating? → black is available.
+
+  **Grey is the default and the safe answer. A surface only goes black when it is BOTH
+  informative-only-and-brief AND light in tone.** Requiring both is what keeps the set small and
+  keeps the meaning legible: a dropped-connection notice is short and informative but *serious*, so
+  it stays grey; a long provably-fair explainer is informative but *not brief*, so it stays grey.
+  Today the quick tours are the only black surfaces in the app, and that is the intended density —
+  if black starts showing up on a third and fourth surface, the rule is being read too loosely.
+
+  ⚠️ The "needs BOTH" tiebreak is this document's reading of the two axes above, not something the
+  owner stated in those words. If a future surface makes it feel wrong, change it here rather than
+  quietly making an exception at the call site.
+
+  | | **GREY** | **BLACK** |
+  | --- | --- | --- |
+  | The player is | doing something — typing, choosing, confirming, signing | reading something short |
+  | Tone | serious: money, identity, compliance, failures | light: teaching, welcoming, celebrating |
+  | Frame | 1px `--color-line` hairline | **2px `--color-cyan`** + a cyan glow |
+  | Fill | `--color-surface` (lifted) | `--color-void-deep` (below the void) |
+  | Titlebar | title **left**, amber, behind a 6px amber square, on a sunken `--color-surface-bar` | title **centred**, cyan, between two pixel sparkles, on the panel's own fill |
+  | Footer | right-aligned button pair on the sunken bar | one centred amber ghost button |
+  | Intent | it recedes | it earns the attention it takes |
+  | Today | everything else | the quick tours, and nothing else |
+
+  **Shared by both, by construction in the shell:** sizes `compact` 380 / `standard` 520 / `wide` 720
+  (mobile 100%), titlebar 36px desktop / 44px mobile, 18px body, 12–14px footer, 4px radius, a 90dvh
+  cap with the body scrolling and both bars pinned, the dither backdrop, and dismissal by X / Esc /
+  backdrop / the primary button.
+
+  - **Where each one landed, and why** — the rule applied to what shipped:
+    | Surface | Panel | Which axis decided it |
+    | --- | --- | --- |
+    | Settings, wallet picker, name prompt, Responsible Gaming | grey | interactive **and** serious |
+    | 18+/Terms gate | grey | compliance — the most serious surface in the app |
+    | Provably Fair | grey | informative, but nowhere near brief |
+    | Idle / boot-recovery / relaunching | grey | brief and informative, but a broken connection is **not** fun — tone breaks the tie |
+    | The quick tours | **black** | short, purely to read, and light in tone — the only surface that clears both |
+  - **Cyan stays scarce on a grey panel: at most ONE element carries it.** In practice that is the
+    keyboard focus ring, `TRY IT FREE` on the dashboard, and a verified/revealed value in a readout.
+    Documented future exception: the How to play guide page may use cyan on its tip/callout blocks.
+    On a **black** panel cyan is the frame itself, so the rule does not apply — the accent inside it
+    is amber (badges, step labels, the action).
+  - **The anatomy lives in `arcade.css` under "THE DIALOG SHELL"**, not in Tailwind utilities in the
+    component — see the cascade rule above; a dialog built from utilities could not be overridden by
+    `arcade.css` anyway, and one place holding the whole anatomy is what stops the drift that filed
+    this card. `ArcadeModal.vue` is the **only** component that writes `.dialog*` structure classes.
+  - **`.btn-dialog` inside a dialog, `.btn-arcade` everywhere else.** The dialog button is flat —
+    1px, 4px radius, Press Start 2P 8px, 10/13px padding, hover to amber, a 2px cyan focus ring,
+    `.35` disabled — because `.btn-arcade`'s 3rem bevelled body with a 5px amber key-drop is the
+    cabinet's furniture and reads as the only 3D object inside a 36px-titlebar hairline dialog. Do
+    **not** restyle `.btn-arcade` to match: it is on the lever, the wallet cluster, the dashboard and
+    the cards. `PrimaryButton` / `SecondaryButton` are likewise not dialog controls.
+  - **Sizes: `compact` 380 · `standard` 520 · `wide` 720 · `xwide` 1024.** The design doc draws the
+    first three; **`xwide` is ours** (2026-08-02) — the "big modal on PC" size, added because the
+    5-step quick tour lays five illustrated steps out side by side and at 720 each column is ~128px,
+    which shrinks the art to a stamp and wraps every label. **Keep it rare.** If a surface reaches for
+    `xwide` and is not a wide illustrated row, it probably wants a page, not a dialog. Note that a
+    consumer choosing a size is also choosing its mobile treatment: `wide` and `xwide` go **full
+    screen** below `lg`, `compact` and `standard` become bottom sheets.
+  - **`.arcade-panel` is the cabinet, not a content surface.** Its amber bevel and key-drop are the
+    material the machine is *made of*. Nothing content-shaped should use it.
+  - **Named exceptions — a future agent finding these different is looking at the rule, not a bug:**
+    the game page's own furniture (`GameTerminal`, `GameConsole`, `GameTyper`, `GameMonkey`, the
+    lever, Edson) and **the desktop docked side-panel cabinet** (metal bezel + rivets + recessed CRT —
+    the same cabinet language, on the most-viewed screen); and **`GameTypeCard`**, whose deliberate
+    three-way archetype accent (race → primary, preset → cyan, lottery → magenta) knowingly
+    contradicts the one-accent rule.
+  - **Pages and sections use `.arcade-frame`**, the same flat hairline family — `.dialog--grey` is
+    its overlay member, with the sunken bars a page has no use for. Two fills exist and **which one a
+    surface takes is a recorded decision, not a free choice**:
+    - `.arcade-frame` alone — near-black. `/`'s `HomeSection`, `/error`, `/soon`, and the side
+      panel's mobile chat container.
+    - `.arcade-frame .arcade-frame--grey` — the grey panel's `--color-surface` on a 1px hairline, so
+      the page reads as part of the dialog family. **`/game/history` and `/game/stats` only**
+      (owner's call, 2026-08-02).
+
+    ⚠️ These two lists disagree on purpose. The owner was shown that splitting them recreates the
+    `/` vs `/game/stats` mismatch decision 3 was written to close, and chose this scope anyway. **Do
+    not unify them without asking** — a future agent finding them different is looking at the
+    decision, not at a bug.
+- **One named z-index scale — and the teleport rule that makes it mean anything (Trello #124):**
+  the values live as `--z-*` custom properties in `colors.css` and are exposed as Tailwind utilities
+  (`z-app`, `z-modal`, …) via `theme.extend.zIndex`. **Never write a literal `z-*` on a root-level
+  fixed overlay again.**
+
+  ```
+  INSIDE the app root (composited at 10):   base 0 · app 10 · furniture 20 · header 40 · popover 50
+  TELEPORTED siblings of the app root:      modal 60 · blocking status 70 · legal gate 80
+                                            toast 9999 (vue3-toastify, library-owned)
+  ```
+
+  The mechanism matters more than the numbers: `App.vue`'s root is `relative z-app` — **its own
+  stacking context** — so **anything rendered inside it can never paint above a teleported modal,
+  whatever z-index you give it.** The idle overlay at `z-40` was not losing to `z-[60]`; its entire
+  subtree was composited at `10`. **Teleporting it, not renumbering it, was the fix.** Therefore:
+  **every value ≥ 60 must be `<Teleport to="#app">`** (never `body` — `#app` keeps the app's style
+  inheritance chain). The legal gate sits on top of everything, which is a compliance requirement.
+- **All overlays go through `ArcadeModal.vue` (`src/components/ui/`) — do not hand-roll another one:**
+  it owns the whole contract, so surfaces cannot drift apart again.
+  - **Props:** `variant` (`grey` default / `black`), `size`, `layer`, `dismissible`, `chrome`,
+    `footerLayout`. Slots: `default` (body, exposes `titleId`), `strip`, `footer`, `titlebar-actions`.
+  - **Geometry:** four size tokens (`compact` 380 / `standard` 520 / `wide` 720 / `xwide` 1024);
+    titlebar 36px
+    desktop, 44px below `lg`; body padding 18px; footer 12–14px; 4px radius; `max-h-[90dvh]` with the
+    body as the internal scroll container. **No consumer declares its own max-width or max-height.**
+  - **Status strip:** a full-bleed `ERR` (25° hue) or `OK` (205° cyan) bar between the titlebar and
+    the body, outside the body's padding and its scroll, so a failure or a verification result stays
+    visible while the body scrolls under it. **Failures go here, not into a red line in the body.**
+  - **Backdrop = `.overlay-backdrop`: void at 55% + a 9px 45° dither. NEVER `backdrop-filter`** — it
+    is stripped under `html.light-graphics`, which every phone runs, so a blurred backdrop degrades
+    invisibly to a flat wash.
+  - **Dismissal:** X, Esc and backdrop all produce the **same** outcome and fire the same `close`
+    event. (`DisplayNamePrompt` routes all three to `skip()`, because skipping is the recorded "asked
+    and declined" outcome and a dismissal must stick.) **`dismissible: false` is a first-class mode**,
+    not a per-component escape hatch — `LegalGate`, `GameIdleOverlay`, `BootRecovering` and
+    `EmbedRelaunching` use it. **Blocking overlays must never gain Esc or backdrop dismissal**;
+    dismissing the 18+/Terms gate by Esc is a compliance bug, not a UX improvement.
+  - **Esc routing is stacked, not per-component** (`useOverlayStack.ts`): one document listener, and
+    only the **topmost** overlay sees the key. A blocker opening over a modal therefore *swallows*
+    Esc rather than closing the modal sealed underneath it — which a per-component
+    `window.addEventListener` cannot express, because every mounted listener fires.
+  - **A11y package:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` wired to the shell's
+    generated `titleId` (exposed as a slot prop, so `chrome="none"` consumers point it at their own
+    body heading), focus trap on the topmost overlay only (`useFocusTrap.ts`), **safe** focus restore
+    (the trigger is often gone — the wallet modal's lives in a popover that closed — so restore falls
+    back to `#app` and never throws), and a count-based body scroll lock (`useBodyScrollLock.ts`,
+    `overflow` on `<html>`, never `position: fixed` on `<body>`).
+  - **Mobile: a bottom sheet below `lg` (1023px)** — full width, `90dvh`, internal scroll, **no
+    drag-to-dismiss**. Reuses the existing `useIsMobile()` / `max-lg:` boundary; no new breakpoint.
+  - **Build it with plain Tailwind + arcade tokens**, never by adopting `.arcade-panel`/`.btn-arcade`
+    and overriding their box — see the cascade rule above.
 - **Design workflow (required for any new visual surface):** a spec describes *behavior*; it does not
   describe *design*. Building a component straight from spec prose reliably produces something that
   passes its acceptance criteria and still looks wrong. So, before writing markup for a new

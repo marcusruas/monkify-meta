@@ -101,6 +101,10 @@ unchanged.
   broadcast → `submitBet`).
 - `monkify-front/src/components/wallet/MobileWalletModal.vue` — **new.** The single picker: 2 tiers, the
   connect-method toggle, the Android new-tab disclaimer, the store-link fallback.
+  ⚠️ **Changed by #124:** it now renders through `ui/ArcadeModal.vue` (grey panel, `standard`) and
+  **teleports to `#app` at `z-modal` (60)**. It previously teleported to **`body` at `z-[100]`** —
+  i.e. the wallet picker could paint **over the 18+/Terms gate** (`z-legal` 80). Its sheet boundary
+  also moved from `sm:` to `lg:`, so landscape phones get the bottom sheet too.
 - `monkify-front/src/components/game/GameConsole.vue` — mobile "CONNECT WALLET" → `openWalletModal`;
   `walletGateBlocks` relaxed for `mobileConnected`; PLACE BET routes through the mobile sign path.
 - `monkify-front/src/components/header/WalletButtons.vue` — mobile "Connect Wallet" → modal; connected
