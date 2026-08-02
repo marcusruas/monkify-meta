@@ -92,7 +92,12 @@ From `monkify-meta/constraints.md`:
 
 ## 4. Data model
 
-### 4.1 No migration
+> ⚠️ **Superseded in part (2026-08-02).** The card shipped one migration after all —
+> `AddOrbitCashOutFloor`, adding `OrbitEnrollment.CashOutFloor` — because live testing surfaced that
+> "cash out at" only ever fires on a **win**, so a balance losing its way down through the number is
+> never caught. See §6.9. Everything else below still holds: no other schema change was needed.
+
+### 4.1 No migration (except the floor, §6.9)
 
 Nothing is added to the schema. The one column this card writes already exists, created by #121 for
 exactly this purpose:
@@ -517,6 +522,32 @@ TelegramLinked  = !string.IsNullOrWhiteSpace(enrollment?.TelegramChatId),
 ⚠️ **Never return the `chat_id` itself.** The client needs to know *that* a chat is linked, never
 which one; a chat id in a JSON body is one screenshot away from being public.
 
+### 6.9 The cash-out floor (added 2026-08-02, from live testing)
+
+**The problem, reported from the running stack.** A player set "cash out at" to 3, watched Orbit lose
+four rounds (balance 5 → 1) and was never cashed out. Nothing was broken: `EvaluateThreshold` runs
+**only after a win credit** and fires at `balance >= threshold`, so a balance *falling through* the
+number cannot trigger it. That is a take-profit, and the player was asking for a floor. Both are
+legitimate and they answer opposite questions, so the feature gained a second setting rather than
+changing the meaning of the first.
+
+| Setting | Fires when | Evaluated |
+| --- | --- | --- |
+| `CashOutAtThreshold` (existing) | a **win** lifts the balance to ≥ it | after each `WinCredit` |
+| `CashOutFloor` (new) | the balance falls to ≤ it | after each **bet debit**, and on save |
+
+- **Schema:** `OrbitEnrollment.CashOutFloor` (`decimal?`, precision 18,9), migration
+  `AddOrbitCashOutFloor`, EF mapping inline. Additive and nullable — no backfill.
+- **Source:** a new `OrbitCashOutSource.Floor = 5` rather than reusing `Threshold`. A ledger that
+  cannot tell "I won enough" from "I have lost enough" cannot explain to a player why their money came
+  back — and `GetOrbitHandler` counts only `Manual` toward the daily cap, so `Floor` is exempt for free.
+- **Where it runs:** `IOrbitBetSettlementService.EvaluateFloor`, called from `PlaceOrbitBetConsumer`
+  **after** the bet is registered (the round already in flight plays out; only the remainder goes
+  home), and from `UpdateOrbitSettingsHandler` after a save, so a floor set at or above the current
+  balance means "get me out now" rather than "after one more bet".
+- **Guards:** it must be ≥ `MinimumCashOut` (below that the reserver could only ever refuse), and a
+  balance of 0 reserves nothing — a zero cash-out row would claim money moved when none did.
+
 ### 6.8 Registration
 
 - `Consumers/Program.cs`: `x.AddConsumer<OrbitNotificationConsumer>()` +
@@ -915,5 +946,7 @@ environment variable — never committed)**
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from the refined card (#123), written against `origin/release/orbit` — backend `fe9dab6`, front `c5c708c`, meta `119703a`. |
+| 2026-08-02 | Three more from live testing. **(a)** A **cash-out floor** (§6.9) — the only schema change this card makes. **(b)** `BetPlacedConsumer` re-plans on a gate of `null` **or 0**: a round that opens with nobody eligible is stamped 0, and that stamp locked Orbit out of the round for a player who enrolled and funded while it was open — the most ordinary sequence there is. Belongs to #122's engine; fixed here because the feature is untestable without it. **(c)** "Paused — insufficient funds" now requires `orbitBetsPlaced > 0`, so a freshly enabled Orbit is never called paused, and the game-picker `<option>`s carry their own colours (a native select's popup is painted by the browser, so `bg-transparent` left them white-on-white). |
+| 2026-08-02 | Logging: framework categories (`Microsoft`, `System`, `MassTransit`, `Hangfire`) pinned to Warning, so the console carries the app's own lines instead of ~1000 ASP.NET/EF/HttpClient lines per 30 minutes. |
 | 2026-08-02 | Live-stack fixes against a real bot: the Bot API path must be **rooted** (§6.4 — a token's colon otherwise makes it an absolute URI with a bogus scheme, and the unit tests could not see it), and `useOrbit` now surfaces the **server's** message instead of axios's `Request failed with status code 400`, without which the deliberately clear Telegram retry copy never reached the player. |
 | 2026-08-02 | Implemented. Two deviations recorded above: the notification event name is the **constant** `"OrbitNotification"` (§15 item 1 settled; no `notificationEvent` on the DTO), and the deploy fix is **Terraform + `secrets.example.json`**, not `EnvNaming.DerivedIds()`, which turned out to be data-driven from the operator's own secrets file (§5.4). Also: the two Telegram column writes use tracked saves rather than `ExecuteUpdateAsync` — single uncontended rows on a human-paced path, and `ExecuteUpdateAsync` cannot run on the EF in-memory provider, so tracked saves keep them unit-testable. |
