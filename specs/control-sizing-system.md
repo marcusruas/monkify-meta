@@ -1,6 +1,11 @@
 # Space Stroker — "Control sizing system" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-02** — branch `feature/control-sizing-system` merged to `main` in
+> `monkify-front` + `monkify-meta`. Distilled into `conventions/frontend.md` (**no `features/` doc** —
+> §9: this is a refactor of an existing system, so the rule belongs with the conventions it amends).
+> **Post-ship notes are in §16** — one real bug was found in QA that the spec did not predict.
+>
+> Refined via Trello card
 > [Standardize every button and input to one sizing system (#135)](https://trello.com/c/jMuAlPBV/135-standardize-every-button-and-input-to-one-sizing-system)
 > (2026-08-02), re-read against `monkify-front@4b5faaa` / `monkify-meta@dfb163d` the same day.
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **No backend change.**
@@ -615,3 +620,60 @@ Copied from the Trello checklist. **AC11 is amended** — see the note under it.
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from refined card #135. Verified every count and height against `monkify-front@4b5faaa`. Resolved D19–D26 during spec writing: `PrimaryButton` is not a pure pass-through and `md:w-[200px]` must survive; `.btn-dialog--tour` is dead and gets deleted; the nonce and client-seed readouts are D18's fourth and fifth dead-utility stacks; the guide nav joins on height only; a step is materialised only where it has a consumer; `MINE ONLY`'s active state must move into `arcade.css`; the flat family is no longer dialog-only. Corrected AC11 (there is no gear button) and added AC18–AC20. |
+| 2026-08-02 | **Shipped.** Implemented in 5 commits on `monkify-front` + 2 on `monkify-meta`, all 20 ACs measured in a live browser. Three deviations recorded in §16: a **sixth** dead-utility stack found in QA (`sm:basis-auto`, the flagship row itself), `display: block` added to `.dialog-field`, and an `.input-arcade--auto` modifier the spec did not anticipate. |
+
+---
+
+## 16. Post-ship notes (2026-08-02)
+
+Three things the spec did not predict. All three are in the shipped code and in
+`conventions/frontend.md`.
+
+### 16.1 A SIXTH dead-utility stack — and it was the flagship row itself
+
+**The Settings custom-seed row never shared a row on desktop, on `main` either.** §1's table says the
+row shipped as "input ~45px **beside** SET/ROTATE ~33px". It did not: the input took the full row and
+the buttons wrapped underneath it, at every viewport.
+
+`PlayerCustomizationModal`'s `basis-full sm:basis-auto` was written to put them side by side above
+`sm`. It is applied — `flex-basis` computes to `auto` exactly as authored — but **`flex-basis: auto`
+defers to the item's own `width`**, and the input class declares `width: 100%`. So the input's flex
+base size was the entire row.
+
+Fixed with **`sm:basis-0`**: `flex-basis` and `width` are different properties, so there is no
+cascade tie to lose, and `flex-1`'s grow then fills whatever the buttons leave. AC1 could not pass
+without it.
+
+> ⚠️ **This is a distinct shape of the cascade hazard and the KB now says so.** D18's five stacks are
+> all "the utility loses the tie". This one **wins** its tie and still does not do what it was written
+> for, because the value it sets defers to a property the class owns. `basis-auto`, `w-auto`,
+> `h-auto`, `min-h-0` and `max-w-none` are all of this shape. Recorded as D18.6.
+
+### 16.2 `.dialog-field` needed `display: block`
+
+§7.2 gives `.dialog-field` a `height` but no `display`. **`height` is ignored on a non-replaced inline
+box**, and its consumers are `<code>` / `<span>` — both inline. Today's one consumer is a flex item
+(already blockified), so the omission was invisible, but the class would have silently failed for the
+next consumer that used it outside a flex row. `display: block` was added; it is also what `truncate`
+needs, so it agrees with the spec's "do not make this a flex container" warning.
+
+### 16.3 `.input-arcade--auto` — a modifier the spec did not list
+
+§7.2 carries `width: 100%` into `.input-arcade` (inherited from the class it renames), but §7.3 puts
+two selects into **shrink-to-fit filter rows** (`/game/history`, `/game/stats`). A full-width select
+pushes `MINE ONLY` onto its own line, and a `w-auto` utility at the call site ties `.input-arcade` on
+specificity and **loses on source order** — the exact hazard §2 warns about. The width therefore had
+to be a modifier in `arcade.css`. Two consumers, so D24 ("materialise a step only where it has a
+consumer") is satisfied.
+
+### 16.4 Smaller notes
+
+- **Comments were scrubbed of the retired names.** AC8 and AC19 say "zero occurrences" of
+  `dialog-input` and `btn-dialog--tour`; explanatory comments in `arcade.css` originally still spelled
+  them out. They now describe the old names without naming them, so the ACs read true literally.
+  `GuideWalletArt.vue`'s comment referencing `PrimaryButton` was reworded for the same reason (AC7).
+- **`/responsible-gaming`'s select was verified by probe, not by the real element** — it sits behind
+  `v-if="hasWallet"` and no wallet was connected during QA. An identical-class probe on the live page
+  measured 40px, amber, `appearance: none`, our chevron. Worth one confirmation with a wallet.
+- **`MINE ONLY` keeps its `✓` prefix.** The card forbids copy changes, and the glyph already fell back
+  off VT323 before this card; it now falls back off Press Start 2P the same way.
