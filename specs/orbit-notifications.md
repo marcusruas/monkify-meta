@@ -413,6 +413,14 @@ Implementation notes the implementer must not re-derive:
   `new HttpClient()`.
 - **The token appears only in the request path** (`/bot{token}/sendMessage`). Log the operation, never
   the URL. `MaskRpcUrl` in `SolanaService` is the precedent for "the URL itself is a secret".
+- ⚠️ **That path MUST be rooted (`/bot…`).** A bot token contains a colon, so the unrooted string
+  `bot8736…:AAG…/getUpdates` parses as an **absolute** URI whose *scheme* is `bot8736…`, and
+  `HttpClientFactory`'s pipeline throws `The 'bot8736…' scheme is not supported` before anything
+  leaves the process. Caught live on the local stack: the notifier's own `catch` turned it into a
+  bland "we have not seen your message yet" for a `/start` that was sitting in the bot's queue.
+  ⚠️ The unit tests **passed** through all of it — a bare `HttpClient` over a stub handler never
+  validates the scheme, only the factory's pipeline does — so the stub now refuses anything that is
+  not `http(s)` and a test pins both verbs to an absolute `https://api.telegram.org/bot…` URI.
 - `FindChatIdForCode` calls `getUpdates?offset={stored}&limit=100&timeout=0`. It matches
   `update.message.text` trimmed against `"/start " + code` (case-sensitive; Telegram sends the payload
   verbatim). On a match it returns `update.message.chat.id` **as a string** and writes
@@ -907,4 +915,5 @@ environment variable — never committed)**
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from the refined card (#123), written against `origin/release/orbit` — backend `fe9dab6`, front `c5c708c`, meta `119703a`. |
+| 2026-08-02 | Live-stack fixes against a real bot: the Bot API path must be **rooted** (§6.4 — a token's colon otherwise makes it an absolute URI with a bogus scheme, and the unit tests could not see it), and `useOrbit` now surfaces the **server's** message instead of axios's `Request failed with status code 400`, without which the deliberately clear Telegram retry copy never reached the player. |
 | 2026-08-02 | Implemented. Two deviations recorded above: the notification event name is the **constant** `"OrbitNotification"` (§15 item 1 settled; no `notificationEvent` on the DTO), and the deploy fix is **Terraform + `secrets.example.json`**, not `EnvNaming.DerivedIds()`, which turned out to be data-driven from the operator's own secrets file (§5.4). Also: the two Telegram column writes use tracked saves rather than `ExecuteUpdateAsync` — single uncontended rows on a human-paced path, and `ExecuteUpdateAsync` cannot run on the EF in-memory provider, so tracked saves keep them unit-testable. |
