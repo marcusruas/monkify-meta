@@ -306,10 +306,44 @@ The first place the platform holds player money rather than passing it straight 
 - Five new **public** `/orbit/*` endpoints, authorized by a stateless HMAC session for reads and a
   fresh purpose-scoped wallet signature for anything that moves money.
 
+## 8c. The Orbit auto-bet engine
+
+> ⚠️ **On `release/orbit`, not `main`** — see `features/orbit-auto-bet-engine.md`.
+
+What spends the custody above: the house bets on an enrolled player's behalf, once per round.
+
+- **A two-stage bus fan-out, never an inline call.** Round creation must not block on N on-chain
+  transfers, and the decision would otherwise be duplicated at each of the four creation paths.
+  Stage 1 (`OrbitPlacementPlannerConsumer`) decides **once** who bets and arms the gate; stage 2 is
+  **one `PlaceOrbitBetEvent` per player**, so MassTransit places concurrently and retries each
+  independently — one player's RPC 429 never re-drives the players who already succeeded.
+- **Three things trigger stage 1**: a round opening (`GameOpenedEvent`), a human bet that makes an
+  unviable round viable (`BetPlacedConsumer`), and a **deposit being credited**
+  (`OrbitDepositCreditedConsumer`), so money arriving mid-round joins the round that is already open.
+  All three call the same `IOrbitBetPlacementService`, so they cannot disagree.
+- ⚠️ **`GameOpenedEvent` is ids only, and is not `GameCreatedEvent`.** The latter is the SignalR
+  payload and carries the whole `GameParameters` entity, whose navigation properties cycle —
+  MassTransit's serializer throws on it, and it only *appears* to work for a type with a shallow
+  graph. Ids also mean a consumer can never act on a stale snapshot.
+- **A start gate on `Game`** (`ExpectedOrbitBets`, `OrbitGateExpiresAt`) holds the round until the
+  expected Orbit bets land — armed **only when Orbit is load-bearing**, so a paying human never waits
+  on a bot. Two columns rather than a Redis key, whose flush would silently disarm the gate and start
+  a round without bets players were already debited for.
+- **The `BetDebit` ledger row is the placement claim.** `OrbitTransaction.GameId` plus a unique index
+  across the pool makes it so; the claim and the atomic debit are the **same write, one transaction,
+  before the transfer is signed**, so a redelivery hits `23505` having moved nothing.
+- The **`ServerSeed` now commits at round creation**, not on the first bet — creation-time placement
+  does not satisfy "first bet", and one round must not be committed at two different lifecycle points
+  depending on who happened to be enrolled.
+- Wins and refunds on an Orbit-funded bet are routed to the **Orbit account**, never the player's
+  personal wallet, each with its own ledger row. All of it runs in `SpaceStroker.Consumers`.
+
 ## 9. The game mechanic (the "Typer")
 
 - `SpaceStrokerTyper` (`SpaceStroker.Domain/Games/Services`) is the heart of a running game.
-- It reads the game's **committed `ServerSeed`** (generated + hash-committed on the first bet) and
+- It reads the game's **committed `ServerSeed`** (generated + hash-committed at round creation; it
+  was committed on the first bet until the Orbit auto-bet engine, which places before any bet exists,
+  moved it earlier — `EnsureServerSeedCommitted` remains an idempotent backstop) and
   drives characters from a **portable HMAC-SHA256 counter keystream** over `ServerSeed ‖ gameId ‖
   ordered bet seeds ‖ counter` (rejection-sampled into the character pool — no `System.Random`), builds
   the set of bet choices and the character pool, then emits characters one at a time. When the rolling

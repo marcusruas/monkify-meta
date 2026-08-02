@@ -1,6 +1,18 @@
 # Space Stroker — "Orbit (2/3) — Auto-Bet Engine" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped onto `release/orbit` — 2026-08-02**, via `feature/orbit-auto-bet-engine` in
+> `monkify-backend` + `monkify-front` + `monkify-meta`. **Not on `main`**: it rides the Orbit release
+> train and lands with `/monkify-ship-feature release/orbit`, once #123 joins. Distilled into
+> [`../features/orbit-auto-bet-engine.md`](../features/orbit-auto-bet-engine.md), which is the
+> current-behaviour summary; this spec stays the deep design archive.
+>
+> **Built differently from this spec in three places** (all deliberate, all in the feature doc):
+> a slim **`GameOpenedEvent`** replaces publishing `GameCreatedEvent` on the bus (§6 — the entity
+> graph cycles and MassTransit's serializer throws on it); a **third planner trigger** was added for
+> a deposit credited mid-round; and each Orbit stake carries a **unique memo**, without which the
+> byte-identical transfers in one round collide on a single signature.
+>
+> — refined via Trello card
 > [Orbit (2/3) — auto-bet engine: round integration, choice generation, Orbit-funded bets](https://trello.com/c/h7MF4Oky)
 > (2026-07-31). Product decisions for the whole epic live on the umbrella card
 > [Orbit #118](https://trello.com/c/yxwdNTrb) — **read it and its five comments first**.

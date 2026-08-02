@@ -295,9 +295,23 @@
   precisely why the merged ledger had to make that column nullable. ⚠️ It has **no automated recovery** if its
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.
 
-- **Orbit** — the custodial wallet: a house-held per-player balance, funded by fixed on-chain
-  deposits and withdrawable on demand. Card 1 of 3 builds the money; the auto-betting that spends it
-  is a later card. On `release/orbit`, not yet on `main`. See `features/orbit-custodial-wallet.md`.
+- **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
+  balance, funded by fixed on-chain deposits, withdrawable on demand, and **auto-bet once per round**
+  on the game type the player chose. Cards 1–2 of 3 are done (custody + engine); notifications are
+  #123. On `release/orbit`, not yet on `main`. See `features/orbit-custodial-wallet.md` and
+  `features/orbit-auto-bet-engine.md`.
+- **Orbit placement claim** — the `BetDebit` ledger row itself, made unique per `(pool, player,
+  round)` by `OrbitTransaction.GameId`. Written in the same transaction as the atomic debit and
+  **before** any transfer is signed, so a redelivered placement loses on `23505` having moved no
+  money. Losing the claim is *not* a failure: someone else is placing that bet.
+- **Orbit start gate** — `Game.ExpectedOrbitBets` + `Game.OrbitGateExpiresAt`, which hold a round
+  from starting until the Orbit bets it is counting on have landed. Armed **only when Orbit is
+  load-bearing** — if humans already meet `MinimumNumberOfPlayers`, nobody waits on a bot. A ceiling
+  (45s), never a trap: a definitive placement failure decrements it and wakes the round immediately.
+- **Orbit-funded bet** — a `Bet` with `FundedByOrbit`, staked by the house out of the player's Orbit
+  balance. Indistinguishable from a human's to every other player, and it gets **no exemption** from
+  the per-round bet limits or choice exclusivity. Its win and its refund both go back to the Orbit
+  account, never the personal wallet.
 - **Orbit pool** — the `(OrbitAccount, MintAddress)` pair a balance or ledger row belongs to. Rotating
   the configured Orbit keypair or mint starts a **new** pool at zero and leaves the old one intact and
   withdraw-only, so a balance is never silently re-pointed at different money.

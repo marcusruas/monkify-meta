@@ -13,8 +13,8 @@
 
 Gives a player a house-held **Orbit balance** — the platform's first custody of real player money.
 They fund it with fixed on-chain USDC deposits, the balance is tracked by an append-only ledger, and
-they can withdraw it to their own wallet on demand. **Nothing bets with it yet**: this card is the
-money foundation, #122 is the engine that spends it.
+they can withdraw it to their own wallet on demand. This card is the money foundation;
+[#122](orbit-auto-bet-engine.md) is the engine that spends it and is now also on the train.
 
 ## Core rules
 
@@ -88,7 +88,11 @@ money foundation, #122 is the engine that spends it.
 - **Self-exclusion disables Orbit and force-cashes-out the balance**, exempt from both the daily limit
   and the minimum. The enrolment's game type and threshold are **preserved**, so a lapsed timed
   exclusion resumes in one tap. Re-enabling is refused while it is active.
-- The enable toggle persists a preference and nothing else until #122 lands.
+- ⚠️ **Superseded by [#122](orbit-auto-bet-engine.md):** the enable toggle no longer just persists a
+  preference — the engine reads it, and three further rules now hang off it. A deposit is **refused
+  while Orbit is off** and while the **disable cool-off** runs (both named refusals, both deferrals
+  the client replays); turning Orbit off force-cashes-out and starts that cool-off; and the toggle now
+  **prompts for a game type**, saving type and flag in one patch instead of sitting greyed out.
 
 **Frontend**
 
