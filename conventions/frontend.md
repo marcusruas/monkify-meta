@@ -122,7 +122,7 @@
   (`bg-primary`, `text-terminal-light`, `border-terminal-border`) to stay on-system either way.
   See `specs/mobile-preset-keypad.md` → §7.3.
 
-  ⚠️ **This is not theoretical — #135 found FIVE stacks that had shipped doing nothing**, three of
+  ⚠️ **This is not theoretical — #135 found SIX stacks that had shipped doing nothing**, four of
   them user-visible. Recorded so the failure mode is recognisable, not re-derived:
   1. `PrimaryButton`'s `asLink` → `<a>` branch — `false` at every call site (dead code, not cascade).
   2. `WalletButtons`' `size === 'sm' ? 'text-xs …' : 'text-sm'` — **both** lose to `.btn-arcade`'s
@@ -134,8 +134,18 @@
   4. The Settings **nonce** readout (`.dialog-field border-0 bg-transparent p-0 text-cyan`) — all
      four utilities lost; it shipped as a bordered ink box instead of a borderless cyan value.
   5. The Settings **client seed** (`.dialog-field … text-primary`) — #3's twin, same ink render.
+  6. **The subtlest one, found during #135's own QA:** the Settings custom-seed row's
+     `basis-full sm:basis-auto`. Nothing "loses" here — `flex-basis` computes to `auto` exactly as
+     written — but **`auto` defers to the item's own `width`**, and the input class declares
+     `width: 100%`, so the flex base size was the whole row and SET / ROTATE wrapped underneath it
+     **on desktop too**. The row the card was filed to align had never been a row. Fixed with
+     `sm:basis-0` — `flex-basis` and `width` are different properties, so there is no tie to lose.
+     ⚠️ **The lesson generalises:** a utility can be applied *and still not do what it was written
+     for*, if the value it sets defers to a property the class owns. `basis-auto`, `w-auto`,
+     `h-auto`, `min-h-0` and `max-w-none` are all of this shape.
 
-  **The fix is `!` at the call site (3 and 5) or the declaration moving into `arcade.css` (2 and 4).**
+  **The fix is `!` at the call site (3 and 5), the declaration moving into `arcade.css` (2 and 4), or
+  a property the class does not own (6).**
   ⚠️ And it bites *while you fix it*: adopting `.btn-dialog` on the games-history `MINE ONLY` toggle
   would have silently killed its `border-primary text-primary bg-primary/10` active state, which is
   why that state is now the `.btn-dialog--active` **modifier** and the shrink-to-fit width on the
