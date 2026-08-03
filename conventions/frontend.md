@@ -488,9 +488,12 @@
 - **Routing:** `src/routes.ts`, **prefix-free** since `home-dashboard` — `/` (`Home`, the starting page)
   · `/game` (the plain lobby, and the URL `EMBEDDING.md` points integrators at) · `/game/play` ·
   `/game/history` · `/game/stats` · **`/how-to-play`** · **`/responsible-gaming`** (both #130) ·
-  `/admin` · `/wallet-bridge` · `/background` · `/soon` · `/error`.
+  **`/game/practice`** (#129) · `/admin` · `/wallet-bridge` · `/background` · `/error`.
+  ⚠️ **`/soon` is gone** (#129 — practice mode was that placeholder's last consumer); a bookmarked
+  `/soon` now falls through the generic catch-all to `/error`.
   **Embedded redirects live in ONE place** — `main.ts`'s existing `beforeEach` reads a single
-  `EMBED_REDIRECT_ROUTES` set (`Home`, `HowToPlay`, `ResponsibleGaming`) and returns `GameLobby`, so
+  `EMBED_REDIRECT_ROUTES` set (`Home`, `HowToPlay`, `ResponsibleGaming`, `Practice`) and returns
+  `GameLobby`, so
   the rules cannot drift apart. It is registered **before** the analytics `afterEach`, so a framed load
   never counts as a pageview and the component never mounts at all. ⚠️ **Neither new route is an
   `isPlayerRoute()`** — neither renders a display name, so `App.vue` boots nothing for them and each
@@ -540,6 +543,37 @@
   do this, and both **omit the `domain` attribute off our own hosts**: a domain the browser refuses
   writes no cookie at all, so the prompt would return on every single visit. Store a **version string**
   rather than a boolean when you may need to re-ask later.
+- **A surface that shadows the game screen gets its own components AND a factory store — not the
+  module-singleton idiom (Trello #129, 2026-08-03):** practice mode reproduces the whole cabinet at
+  `/game/practice` without touching one line of the real one. Two rules make that hold, and both are
+  departures from how the rest of this app is written:
+  - **The store is a `provide`/`inject` FACTORY** (`usePracticeGame` returns a fresh store, created
+    once in `PracticePage`), not module-level `ref`s. Module state survives unmount, so a stale
+    rollover timer or a second mount bleeds across navigations — and practice state could be mistaken
+    for the live game's. A factory makes *"this state cannot outlive its page"* **structural** rather
+    than a rule to remember. Use this shape for any second instance of an existing screen.
+  - **An explicit import ban is the isolation mechanism.** Nothing on the practice path may import
+    `useGame`, `useNearMiss`, `useGameHub`, `useGameChat`, `useIdleDisconnect`, `mainService` or
+    `solana-wallets-vue`; what is genuinely shared is the **pure** layer (`utils/nearMiss.ts`,
+    `formatGameAmount`, the art and audio assets). ⚠️ `useNearMiss` in particular is a module singleton
+    shared with the live screen — calling it from a second surface puts its rows on a real round.
+  - **Reuse the pure helper, re-declare the CSS.** `GameMonkey`'s keyframes live in its *scoped* block
+    and `GameTerminal`'s `.animate-rise-in` in an *unscoped* one, so depending on either from another
+    component is invisible coupling that breaks the moment someone scopes it. Copy the values, own the
+    names.
+  - **Distinct DOM ids are not cosmetic.** The desktop terminal computes its width from
+    `getElementById('game-terminal-container').clientHeight`; a second surface reusing that id collides
+    the moment both mount.
+  - ⚠️ **A page whose branches are a `v-if`/`v-else-if`/`v-else` chain is a SINGLE root** and inherits
+    `App.vue`'s `RouterView` classes (`mx-auto h-5/6 block`). Adding a fourth sibling (an audio
+    component, a watcher host) makes it a **fragment**, the class is silently dropped, and a
+    height-dependent layout resolves against nothing — a blank page with only a Vue *warning*. Mount
+    such helpers **inside** a branch.
+  - **Where a value exists on both sides, share it rather than copy it** — the practice hold reads the
+    same `VUE_APP_NEW_GAME_DELAY` the real console does. Backend-owned numbers that the frontend cannot
+    see (`TimeUntilGameStarts` = 10, `TerminalBatchLimit` = 500) are hard-coded with a comment naming
+    the setting, so the next person knows where the truth lives.
+  See `features/practice-mode.md`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
 
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
