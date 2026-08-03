@@ -282,10 +282,97 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   (`GeneralSettings.Operator.Token.CommissionPercentage`, default 0.5%) — see
   `features/crypto-commission.md`.
 
+## 8b. Custody: the Orbit wallet
+
+> Shipped on `main` 2026-08-03 with the Orbit release train — see `features/orbit-custodial-wallet.md`.
+
+The first place the platform holds player money rather than passing it straight through.
+
+- A **second house keypair** (`GeneralSettings:Operator:Token:Orbit`) holds every player's deposited
+  USDC in one on-chain token account, kept **separate from the bet/payout keypair** so "what we owe
+  players" is checkable against "what the account holds", and so an Orbit-funded transfer is never a
+  same-account no-op.
+- Balances live in `OrbitBalance` and are authoritative **only** as a cache: the truth is
+  `SUM(OrbitTransaction.Amount)` for the same **pool** `(OrbitAccount, MintAddress)` and player, over
+  all rows regardless of status. Money is never corrected by editing a row — the opposite row is
+  appended.
+- The **API only reserves**; every transfer happens in `SpaceStroker.Consumers` (`constraints.md` §8).
+  A cash-out writes a `Pending` row and takes an atomic conditional debit in one DB transaction, then
+  publishes; the consumer claims the row with `SET Executing WHERE Status = Pending`, so at-least-once
+  bus delivery cannot pay twice.
+- Two new Hangfire jobs join the schedule (§7): an **hourly** cash-out sweep that re-drives stuck
+  `Pending` rows and never touches `Executing` ones, and a **6-hourly** reconciliation that compares
+  each player's ledger to their column and each pool's total to its on-chain balance, logging only.
+- Eight **public** `/orbit/*` endpoints (five here, plus the three Telegram routes #123 added),
+  authorized by a stateless HMAC session for reads and a
+  fresh purpose-scoped wallet signature for anything that moves money.
+
+## 8c. The Orbit auto-bet engine
+
+> Shipped on `main` 2026-08-03 with the Orbit release train — see `features/orbit-auto-bet-engine.md`.
+
+What spends the custody above: the house bets on an enrolled player's behalf, once per round.
+
+- **A two-stage bus fan-out, never an inline call.** Round creation must not block on N on-chain
+  transfers, and the decision would otherwise be duplicated at each of the four creation paths.
+  Stage 1 (`OrbitPlacementPlannerConsumer`) decides **once** who bets and arms the gate; stage 2 is
+  **one `PlaceOrbitBetEvent` per player**, so MassTransit places concurrently and retries each
+  independently — one player's RPC 429 never re-drives the players who already succeeded.
+- **Three things trigger stage 1**: a round opening (`GameOpenedEvent`), a human bet that makes an
+  unviable round viable (`BetPlacedConsumer`), and a **deposit being credited**
+  (`OrbitDepositCreditedConsumer`), so money arriving mid-round joins the round that is already open.
+  All three call the same `IOrbitBetPlacementService`, so they cannot disagree.
+- ⚠️ **`GameOpenedEvent` is ids only, and is not `GameCreatedEvent`.** The latter is the SignalR
+  payload and carries the whole `GameParameters` entity, whose navigation properties cycle —
+  MassTransit's serializer throws on it, and it only *appears* to work for a type with a shallow
+  graph. Ids also mean a consumer can never act on a stale snapshot.
+- **A start gate on `Game`** (`ExpectedOrbitBets`, `OrbitGateExpiresAt`) holds the round until the
+  expected Orbit bets land — armed **only when Orbit is load-bearing**, so a paying human never waits
+  on a bot. Two columns rather than a Redis key, whose flush would silently disarm the gate and start
+  a round without bets players were already debited for.
+- **The `BetDebit` ledger row is the placement claim.** `OrbitTransaction.GameId` plus a unique index
+  across the pool makes it so; the claim and the atomic debit are the **same write, one transaction,
+  before the transfer is signed**, so a redelivery hits `23505` having moved nothing.
+- The **`ServerSeed` now commits at round creation**, not on the first bet — creation-time placement
+  does not satisfy "first bet", and one round must not be committed at two different lifecycle points
+  depending on who happened to be enrolled.
+- Wins and refunds on an Orbit-funded bet are routed to the **Orbit account**, never the player's
+  personal wallet, each with its own ledger row. All of it runs in `SpaceStroker.Consumers`.
+
+## 8d. Telling the player: the Orbit notification channel and Telegram
+
+> Shipped on `main` 2026-08-03 with the Orbit release train — see `features/orbit-notifications.md`.
+
+- **A private per-player group on the existing `ActiveGamesHub`.** `JoinOrbitNotifications(token)`
+  validates the shipped Orbit session and derives the group name **server-side** from the token's
+  `PlayerId` (`OrbitNotificationChannel.GroupFor`) — it is never accepted from the caller, because a
+  wallet address is public on every bet list and a wallet-keyed group would leak both the win amounts
+  and the fact that the player uses Orbit at all. No new socket: it reuses the one tab-scoped
+  connection `unified-websocket-connection` established, and dies with the idle disconnect.
+- **`OrbitBetSettlementService` publishes `OrbitWinNotificationEvent`** (ids and primitives only)
+  after the credit commits and after the threshold evaluation, so the win toast and any resulting
+  cash-out message arrive in the order the money moved. `OrbitNotificationConsumer` pushes it to the
+  group over the **Redis backplane**, so a message sent from `SpaceStroker.Consumers` reaches a
+  browser attached to the **API** — the same shape as `BetNotificationConsumer`. The payload carries
+  **no balance**: the threshold cash-out fires the instant the credit lands, so the client re-reads.
+- **Telegram (`ITelegramNotifier`) is an outbound-only integration with no poller and no webhook.**
+  Linking is a `t.me/<bot>?start=<code>` deep link plus a VERIFY press making **one** `getUpdates`
+  call; the link code and the read offset live in **Redis**, and the offset advances only on a match.
+  Sends happen exclusively in `SpaceStroker.Consumers`, on completed cash-outs, and can never fail a
+  money path. It is **inert without a bot token** (a `MOCK_`-prefixed token counts as unconfigured),
+  which is how local, dev and the test suites run.
+- ⚠️ **`SpaceStroker.Consumers`' startup work moved to `ApplicationStarted`.** It used to run before
+  `app.Run()`, while the MassTransit transport database and its `transport` schema are provisioned by
+  a hosted service that only starts **at** `app.Run()` — so on a cold boot the first rounds opened
+  with their `GameOpenedEvent` publish failing, and Orbit never planned them. Silent on every warm
+  boot; it only bites a fresh volume or a brand-new environment's first start.
+
 ## 9. The game mechanic (the "Typer")
 
 - `SpaceStrokerTyper` (`SpaceStroker.Domain/Games/Services`) is the heart of a running game.
-- It reads the game's **committed `ServerSeed`** (generated + hash-committed on the first bet) and
+- It reads the game's **committed `ServerSeed`** (generated + hash-committed at round creation; it
+  was committed on the first bet until the Orbit auto-bet engine, which places before any bet exists,
+  moved it earlier — `EnsureServerSeedCommitted` remains an idempotent backstop) and
   drives characters from a **portable HMAC-SHA256 counter keystream** over `ServerSeed ‖ gameId ‖
   ordered bet seeds ‖ counter` (rejection-sampled into the character pool — no `System.Random`), builds
   the set of bet choices and the character pool, then emits characters one at a time. When the rolling

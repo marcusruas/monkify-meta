@@ -15,6 +15,13 @@ locals {
     "GeneralSettings-Operator-AdminToken-PrivateKeyPem",
     # The RPC endpoint carries the provider's api-key in its query string, so the whole URL is a secret.
     "GeneralSettings-Operator-Token-ClusterUrl",
+    # Orbit (#121/#123). The custody keypair signs every cash-out and every auto-bet stake; the session
+    # secret mints the read tokens; the bot token sits in the PATH of every Telegram call, so the URL
+    # itself is a secret. All three were live in the app before they were ever plumbed here, which meant
+    # the release train could not deploy — #123 fixed the list rather than adding only its own.
+    "GeneralSettings-Operator-Token-Orbit-PrivateKey",
+    "GeneralSettings-Operator-Token-Orbit-SessionSecret",
+    "GeneralSettings-Operator-Token-Orbit-TelegramBotToken",
   ]
 
   secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
@@ -28,6 +35,9 @@ locals {
     "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"  = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
     "GeneralSettings__Operator__AdminToken__PrivateKeyPem"    = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
     "GeneralSettings__Operator__Token__ClusterUrl"            = "GeneralSettings-Operator-Token-ClusterUrl"
+    "GeneralSettings__Operator__Token__Orbit__PrivateKey"     = "GeneralSettings-Operator-Token-Orbit-PrivateKey"
+    "GeneralSettings__Operator__Token__Orbit__SessionSecret"  = "GeneralSettings-Operator-Token-Orbit-SessionSecret"
+    "GeneralSettings__Operator__Token__Orbit__TelegramBotToken" = "GeneralSettings-Operator-Token-Orbit-TelegramBotToken"
   }
 
   secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }

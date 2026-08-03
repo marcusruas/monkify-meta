@@ -296,3 +296,46 @@
   row's own `Signature` is the *refund's* transaction. The row carries a **null `BetId`**, which is
   precisely why the merged ledger had to make that column nullable. ⚠️ It has **no automated recovery** if its
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.
+
+- **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
+  balance, funded by fixed on-chain deposits, withdrawable on demand, and **auto-bet once per round**
+  on the game type the player chose. All three cards are done (custody + engine + notifications), so
+  shipped to `main` together as the `release/orbit` train on 2026-08-03. See
+  `features/orbit-custodial-wallet.md`,
+  `features/orbit-auto-bet-engine.md` and `features/orbit-notifications.md`.
+- **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it and
+  what is left goes home. The complement of the "cash out at" threshold, which only ever fires on a
+  **win** and so can never catch a balance losing its way down. Evaluated once the round **settles**,
+  never at placement — a stake leaves the balance immediately, so evaluating earlier could cash a
+  player out while the bet they had just made was still riding. Its own `OrbitCashOutSource.Floor`,
+  because a ledger that cannot tell "I won enough" from "I have lost enough" cannot explain to a
+  player why their money came back.
+- **Orbit notification channel** — a private per-player SignalR group on `ActiveGamesHub`
+  (`orbit/{playerId}`), joined with the Orbit session token and named **server-side** from it. Keyed
+  on the `PlayerId` and never on the wallet: a wallet address is public on every bet list, so a
+  wallet-keyed group would let anyone watch a stranger's wins and learn they use Orbit at all. Its
+  payload carries the amount and the game type but **never a balance**.
+- **Orbit placement claim** — the `BetDebit` ledger row itself, made unique per `(pool, player,
+  round)` by `OrbitTransaction.GameId`. Written in the same transaction as the atomic debit and
+  **before** any transfer is signed, so a redelivered placement loses on `23505` having moved no
+  money. Losing the claim is *not* a failure: someone else is placing that bet.
+- **Orbit start gate** — `Game.ExpectedOrbitBets` + `Game.OrbitGateExpiresAt`, which hold a round
+  from starting until the Orbit bets it is counting on have landed. Armed **only when Orbit is
+  load-bearing** — if humans already meet `MinimumNumberOfPlayers`, nobody waits on a bot. A ceiling
+  (45s), never a trap: a definitive placement failure decrements it and wakes the round immediately.
+- **Orbit-funded bet** — a `Bet` with `FundedByOrbit`, staked by the house out of the player's Orbit
+  balance. Indistinguishable from a human's to every other player, and it gets **no exemption** from
+  the per-round bet limits or choice exclusivity. Its win and its refund both go back to the Orbit
+  account, never the personal wallet.
+- **Orbit pool** — the `(OrbitAccount, MintAddress)` pair a balance or ledger row belongs to. Rotating
+  the configured Orbit keypair or mint starts a **new** pool at zero and leaves the old one intact and
+  withdraw-only, so a balance is never silently re-pointed at different money.
+- **Orbit session** — a stateless HMAC token (`X-Orbit-Session`, ~7 days) proving a caller owns a
+  wallet. Authorizes **reads only**: every movement of money additionally needs a fresh,
+  purpose-scoped ed25519 signature. Not revocable before expiry.
+- **Reserve (a cash-out)** — writing the `Pending` ledger row and debiting the balance in one
+  transaction at *request* time, so the money is immediately unavailable to anything else. The
+  opposite of paying on confirmation, which would let a later operation spend money already promised.
+- **Release train** — a `release/<name>` branch that several cards merge into, landing on `main` only
+  once the whole set is coherent. Used for Orbit. A card on a train stays in **Implemented**, because
+  its code is genuinely not on `main`.
