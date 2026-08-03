@@ -56,16 +56,27 @@ first-time player has no reason to open. Folded in because it rewrites the same 
   stack. The hero's own `pb-*` is the fourth step of that scale, because it is frameless and its
   bottom padding **is** the gap to the picker.
 - The picker reuses **`GameTypes.vue` verbatim**, so the lobby and the starting page can never drift.
+- **`HomeFeatureCards` is one panel, not two** (#143): `PROVABLY FAIR`, **full width**, with no grid
+  wrapper — one panel inside a one-column `auto-fit` grid still reads as half of something. Its twin
+  `TRY IT FREE` was deleted because the trimmed hero (#138) carries a `Try it free` CTA a few hundred
+  pixels above it, so the page made the same offer twice in one screen. Two consequences that must not
+  be undone silently: the **`home_link_click` / `practice` event moved to `HomePage.startPractice`**
+  (the hero's CTA routed without tracking, so leaving it would have killed the GA series on ship day),
+  and because the fair panel is `v-if="!isEmbedded"` and is now the component's only child, an embedded
+  render produces **nothing** rather than an empty full-width box.
 - ⚰️ ~~The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby
   visit, with every existing guard intact (catalogue loaded, not embedded, no other tour open, key
   unseen, no boot-recovery/idle/relaunch overlay, terms accepted, display-name prompt closed).
   Accepted gap: a player deep-linking straight to `/game` gets no overview.~~
   **GONE — Trello #130 (2026-08-02) deleted the Quick Tour outright.** Nothing auto-opens on `/`, or
-  on any route, for any player. `HomeHowItWorks` ("HOW A ROUND GOES") is now the dashboard's **only**
-  onboarding, and its button reads **`How to play`**, pushing to the `HowToPlay` route — it used to
-  say `Read the wiki` and push to `/soon?feature=wiki`, whose `FEATURES` entry is deleted (a
-  bookmarked `?feature=wiki` degrades to the generic fallback rather than breaking). See
-  `features/how-to-play.md`.
+  on any route, for any player. `HomeHowItWorks` — titled **`WANNA LEARN HOW TO PLAY?`** since #143,
+  with no eyebrow above it (a label over a question reads as noise) — is the dashboard's **only**
+  onboarding. Its three beats are named after what happens, not after the mechanic:
+  **`PLACE A BET` · `EDSON STARTS KEY-STROKING` · `FIRST BET TYPED WINS`** (#143; the sub-copy under
+  each is unchanged from #131). Its button reads **`Learn more`** and pushes to the `HowToPlay` route
+  — it said `How to play` between #130 and #143, and `Read the wiki` before that, pushing to
+  `/soon?feature=wiki`, whose `FEATURES` entry is deleted (a bookmarked `?feature=wiki` degrades to the
+  generic fallback rather than breaking). See `features/how-to-play.md`.
 - Fair and Settings modal state is a shared **`useHeaderModals`** singleton — it used to be local to
   `GameHeader.vue`, which the dashboard cannot reach and which a second modal instance cannot fix.
 
@@ -140,8 +151,10 @@ is a module singleton `HomePlayerStats` already loads.
   match is by name — which is also what makes a genuinely deactivated favourite disappear correctly.
 - The hero emits `practice` / `history` / `how-to-play`; **`HomePage` owns all three destinations** and
   their `trackHomeLinkClick` links, as it already did for `practice`.
-- The **cold** state's second CTA is labelled **`TRY IT FREE`**, not "Practice" — the page's own
-  section for that action (`HomeFeatureCards`) is already titled TRY IT FREE. One action, one name.
+- The **cold** state's second CTA is labelled **`TRY IT FREE`**, not "Practice". It was named after the
+  page's own section for that action, and since #143 deleted that section (below) the hero is the
+  **only** place on `/` offering a free round — the label stays, because it names the benefit rather
+  than the mode.
 
 ### The picker card
 
@@ -156,11 +169,17 @@ is a module singleton `HomePlayerStats` already loads.
 - The tag is derived from the catalogue: `{n} CHARS · {charset}` / `PICK 1 OF {n}` / `DAILY DRAW`. An
   **anchored** lottery appends its slot — `DAILY DRAW · 22:00 UTC` — so the picker is not the one
   surface that knows the draw is daily but not when. The tag is the only field allowed to truncate.
-- Two chips float over the **artwork's bottom-right**, so they cost the card no height: `TICKET`
-  always, plus `PLAYERS` on a race/preset or `POT` on a lottery. Both chip values use the same neutral
-  colour on every card — a price that is amber on one card and cyan on the next reads as a different
-  *kind* of fact. The `PLAYERS` dot uses the semantic `--color-live` green and is lit **only** when
-  the round actually has players.
+- Chips float over the **artwork's bottom-right**, so they cost the card no height: `TICKET` always,
+  plus `POT` **on a lottery only**. Both chip values use the same neutral colour on every card — a
+  price that is amber on one card and cyan on the next reads as a different *kind* of fact.
+  ⚰️ ~~plus `PLAYERS` on a race/preset, whose dot uses the semantic `--color-live` green and is lit
+  only when the round actually has players~~ — **the `PLAYERS` chip is GONE (Trello #143).** A player
+  count was a scoreboard on a card whose job is to say what the game *is*, and on a quiet floor its
+  headline was a zero. The **status pill still reports `FILLING`** off the same `live.players`, so the
+  count is still fetched and still drives the one signal a player can act on — it is simply no longer
+  printed. This applies to **`/` and the `/game` lobby alike**, because the picker is one shared
+  component. `.live-dot` / `.live-dot--on` and `--color-live` survive in the tree **unreferenced**,
+  keeping the "never light a green dot over an empty round" rule available to a future chip.
 - Fonts follow the repo's 2-font system: the name in **Press Start 2P**, the description in **VT323**.
 - ⚠️ **`loading="lazy"` never fires inside these frames.** `.pixel-border-outer` / `-inner` clip the
   card with a `clip-path` polygon, and Chrome folds ancestor clips into the intersection check that
@@ -173,6 +192,26 @@ is a module singleton `HomePlayerStats` already loads.
 
 - The live snapshot is **three `GET /games/{gameTypeId}` calls and no backend** — fired in parallel
   **once on mount** and again **when the tab regains focus** behind a 15 s guard. No interval polling.
+  Trello #143 proposed deleting this fan-out and it was **considered and rejected by the owner**: it is
+  the single source of the `POT` chip, the `FILLING`/`STARTING`/`LIVE NOW` pill, the picker's
+  "N rounds filling now" eyebrow **and** the hero's live line + `Join`/`Watch` CTA. Anything that
+  removes it takes all five with it.
+- **The catalogue is fetched once per page load** (#143). `App.vue`'s boot probe keeps its result in
+  the module-level `gameTypes` ref instead of discarding it, and `GameTypes.vue` fetches only when
+  that store is empty — which still happens on a cold mount from a non-player route
+  (`/wallet-bridge`, `/admin`, `/error`, where the probe never runs) or after a failed probe.
+  ⚠️ `mainService.getGamesTypes()` resolves to the **envelope** `DefaultResponse<ActiveGame[]>`, not
+  to the array — the service's own destructure unwraps the *axios response*. Both call sites must take
+  `.data`. Assigning the envelope whole puts an object in an array-typed ref, and `v-for` then renders
+  one nameless `TICKET undefined` card per envelope field with the eyebrow reading `0 games`. **No
+  gate in this repo catches it:** `yarn lint`, `yarn build` and `tsc --noEmit` all pass, because plain
+  `tsc` does not type-check `.vue` script blocks and `vue-tsc` is not a dependency.
+- **`THE FLOOR` loads when it is reached, not on mount** (#143). Its `GET /games/stats` +
+  `GET /games/history?take=6` fire from a **one-shot `IntersectionObserver`** (`rootMargin: 200px`,
+  disconnected *before* the load so scrolling away and back never refires); with no observer available
+  the reads run immediately. `loading` therefore starts **`true`** and means *"we do not have the floor
+  yet"*, covering both the deferred and the in-flight window — starting it `false` would fall through
+  to the empty branch and claim **"No rounds have settled yet"** about a floor nobody has read.
 - `/` opens **no SignalR connection and joins no hub group**: `useGameHub` keeps its
   one-connection/one-group invariant. The price is that a figure can be one focus-cycle stale, which
   is why the status pill is coarse (`FILLING`, not a per-second counter).
