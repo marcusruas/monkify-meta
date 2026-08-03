@@ -645,8 +645,110 @@ Copied 1:1 from the Trello checklist (21 items).
 
 ---
 
-## 14. Revision log
+## 14. Implementation notes — what shipped differs from §7
+
+Recorded at implementation time (2026-08-03). Everything here is **in addition to or instead of** the
+design pass in §7.2–7.7; the ACs in §11 all still hold and were re-measured after each change.
+
+### 14.1 Measured baseline (AC1)
+
+At a **1367×768 viewport** on `feature/home-hero-trim` before any edit:
+
+| | Value |
+| --- | --- |
+| `heroHeightCold` | **531 px** |
+| `heroHeightConnected` | **531 px** (derived: 176 px padding + `max(296 px copy, 355 px art)`) |
+| Cold copy column / connected copy column / art | 296 px / 296 px / **355 px** |
+| `pickerHeadingTop` / `firstCardTop` | 617 px / 672 px |
+
+The art drove the band in **both** states, which is what makes the connected derivation sound (a real
+wallet connection cannot be automated). §7.1's ~531 px estimate was exact. **AC2 target: ≤ 265 px.**
+
+### 14.2 `max-w-[38ch]` → `max-w-[62ch]` on the cold sub (§7.3 corrected)
+
+§7.3 kept the sub's `max-w-[38ch]` while §7.7's budget counted that line as **one line**. Both cannot be
+true: 38ch wraps the 57-character sentence in the now-907 px column, which measured **277 px = 52.2 %
+and failed AC2**. The cap was written when the column was ~486 px wide; at 907 px it no longer protects
+a measure, it just buys a wrap. At 62ch the band is **250 px**, i.e. §7.7's predicted ~249 px.
+
+### 14.3 Page-wide vertical rhythm (owner request, mid-implementation)
+
+The 24 px inter-section gap read as one continuous stack on a wide monitor (the panels are capped at
+`max-w-[1180px]` and never grow, so the gap is the only dimension that can breathe). `HomePage.vue`'s
+stack is now `gap-6 md:gap-10 xl:gap-12 2xl:gap-16` and the picker's inner gap `gap-5 md:gap-6`.
+
+The hero is frameless, so **its `pb-*` IS the gap to the picker** and has to match that scale — but its
+total padding is capped by AC2 (the copy column alone is 178 px). It is therefore **bottom-weighted, not
+symmetric**: `pt-6 pb-10 md:pb-12 2xl:pb-16` — 24/48 px, the *same 72 px total* as a symmetric
+`pt-8 pb-10`, just spent where the page needs it. ⚠️ `pt-8 pb-14` is 88 px and **fails AC2**.
+
+### 14.4 The connected state is now TWO states (owner request, mid-implementation)
+
+Split on `isNewPlayer` = a **settled** `stats.roundsPlayed === 0`. Decision 11's removal of
+`usePlayerStats` from the hero is **reversed** — the streak is still gone, but `roundsPlayed` /
+`mostPlayedTypeName` now drive the band. No new request: it is a module singleton `HomePlayerStats`
+already loads (verified: exactly one `GET /players/stats` when connected, **zero when cold — AC12 holds**).
+
+| | Round live | Floor quiet |
+| --- | --- | --- |
+| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TRY IT FREE] [HOW IT WORKS]` |
+| **Returning** | `WELCOME BACK` · `[JOIN {NAME}] [GAME HISTORY]` | `WELCOME BACK` · `[PLAY {most-played}] [GAME HISTORY]` |
+
+- **Primary is decided by the floor, secondary by the player.** `TRY IT FREE` is the newcomer's
+  constant (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only
+  appears when it is not needed above); `GAME HISTORY` is the regular's constant.
+- **`Play again` and the `play` emit are GONE**, and with them `HomePage`'s `scrollToModes`, the
+  `modesSection` ref and its `ref` import (AC16). That button's only job was scrolling to mode cards
+  ~48 px below it. **Nothing in this band may be a scroll-to-what-you-can-already-see.**
+- An **empty `primaryLabel` renders no button at all** — the only honest state for a regular whose
+  floor is quiet and whose favourite was deactivated.
+- ⚠️ **An UNKNOWN `stats` resolves to the RETURNING shape**, never the new one: `stats` is null while
+  the read is in flight *and* if it fails, and greeting a regular with `NEW HERE` for a frame is the
+  worse lie. Only a settled zero flips it.
+- ⚠️ **`usualGame` matches against `gameTypes` (the `/games/active-types` catalogue), NOT
+  `liveByType`.** They look interchangeable and are not: `useLiveGames` deliberately drops any type
+  whose live-instance call **failed**, so keying off it made a transient backend hiccup look identical
+  to a deactivated game and silently ate the CTA. Caught in QA by faking that failure.
+- `HomeHero` now emits `practice` / `history` / `how-to-play`; `HomePage` owns all three destinations
+  and their `trackHomeLinkClick` links, as it already did for `practice`.
+- The **cold** state's `Practice` was relabelled **`TRY IT FREE`** too — same action, and the page's own
+  section for it (`HomeFeatureCards`) is already titled TRY IT FREE.
+
+### 14.5 Mobile: centred band + a sentence-boundary line break (owner request)
+
+- The copy column is **`text-center sm:text-left`** with `justify-center sm:justify-start` on both
+  button rows and `mx-auto sm:mx-0` on the capped sub. The breakpoint is **not** a taste call: `sm` is
+  where the art returns (§7.5.2), so below it the copy is the only thing in the row and full-width,
+  and from `sm` up it is a real left column that must align with the picker header and cards below.
+- The cold sub carries **`<br class="lg:hidden" />`** on the full stop. Unassisted it broke mid-clause
+  (*"…characters. Edson types / until one lands."*). `lg` is where the column finally holds both
+  sentences on one line (measured: 1 line at 1024, 2 below). ⚠️ The source newline **after** the `<br />`
+  is load-bearing — at `lg`+ the `<br />` is `display:none` and that newline is the only whitespace left
+  between "characters." and "Edson".
+
+### 14.6 Final measurements (AC2–AC5, re-verified)
+
+| Viewport | Cold | Connected |
+| --- | --- | --- |
+| 1366×768 | **249–250 px (47 %)** | **223 px (42 %)**; worst case (2-line live line) 250 px |
+| 390×844 | 237 px | 258 px |
+
+`pickerHeadingTop` 336 / `firstCardTop` 391 at 1366×768 — both clear a real maximized window
+(~640 px of viewport) with ~250 px to spare. Headline is 2 lines at 360/390/502/640/768/1024/1366/1920.
+`yarn lint` clean, `yarn build` green. **`edson-ship.gif`/`.png` are no longer emitted to `dist`** — the
+predicted repo-only cost is real (−533 KB / −26 KB off the wire).
+
+### 14.7 Not verified by the implementer
+
+AC13 with a wallet that **has** a display name (the short-address fallback is verified; the
+`displayName || shortAddress` line is untouched), and AC9 with Chrome hardware acceleration genuinely
+off (verified by forcing `html.light-graphics` instead).
+
+---
+
+## 15. Revision log
 
 | Date | Change |
 | --- | --- |
 | 2026-08-03 | Initial spec from the refined card (#138, refined 2026-08-03) + code exploration. Design pass pinned as decisions 13–20. Two card traps corrected against the live tree: `arcade.css`'s `.hero-mascot` selector is **already** repointed (only its comment needs the edit, §7.6.5), and dropping the streak orphans a **second** import set the card did not list (§7.6.2). |
+| 2026-08-03 | Implemented. Added §14 — the measured AC1 baseline, the `38ch`→`62ch` correction that AC2 forced, and four owner-requested extensions taken mid-implementation (page-wide section rhythm, the new-vs-returning connected split, mobile centring, the sentence-boundary break). Decision 11 partially reversed: `usePlayerStats` is back in the hero for `roundsPlayed`, the streak stays gone. |
