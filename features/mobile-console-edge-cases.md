@@ -1,7 +1,8 @@
 # Feature — Mobile console edge cases (tablet console + lever scaling)
 
 > Status: **shipped.** Authoritative spec: `../specs/mobile-console-edge-cases.md`
-> (merged via `feature/mobile-console-edge-cases` on 2026-08-02).
+> (merged via `feature/mobile-console-edge-cases` on 2026-08-02, then
+> `feature/mobile-console-crop` on 2026-08-03 — see "Owner review" below).
 > **Frontend-only** — `monkify-front`. No backend, API, SignalR or database surface.
 > Amends `features/mobile-game-design-update.md`, which owns the compact cabinet itself.
 
