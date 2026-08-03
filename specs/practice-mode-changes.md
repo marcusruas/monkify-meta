@@ -1,6 +1,9 @@
 # Space Stroker — "Practice mode changes" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Merged into `release/ui-ux-changes`** (2026-08-03) via `feature/practice-mode-changes`.
+> ⚠️ **Not on `main` yet** — it lands with the rest of the UI/UX train
+> (`/monkify-ship-feature release/ui-ux-changes`). Distilled rules: `../features/practice-mode.md`.
+> Refined via Trello card
 > [Practice mode changes](https://trello.com/c/EfIRqHbT) (#142, refined 2026-08-03).
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**. **`monkify-backend` is not
 > touched.**
@@ -112,7 +115,7 @@ Carried from the refined card (answer mode: **short**). Numbering matches the ca
 | 8b | **`runMs` 12000 → 15000** (same feedback), so the race lasts **15 s from the moment bubble 3 appears** — long enough to read the line and still watch the stream. The bubble appears on the first tick of the run and never pauses the clock, so `runMs` **is** that 15 s guarantee. |
 | 9 | **Skip = per-step button + a separate "skip all".** The per-step button reads `SKIP` on bubble 1 (it genuinely skips typing your word) and `CONTINUE` on bubbles 2–4, which request no action. "Skip all" dismisses every remaining bubble and releases every remaining hold. |
 | 10 | **Skipping bubble 1 auto-bets a random word from a NEW pool**, disjoint from `PRACTICE_OPPONENT_WORDS`. Chosen over one fixed word (reads canned on a second visit) or padding partial input (produces nonsense). |
-| 11 | **Bubble copy is verbatim**, including `(Key)Stroking` (§5.3). |
+| 11 | **Bubble copy is verbatim** from the card (§5.3) — with one owner reword at ship time: the card wrote `(Key)Stroking`, the shipped line reads `Key-Stroking`. |
 | 12 | **Mobile: the bubble is an overlay**, absolutely positioned above Edson's band rather than stealing layout height from the three-band column. |
 | 13 | **The arrow animates normally and is static under `html.light-graphics`** — no second exception to the infinite-animation rule. |
 | 14 | **Edson is `monkeyTyping3.gif` for the whole `InProgress` phase.** `displaySpeed` and `PRACTICE_CHARS_PER_TICK` are untouched, so the stream still ramps. Accepted: Edson and the stream speed stop agreeing. |
@@ -155,7 +158,7 @@ rule is unaffected.
 | --- | --- | --- | --- |
 | 1 | Page mount, before the player's bet | `Hey there! Type a random word in the terminal for me really quick` | `SKIP` |
 | 2 | EDSON-BOT's bet lands | `Looks like another person has typed something as well, prepare yourself for the round!` | `CONTINUE` |
-| 3 | The race starts | `I can't talk much right now, I'm (Key)Stroking! Root for me to type your word first, if I do, you win!` | `CONTINUE` |
+| 3 | The race starts | `I can't talk much right now, I'm Key-Stroking! Root for me to type your word first, if I do, you win!` | `CONTINUE` |
 | 4 | The result is on screen | `Ouch! sorry my head regenerated, but congratulations! If this was a real game, the money would already be in your wallet.` | `CONTINUE` |
 
 A `skip all` affordance is present on all four (§7.8).
@@ -630,7 +633,7 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (31 items).
 13. Given bubble 1 is up, when the player presses `SKIP` inside the bubble, then a random word from the practice pool is placed as the player's bet, it is never equal to EDSON-BOT's word, and the tutorial advances.
 14. Given the player's bet has landed, when EDSON-BOT's bet appears, then bubble 2 shows "Looks like another person has typed something as well, prepare yourself for the round!" and the 10 s countdown does not start while it is up.
 15. Given bubble 2 is released with `CONTINUE`, when the countdown begins, then it starts at 10 and ticks down to 1 — the full duration, with no time consumed while the bubble was held.
-16. Given the countdown reaches zero and the race starts, when bubble 3 appears with "I can't talk much right now, I'm (Key)Stroking! …", then the race runs on **completely uninterrupted** behind it — the character stream, the speed ramp, the near-miss row and the round clock all keep advancing.
+16. Given the countdown reaches zero and the race starts, when bubble 3 appears with "I can't talk much right now, I'm Key-Stroking! …", then the race runs on **completely uninterrupted** behind it — the character stream, the speed ramp, the near-miss row and the round clock all keep advancing.
 17. Given bubble 3 appears, when the race plays out, then it lasts **15 seconds** from that moment, and the bubble clears on `CONTINUE` or when the race ends — whichever comes first.
 18. Given the player wins, when bubble 4 appears with "Ouch! sorry my head regenerated, but congratulations! …", then the 30 s rollover hold does not begin until it is released.
 19. Given any bubble is up, when the player uses "skip all", then every remaining bubble is dismissed, every remaining hold is released, and the round continues at its real timings with no further bubbles.

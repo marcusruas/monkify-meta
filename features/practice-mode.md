@@ -1,7 +1,10 @@
 # Feature — Practice mode
 
-> Status: **shipped.** Authoritative spec: `../specs/practice-mode.md`
-> (merged via `feature/practice-mode` on 2026-08-03).
+> Status: **shipped.** Authoritative specs: `../specs/practice-mode.md` (the original round) and
+> `../specs/practice-mode-changes.md` (#142 — the guided tutorial, always-win and the stream fix,
+> merged via `feature/practice-mode-changes` into `release/ui-ux-changes` on 2026-08-03).
+> ⚠️ **#142 reversed four rules this doc used to state.** They are corrected in place below; if you
+> remember practice mode as a fair, loseable round with a frozen-clock tutorial, that memory is stale.
 > **Frontend-only** — `monkify-front`. No backend, API, SignalR or database surface.
 > ⚠️ The spec was written before owner feedback during implementation; where the two disagree the
 > **code is authoritative**. See "Deviations from the spec" below.
@@ -53,10 +56,13 @@ change with it.**
 | Open | `WaitingBets` | until the player pulls the lever | — |
 | Opponent bets | `NotEnoughPlayersToStart` | 1500 ms | practice-only |
 | Countdown | `GameStarting` | **10 000 ms** | backend `GeneralSettings.Games.TimeUntilGameStarts` |
-| Run | `InProgress` | 12 000 ms | inside the real race target (`RaceTargetMeanSeconds` 8–18 s) |
+| Run | `InProgress` | **15 000 ms** (#142; was 12 000) | inside the real race target (`RaceTargetMeanSeconds` 8–18 s) |
 | Result | `Ended` → `RewardForWinnersCompleted` | 1200 ms, then the rest of the hold | — |
 | Rollover | back to `WaitingBets` | total hold = **`VUE_APP_NEW_GAME_DELAY`** (30 s) | shared with `GameConsole` |
 
+- ⚠️ **"Real timings, never compressed" no longer holds unqualified (#142).** The guided tutorial
+  *pauses* the round clock at two points — see "The guided tutorial" below. The durations themselves are
+  unchanged; what changed is that the clock can stop between them.
 - The countdown is the **real 10 s**, not a compressed one. This is load-bearing beyond fidelity:
   `GameMonkey`'s `GLASSES_DELAY_MS = 8800` only lands inside a 10 s countdown, so Edson puts his
   glasses on 1.2 s before typing on both screens.
@@ -71,24 +77,78 @@ change with it.**
   `> REWARDS SENT. PULL LEVER FOR NEXT ROUND!` — practice's lever really does start the next round.
   The lottery branch is not copied.
 
-### ⚠️ The winner is DRAWN, then revealed
+### ⚠️ The player ALWAYS wins (#142)
 
-- With a 26-character pool and a 6-character choice there are `26^6 ≈ 3.09e8` possible windows against
-  ~59 000 characters per run. **A "generate characters until someone's word appears" loop never
-  terminates.** This is the single most likely way to get this feature wrong.
-- The winner is **drawn uniformly** from the placed choices when the run starts, then revealed at the
-  end. That is what the real game does: `SpaceStrokerTyper.DecideFallbackWinner` draws from the placed
-  choices whenever nothing lands inside the character cap.
-- **A natural hit still beats the draw.** Both choices are matched against the stream, and a full match
-  on either becomes the winner — the same `CheckForWinners` → `DecideFallbackWinner` order the backend
-  uses. It is a ~0.02% event, but it means the near-miss row and the result can never contradict
-  each other.
-- `drawPracticeWinner(choices, random)` and `practicePhaseAt(elapsedMs, timings)` are **exported, pure
-  and DOM-free** so a future test runner can pin them without a browser. The draw must never be biased
-  toward the player.
+- The winner is **unconditionally the player's own choice**. Practice is a tutorial, not a game: a
+  first-time visitor's single round has to be interpretable, and a 50/50 loss they cannot read teaches
+  nothing.
+- **This reversed the original design.** Before #142 the winner was drawn uniformly from the placed
+  choices (`drawPracticeWinner`), a natural stream hit could beat the draw, and losing was described
+  here as the reason the synthetic opponent exists. `drawPracticeWinner`, the natural-hit override and
+  the whole lose path (`lose.mp3`, the win/lose ternary) are **deleted**. Do not restore "fairness"
+  here — nothing is at stake, no money moves, and the screen makes no fairness claim.
+- EDSON-BOT survives only as **the second bet the tutorial narrates**, not as a real opponent.
+- The near-miss matcher survives too, but decides nothing: it exists purely to drive the `> N AWAY!`
+  row.
+- `practicePhaseAt(elapsedMs, timings)` stays **exported, pure and DOM-free** so a future test runner
+  can pin it without a browser.
 - **The winning word is appended to the end of the stream and highlighted.** In a real race the game
   ends the instant the sliding window of the last N characters *is* a placed choice, so the stream's
   final characters are the winner; practice reproduces that rather than resolving off-screen.
+
+### The guided tutorial (#142)
+
+Edson narrates the round in a **speech bubble** above his head — four scripted beats, each skippable.
+It runs **once per entry** to `/game/practice`: the auto-rollover into round 2 is silent, and leaving
+and coming back replays it. Nothing is persisted (no `localStorage`, no cookie), so the "practice
+persists nothing" rule still holds.
+
+| # | Beat | Copy | Holds the round? |
+| --- | --- | --- | --- |
+| 1 | Page load, before the player bets | *"Hey there! Type a random word in the terminal for me really quick"* | Naturally — the clock does not start until a bet lands |
+| 2 | EDSON-BOT's bet appears | *"Looks like another person has typed something as well, prepare yourself for the round!"* | **Yes** — the 10 s countdown does not begin until released |
+| 3 | The race starts | *"I can't talk much right now, I'm Key-Stroking! Root for me to type your word first, if I do, you win!"* | **No** — see below |
+| 4 | The result is on screen | *"Ouch! sorry my head regenerated, but congratulations! If this was a real game, the money would already be in your wallet."* | **Yes** — the 30 s rollover does not begin until released |
+
+- **The hold is an accumulated-pause offset on the single round clock** (`pausedAt` / `pausedTotalMs`),
+  never a second clock and never a stop/start of the interval. Everything phase-derived — the countdown
+  number, the speed ramp, the near-miss stall reset, the rollover deadline — reads the offset elapsed,
+  so a tab backgrounded mid-hold accumulates nothing.
+- ⚠️ **Bubble 2 engages *before* its phase is committed.** `elapsed` has already crossed
+  `opponentBetMs` when it fires, so the tick returns without writing `status`: the round stays at
+  `NotEnoughPlayersToStart`, the idle loop keeps playing, the 10 s-aligned countdown jingle has **not**
+  fired, and `GameMonkey`'s 8800 ms glasses timeout has **not** been scheduled. Commit `GameStarting`
+  first and you get a jingle playing against a frozen countdown.
+- ⚠️ **Bubble 3 holds NOTHING.** It must never interrupt the character flow, so there is no hold
+  boundary for the race at all: it rides the running race as a plain overlay, driven off `status`
+  rather than off a hold, and clears on `CONTINUE` **or** when the race ends — whichever comes first.
+  The race lasts `runMs` (**15 s**) from the moment it appears.
+- **Releasing a hold rebases the near-miss wall-clock timestamps** (`lastImproveAt`,
+  `lastStallCheckAt`) by the held duration. Without it, any hold over `PRACTICE_NEAR_MISS_STALL_MS`
+  (2000) reads as a stall the instant the round resumes and the row snaps back to `0/6`.
+- **Skip semantics:** the primary button reads `SKIP` on bubble 1 (it really does skip typing your
+  word — it auto-bets a random `PRACTICE_PLAYER_WORDS` entry, a pool kept **disjoint** from
+  `PRACTICE_OPPONENT_WORDS`) and `CONTINUE` on 2–4. A second **`skip all`** button dismisses every
+  remaining bubble and releases every remaining hold; the round then runs at its real timings.
+- **The lever still works during bubble 4** — it releases the hold and rolls over, because the lever
+  must never look broken.
+- **A dimmer** (the same dithered `.overlay-backdrop` the settings modal uses — never a blur, which
+  `html.light-graphics` strips) covers the page and the header while a bubble is up. The cabinet,
+  Edson, the arrow and the bubble are lifted above it by `--z-practice-cue` (42); the dimmer is
+  `--z-practice-dim` (41). Both sit under `--z-modal` (60), so opening Settings mid-tutorial still puts
+  the real modal in front.
+- **An arrow** points at `#practice-word-input` during bubble 1 — white glyph inside a strong red
+  outline, rendered by `PracticeConsole` (which owns that id on both layouts) and registered in
+  `arcade.css`'s light-graphics animation kill list, because that list is an **allow-list**: an
+  unlisted infinite animation is not stripped.
+- ⚠️ **The bubble is mounted by `PracticePage`, never inside `PracticeMonkey`.** The monkey's root
+  clips (`max-lg:overflow-hidden`) and is `v-show`n off while the phone keyboard is open — a bubble
+  nested there would vanish mid-hold, and since the only control that releases a hold is inside it, the
+  round would be stuck.
+- ⚠️ **`usePracticeTutorial` is a factory**, provided by `PracticePage` like the store. A module
+  singleton would turn "replays on every page entry" into "runs once per browser session".
+- Edson is pinned to `monkeyTyping3.gif` for the **whole** run (#142); the stream's 1→2→3 speed ramp is
+  untouched, so his animation and the stream speed deliberately stop agreeing.
 
 ### The character stream
 
@@ -96,11 +156,17 @@ change with it.**
   `GeneralSettings.Games.TerminalBatchLimit` (500). A real race is capped at `MaxTyperCharacters`
   (5 000 000) inside an 8–18 s budget, so the live screen is a wall of text far too fast to read — the
   near-miss row is what a player actually reads.
-- Practice emits **120 / 220 / 400 characters per 50 ms tick** by display speed (~2.4k/4.4k/8k per
-  second, ~59 000 per round), which reads like the real thing and makes the 20 000-character crop rule
-  live rather than theoretical. `DisplaySpeed` ramps 1→2→3 at a third and two thirds of the run.
-- The typer's refresh cadence (`{1: 50, 2: 35, 3: 25}` ms) and crop rule (20 000 → keep 2 000 every
-  250 ms) are copied from `GameTyper.vue`.
+- Practice emits **120 / 220 / 400 characters per 50 ms tick** by display speed, which reads like the
+  real thing and makes the 20 000-character crop rule live rather than theoretical. `DisplaySpeed`
+  ramps 1→2→3 at a third and two thirds of the run.
+- The crop rule (20 000 → keep 2 000 every 250 ms) is copied from `GameTyper.vue`.
+- ⚠️ **`PracticeTyper` is no longer a line-for-line copy of `GameTyper.vue` (#142).** It used to hold a
+  *second* render clock (`PRACTICE_TYPER_REFRESH_MS`, 50/35/25 ms) that copied `terminalOutput` into a
+  local ref — decoupled from the store's fixed 50 ms append. That, plus a `flush: 'pre'` scroll watcher
+  in `PracticeTerminal` that scrolled **before** the DOM was patched, is why the stream visibly lagged
+  and only snapped to the end when the run finished. The second clock is **deleted** (the typer renders
+  `terminalOutput` directly) and the scroll watcher runs at **`flush: 'post'`**. Do not reintroduce the
+  interval: at speeds 2/3 it was re-reading unchanged data, so removing it is *fewer* renders.
 
 ### Near-miss rows
 
@@ -226,9 +292,14 @@ left unchecked rather than claimed.
 
 - `monkify-front/src/pages/PracticePage.vue` — creates + `provide`s the store, the fail-open
   self-exclusion gate, both layouts, `dispose()` on unmount.
-- `monkify-front/src/hooks/usePracticeGame.ts` — the factory store: the one round clock, the drawn
-  winner (`drawPracticeWinner`), the pure phase map (`practicePhaseAt`), the stream, the near-miss
-  display layer, the rollover, `nextRound()` and `dispose()`.
+- `monkify-front/src/hooks/usePracticeGame.ts` — the factory store: the one round clock **and its
+  pause offset**, the always-win outcome, the pure phase map (`practicePhaseAt`), the stream, the
+  near-miss display layer, the rollover, `holdsEnabled` / `heldAt` / `releaseHold()`, `nextRound()` and
+  `dispose()`.
+- `monkify-front/src/hooks/usePracticeTutorial.ts` — the 4-step tutorial factory: which bubble is up,
+  the skip semantics, the auto-bet.
+- `monkify-front/src/components/practice/PracticeBubble.vue` — the speech bubble (the modal's
+  black-cyan material), its two outline buttons and the tail.
 - `monkify-front/src/constants/practiceGame.ts` — every hard-coded value and the copied status labels.
 - `monkify-front/src/constants/keys.ts` — `PRACTICE_GAME_KEY` (type-only import, no runtime coupling).
 - `monkify-front/src/components/practice/PracticeTerminal.vue` — the CRT, the sticky banner, the closed
