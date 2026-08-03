@@ -1,7 +1,8 @@
 # Space Stroker — "Fix mobile UI edge cases in game page" — Implementation Spec
 
-> **Status: SHIPPED 2026-08-02** — branch `feature/mobile-console-edge-cases` merged to `main` in
-> `monkify-front` + `monkify-meta`.
+> **Status: SHIPPED 2026-08-03** — two branches, both merged to `main` in `monkify-front` +
+> `monkify-meta`: `feature/mobile-console-edge-cases` (the card itself, 2026-08-02) and
+> `feature/mobile-console-crop` (the owner-review follow-up, 2026-08-03 — **see §9**).
 > Refined via Trello card
 > [Fix mobile UI edge cases in game page (#137)](https://trello.com/c/PvfaU50d/137-fix-mobile-ui-edge-cases-in-game-page)
 > (2026-08-02), read against `monkify-front@82829b6` / `monkify-meta@59f057b`.
