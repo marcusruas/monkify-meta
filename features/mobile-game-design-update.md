@@ -18,6 +18,10 @@ CRT terminal, Edson, cabinet — built from the same art desktop uses, and the c
 
 - The mobile GAME view is a **three-band column**: `GameMobileTabs` → `GameTerminal` (`.mobile-terminal`)
   → `GameMonkey` → `GameConsole`, in that order, fitting a portrait phone with no page scroll.
+- ⚠️ **Amended 2026-08-02 by `features/mobile-console-edge-cases.md`:** the two-plate cabinet described
+  below is no longer used for the *whole* sub-`lg` range. It is now the **phone-shaped** cabinet only;
+  viewports at least **600px wide and 600px tall** render the real desktop three-plate console instead
+  (`isWideConsole`). The column, the bands and their priority are unchanged.
 - **`GamePage` owns `GameConsole` on the mobile path.** `GameTerminal` renders the console only on
   desktop (`v-if="!mobile"`), because on mobile Edson sits *between* the terminal and the cabinet.
 - Band priority when space is tight is **console > terminal > Edson**: the console never shrinks (the
