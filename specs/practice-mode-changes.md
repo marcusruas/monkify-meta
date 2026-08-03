@@ -54,7 +54,7 @@ Three independent changes to `/game/practice`, plus one shared piece of machiner
 | Player bets | Round clock starts | Same (bubble 1 clears) |
 | +1500 ms | EDSON-BOT bets, countdown starts immediately | EDSON-BOT bets, **clock holds** on **bubble 2**; countdown starts on release |
 | Countdown | 10 s | 10 s, unchanged (full duration after release) |
-| Race starts | 12 s stream, Edson ramps `typing → typing2 → typing3` | Race starts, **clock holds** on **bubble 3** (stream keeps running behind it); Edson is `typing3` the whole run |
+| Race starts | 12 s stream, Edson ramps `typing → typing2 → typing3` | **15 s** stream, never interrupted; **bubble 3** rides it as an overlay; Edson is `typing3` the whole run |
 | Result | Win **or** lose, 50/50 | **Always a win**; **clock holds** on **bubble 4** |
 | Rollover | 30 s, then a fresh round | 30 s starts on release; round 2 runs with **no bubbles** |
 
@@ -108,8 +108,8 @@ Carried from the refined card (answer mode: **short**). Numbering matches the ca
 | 6 | **Practice only.** `GameTerminal`/`GameTyper` are untouched — the real stream arrives in irregular SignalR batches where the refresh-interval indirection earns its keep. A separate card if the live screen has the same symptom. |
 | 7 | **The tutorial runs once per page entry, first round only.** Not per-round (an unbounded practice loop would become an unbounded tutorial loop) and not persisted (a `localStorage` flag would break the "persists nothing" rule). Leaving and returning replays it. |
 | 8 | **Each bubble HOLDS the round.** Bubble 1 gates naturally; bubble 2 holds the 10 s countdown; bubble 3 holds the race; bubble 4 holds the 30 s rollover. ⚠️ Raised and accepted: this breaks the "real timings, never compressed" property and requires pause/resume on the single-timestamp clock — implemented as an **accumulated-pause offset** (§7.5), never a second clock. |
-| 8a | **The character stream KEEPS RUNNING behind bubble 3** (owner feedback on the deployed build, 2026-08-03 — this reverses the original decision 8, which froze the stream). Edson must visibly keep typing while the bubble says he can't talk. Only the **clock** is frozen, which is what stops the round *ending* behind the bubble; the stream and the near-miss row advance normally. |
-| 8b | **`runMs` 12000 → 10000** (same feedback), so the round is over **within 10 s** of pressing `CONTINUE` on bubble 3. Because that bubble engages on the first tick of the run and the clock is frozen while it is up, the time left after release *is* `runMs` — the cap and the constant are the same number. |
+| 8a | **Bubble 3 does NOT hold the round at all** (owner feedback on the deployed build, 2026-08-03 — this fully reverses the original decision 8, which froze the race). It must never stop the character flow, so there is **no `race-started` hold boundary**: the bubble rides the running race as a plain overlay, driven off `status` rather than off a hold, and clears on `CONTINUE` **or** when the race ends — whichever comes first. Only bubbles 2 and 4 hold. |
+| 8b | **`runMs` 12000 → 15000** (same feedback), so the race lasts **15 s from the moment bubble 3 appears** — long enough to read the line and still watch the stream. The bubble appears on the first tick of the run and never pauses the clock, so `runMs` **is** that 15 s guarantee. |
 | 9 | **Skip = per-step button + a separate "skip all".** The per-step button reads `SKIP` on bubble 1 (it genuinely skips typing your word) and `CONTINUE` on bubbles 2–4, which request no action. "Skip all" dismisses every remaining bubble and releases every remaining hold. |
 | 10 | **Skipping bubble 1 auto-bets a random word from a NEW pool**, disjoint from `PRACTICE_OPPONENT_WORDS`. Chosen over one fixed word (reads canned on a second visit) or padding partial input (produces nonsense). |
 | 11 | **Bubble copy is verbatim**, including `(Key)Stroking` (§5.3). |
@@ -356,7 +356,7 @@ other two *after* theirs:
 | Boundary | Kind | Engages | Why that kind |
 | --- | --- | --- | --- |
 | `before-countdown` (bubble 2) | **before** the status commit | On the tick that places EDSON-BOT's bet, i.e. the first tick where `elapsedMs() >= opponentBetMs`. Engage the pause and **`return` without writing `status`**. | The phase stays `NotEnoughPlayersToStart`, so the `game_starting` jingle has not fired, `PracticeAudio` keeps the waiting loop, `GLASSES_DELAY_MS` has not been scheduled, and on release the countdown starts cleanly at 10 (AC 15). Committing `GameStarting` first would fire a 10 s-aligned jingle against a frozen countdown. |
-| `race-started` (bubble 3) | **after** the status commit | On the tick that first writes `status = InProgress`: commit normally (Edson flips to `typing3`, the running loop starts, one batch is emitted), then engage the pause at the end of that tick. ⚠️ **The stream is exempt from this pause** (decision 8a): while `heldAt === 'race-started'`, `tick()` still calls `emitRaceBatch()` and runs the near-miss stall check before returning. | Decisions 8a/8b: the race must look alive behind the bubble, but must not *end* behind it. |
+| *(no boundary for the race)* | — | **Bubble 3 has no hold.** `usePracticeTutorial` watches `practice.status`: `InProgress` raises the bubble, anything past it clears the bubble. `tick()` is never suspended during the race. | Decision 8a: the character flow must never stop. |
 | `result-shown` (bubble 4) | **after** the status commit | On the tick that first writes `status = RewardForWinnersCompleted` (the beat `finishedTyping` flips and the result block renders): commit, then engage. | The player must see the result the bubble is congratulating them for. Freezing here also stops the rollover, since `elapsedMs()` can no longer reach `roundLengthMs()`. |
 
 Each boundary fires **at most once per round**, tracked in a `Set<PracticeHoldBoundary>` cleared by
@@ -528,11 +528,11 @@ sequenceDiagram
     S->>U: countdown 10 → 1, jingle, glasses at 8800 ms
 
     S->>U: status = InProgress — Edson typing3, running loop, first batch
-    S->>S: HOLD race-started (clock frozen, STREAM KEEPS RUNNING)
+    T->>U: bubble 3 (overlay only — NO hold, the race runs on)
     T->>U: bubble 3
-    P->>T: CONTINUE
-    T->>S: releaseHold()
-    S->>U: the full 10 s run plays out, near-miss row climbs
+    P->>T: CONTINUE (or lets the race end)
+    T->>U: bubble 3 clears
+    S->>U: the 15 s run plays out uninterrupted, near-miss row climbs
 
     S->>U: Ended — winner = own choice, victory.mp3, row fills to 0 AWAY
     S->>U: status = RewardForWinnersCompleted — result block
@@ -557,7 +557,7 @@ sequenceDiagram
   generates both sides, so any fairness display would be fabricated evidence.
 - A "play for real" CTA on the practice screen.
 - Rewording the sticky banner (decision 3) or the result-block copy.
-- Changing `PRACTICE_CHARS_PER_TICK`, the crop rule, or the 10 s countdown / 30 s rollover timings. (`runMs` **is** changed — 12000 → 10000, decision 8b.)
+- Changing `PRACTICE_CHARS_PER_TICK`, the crop rule, or the 10 s countdown / 30 s rollover timings. (`runMs` **is** changed — 12000 → 15000, decision 8b.)
 
 ---
 
@@ -630,8 +630,8 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (31 items).
 13. Given bubble 1 is up, when the player presses `SKIP` inside the bubble, then a random word from the practice pool is placed as the player's bet, it is never equal to EDSON-BOT's word, and the tutorial advances.
 14. Given the player's bet has landed, when EDSON-BOT's bet appears, then bubble 2 shows "Looks like another person has typed something as well, prepare yourself for the round!" and the 10 s countdown does not start while it is up.
 15. Given bubble 2 is released with `CONTINUE`, when the countdown begins, then it starts at 10 and ticks down to 1 — the full duration, with no time consumed while the bubble was held.
-16. Given the countdown reaches zero and the race starts, when bubble 3 appears with "I can't talk much right now, I'm (Key)Stroking! …", then the **character stream keeps running** behind it while the round clock stays frozen — so the round cannot reach its result until the bubble is released.
-17. Given bubble 3 is released with `CONTINUE`, when the race plays out, then the round reaches its result in **at most 10 seconds**.
+16. Given the countdown reaches zero and the race starts, when bubble 3 appears with "I can't talk much right now, I'm (Key)Stroking! …", then the race runs on **completely uninterrupted** behind it — the character stream, the speed ramp, the near-miss row and the round clock all keep advancing.
+17. Given bubble 3 appears, when the race plays out, then it lasts **15 seconds** from that moment, and the bubble clears on `CONTINUE` or when the race ends — whichever comes first.
 18. Given the player wins, when bubble 4 appears with "Ouch! sorry my head regenerated, but congratulations! …", then the 30 s rollover hold does not begin until it is released.
 19. Given any bubble is up, when the player uses "skip all", then every remaining bubble is dismissed, every remaining hold is released, and the round continues at its real timings with no further bubbles.
 20. Given a bubble is displayed, when its button is read, then it says `SKIP` on bubble 1 and `CONTINUE` on bubbles 2, 3 and 4, and the "skip all" affordance is present on all four.
