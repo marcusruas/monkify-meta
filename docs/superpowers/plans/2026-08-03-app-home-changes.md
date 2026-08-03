@@ -158,7 +158,7 @@ git commit -m "Stop reporting a player count on the race and preset cards (monki
       p: 'Six characters, yours. Anyone can call the same round, nobody can call yours.',
     },
     {
-      h: 'Edson starts (key)stroking',
+      h: 'Edson starts key-stroking',
       p: 'Live, from a seed committed before the round. Nothing is decided after it starts.',
     },
     {

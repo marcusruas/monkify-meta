@@ -1,6 +1,16 @@
 # Space Stroker — "App home changes" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED to the release train (2026-08-03)** — `feature/app-home-changes` merged into
+> **`release/ui-ux-changes`** in `monkify-front` + `monkify-meta`. **Not on `main` yet**: the train
+> lands separately with `/monkify-ship-feature release/ui-ux-changes`, which is also when the card
+> leaves Implemented. Distilled into `features/home-dashboard.md` (Minor change ⇒ no dedicated
+> `features/<slug>.md`).
+> **Post-ship amendments — read before treating a section as current:** §7.5 (`loading` stays `true`),
+> §7.2 (`--color-live` has no other consumer), §7.6 (the "duplicate fetch" premise), the AC17
+> before-count, and the beat heading, which shipped as **`Edson starts key-stroking`** after an owner
+> change at ship time (the card and §7.3 said `(key)stroking`).
+>
+> Refined via Trello card
 > [App home changes](https://trello.com/c/eS4SpiZ6) (#143, refined 2026-08-03).
 > Repos affected: `monkify-front`, and this doc + `features/home-dashboard.md` in `monkify-meta`.
 > **`monkify-backend` is untouched.**
@@ -68,7 +78,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 2 | Only the **`PLAYERS`** chip is removed. `TICKET`, the lottery `POT` chip and the `FILLING`/`STARTING`/`LIVE NOW` status pill all stay. |
 | 3 | The chip removal applies to **both** `/` and `/game`. `GameTypes.vue`/`GameTypeCard.vue` are shared verbatim so the two surfaces can never drift; **no prop-gated split**. |
 | 4 | Section title → **`WANNA LEARN HOW TO PLAY?`**; the **`Three beats` eyebrow is dropped**. `HomeSection`'s `eyebrow` prop is already optional — no component change. |
-| 5 | The three beat **headings** change (`Place a bet` / `Edson starts (key)stroking` / `First bet typed wins`); the **sub-copy under each stays byte-for-byte**. |
+| 5 | The three beat **headings** change (`Place a bet` / `Edson starts key-stroking` / `First bet typed wins`); the **sub-copy under each stays byte-for-byte**. |
 | 6 | The section's button reads **`Learn more`**. Destination and analytics are unchanged. |
 | 7 | The **`TRY IT FREE` panel is deleted** and `PROVABLY FAIR` goes full width — post-#138 the cold hero's own second CTA is labelled `Try it free`, so the panel repeats it. |
 | 8 | The **`home_link_click` / `practice` event survives** the deletion: the track call moves into `HomePage`'s practice handler, which every practice entry point already routes through. |
@@ -156,9 +166,14 @@ Consequences to honour:
 - **`live.players` is still read**, by `status` (`FILLING` requires `players > 0`), so no import,
   computed or util is orphaned. `utils/players.ts` and `countPlayers` stay.
 - **The `.live-dot` / `.live-dot--on` CSS becomes unused** — `dot: false` on the only surviving arm.
-  Leave the rules in place: they are 8 lines, they document the "lit only when somebody is actually
-  in the round" rule, and a future chip would need them back. Do **not** delete `--color-live`
-  (`colors.css`) — `HomeFloor`'s eyebrow dot and other surfaces use it.
+  Leave the rules in place: they are 8 lines and they encode the "lit only when somebody is actually
+  in the round" decision, which a future live chip must inherit rather than reinvent.
+  ⚠️ **Corrected during implementation:** this spec first said to keep `--color-live` because
+  "`HomeFloor`'s eyebrow dot and other surfaces use it". They do not — `HomeFloor`'s dot is
+  `--color-cyan`, and `.live-dot--on` was the token's **only** consumer app-wide, so the token is now
+  unreferenced too. Both are still kept, on the honest reason above; the shipped comment in
+  `GameTypeCard.vue` states the real state and says to delete the block and the token together or
+  neither.
 - **Both surfaces change.** `/game` renders the same component; its cards lose the chip too. That is
   decision 3, not a regression.
 
@@ -167,7 +182,7 @@ Consequences to honour:
 ```ts
 const steps = [
   { h: 'Place a bet',                p: /* unchanged */ 'Six characters, yours. Anyone can call the same round, nobody can call yours.' },
-  { h: 'Edson starts (key)stroking', p: /* unchanged */ 'Live, from a seed committed before the round. Nothing is decided after it starts.' },
+  { h: 'Edson starts key-stroking', p: /* unchanged */ 'Live, from a seed committed before the round. Nothing is decided after it starts.' },
   { h: 'First bet typed wins',       p: /* unchanged */ 'His first landed call splits the pot. Two characters short is still short.' },
 ];
 ```
@@ -190,7 +205,7 @@ and the action button's label `How to play` → `Learn more`.
   desktop; at 13 px it wants ~312 px against a ~330 px phone panel, which is **tight**. Check 390 px
   and accept a two-line title there if it wraps at a word boundary; do not shrink the title's font
   below the shared `HomeSection` scale, and do not `white-space: nowrap` it.
-- ⚠️ **`EDSON STARTS (KEY)STROKING` is 26 characters** in a `minmax(210px, 1fr)` auto-fit column at
+- ⚠️ **`EDSON STARTS KEY-STROKING` is 26 characters** in a `minmax(210px, 1fr)` auto-fit column at
   `text-[10px]` — ~260 px wanted against a 210 px minimum, so it **will** wrap to two lines at three
   columns. That is acceptable (the beats are `content-start` in a grid, so a taller heading does not
   misalign the numbers), but verify the three beat blocks still read as one row and nothing overflows
@@ -438,10 +453,10 @@ Copied 1:1 from the Trello checklist (#143).
    "WANNA LEARN HOW TO PLAY?", no eyebrow is rendered above it, and the section still renders inside
    the same `.arcade-frame` panel as its neighbours.
 6. **AC6** — Given the how-it-works section, when its three beats render, then their headings read
-   "PLACE A BET", "EDSON STARTS (KEY)STROKING" and "FIRST BET TYPED WINS", each numbered 01–03 as
+   "PLACE A BET", "EDSON STARTS KEY-STROKING" and "FIRST BET TYPED WINS", each numbered 01–03 as
    today, and the sub-copy under each is byte-for-byte the copy that shipped.
 7. **AC7** — Given a 390×844 phone and a 1366×768 desktop, when the how-it-works beats render, then
-   "EDSON STARTS (KEY)STROKING" wraps without overflowing its column and the three beat blocks stay
+   "EDSON STARTS KEY-STROKING" wraps without overflowing its column and the three beat blocks stay
    aligned on one row at desktop width.
 8. **AC8** — Given the how-it-works section, when the player clicks its action button, then the button
    reads "Learn more", `home_link_click` fires with `link: 'how_to_play'`, and the app routes to
