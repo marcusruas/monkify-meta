@@ -204,7 +204,13 @@
     (20/22px, part of the shell's titlebar geometry) · **`/admin`** and its `.admin-input`, which stays
     `<style scoped>`-duplicated in `GameTypeForm.vue` **and** `BetRefundManager.vue` **on purpose**
     (blue/Courier surface; bringing it onto the arcade scale is its own card) · the **game page's
-    furniture** (terminal word input, lever, mobile preset keypad, `GameMobileTabs`, chat composer).
+    furniture** (terminal word input, lever, mobile preset keypad, `GameMobileTabs`).
+    ⚠️ **The chat composer left this list on 2026-08-02 (Trello #134).** `GameChatPanel`'s input and
+    SEND now take `--ctl-h-sm`: off the scale they had sized themselves from font + padding alone and
+    landed **6.6px apart** (33.6px VT323/16px/`py-1` beside 27px Press Start/10px/`py-1.5`), which is
+    exactly the defect the scale exists to remove. Heights come off the token, so **padding there is
+    horizontal only** — adding `py-*` back fights the fixed height and reintroduces the drift. Every
+    other non-member above still stands.
 - **Focus is an `outline`, never a `box-shadow` (Trello #135):** one treatment —
   `outline: 2px solid var(--color-cyan); outline-offset: 2px` — declared once in `arcade.css` for
   `.btn-arcade`, `.btn-dialog`, `.btn-icon`, `.dialog-row`, `.dialog__close` (`:focus-visible`) and
@@ -439,6 +445,46 @@
   keeps its subscription. Mobile SolanaToken bets use an "open in wallet app" deep link
   (`src/utils/walletDeepLink.ts`). Prefer `max-lg:`/`lg:` Tailwind variants + `dvh` heights over new
   breakpoints. See `features/mobile-layout.md`.
+- **The mobile game screen is the arcade cabinet, and it is ONE piece of hardware (Trello #134,
+  2026-08-02):** below `lg`, `/game/play` is a three-band column — `GameMobileTabs` → `GameTerminal` →
+  `GameMonkey` → `GameConsole` pinned bottom — and **`GamePage` owns the console on the mobile path**
+  (`GameTerminal` renders it only on desktop) because Edson sits between them. Band priority is
+  **console > terminal > Edson**: the console never shrinks (the lever must stay reachable), the
+  terminal keeps a readable minimum and scrolls internally, Edson gives ground first. Rules that cost
+  real time to learn:
+  - **The tab strip, the terminal and the chat panel share one housing** — true-black glass, a **7px
+    `#5c6a8c` bezel**, **4px corners**. Keep the four values in lockstep across all three components,
+    or switching tabs resizes the housing. The bezel tone is picked for **contrast, not tone**: taken
+    down to the console's own `#424c6e` navy it vanished between black glass and the dark page, so a
+    6px bezel read *thinner* than the 4px one it replaced. **Thickness only reads when there is enough
+    contrast to see it.**
+  - **A selected tab is the lit screen, not a brand fill** — black glass + `#4ade80` phosphor over a
+    crisp 2px bar. The bar is the **non-colour selection cue** (WCAG 1.4.1), not decoration; it is an
+    `inset` box-shadow so switching tabs moves no pixels.
+  - **`terminal.png` is 970×420 holding THREE plates.** Both console modules show *the same* well
+    (`x ∈ [0, 300)`); a "one third per module" crop drags the seam and a sliver of well 2 into the left
+    module. Crop vertically from **y=20**, past the art's own navy top border — starting at y=12 leaves
+    a hairline that reads as a seam under Edson.
+  - **Shrink a control with padding, never by insetting its button.** Padding sits inside the hit area,
+    so the art gets smaller while the whole plate stays tappable. The lever is the case that forced it.
+  - **An overlap needs a lit edge to read as depth.** The cabinet tucks over Edson with an upward
+    shadow, and the tuck depth was measured off the GIF's alpha + brightness profile: cut in the
+    saucer's near-black underside it reads as fading out, not as going behind something, and the shadow
+    has nothing to land on. Scale such an overlap with `clamp(..., dvh, ...)` — a fixed tuck that works
+    on a full phone swallows half of the band a short viewport leaves.
+  - **Text inputs on this screen are floored at 16px.** `public/index.html` ships the viewport with no
+    `maximum-scale`, so iOS Safari zooms the page whenever a focused input computes under 16px. Trim
+    with leading and tracking instead; going lower means either breaking pinch-zoom or a `:focus`-only
+    bump, both of which are trade-offs to raise explicitly.
+  - **A mobile-only surface must be built crisp — `usePerfMode` forces `html.light-graphics` on every
+    viewport below `lg`.** A component that only renders below `lg` therefore *always* runs in that
+    mode, so a wide soft glow there is built specifically to be stripped: dead weight on the one device
+    that ever sees it. Carry the effect in something that survives (a solid bar, a tight `0 0 6px`
+    halo like `.pot-value`), not in a bloom. Conversely, **check what that mode kills before assuming
+    a class does anything**: `.animate-wobble` sat in the strip list and left Edson frozen on the one
+    screen he is the mascot of, which is why it was pulled out of it (`arcade.css`) — it is one
+    `<img>`, transform-only, on an 8s loop.
+  See `features/mobile-game-design-update.md`.
 - **Routing:** `src/routes.ts`, **prefix-free** since `home-dashboard` — `/` (`Home`, the starting page)
   · `/game` (the plain lobby, and the URL `EMBEDDING.md` points integrators at) · `/game/play` ·
   `/game/history` · `/game/stats` · **`/how-to-play`** · **`/responsible-gaming`** (both #130) ·

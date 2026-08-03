@@ -1,7 +1,13 @@
 # Space Stroker — "Mobile game design update" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/mobile-game-design-update` on **2026-08-02**. Refined via
+> Trello card
 > [mobile game design update](https://trello.com/c/yPwW5Awx/134-mobile-game-design-update) (#134, refined 2026-08-02).
+> Distilled summary: `../features/mobile-game-design-update.md`.
+> ⚠️ **Shipped with three deviations this spec was not written for, plus partial verification — see
+> §16.** Two of them contradict the card's own acceptance criteria (**AC #17** tab colour, **AC #18**
+> desktop untouched); where this spec and the shipped code disagree, **the code is the newer
+> decision**. §1's summary table and §2's "§8 Scope" line are stale on both counts — §16 is current.
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**. **`monkify-backend` is not touched.**
 > Branch / worktree: `feature/mobile-game-design-update` → `.worktrees/mobile-game-design-update/<repo>`.
 > Change level: **Frontend feature (visual)** — new capability on the mobile game screen, no backend surface.
@@ -588,3 +594,102 @@ overlap is expected, but rebase order matters if both land close together.
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from refined card #134, with the card's mock read in-browser and the console/monkey/page/terminal code paths verified. Decisions 14–16 resolved here (preset-key placement, the mobile-only lit key state, the scroll shape); §3.1 records the card-prose ↔ AC #16 conflict and its resolution. |
+| 2026-08-02 | **Shipped.** Added §16 (shipped deviations): the tab selected-state dropped amber for the lit-screen treatment (amends **AC #17**); desktop is no longer untouched (amends **AC #18** and §9) because the chat composer moved onto `--ctl-h-sm` — **overriding `control-sizing-system` D5** — and `.animate-wobble` left the light-graphics kill list; and the screen panel was re-skinned to true-black glass in a 7px `#5c6a8c` housing, with the cabinet overlapping Edson on a measured tuck. §16.4 records which acceptance criteria were actually exercised and which were not. |
+
+---
+
+## 16. Shipped deviations (2026-08-02)
+
+Three owner decisions landed **after** this spec was written. They are recorded here rather than
+edited into the body above, so the spec still reads as the design that was approved and this section
+carries what actually shipped. **Where the two disagree, the code is authoritative.**
+
+### 16.1 The tab selected-state is no longer amber (amends AC #17)
+
+The card said the `GAME | CHAT` tabs were **unchanged**, keeping "today's filled-amber active state",
+and **AC #17** asserts it. Shipped instead: **both tabs sit on the same true black as the glass**, and
+the selected one is painted as the screen it opens onto — `#4ade80` phosphor over a crisp 2px bar.
+
+Why it changed: once the screen panel went true black (§16.3), the amber chip read as a brand sticker
+stapled to a CRT. An intermediate pass gave the *unselected* tab a `#2a3149` key plate; that read as a
+stray grey slab bolted to a black machine and was dropped — the plate was doing a job the type should
+do.
+
+Two rules worth keeping:
+
+- **The 2px bar is not decoration.** With no fill, selection would otherwise be carried by hue alone,
+  which fails WCAG 1.4.1. The bar is the non-colour cue. It is an `inset` box-shadow rather than a
+  border or pseudo-element, so switching tabs moves no pixels.
+- **No soft bloom.** `usePerfMode` forces `html.light-graphics` on every viewport below `lg`, and this
+  component only renders below `lg` — a wide glow here would be built specifically to be stripped on
+  the one device that always sees it. Only the tight `0 0 6px` halo survives, the same idiom
+  `.pot-value` already uses on this screen.
+
+Measured in a live browser: selected **12.05:1** on black, unselected **4.77:1**, both tabs 34px.
+
+### 16.2 Desktop is no longer untouched (amends AC #18 and §9)
+
+§9 lists "Desktop (≥ 1024px) — not touched, in any way" and **AC #18** asserts it. Two shipped changes
+reach desktop:
+
+- **`GameChatPanel`'s composer moved onto `--ctl-h-sm`.** The input and SEND sized themselves from font
+  and padding alone and landed 6.6px apart (33.6px VT323/16px/`py-1` beside 27px Press Start/10px/
+  `py-1.5`) — two recipes with no reason to agree. Both now take height from the token and carry
+  horizontal padding only. ⚠️ **This deliberately overrides `specs/control-sizing-system.md` decision
+  D5**, which had listed the chat composer as out of scope; D5's other exclusions (terminal word input,
+  lever, mobile preset keypad, `GameMobileTabs`) still stand. Desktop moves 33.6px → 34.4px.
+- **`.animate-wobble` left the `html.light-graphics` kill list** in `arcade.css`. Every phone runs that
+  mode, so stripping it froze Edson on the one screen he is the mascot of. Light-graphics also engages
+  on a **desktop with a software rasterizer**, so the wobble returns there too. It is the cheapest
+  entry in that list to keep: one `<img>`, transform-only, 8s loop.
+
+`GameHeader`'s change is `max-lg:`-scoped and is genuinely mobile-only, so it does not deviate.
+
+### 16.3 The screen panel was re-skinned to true-black glass
+
+This spec was written against the shipped `.mobile-terminal` treatment (`#0b0d18` fill, 2px `#92a1b9`
+bezel, 8px radius) and said it "already matches the mock". It shipped as a CRT monitor instead: **true
+black glass, a 7px `#5c6a8c` bezel, 4px corners**, shared by the tab strip, the terminal and the chat
+panel so all three read as one housing.
+
+⚠️ **Keep those values in lockstep across the three components** — switching tabs must not resize or
+recolour the housing, only what is on the screen.
+
+The bezel tone is picked for **contrast, not tone**. An intermediate pass took it to the console
+wrapper's `#424c6e` navy; against black glass on one side and the dark page on the other it nearly
+vanished, so a 6px bezel read *thinner* than the old 4px one. Thickness only reads when there is
+enough contrast to see it.
+
+Also shipped beyond the spec, and worth carrying:
+
+- **The cabinet overlaps Edson** (`-mt-[clamp(16px,3.6dvh,34px)]`, `z-20`, two upward shadow casts).
+  The tuck depth was measured off `monkeyIdle.gif`'s alpha + brightness profile: the hull is bright out
+  to ~63-82% of frame width, then falls into a near-black underside. A shallower tuck cuts that dark
+  tail, so it reads as the saucer fading out rather than going behind something, and the shadow has no
+  lit surface to land on. The clamp is required — a fixed 34px would swallow half of the 80px Edson
+  band a short viewport leaves.
+- **The console's sprite crop moved to y=20** (`background-position-y: 15.625%`, was 9.375%/y=12). The
+  old crop kept a hairline of the plate art's navy top border, which read as a seam under Edson.
+- **The lever is shrunk with padding on the button, not by insetting it** — padding is inside the hit
+  area, so the whole plate stays tappable. Verified: all four plate corners hit the button.
+- **The visor input is floored at 16px.** `public/index.html` ships the viewport with no
+  `maximum-scale`, so iOS Safari zooms the page on focus below 16px — which would fight this screen's
+  own focus handling. Trimmed with leading (30→28px) and tracking (0.3→0.26em) instead.
+- **The rise-in entry moved from the terminal to Edson on mobile** (`monkey-rise-in`, 40vh, scoped to
+  `GameMonkey`). Desktop keeps the terminal's `animate-rise-in` and Edson's `animate-fly-in`.
+
+### 16.4 Verification is partial — recorded, not claimed
+
+Checked in a live browser at 430×932 and 360×640 against the running local stack: band order with no
+page scroll, console composition, short-viewport scrolling, Edson shrinking first, the lever tap
+target, tab contrast and heights, composer alignment, and the entry animation captured frame by frame.
+
+**Not exercised** — they need a real round and a connected wallet: betting through the lever (AC #3),
+the invalid-pull twitch (AC #4), next-round pull (AC #5), the preset keypad (AC #6, #7), the
+per-status Edson animations (AC #9), native-keyboard focus behaviour (AC #10), wallet connect and the
+deeplink path (AC #11, #12), near-miss rows during a live race (AC #15), and round-rollover clearing
+(AC #16).
+
+The card's 18 acceptance criteria were **left unchecked** at ship rather than marked on unverified
+work. Anyone picking this up should exercise the list above on a real device before treating the card
+as fully met.
