@@ -4,9 +4,9 @@
 > `../specs/orbit-custodial-wallet.md` (merged via `feature/orbit-custodial-wallet` into
 > `release/orbit` on 2026-07-31).
 >
-> ⚠️ Orbit is three cards and is only coherent once all of them land, so `main` deliberately does not
-> receive this until #122 (auto-bet engine) and #123 (notifications) join the train. Until then, the
-> behaviour below exists on `release/orbit` only. Trello
+> ⚠️ Orbit is three cards and is only coherent once all of them land. #122 (auto-bet engine) joined on
+> 2026-08-02 and #123 (notifications) on 2026-08-03, so `release/orbit` is now complete — the
+> behaviour below still exists on `release/orbit` only until the train lands on `main`. Trello
 > [#121](https://trello.com/c/R4Qe0jxX), umbrella [#118](https://trello.com/c/yxwdNTrb).
 
 ## What it does
@@ -75,9 +75,13 @@ they can withdraw it to their own wallet on demand. This card is the money found
   update, so at-least-once bus delivery cannot pay twice. A failure appends a `CashOutReversal` and
   restores the balance.
 - One manual cash-out per UTC day, and a configured minimum. **Threshold and forced cash-outs are
-  exempt from both** — a limit must never trap a player's funds.
+  exempt from both** — a limit must never trap a player's funds. (#123 added a fifth source,
+  **`Floor`**, exempt for the same reason.)
 - The hourly sweep re-drives a stuck `Pending` row but **never** an `Executing` one: that row may have
   a transfer in flight, so it is escalated to a human instead.
+- ⚠️ **Extended by [#123](orbit-notifications.md):** every completed cash-out — all five sources —
+  sends a **Telegram** message if the player has linked a chat. `TelegramChatId` was created on
+  `OrbitEnrollment` here, for that card. Failed and reversed transfers send nothing.
 
 **Eligibility, settings and self-exclusion**
 
@@ -115,8 +119,13 @@ they can withdraw it to their own wallet on demand. This card is the money found
   `MOCK_ORBIT_PUBLIC_KEY` as "not configured", so environments used to fail **closed**; with a real
   key committed, an environment whose secrets omit an Orbit override boots with Orbit **enabled**
   against the devnet account. Production must override it explicitly.
-- **Deploy plumbing is incomplete**: the two new secret ids are in `secrets.development.json` but not
-  yet in `deploy/terraform/workload/main.tf` or `EnvNaming.DerivedIds()`.
+- ~~**Deploy plumbing is incomplete**: the two new secret ids are in `secrets.development.json` but not
+  yet in `deploy/terraform/workload/main.tf` or `EnvNaming.DerivedIds()`.~~ **Closed by
+  [#123](orbit-notifications.md)** — both ids plus the Telegram bot token now reach
+  `deploy/terraform/workload/main.tf` and `deploy/secrets.example.json`. ⚠️ `EnvNaming.DerivedIds()`
+  turned out to need **no** change: it enumerates the operator's own `secrets.<env>.json` keys, so it
+  already validated whatever is configured. The genuine gap was the hardcoded Terraform list and the
+  example file, which had no Orbit entries at all.
 
 ## Key code touchpoints
 

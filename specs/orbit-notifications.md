@@ -1,6 +1,16 @@
 # Space Stroker — "Orbit (3/3) — Notifications, Telegram and the First-Win Upsell" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped onto `release/orbit` — 2026-08-03**, via `feature/orbit-notifications` in
+> `monkify-backend`, `monkify-front` and `monkify-meta`. 734 unit + 93 integration green on the branch
+> before the merge. ⚠️ **Not on `main`**: this is the third and last card of the `release/orbit` train,
+> which lands with `/monkify-ship-feature release/orbit`. The distilled summary of what actually runs
+> is [`../features/orbit-notifications.md`](../features/orbit-notifications.md); this spec stays the
+> deep design archive. Three things below were superseded during implementation — the **no-migration**
+> claim (§4, `AddOrbitCashOutFloor` shipped; see §6.9), **`EnvNaming.DerivedIds()`** (§5.4, it needed
+> no change), and the §8.1 diagram's `{playerId}/OrbitNotification` label (the send uses the
+> **constant** `OrbitNotification`, per §5.2).
+>
+> Originally refined via Trello card
 > [Orbit (3/3) — notifications (in-app push + Telegram) and the first-win upsell modal](https://trello.com/c/NIH7XFHi)
 > (2026-08-02). Umbrella [#118](https://trello.com/c/yxwdNTrb); builds on
 > [#121](https://trello.com/c/R4Qe0jxX) (`specs/orbit-custodial-wallet.md`) and

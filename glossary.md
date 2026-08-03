@@ -297,9 +297,21 @@
 
 - **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
   balance, funded by fixed on-chain deposits, withdrawable on demand, and **auto-bet once per round**
-  on the game type the player chose. Cards 1–2 of 3 are done (custody + engine); notifications are
-  #123. On `release/orbit`, not yet on `main`. See `features/orbit-custodial-wallet.md` and
-  `features/orbit-auto-bet-engine.md`.
+  on the game type the player chose. All three cards are done (custody + engine + notifications), so
+  `release/orbit` is complete; not yet on `main`. See `features/orbit-custodial-wallet.md`,
+  `features/orbit-auto-bet-engine.md` and `features/orbit-notifications.md`.
+- **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it and
+  what is left goes home. The complement of the "cash out at" threshold, which only ever fires on a
+  **win** and so can never catch a balance losing its way down. Evaluated once the round **settles**,
+  never at placement — a stake leaves the balance immediately, so evaluating earlier could cash a
+  player out while the bet they had just made was still riding. Its own `OrbitCashOutSource.Floor`,
+  because a ledger that cannot tell "I won enough" from "I have lost enough" cannot explain to a
+  player why their money came back.
+- **Orbit notification channel** — a private per-player SignalR group on `ActiveGamesHub`
+  (`orbit/{playerId}`), joined with the Orbit session token and named **server-side** from it. Keyed
+  on the `PlayerId` and never on the wallet: a wallet address is public on every bet list, so a
+  wallet-keyed group would let anyone watch a stranger's wins and learn they use Orbit at all. Its
+  payload carries the amount and the game type but **never a balance**.
 - **Orbit placement claim** — the `BetDebit` ledger row itself, made unique per `(pool, player,
   round)` by `OrbitTransaction.GameId`. Written in the same transaction as the atomic debit and
   **before** any transfer is signed, so a redelivered placement loses on `23505` having moved no

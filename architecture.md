@@ -303,7 +303,8 @@ The first place the platform holds player money rather than passing it straight 
 - Two new Hangfire jobs join the schedule (§7): an **hourly** cash-out sweep that re-drives stuck
   `Pending` rows and never touches `Executing` ones, and a **6-hourly** reconciliation that compares
   each player's ledger to their column and each pool's total to its on-chain balance, logging only.
-- Five new **public** `/orbit/*` endpoints, authorized by a stateless HMAC session for reads and a
+- Eight **public** `/orbit/*` endpoints (five here, plus the three Telegram routes #123 added),
+  authorized by a stateless HMAC session for reads and a
   fresh purpose-scoped wallet signature for anything that moves money.
 
 ## 8c. The Orbit auto-bet engine
@@ -337,6 +338,34 @@ What spends the custody above: the house bets on an enrolled player's behalf, on
   depending on who happened to be enrolled.
 - Wins and refunds on an Orbit-funded bet are routed to the **Orbit account**, never the player's
   personal wallet, each with its own ledger row. All of it runs in `SpaceStroker.Consumers`.
+
+## 8d. Telling the player: the Orbit notification channel and Telegram
+
+> ⚠️ **On `release/orbit`, not `main`** — see `features/orbit-notifications.md`.
+
+- **A private per-player group on the existing `ActiveGamesHub`.** `JoinOrbitNotifications(token)`
+  validates the shipped Orbit session and derives the group name **server-side** from the token's
+  `PlayerId` (`OrbitNotificationChannel.GroupFor`) — it is never accepted from the caller, because a
+  wallet address is public on every bet list and a wallet-keyed group would leak both the win amounts
+  and the fact that the player uses Orbit at all. No new socket: it reuses the one tab-scoped
+  connection `unified-websocket-connection` established, and dies with the idle disconnect.
+- **`OrbitBetSettlementService` publishes `OrbitWinNotificationEvent`** (ids and primitives only)
+  after the credit commits and after the threshold evaluation, so the win toast and any resulting
+  cash-out message arrive in the order the money moved. `OrbitNotificationConsumer` pushes it to the
+  group over the **Redis backplane**, so a message sent from `SpaceStroker.Consumers` reaches a
+  browser attached to the **API** — the same shape as `BetNotificationConsumer`. The payload carries
+  **no balance**: the threshold cash-out fires the instant the credit lands, so the client re-reads.
+- **Telegram (`ITelegramNotifier`) is an outbound-only integration with no poller and no webhook.**
+  Linking is a `t.me/<bot>?start=<code>` deep link plus a VERIFY press making **one** `getUpdates`
+  call; the link code and the read offset live in **Redis**, and the offset advances only on a match.
+  Sends happen exclusively in `SpaceStroker.Consumers`, on completed cash-outs, and can never fail a
+  money path. It is **inert without a bot token** (a `MOCK_`-prefixed token counts as unconfigured),
+  which is how local, dev and the test suites run.
+- ⚠️ **`SpaceStroker.Consumers`' startup work moved to `ApplicationStarted`.** It used to run before
+  `app.Run()`, while the MassTransit transport database and its `transport` schema are provisioned by
+  a hosted service that only starts **at** `app.Run()` — so on a cold boot the first rounds opened
+  with their `GameOpenedEvent` publish failing, and Orbit never planned them. Silent on every warm
+  boot; it only bites a fresh volume or a brand-new environment's first start.
 
 ## 9. The game mechanic (the "Typer")
 

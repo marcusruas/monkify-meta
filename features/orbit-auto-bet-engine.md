@@ -4,9 +4,9 @@
 > `../specs/orbit-auto-bet-engine.md` (merged via `feature/orbit-auto-bet-engine` into
 > `release/orbit` on 2026-08-02).
 >
-> ⚠️ Orbit is three cards and is only coherent once all of them land, so `main` deliberately does not
-> receive this until #123 (notifications) joins the train. Until then, the behaviour below exists on
-> `release/orbit` only. Trello [#122](https://trello.com/c/h7MF4Oky), umbrella
+> ⚠️ Orbit is three cards and is only coherent once all of them land. #123 (notifications) joined the
+> train on 2026-08-03, so `release/orbit` is now complete — but the behaviour below still exists on
+> `release/orbit` only until the train lands on `main`. Trello [#122](https://trello.com/c/h7MF4Oky), umbrella
 > [#118](https://trello.com/c/yxwdNTrb). Builds on
 > [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) (#121).
 
@@ -48,8 +48,13 @@ are finally written.
 **Three triggers re-plan a round**
 
 1. **A round opens** — `OrbitPlacementPlannerConsumer` on `GameOpenedEvent`.
-2. **A human bet makes an unviable round viable** — `BetPlacedConsumer`, guarded on a `null` gate so
-   it fires once rather than on every bet.
+2. **A human bet makes an unviable round viable** — `BetPlacedConsumer`, guarded on a `null` **or `0`**
+   gate so it fires once rather than on every bet. ⚠️ The guard was `null`-only until #123: a round
+   that opens with nobody eligible is stamped `0`, and that stamp then locked Orbit out for the rest
+   of the round — so the most ordinary sequence there is (open a round, enable Orbit, deposit, watch
+   humans fill it) left Orbit sitting out a round it was funded and eligible for. A **positive** count
+   still blocks, which is what the guard was really written for: placements in flight behind an armed
+   gate.
 3. **A deposit is credited** — `OrbitDepositCreditedConsumer`, so money that arrives mid-round joins
    **that** round rather than the next one. Without it there was no path at all: trigger 1 stamps
    `ExpectedOrbitBets = 0` when it finds no funded players, and that stamp is exactly what stops
@@ -131,6 +136,12 @@ Every step after the transfer is money already gone, so the consumer is delibera
   shortfall forever. `RefundInvalidBetEvent` carries the funding source, because pre-insert refunds
   publish the *personal* wallet with no `Bet` row to read a flag from.
 - Crossing the "cash out at" threshold fires a `Threshold` cash-out, exempt from the daily limit.
+- ⚠️ **The threshold only ever fires on a win** — it is a take-profit, and a balance *falling through*
+  the number cannot trigger it. #123 added the complementary **`CashOutFloor`**, evaluated from
+  `RewardGameConsumer` once the round settles. Both act on a **resolved** bet, never a placed one: a
+  stake leaves the balance the moment it is placed, so evaluating at placement could send a player's
+  money home while the bet they had just made was still riding. See
+  [`orbit-notifications.md`](orbit-notifications.md).
 
 **Deposits and the enable toggle** (extends #121)
 
@@ -177,7 +188,10 @@ Every step after the transfer is money already gone, so the consumer is delibera
   rather than reconciling against the true outstanding set; a pathological interleaving could start a
   round one placement early. The placement consumer's "round no longer accepting bets" check makes
   that a skip, not a loss.
-- Notifications, Telegram and the first-win upsell are **#123**.
+- Notifications, Telegram, the first-win upsell, the "paused — insufficient funds" state and the
+  cash-out floor shipped in **#123** — see [`orbit-notifications.md`](orbit-notifications.md), which
+  also fixed two defects in this engine: the `null`-only re-plan guard above, and a cold boot losing
+  its first `GameOpenedEvent`s because `OpenNewGames` ran before the transport database existed.
 
 ## Key code touchpoints
 

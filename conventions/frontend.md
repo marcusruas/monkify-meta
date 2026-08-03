@@ -226,7 +226,16 @@ between them is **frequency, not subject matter**.
   - **Esc** closes, and so does a backdrop click
 - **Tutorial / help tier — black + a 2px CRT-cyan frame.** Overlays that appear **unprompted**, have to
   earn attention, and are shown **once and then never again**: the Quick Tour / How to Play, and the
-  first-win Orbit upsell.
+  first-win Orbit upsell (`OrbitFirstWinModal.vue`, the tier's shipped reference implementation).
+
+  A once-ever overlay owes two things beyond the chrome. **Every exit marks it seen** — X, Esc,
+  backdrop and the primary CTA alike — so nobody is nagged for dismissing it "the wrong way". And its
+  guards run **cheapest first and refuse silently**, including "another overlay is already open": two
+  unprompted modals at once is worse than missing one. `useFirstWinUpsell` and `useQuickTour` share
+  that ordering (`recovering`, `isIdleDisconnected`, `relaunching`, terms not accepted, embedded).
+  "Seen" is `localStorage`-only in both, and deliberately **per browser, not per wallet** — server-side
+  would mean either asking someone to sign a Solana message to dismiss a modal, or an unsigned write
+  keyed on a public address that would let anybody suppress a stranger's modal.
 
 Provably Fair is *system* tier even though it explains something, because it is reopened every round.
 The Quick Tour is *tutorial* tier even though it is small, because it arrives uninvited.
