@@ -1,12 +1,18 @@
 # Space Stroker — "How to play changes" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [How to play changes](https://trello.com/c/aUrybUea) (#144, refined 2026-08-03).
+> **Status: Implemented — merged into `release/ui-ux-changes` on 2026-08-03.** Not on `main` yet: it
+> rides the UI/UX release train with #142 and #143 and reaches `main` when that branch lands.
+> Refined via Trello card [How to play changes](https://trello.com/c/aUrybUea) (#144, refined 2026-08-03).
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**. **`monkify-backend` is not
 > touched.**
 > Branch / worktree: `feature/how-to-play-changes` → `.worktrees/how-to-play-changes/<repo>`.
 > Level: **Minor change** (see §2 — no integration test, no new `features/` doc).
-> ⚠️ **Ship target: `release/ui-ux-changes`, not `main`.**
+>
+> ⚠️ **Shipped with SIX rail steps, not the seven specced below.** `PLACE YOUR BET` was dropped at ship
+> time on the owner's call — step 3 already says "type a word and bet on it" and the closing tip
+> already says every stake goes into one pot, so the row mostly repeated its neighbours. See §7.2 and
+> the revision log. The two facts it uniquely carried (betting closes the moment the round starts; a
+> phone has no lever) are consequently stated **nowhere** on the page — a known, accepted gap.
 >
 > **Purpose:** `/how-to-play` shipped on 2026-08-02 (#130) with eight sections, of which the first
 > three tell one continuous story in three separate frames. This card collapses those three into a
@@ -29,7 +35,7 @@ them.**
 | "The order is an argument: the idea → getting in → the round → …" | same doc block | The first three beats become **one** section; the rest of the argument is unchanged (§7.1) |
 | "The page ships **two** black tips, **bookending** it (`what-is-this`, `your-setup`)" | `GuideTip.vue`, `features/how-to-play.md` → Materials | **One** tip survives, at the end of the merged section (§7.3) |
 | Mode cards render `DRAW EVERY {frequency}` from `formatLotteryFrequency`'s long form | `GuideModeCards.vue` | An anchored daily lottery renders **`EVERY DAY AT 10PM (UTC)`** instead (§7.5) |
-| `WHERE TO START` opens on "**Four things** happen before a round has your money in it" | `GuideWhereToStart.vue` | Both section intro lines are **deleted**; there are seven steps now (§7.2) |
+| `WHERE TO START` opens on "**Four things** happen before a round has your money in it" | `GuideWhereToStart.vue` | Both section intro lines are **deleted**; there are six steps now (§7.2) |
 | "None is named after the app surface behind it — 'Player Settings' was a section named after a modal" | `constants/guideSections.ts` | Still honoured. **`PLAYER PREFERENCES` is not the modal's name** — the surface is the **SETTINGS** panel (`PlayerCustomizationModal`). The new title names the *thing you edit*, not the panel it lives in (§7.6). |
 
 Rules that are **NOT** relaxed and must survive verbatim:
@@ -53,7 +59,7 @@ Four independent changes to `/how-to-play`. Nothing else on the page moves.
 
 | # | Change | Surface |
 | --- | --- | --- |
-| A | **Three sections merge into one.** `what-is-this` + `where-to-start` + `how-a-round-goes` → **`how-the-game-works`**: a short lead-in beside the existing `typing.gif`, a **7-step** rail, the fairness bridge paragraph, the black tip. | new `GuideHowTheGameWorks.vue`, `guideSections.ts` |
+| A | **Three sections merge into one.** `what-is-this` + `where-to-start` + `how-a-round-goes` → **`how-the-game-works`**: a short lead-in beside the existing `typing.gif`, a **6-step** rail (7 as specced, minus `PLACE YOUR BET` — dropped at ship time), the fairness bridge paragraph, the black tip. | new `GuideHowTheGameWorks.vue`, `guideSections.ts` |
 | B | **A new final step, `WIN THE POT`**, with the new `won.gif` art. | same |
 | C | **The anchored draw time is told the truth.** A 24-hour lottery anchored at 22:00 UTC reads `EVERY DAY AT 10PM (UTC)` instead of `DRAW EVERY 24 HOURS`. | `GuideModeCards.vue` |
 | D | **`YOUR SETUP` → `PLAYER PREFERENCES`**, new intro line, black tip removed. | `GuideYourSetup.vue` → `GuidePlayerPreferences.vue` |
@@ -97,8 +103,8 @@ From `monkify-meta/constraints.md` (full list there):
 | --- | --- |
 | 1 | The three sections merge into **one**, titled **HOW THE GAME WORKS**, nav label "How the game works". |
 | 2 | The merged section's id is the **new** `how-the-game-works`; `#what-is-this`, `#where-to-start`, `#how-a-round-goes` retire. **No alias/redirect map** — nothing links to them (verified across `monkify-front` and `monkify-lp`), and an unknown hash already lands at the top of the page by design. |
-| 3 | **Seven steps**, one dedup: `PULL THE LEVER` folds into `PLACE YOUR BET` because the two bodies said nearly the same thing back to back. The lever's "no lever on a phone" clause is **kept** inside the merged body. |
-| 4 | **Art is unchanged; `won.gif` is the only new asset.** Steps 1–6 keep exactly the art they render today. `strokinjg.gif` / `stroke-win.gif` (workspace root) are **not** part of this card. |
+| 3 | **Seven steps**, one dedup: `PULL THE LEVER` folds into `PLACE YOUR BET` because the two bodies said nearly the same thing back to back. The lever's "no lever on a phone" clause is **kept** inside the merged body. ⚠️ **Superseded at ship time:** the merged `PLACE YOUR BET` row was then dropped altogether (owner call), leaving **six** steps — see the header banner and §7.2. |
+| 4 | **Art is unchanged; `won.gif` is the only new asset.** Steps 1–5 keep exactly the art they render today. `strokinjg.gif` / `stroke-win.gif` (workspace root) are **not** part of this card. |
 | 5 | `WIN THE POT` copy is **not** the card's draft. "Choice" is an owner-rejected wording and "the **whole** pot" is false (same-word winners split it; a house cut applies above stake). Those qualifiers stay in `WHAT YOU WIN`. |
 | 6 | The **premise lead-in survives**, trimmed to `WHAT IS THIS`'s first paragraph, **beside the existing `typing.gif` slot** — #130 rebuilt this page precisely because an earlier version never said what the game **was** before listing steps. `typing.gif` also has no other consumer in the app. |
 | 7 | The **fairness bridge paragraph survives**, moved to after step 7 — it is the page's only hand-off into `PROVABLY FAIR`. |
@@ -208,28 +214,36 @@ Rendered in this order:
    The other two paragraphs of `GuideWhatIsThis` are **dropped**, and so are both dropped sections'
    intro lines.
 
-2. **The 7-step rail** — the existing `GuideRail` component, unchanged, fed:
+2. **The rail** — the existing `GuideRail` component, unchanged. **Shipped with six steps:**
 
    | # | title | art | body |
    | --- | --- | --- | --- |
    | 1 | `CONNECT A WALLET` | `{ kind: 'wallet' }` | verbatim from `GuideWhereToStart` |
    | 2 | `PICK A MODE` | `{ src: gameModeSprite, imgClass: 'object-contain scale-[0.78] -translate-y-[4%]' }` | verbatim |
    | 3 | `PICK YOUR WORD` | `{ kind: 'terminal' }` | verbatim |
-   | 4 | `PLACE YOUR BET` | `{ kind: 'bet-terminal' }` | **merged, see below** |
-   | 5 | `EDSON TYPES` | `{ kind: 'edson-speed' }` | verbatim from `GuideHowARoundGoes` |
-   | 6 | `FIRST WORD OUT WINS` | `{ kind: 'win-reveal' }` | verbatim |
-   | 7 | `WIN THE POT` | `{ src: wonSprite }` | **new, see below** |
+   | 4 | `EDSON TYPES` | `{ kind: 'edson-speed' }` | verbatim from `GuideHowARoundGoes` |
+   | 5 | `FIRST WORD OUT WINS` | `{ kind: 'win-reveal' }` | verbatim |
+   | 6 | `WIN THE POT` | `{ src: wonSprite }` | **new, see below** |
 
-   ⚠️ Step 2's `imgClass` is measured against that sprite's 570×520 canvas of pure monkey with zero
-   transparent padding — carry it and its comment over verbatim.
-
-   **Step 4 body** (merges the lever's job with the round's, keeping the mobile clause):
+   ⚠️ **A seventh step, `PLACE YOUR BET` (`{ kind: 'bet-terminal' }`), was specced and built between
+   steps 3 and 4 and then REMOVED at ship time** on the owner's call — step 3 already says "type a word
+   and bet on it" and the closing tip already says every stake goes into one pot, so it mostly repeated
+   its neighbours. Its merged body was:
 
    > Locks your word in and sends the stake, and every stake in the round lands in one pot. The second
    > the round starts, betting slams shut. No lever on a phone — the bet panel does the whole thing in
    > one tap.
 
-   **Step 7 body** (new — see §7.4 for why it reads this way):
+   **Two facts died with it and are now stated nowhere on the page:** that betting closes the moment the
+   round starts, and that a phone has no lever (`GameConsole` collapses keyboard, lever and keypad into
+   one bet panel below `lg`). If that gap needs closing, **fold them into step 3's body** rather than
+   reinstating a fourth row — the row was removed for repeating its neighbours, and reinstating it
+   would repeat them again. Its removal also orphans the `bet-terminal` art kind (see decision 15).
+
+   ⚠️ Step 2's `imgClass` is measured against that sprite's 570×520 canvas of pure monkey with zero
+   transparent padding — carry it and its comment over verbatim.
+
+   **Step 6 body** (new — see §7.4 for why it reads this way):
 
    > Edson types your word, the pot is yours — on-chain, in the wallet that bet, the moment the round
    > is done.
@@ -460,7 +474,7 @@ flowchart TD
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/constants/guideSections.ts` | `GuideSectionId` → six ids; `GUIDE_SECTIONS` → six entries; swap three imports for `GuideHowTheGameWorks`, rename the `GuideYourSetup` import; update the doc block (eight → six, restated order argument, the `PLAYER PREFERENCES` note from §0). |
-| 2 | `src/components/guide/sections/GuideHowTheGameWorks.vue` | **NEW.** Lead-in + `typing.gif` slot, 7-step `GuideRail`, fairness paragraph, `GuideTip`. §7.2. |
+| 2 | `src/components/guide/sections/GuideHowTheGameWorks.vue` | **NEW.** Lead-in + `typing.gif` slot, 6-step `GuideRail` (7 as specced, minus `PLACE YOUR BET`), fairness paragraph, `GuideTip`. §7.2. |
 | 3 | `src/components/guide/sections/GuideWhatIsThis.vue` | **DELETE** (copy + art descriptor + tip move into #2). |
 | 4 | `src/components/guide/sections/GuideWhereToStart.vue` | **DELETE** (steps 1–4 move into #2; intro line dropped). |
 | 5 | `src/components/guide/sections/GuideHowARoundGoes.vue` | **DELETE** (beats + bridge paragraph move into #2; intro line dropped). |
@@ -503,15 +517,17 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist on #144.
    **SIX** entries in order: How the game works, What you win, The modes, Provably Fair, Refunds,
    Player preferences.
 2. Given the merged "How the game works" section, when a player scrolls it, then it renders in this
-   order: a short premise lead-in beside the `typing.gif` art slot, a numbered rail of exactly 7
+   order: a short premise lead-in beside the `typing.gif` art slot, a numbered rail of exactly 6
    steps, the fairness bridge paragraph, and the black `THE WHOLE GAME` tip.
-3. Given the 7-step rail, when it renders, then the steps read in order `CONNECT A WALLET`,
-   `PICK A MODE`, `PICK YOUR WORD`, `PLACE YOUR BET`, `EDSON TYPES`, `FIRST WORD OUT WINS`,
-   `WIN THE POT`, each with art, a title and a description.
-4. Given step 4 `PLACE YOUR BET`, when a player reads it, then its body covers both merged beats
-   (locks the word in and sends the stake; every stake lands in one pot and betting shuts the moment
-   the round starts) and still states there is no lever on a phone.
-5. Given step 7 `WIN THE POT`, when it renders, then its art is the new `won.gif` and its body says
+   *(Amended at ship time: was 7 — see the header banner.)*
+3. Given the rail, when it renders, then the steps read in order `CONNECT A WALLET`, `PICK A MODE`,
+   `PICK YOUR WORD`, `EDSON TYPES`, `FIRST WORD OUT WINS`, `WIN THE POT`, each with art, a title and
+   a description — and **no `PLACE YOUR BET` row**.
+   *(Amended at ship time: `PLACE YOUR BET` sat 4th — see the header banner.)*
+4. ~~Given step 4 `PLACE YOUR BET`, when a player reads it, then its body covers both merged beats…~~
+   **WITHDRAWN at ship time** — the step it describes was removed. Nothing replaces this criterion;
+   the two facts it asserted are a known gap recorded in §7.2.
+5. Given step 6 `WIN THE POT`, when it renders, then its art is the new `won.gif` and its body says
    Edson typing your **word** wins you the pot — containing neither the word "choice" nor the claim
    "the whole pot".
 6. Given the branch after the change, when the repo is grepped, then `GuideWhatIsThis.vue`,
@@ -556,8 +572,8 @@ catalogue resolves (Space Jackpot must be present and anchored).
    (⚠️ If lint reports `Insert ␍`, the file's endings drifted — `unix2dos` it. ⚠️ Building from a
    worktree: copy the hub's `yarn.lock` in first, it is gitignored and a stale image boots silently.)
 2. Open `/how-to-play` at **1366×768**. Confirm six nav entries, in order, and that the merged section
-   shows lead-in + art, seven numbered steps, the fairness paragraph and one black tip. (AC 1–4)
-3. Confirm step 7 renders `won.gif` sharply — not stretched, not cropped through the wallet panel or
+   shows lead-in + art, six numbered steps, the fairness paragraph and one black tip. (AC 1–3)
+3. Confirm step 6 renders `won.gif` sharply — not stretched, not cropped through the wallet panel or
    the button. (AC 5, §7.7)
 4. Click each nav entry, top to bottom, **including Refunds and Player preferences**. Each click must
    leave the highlight on what was clicked, not on a taller neighbour. Then scroll the page slowly
@@ -601,3 +617,4 @@ catalogue resolves (Space Jackpot must be present and anchored).
 | Date | Change |
 | --- | --- |
 | 2026-08-03 | Initial spec from refined card #144 (refinement + code exploration in the same session). |
+| 2026-08-03 | **Implemented and merged into `release/ui-ux-changes`.** Ship-time amendment: the `PLACE YOUR BET` step was **removed** on the owner's call, so the rail shipped with **six** steps, not seven — §7.2 records the deleted body, the two facts lost with it, and why the fix is to fold them into step 3 rather than reinstate the row. AC 4 is **withdrawn**; AC 2 and 3 amended 7 → 6. Everything else shipped as specced: the merge, the `EVERY DAY AT 10PM (UTC)` gate, and the `PLAYER PREFERENCES` rename. Verified by `yarn lint` + `yarn build` and a served-bundle check; the live API confirmed Space Jackpot is `1.00:00:00` @ `22:00:00`. |
