@@ -281,9 +281,13 @@ onBeforeUnmount(stopObserving);
 
 Rules this must respect:
 
-- **`loading` starts `false` now**, not `true`. It is currently `ref(true)` because the fetch began on
-  mount; with a deferred fetch a `true` initial value would render `> reading the floor…` under a
-  section nobody has requested yet. `load()` sets it `true` itself on entry.
+- **`loading` stays `true` initially.** ⚠️ **Corrected during implementation** — this spec first said
+  to start it `false`, which is wrong: the template's branch order is
+  `loading → failed → !hasRounds → rows`, so a `false` initial value falls through to the empty state
+  and the section announces **"No rounds have settled yet"** about a floor it has not read. Keeping
+  `true` makes the flag mean *"we do not have the floor yet"*, covering both **deferred-not-started**
+  and **in flight**, which must render identically. A slightly early `> reading the floor…` is honest;
+  a settled-sounding claim nobody checked is not.
 - **The three tiles always render.** They already read `stats.value?.x ?? 0` and the section's whole
   reason for existing is that it can never be empty (its header comment). Before the load they show
   `0` / `—`, which is what they show today during the fetch — **no new empty state, no skeleton, no
