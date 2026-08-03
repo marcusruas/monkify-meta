@@ -36,14 +36,25 @@ first-time player has no reason to open. Folded in because it rewrites the same 
 
 ### The page
 
-- **Two designed states.** **Cold** (no wallet): welcome-led, connect invitation — `GET /players/stats`
-  is **not called at all**. **Connected**: the hero states what is *happening* (a live round line off
-  the same snapshot the cards use), shows the player's `displayName` with the short address as
-  fallback, and renders a streak **only when it is at least 1**.
+- **Three designed states**, since Trello #138 split the connected one. **Cold** (no wallet):
+  welcome-led, connect invitation — `GET /players/stats` is **not called at all**, and the cold path
+  must never start fetching. **Connected** splits on whether the wallet has *ever played*; both shapes
+  state what is *happening* (a live round line off the same snapshot the cards use) and show the
+  player's `displayName` with the short address as fallback. See "The hero band" below.
+  ⚰️ ~~renders a streak **only when it is at least 1**~~ — **the streak block is GONE (#138).**
+  `HomePlayerStats` ("YOUR RECORD") shows **best** streak, so `currentStreak` no longer renders
+  anywhere in the app. `GET /players/stats` still returns it.
 - Sections below the hero are framed with the shared **`.arcade-frame`** primitive (a thin border on
   near-black, flat — the modal system's material), **not** `.arcade-panel` (whose amber bevel is the
-  cabinet, not a screen). The hero is deliberately unframed. `QuickTourModal` consumes the same
-  primitive instead of redefining it inline.
+  cabinet, not a screen). The hero is deliberately unframed. (This primitive was extracted so
+  `QuickTourModal` could stop redefining it inline; that modal was deleted by #130, but the primitive
+  is the shared material for every framed surface here.)
+- **Vertical rhythm scales with the viewport** (#138): the section stack is
+  `gap-6 md:gap-10 xl:gap-12 2xl:gap-16`, not a flat 24 px. With the star-strip dividers gone the gap
+  is the *only* thing separating two framed panels, and the panels are capped at `max-w-[1180px]` and
+  never grow — so on a wide monitor a fixed gap made everything below the hero read as one continuous
+  stack. The hero's own `pb-*` is the fourth step of that scale, because it is frameless and its
+  bottom padding **is** the gap to the picker.
 - The picker reuses **`GameTypes.vue` verbatim**, so the lobby and the starting page can never drift.
 - ⚰️ ~~The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby
   visit, with every existing guard intact (catalogue loaded, not embedded, no other tour open, key
@@ -57,6 +68,80 @@ first-time player has no reason to open. Folded in because it rewrites the same 
   `features/how-to-play.md`.
 - Fair and Settings modal state is a shared **`useHeaderModals`** singleton — it used to be local to
   `GameHeader.vue`, which the dashboard cannot reach and which a second modal instance cannot fix.
+
+### The hero band
+
+Trimmed by **Trello #138** (`specs/home-hero-trim.md`). It **deliberately reverses** two decisions
+this page originally shipped with — the raised padding (`pt-10 pb-14 md:pt-20 md:pb-24`, decision 29)
+and the large saucer that was meant to *"dominate the fold, not sit politely beside the text"*
+(decisions 23/28). The reason is **reach, not taste**: `+ PICK YOUR GAME +` — the only thing on this
+page a visitor can act on — sat at or below the fold at 1366×768, so the page's best pixels went to an
+element nobody can click. Measured: **531 px → 249–250 px cold / 223 px connected**; the picker
+heading moved from 617 px to 336 px and the first card from 672 px to 391 px, clearing even a real
+maximized 1366×768 window (~640 px of viewport) with ~250 px to spare.
+
+- **Still frameless** — a short wide band, never `.arcade-frame` / `.arcade-panel`. The page's first
+  object must not be a box.
+- **The art can never drive the band's height, by construction.** The art column is `shrink-0` and
+  sized by **height** (`h-[110px] md:h-[140px] w-auto`) — never a width cap, never a flex basis — so
+  its height is a constant (140 px) against a 151–178 px copy column. Sizing it by width is what let
+  the old saucer reach 355 px, because width was a function of the viewport.
+- **The art is `guide/game-modes.gif`** (45 KB, the same sprite `/how-to-play` renders for PICK A
+  MODE) and is **explicitly temporary** — a real asset is [Trello #145](https://trello.com/c/6T053xnq),
+  which also owns deleting the now-unimported `edson-ship.gif`/`.png` (559 KB, kept only so the swap
+  back stays a two-line revert; webpack emits neither).
+- **The art is not rendered below `sm` (640 px).** Beside the copy at 390 px it leaves the headline a
+  ~217 px column, which breaks `FIRST WORD OUT` to three lines; stacking it instead adds back the
+  height this change exists to remove.
+- ⚠️ **The GIF loops on every device, `html.light-graphics` included** — no still-frame swap, no
+  `usePerfMode` branch. This is a **scoped, deliberate exception** to `specs/light-graphics-mode.md`
+  §7.10's ban on infinite animation, justified because `/how-to-play` already ships this exact sprite
+  raw on every phone and 45 KB is an eighth of the asset that rule was written about. **It is not a
+  repeal, and it does not extend to a heavier asset or a new animation.** Everything else in the band
+  obeys §7.10: the `.hero-art` glow is two **flat** `drop-shadow`s, and the band contains no
+  `backdrop-filter`, `blur()`, `mix-blend-mode` or infinite CSS animation.
+- **Press Start 2P advances ~1 em per character**, so a 14-character headline needs ~14× the font
+  size of column width. This is why the flex bases were dropped: the copy column is now "everything
+  the art does not take", which makes the check one arithmetic statement instead of a per-breakpoint
+  table. Re-derive it if the art is ever re-widened.
+- **Below `sm` the band is centred** (`text-center sm:text-left`, both button rows
+  `justify-center sm:justify-start`) — the same breakpoint where the art disappears, so below it the
+  copy is the only thing in the row and full-width, and from `sm` up it is a real left column that must
+  align with the picker header and cards beneath it.
+
+#### The connected state's two shapes
+
+Split on `isNewPlayer` — a **settled** `stats.roundsPlayed === 0`. Costs no request: `usePlayerStats`
+is a module singleton `HomePlayerStats` already loads.
+
+| | Round live on the floor | Floor quiet |
+| --- | --- | --- |
+| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TRY IT FREE] [HOW IT WORKS]` |
+| **Returning** | `WELCOME BACK` · `[JOIN {NAME}] [GAME HISTORY]` | `WELCOME BACK` · `[PLAY {most-played}] [GAME HISTORY]` |
+
+- **Primary is decided by the floor, secondary by the player.** An open round is the most valuable
+  thing either player can do, so JOIN/WATCH wins for both. `TRY IT FREE` is the newcomer's constant
+  (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only appears when
+  it is not needed above); `GAME HISTORY` is the regular's constant.
+- ⚠️ **Nothing in this band may be a scroll-to-what-you-can-already-see.** `Play again` — whose only
+  job was scrolling to mode cards ~48 px below it — is deleted, and with it the hero's `play` emit,
+  `HomePage`'s `scrollToModes` and its `modesSection` ref. Every path out of the band is a real
+  destination.
+- **An empty primary label renders no button at all** — the only honest state for a regular whose
+  floor is quiet *and* whose most-played game was deactivated.
+- ⚠️ **An unknown `stats` resolves to the RETURNING shape, never the new one.** `stats` is null while
+  the read is in flight *and* if it fails; greeting a regular with `NEW HERE` for a frame is the worse
+  lie, and the returning shape is what shipped before. Only a settled zero flips it.
+- ⚠️ **`PLAY {most-played}` resolves the game against `gameTypes` (the `/games/active-types`
+  catalogue), NOT against `liveByType`.** They look interchangeable and are not: `useLiveGames`
+  deliberately drops any type whose live-instance call **failed** ("a live figure is an enrichment,
+  never a gate"), so keying off it makes a transient backend hiccup indistinguishable from a
+  deactivated game and silently eats the CTA. `/players/stats` returns a **name**, not an id, so the
+  match is by name — which is also what makes a genuinely deactivated favourite disappear correctly.
+- The hero emits `practice` / `history` / `how-to-play`; **`HomePage` owns all three destinations** and
+  their `trackHomeLinkClick` links, as it already did for `practice`.
+- The **cold** state's second CTA is labelled **`TRY IT FREE`**, not "Practice" — the page's own
+  section for that action (`HomeFeatureCards`) is already titled TRY IT FREE. One action, one name.
 
 ### The picker card
 

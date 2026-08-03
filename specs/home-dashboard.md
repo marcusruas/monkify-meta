@@ -788,6 +788,27 @@ neutralised centrally).
 
 #### 7.11.5 `HomeHero.vue` — padding, and the connected rebuild (decision 29)
 
+> **⚠️ Post-ship note (2026-08-03) — partly REVERSED by Trello #138 (`specs/home-hero-trim.md`).**
+> The historical decisions below are left intact as the record of what shipped on 2026-08-01; they are
+> **no longer current behaviour**. What #138 undid, and why:
+> - **The padding raise in this section is reversed.** `pt-10 pb-14 md:pt-20 md:pb-24` (176 px) →
+>   `pt-6 pb-10 md:pb-12 2xl:pb-16` (72 px, deliberately **bottom-weighted** — the hero is frameless,
+>   so its `pb-*` *is* the gap to the picker, while its total is capped by a height budget).
+> - **Decisions 23 + 28's large saucer is reversed** — *"the saucer … should dominate the fold"* and
+>   the `md:max-w-[620px]` enlargement. The art is now the 45 KB `guide/game-modes.gif`, `shrink-0`
+>   and sized by **height**, and is not rendered below `sm`. Decision 23's *unframed* rule **survives**.
+> - **Decision 23's `usePerfMode` still-frame swap is gone.** The new sprite loops under
+>   `html.light-graphics` too — a scoped, argued exception to §7.10, not a repeal.
+> - **The streak block is gone**, so decision 29's *"only when `currentStreak >= 1`"* is moot;
+>   `currentStreak` no longer renders anywhere. Decision 29's **live line**, **name-not-address** and
+>   **no-zero-readout** rules all survive, and the connected state now splits into a
+>   first-time and a returning shape.
+> - **Decision 34's one-handler entry rule survives and got stricter**: `Play again` (which only
+>   scrolled to the picker) is deleted along with the `play` emit and `scrollToModes`.
+>
+> Reason: reach. `+ PICK YOUR GAME +` sat at or below the fold at 1366×768. See
+> `features/home-dashboard.md` → "The hero band" for current behaviour.
+
 - **Vertical room, both states:** `pt-6 pb-6 md:pt-10 md:pb-10` → `pt-10 pb-14 md:pt-20 md:pb-24`. Art
   size, flex bases and the `lg:text-[32px]` headline ceiling are **untouched** — decision 28's warning
   about Press Start 2P breaking `FIRST WORD OUT` onto three lines still stands.

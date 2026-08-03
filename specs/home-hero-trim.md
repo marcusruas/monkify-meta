@@ -1,6 +1,12 @@
 # Space Stroker — "Trim the home hero" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED (2026-08-03)** — merged to `main` via `feature/home-hero-trim` in `monkify-front`
+> and `monkify-meta`. Distilled into `features/home-dashboard.md` → "The hero band"; the rules this
+> card reversed carry a post-ship note in `specs/home-dashboard.md` §7.11.5. **§14 records how the
+> shipped result differs from the §7 design pass** — read it before treating §7 as current.
+> Follow-up: [#145 — replace the temp sprite + wallet-connected animation](https://trello.com/c/6T053xnq).
+>
+> Refined via Trello card
 > [trim down hero card in home page](https://trello.com/c/U1Sdsk6Y) (#138, refined 2026-08-03).
 > Repos affected: `monkify-front`, and this doc + `features/home-dashboard.md` in `monkify-meta`.
 > **`monkify-backend` is untouched.**
