@@ -113,13 +113,112 @@
   `@layer components` has no matching `@tailwind components` directive and **fails the build**). Equal
   specificity + later in the cascade means **`.btn-arcade` wins over any utility you stack on it**:
   `justify-start` loses to its `justify-content: center`, `py-2.5` loses to `.btn-arcade--sm`'s
-  `padding: 0 1em`, `gap-2` loses to its `gap: 0.6ch`. Only `!important` utilities (`!h-auto`) win.
+  padding, `gap-2` loses to its `gap: 0.6ch`. Only `!important` utilities (`!h-auto`, `!text-primary`)
+  win.
   So: use `.btn-arcade` **as-is** when you want a standard arcade button, and build with **plain
   Tailwind** when you need a differently-shaped control — do not half-adopt the class and try to
   override its box. `GameMobileTabs.vue` (segmented control) and the `GameConsole` mobile preset keypad
   both take the plain-Tailwind route for exactly this reason. Reach for the arcade **tokens**
   (`bg-primary`, `text-terminal-light`, `border-terminal-border`) to stay on-system either way.
   See `specs/mobile-preset-keypad.md` → §7.3.
+
+  ⚠️ **This is not theoretical — #135 found SIX stacks that had shipped doing nothing**, four of
+  them user-visible. Recorded so the failure mode is recognisable, not re-derived:
+  1. `PrimaryButton`'s `asLink` → `<a>` branch — `false` at every call site (dead code, not cascade).
+  2. `WalletButtons`' `size === 'sm' ? 'text-xs …' : 'text-sm'` — **both** lose to `.btn-arcade`'s
+     `font-size`. Its `md:w-[200px]` sibling, by contrast, **works**: `.btn-arcade` declares no
+     `width`, so there is no tie to lose. *"A utility on an arcade class"* is not the test — *"does
+     the class declare that property"* is.
+  3. `/responsible-gaming`'s duration `<select class="… text-primary">` — the input class sets
+     `color`, so a compliance-surface control **written to be amber shipped rendering in ink**.
+  4. The Settings **nonce** readout (`.dialog-field border-0 bg-transparent p-0 text-cyan`) — all
+     four utilities lost; it shipped as a bordered ink box instead of a borderless cyan value.
+  5. The Settings **client seed** (`.dialog-field … text-primary`) — #3's twin, same ink render.
+  6. **The subtlest one, found during #135's own QA:** the Settings custom-seed row's
+     `basis-full sm:basis-auto`. Nothing "loses" here — `flex-basis` computes to `auto` exactly as
+     written — but **`auto` defers to the item's own `width`**, and the input class declares
+     `width: 100%`, so the flex base size was the whole row and SET / ROTATE wrapped underneath it
+     **on desktop too**. The row the card was filed to align had never been a row. Fixed with
+     `sm:basis-0` — `flex-basis` and `width` are different properties, so there is no tie to lose.
+     ⚠️ **The lesson generalises:** a utility can be applied *and still not do what it was written
+     for*, if the value it sets defers to a property the class owns. `basis-auto`, `w-auto`,
+     `h-auto`, `min-h-0` and `max-w-none` are all of this shape.
+
+  **The fix is `!` at the call site (3 and 5), the declaration moving into `arcade.css` (2 and 4), or
+  a property the class does not own (6).**
+  ⚠️ And it bites *while you fix it*: adopting `.btn-dialog` on the games-history `MINE ONLY` toggle
+  would have silently killed its `border-primary text-primary bg-primary/10` active state, which is
+  why that state is now the `.btn-dialog--active` **modifier** and the shrink-to-fit width on the
+  history/stats selects is `.input-arcade--auto` rather than a `w-auto` utility.
+- **ONE control-sizing scale — height comes from a token, skin stays per family (Trello #135,
+  2026-08-02):** before this, no button or input class declared a `height` at all; each one's height
+  fell out of its vertical padding plus its font-size, so two controls in the same row were only ever
+  the same height by coincidence. They were not: the Settings seed row shipped a 44.7px input beside a
+  33.2px button. **Every in-scope family now takes `height` from one of three steps**, so any button
+  and any input in a row line up **by construction, not by hand-tuned padding at the call site**.
+
+  **The tokens live in `colors.css`** beside `--radius-arcade`, and **one** `@media (max-width: 1023px)`
+  `:root` block steps the two lower rungs up — **no call-site class changes on mobile, ever**:
+
+  | Token | Desktop | `≤1023px` | Anchored on |
+  | --- | --- | --- | --- |
+  | `--ctl-h-sm` | 34.4px (`2.15rem`) | **40px** | `.btn-arcade--sm`, unchanged |
+  | `--ctl-h-md` | 40px | **44px** | the new default rung |
+  | `--ctl-h-lg` | 48px (`3rem`) | 48px | `.btn-arcade`, unchanged |
+  | `--ctl-px-sm` / `md` / `lg` | 10 / 13 / 16px | same | horizontal padding only |
+
+  `sm` and `lg` are **pinned to the arcade values that already shipped**, so the lever, the wallet
+  cluster, the dashboard and `GameTypeCard` did not move a pixel and QA concentrated on dialogs and
+  pages.
+
+  **Family defaults — the common case is one class and no `px-`/`py-`:**
+
+  | Class | Step | Skin it keeps |
+  | --- | --- | --- |
+  | `.btn-arcade` | `lg` 48 | 2px border, bevel, 5px amber key-drop, press dip |
+  | `.btn-arcade--sm` | `sm` 34.4 | same |
+  | `.btn-dialog` (+ `--primary`, `--active`) | `md` 40 | flat 1px hairline |
+  | `.input-arcade` (+ `--select`, `--auto`) | `md` 40 | inset fill |
+  | `.dialog-field` | `md` 40 | inset fill, centred by `line-height` |
+  | `.btn-icon` | `md` 40 square | **none** — geometry only |
+
+  Rules that go with it:
+  - **Height is not skin.** `.btn-arcade` joins the scale for height and keeps its material. The old
+    rule *"do not restyle `.btn-arcade` to match a dialog"* stands and is untouched by this.
+  - **A step is BORDER-BOX height.** `.btn-arcade`'s `box-shadow: 0 5px 0` key-drop **overhangs** it,
+    so a 48px arcade button and a 48px input share a top edge and differ by 5px at the bottom. That is
+    intended — it is a 3D object — and the two families share a row almost nowhere. **Do not "fix" it.**
+  - **Font-size comes from the step but the VALUE is per family**, so there is deliberately **no
+    `--ctl-fs-*` token**: Press Start 2P 8px and VT323 19px are the same *apparent* size. Ramps —
+    arcade `0.58 / 0.65 / 0.72rem`, dialog button `7 / 8 / 9px`, input `17 / 19 / 21px`.
+  - **The scale pins height, horizontal padding and font-size only.** Border width stays skin (the
+    arcade 2px is structural to the bevel); `--radius-arcade: 4px` was already uniform.
+  - **A step is materialised only where it has a consumer.** All three tokens always exist, but a
+    family's `--sm`/`--lg` *class* is written only when something uses it — hence no `.btn-arcade--md`
+    and no `.btn-dialog--sm`. Adding one later is two lines; a class nobody uses is the dangling-rule
+    problem #124 was filed to fix (which is also why `.btn-dialog--tour` was deleted at 0 consumers).
+  - **Documented NON-members — a future agent finding these off the scale is looking at the rule:**
+    `.dialog-row` (a full-width list item with an icon and two lines: a fixed height would clip it, and
+    it never sits beside a control) · **text-link buttons** (the `retry` links under a failed history
+    or stats load — a legitimate third kind of button with no box and no height) · `.dialog__close`
+    (20/22px, part of the shell's titlebar geometry) · **`/admin`** and its `.admin-input`, which stays
+    `<style scoped>`-duplicated in `GameTypeForm.vue` **and** `BetRefundManager.vue` **on purpose**
+    (blue/Courier surface; bringing it onto the arcade scale is its own card) · the **game page's
+    furniture** (terminal word input, lever, mobile preset keypad, `GameMobileTabs`, chat composer).
+- **Focus is an `outline`, never a `box-shadow` (Trello #135):** one treatment —
+  `outline: 2px solid var(--color-cyan); outline-offset: 2px` — declared once in `arcade.css` for
+  `.btn-arcade`, `.btn-dialog`, `.btn-icon`, `.dialog-row`, `.dialog__close` (`:focus-visible`) and
+  `.input-arcade` (**`:focus`**, because a `<select>` clicked with a mouse does not match
+  `:focus-visible` in Chrome and the input has always shown its ring on click).
+  ⚠️ **The property choice is load-bearing, not style.** `.btn-arcade--primary`'s amber key-drop **is**
+  a `box-shadow`, and `html.light-graphics .btn-arcade--primary` re-declares `box-shadow` at
+  specificity **(0,2,1)** — which beats a `.btn-arcade:focus-visible` rule at **(0,2,0)**. A
+  box-shadow ring would therefore **wipe the key-drop on desktop** and be **invisible on every phone**,
+  since every phone runs `light-graphics`. Same family of trap as the `backdrop-filter` rule above:
+  check a GPU-rasterizing desktop **and** a phone, because it is invisible on one of them.
+  Before #135 five classes hand-rolled their own ring and **`.btn-arcade` — the loudest, most-shipped
+  family — had none at all**. There is still **no global focus rule** in the app; a new family that
+  needs a ring joins this selector list.
 - **Two panels — grey and black (Trello #124, 2026-08-02):** the design source is the Space Stroker
   modal design doc (`Space Stroker Modals.dc.html`, chrome direction **1b hairline**, adopted). It
   defines **two skins over one geometry**.
@@ -188,12 +287,24 @@
     component — see the cascade rule above; a dialog built from utilities could not be overridden by
     `arcade.css` anyway, and one place holding the whole anatomy is what stops the drift that filed
     this card. `ArcadeModal.vue` is the **only** component that writes `.dialog*` structure classes.
-  - **`.btn-dialog` inside a dialog, `.btn-arcade` everywhere else.** The dialog button is flat —
-    1px, 4px radius, Press Start 2P 8px, 10/13px padding, hover to amber, a 2px cyan focus ring,
-    `.35` disabled — because `.btn-arcade`'s 3rem bevelled body with a 5px amber key-drop is the
-    cabinet's furniture and reads as the only 3D object inside a 36px-titlebar hairline dialog. Do
-    **not** restyle `.btn-arcade` to match: it is on the lever, the wallet cluster, the dashboard and
-    the cards. `PrimaryButton` / `SecondaryButton` are likewise not dialog controls.
+  - **The FLAT CONTROL FAMILY (`.btn-dialog` + `.input-arcade`), and `.btn-arcade` for the cabinet.**
+    ⚠️ **Amended by #135 — this used to read "`.btn-dialog` inside a dialog, `.btn-arcade` everywhere
+    else", and the dialog-only half is gone.** The flat button is flat — 1px, 4px radius, Press Start
+    2P 8px, 40px tall, hover to amber, the shared cyan focus outline, `.35` disabled — because
+    `.btn-arcade`'s 3rem bevelled body with a 5px amber key-drop is the cabinet's furniture and reads
+    as the only 3D object inside a 36px-titlebar hairline dialog. Do **not** restyle `.btn-arcade` to
+    match: it is on the lever, the wallet cluster, the dashboard and the cards.
+    **The rule is now: use the flat family wherever a control has to line up with an input** — in a
+    dialog *or* on a page. `/game/history`'s `MINE ONLY` sits beside a 40px `<select>`, and the only
+    alternative was a 48px lever in a filter bar. `.btn-arcade` stays the cabinet's furniture and the
+    page-level call to action (`/responsible-gaming`'s own buttons are `.btn-arcade` by #124's rule
+    and stay that way — they share a row with nothing).
+    **Inputs never had this split at all:** a dialog input and a page input are visually identical, so
+    there is **one** input class, `.input-arcade`, used in both. It was renamed from the old
+    dialog-scoped name and **deliberately not aliased** — an alias is how two names for one thing
+    start drifting.
+    **One way to make a button: a class.** `PrimaryButton.vue` and `SecondaryButton.vue` were deleted
+    in #135 (0 and 4 consumers); do not reintroduce a wrapper component for a button.
   - **Sizes: `compact` 380 · `standard` 520 · `wide` 720 · `xwide` 1024.** The design doc draws the
     first three; **`xwide` is ours** (2026-08-02) — the "big modal on PC" size, added because the
     5-step quick tour lays five illustrated steps out side by side and at 720 each column is ~128px,
@@ -300,13 +411,24 @@
   routinely carries wording that refinement later rejected (the quick-tour mockup says *"Pick an animal
   number (1-8)"*, which decision #4 on #115 explicitly killed).
   Wired into the pipeline as `monkify-implement-feature` → Step 6b.
-- **Design system (required):** **always build new UI with the existing frontend design system** —
-  Tailwind CSS + DaisyUI plus the shared UI components under `src/components/ui/`
-  (e.g. `PrimaryButton`, `SecondaryButton`) and the established layout/spacing/theming patterns
-  (including `--color-secondary`). Do **not** introduce ad-hoc inline styles, one-off
-  component libraries, or bespoke controls when a design-system primitive already exists; reuse and
-  extend the existing components so new screens (modals, headers, forms) match the current look and
-  feel. If a needed primitive is missing, add it to the design system rather than styling in place.
+- **Design system (required):** **always build new UI with the existing frontend design system.** The
+  system is **the tokens in `colors.css` + the material classes in `arcade.css` + `ArcadeModal.vue`**,
+  plus Tailwind/DaisyUI for everything those do not cover. Concretely:
+  - **Buttons and inputs are classes, not components** — `.btn-arcade` (+ `--primary` / `--cyan` /
+    `--ghost` / `--ghost-cyan` / `--sm`) for the cabinet, `.btn-dialog` (+ `--primary` / `--active`)
+    and `.input-arcade` (+ `--select` / `--auto`) for the flat family, `.btn-icon` for an icon square.
+    ⚠️ **`PrimaryButton` / `SecondaryButton` no longer exist** (deleted in #135 — 4 and 0 consumers,
+    and the wrapper was a pass-through over a class). Do not reach for a wrapper component, and do not
+    reintroduce one: **one way to make a button is a class**.
+  - **Every control takes its height from the control-sizing scale** (see the bullet above) — a new
+    control joins a step, it does not invent a height out of padding.
+  - **Every overlay goes through `ArcadeModal.vue`**; surfaces use `.arcade-frame` / `.arcade-panel`
+    and the `.dialog-*` content helpers rather than hand-rolled boxes.
+  - Do **not** introduce ad-hoc inline styles, one-off component libraries, or bespoke controls when a
+    design-system primitive already exists; reuse and extend so new screens (modals, headers, forms)
+    match the current look and feel. **If a needed primitive is missing, add it to the design system**
+    — a modifier in `arcade.css`, not a stack of utilities at the call site, which the cascade rule
+    above shows silently loses.
 - **Responsive / mobile layout (`< lg` / 1024px):** the app is desktop-first; below `lg` a shared
   **`useIsMobile()`** composable (`src/hooks/useIsMobile.ts`, `matchMedia('(max-width: 1023px)')`) gates
   mobile structure. This reuses the `GameMonkey hidden lg:block` boundary and covers landscape phones,
