@@ -133,7 +133,9 @@ running stack could surface.
 - The trigger lives inside the existing `GameStatus.Ended` one-shot in `useGame.ts` that already
   computes `didBet` and `won` — no second watcher, no new round detection.
 - Guards, cheapest first: already seen in this browser → embedded → Orbit already enabled (nothing to
-  sell) → the Quick Tour is open (never two modals) → `recovering` / `isIdleDisconnected` /
+  sell) → another overlay is open (never two modals — the header-owned **Settings** or **Provably
+  Fair** modal; this guarded the Quick Tour until that was traded for the `/how-to-play` page, which
+  is a route and cannot be open over anything) → `recovering` / `isIdleDisconnected` /
   `relaunching` / terms not accepted. **Every refusal is silent.**
 - `localStorage`-only, **one key per browser, not per wallet** — it is a once-ever onboarding modal,
   and keying it per wallet would re-show it to the same human on their second address. The accepted

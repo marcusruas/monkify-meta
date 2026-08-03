@@ -590,8 +590,9 @@ between them is **frequency, not subject matter**.
   - backdrop: **void at 55% + a 9px diagonal dither**
   - **Esc** closes, and so does a backdrop click
 - **Tutorial / help tier — black + a 2px CRT-cyan frame.** Overlays that appear **unprompted**, have to
-  earn attention, and are shown **once and then never again**: the Quick Tour / How to Play, and the
-  first-win Orbit upsell (`OrbitFirstWinModal.vue`, the tier's shipped reference implementation).
+  earn attention, and are shown **once and then never again**. Since the quick tours became the
+  `/how-to-play` **page**, the first-win Orbit upsell (`OrbitFirstWinModal.vue`) is the tier's only
+  implementation — and therefore its reference one.
 
   A once-ever overlay owes two things beyond the chrome. **Every exit marks it seen** — X, Esc,
   backdrop and the primary CTA alike — so nobody is nagged for dismissing it "the wrong way". And its
@@ -603,7 +604,8 @@ between them is **frequency, not subject matter**.
   keyed on a public address that would let anybody suppress a stranger's modal.
 
 Provably Fair is *system* tier even though it explains something, because it is reopened every round.
-The Quick Tour is *tutorial* tier even though it is small, because it arrives uninvited.
+The first-win upsell is *tutorial* tier even though it is small, because it arrives uninvited — the
+same test that put the quick tours there before they became a page.
 
 Two rules that are easy to get wrong and expensive to debug:
 
