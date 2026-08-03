@@ -1,6 +1,14 @@
 # Space Stroker — "Practice mode" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` via `feature/practice-mode` on 2026-08-03.
+> Distilled rules: `../features/practice-mode.md`.
+>
+> ⚠️ **This spec is the design archive, not current truth.** Owner feedback during implementation
+> superseded parts of it — §7.3 (timings), §7.4 (stream density), §7.7 (money copy), §7.8 (audio),
+> decision 9, decision 10 and AC #16. **`features/practice-mode.md` is authoritative** and lists every
+> deviation; see §15 for the summary.
+>
+> Refined via Trello card
 > [Practice mode](https://trello.com/c/WKXsNym4/129-practice-mode) (#129, refined 2026-08-02).
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**. **`monkify-backend` is not
 > touched.**
@@ -568,3 +576,4 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (21 items).
 | Date | Change |
 | --- | --- |
 | 2026-08-02 | Initial spec from the refined card + the in-chat refinement run. Written against the **post-#134** cabinet; §0 records that the sequencing blocker is cleared. |
+| 2026-08-03 | **Shipped.** Owner feedback during implementation superseded seven design points; the code is the newer decision and `features/practice-mode.md` is current truth. (1) **Timings are the real ones, not compressed** (§7.3, decision 9): the countdown is the backend's `TimeUntilGameStarts` = **10 s**, which is also what makes `GameMonkey`'s 8800 ms glasses beat land, and the post-round hold is the shared `VUE_APP_NEW_GAME_DELAY` = **30 s**. (2) **The lever doubles as "next round"** during the hold (decision 10), as on the real console; the round still auto-rolls if untouched. (3) **The stream is batched** — ~59 k characters per run at 120/220/400 per 50 ms tick, mirroring `TerminalBatchLimit` = 500 — not §7.4's ~700. (4) **The winning word is appended to the end of the stream and highlighted**, because a real race ends *on* the winning window; §7.5 revealed it only in the near-miss row. (5) **A natural stream hit beats the draw**, matching `CheckForWinners` → `DecideFallbackWinner`; both choices are matched, only the player's row is rendered. (6) **The result block uses the real payout copy** (`> PAID TO:`, `> REWARDS SENT. PULL LEVER FOR NEXT ROUND!`, `> ROUND OVER. PULL LEVER FOR NEXT RACE.`) with one sticky banner carrying the not-charged statement, rather than §7.7's reworded lines; and the **full three-track audio bed** ships (`PracticeAudio.vue`), not §7.8's one-shots only. (7) **AC #16 is superseded** — the "practice rounds are not verifiable" line was removed entirely; no seed, no hash, no verification control and no simulated commit-reveal still hold. |
