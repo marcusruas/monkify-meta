@@ -9,6 +9,14 @@
 > [#118](https://trello.com/c/yxwdNTrb). Builds on
 > [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) (#121) and
 > [`orbit-auto-bet-engine.md`](orbit-auto-bet-engine.md) (#122).
+>
+> ⚠️ **Dark in production** since #146 (2026-08-04): with `VUE_APP_ORBIT_ENABLED` off,
+> `useOrbitNotifications.start()` refuses, so the hub channel is never joined, neither the win toast
+> nor the "paused — insufficient funds" toast can fire, and the first-win upsell is refused inside
+> `maybeOpen()`. The **server** still publishes; nobody is listening. ⚠️ Because
+> `joinOrbitChannel` is the only thing that sets `useGameHub`'s `orbitSessionToken`, the
+> `onreconnected` re-join stays clean too — `useGameHub.ts` needed **no** flag of its own. See
+> [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) → "The production gate".
 
 ## What it does
 
