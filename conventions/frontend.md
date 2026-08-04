@@ -225,9 +225,11 @@
   Before #135 five classes hand-rolled their own ring and **`.btn-arcade` — the loudest, most-shipped
   family — had none at all**. There is still **no global focus rule** in the app; a new family that
   needs a ring joins this selector list.
-- **Two panels — grey and black (Trello #124, 2026-08-02):** the design source is the Space Stroker
-  modal design doc (`Space Stroker Modals.dc.html`, chrome direction **1b hairline**, adopted). It
-  defines **two skins over one geometry**.
+- **Three panels — grey, black and orbit (Trello #124, 2026-08-02; extended #141, 2026-08-04):** the
+  design source is the Space Stroker modal design doc (`Space Stroker Modals.dc.html`, chrome
+  direction **1b hairline**, adopted). It defines **two skins over one geometry**; a third,
+  **feature-scoped page material** was added for Orbit — see "The third material" at the end of this
+  section. The grey/black rule below is unchanged by it.
 
   **The names are `grey` and `black`** — the prop value (`variant="grey" | "black"`), the CSS modifier
   (`.dialog--grey` / `.dialog--black`, `.arcade-frame--grey`) and the word to use in review. The
@@ -253,6 +255,45 @@
   surface, the rule is being read too loosely. It is also why the material was **not** retired with
   the tours: a documented rule with zero consumers is exactly the dangling-rule condition #124 was
   filed to fix.
+
+  **The third material — `.arcade-frame--orbit` (Trello #141, 2026-08-04).** `--color-void-deep` fill
+  behind a **2px `--color-orbit-deep`** frame, no glow. **Scope is the `/orbit` page only.**
+
+  It exists because `/orbit` needed the *depth* of the black panel and could not have it: black
+  requires **both** informative-only-and-brief **and** light in tone, and `/orbit` is a money page
+  carrying a stop-loss — the exact case the rule excludes. The choice was to bend the black rule or
+  give Orbit its own material; **the material won**, because bending the rule for one money page is
+  how "black is never a warning about money" stops being true everywhere else. `--black` and its
+  single `GuideTip` consumer are untouched.
+
+  The frame is `--color-orbit-**deep**`, not `--color-orbit`: the **open step** inside the page takes
+  the full-intensity violet, and a full-intensity frame would flatten it. Same hue, two intensities —
+  do not "fix" this by giving the active step a different colour. **Cyan was rejected**: it is the
+  focus ring and Beast Mode's archetype accent, and a cyan frame at page scale spends the scarcest
+  accent in the app on a feature that already owns a colour.
+
+  ⚠️ **A third material is a real cost.** If a fourth surface wants this one, that is the signal the
+  rule is being read too loosely — the same test `--black` is held to.
+
+- **Orbit's semantic palette (Trello #141, 2026-08-04) — colour marks meaning, never completion.**
+  Scoped to the Orbit surfaces. Four hues, one job each:
+
+  | Hue | Owns | Never |
+  | --- | --- | --- |
+  | **Green** `--color-live` | active / running / satisfied — the ✓ pips, the `RUNNING` tag, `linked` | asks for anything; it is status |
+  | **Violet** `--color-orbit` / `-deep` | Orbit identity **and** "you are here" (frame + mark at `-deep`, open step at full) | a value, a button fill |
+  | **Red** `oklch(0.8 0.16 25)` | warning / error — `no floor`, `paused`, cool-off, a failed deposit | decoration |
+  | **Amber** `--color-primary` | the **active step's primary action button** only | status, borders, hover tints, headings, the page title, or an always-available action |
+
+  ⚠️ **The weight rule is what actually prevents a colour salad**, and it is not optional: colour
+  lives only in **small marks** — a pip, a 3px left bar, one status tag, one filled button. **Every
+  value is plain ink.** The first draft used the correct *number* of hues and still read as noise
+  because every value was a filled, bordered pill. The one exception is `no floor`, which is red
+  **text** inside an otherwise-ink value.
+
+  The test: **a healthy, fully-configured running Orbit shows no amber and no red anywhere.** That is
+  what makes either mean something when it appears. This supersedes `specs/orbit-ui-overhaul.md`
+  D6.1, which made violet identity-only and turned a paused Orbit amber.
 
   ⚠️ The "needs BOTH" tiebreak is this document's reading of the two axes above, not something the
   owner stated in those words. If a future surface makes it feel wrong, change it here rather than

@@ -126,7 +126,7 @@ git push -u origin HEAD
 - [ ] **Step 6: Verify the backend suite is green before changing it**
 
 ```bash
-./run_tests.bat
+scripts/run_tests.bat
 ```
 
 Expected: PASS. A pre-existing failure must be reported now, not discovered later.
@@ -185,7 +185,7 @@ public void MaxDepositPerTransaction_DefaultsTo100()
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-./run_tests.bat
+scripts/run_tests.bat
 ```
 
 Expected: FAIL — `7`, `100` rejected by the ladder; `MaxDepositPerTransaction` is `10m`.
@@ -245,7 +245,7 @@ Expected: FAIL — `7`, `100` rejected by the ladder; `MaxDepositPerTransaction`
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
-./run_tests.bat
+scripts/run_tests.bat
 ```
 
 Expected: PASS. Report every test file that changed.
@@ -316,7 +316,7 @@ public async Task Deposit_CreditsAnyWholeAmount_AndStaysIdempotent()
 Ensure Docker is running (Testcontainers), then:
 
 ```bash
-./run_tests.bat
+scripts/run_tests.bat
 ```
 
 Expected: FAIL before Task 2's change is present; PASS after. If it passes immediately, verify the test is actually being collected.
@@ -324,7 +324,7 @@ Expected: FAIL before Task 2's change is present; PASS after. If it passes immed
 - [ ] **Step 3: Confirm it passes and report**
 
 ```bash
-./run_tests.bat
+scripts/run_tests.bat
 ```
 
 Expected: PASS.
@@ -1322,7 +1322,7 @@ In `constraints.md` §6, add: the deposit-bound message (`Deposits are whole num
 
 ```bash
 # backend
-cd .worktrees/orbit-ui-overhaul/monkify-backend && ./run_tests.bat
+cd .worktrees/orbit-ui-overhaul/monkify-backend && scripts/run_tests.bat
 # front
 cd ../monkify-front && yarn lint && yarn build
 ```
