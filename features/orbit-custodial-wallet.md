@@ -52,8 +52,17 @@ they can withdraw it to their own wallet on demand. This card is the money found
 
 **Deposits**
 
-- Fixed ladder of **1 / 5 / 10**, at most 10 per deposit and 100 per UTC day, and a **per-pool** float
-  cap. A cap refusal is vague to the player and an `Error` for the operator.
+- **Any whole amount from 1 to `MaxDepositPerTransaction` (100)**, at most 100 per UTC day, and a
+  **per-pool** float cap. A cap refusal is vague to the player and an `Error` for the operator.
+  ⚠️ **Validated on BOTH sides, client first.** The client sends the SPL transfer *before* calling
+  `/orbit/deposits`, so an amount the backend would refuse must never reach `sendToken` — that is
+  money out of the wallet with nothing credited, recoverable only through "recover a deposit". The
+  bounds ship on the `/orbit` payload (`minimumDeposit`, `maxDepositPerTransaction`) precisely so the
+  client can enforce the same rule the handler does.
+  > Superseded the **1 / 5 / 10** ladder on 2026-08-04 (`specs/orbit-page-restructure.md` §7). The
+  > ladder was product policy, not a safety property — and Recover-a-deposit offered the same ladder,
+  > so it could not rescue the deposits the ladder itself refused. `DepositOptions` still exists in
+  > config and on the DTO (see the binder hazard below) but **nothing in the app renders it.**
 - **Idempotent by signature**, enforced by a unique index. A replay returns the current balance and
   writes nothing — the client auto-resubmits a stashed deposit, so a replay is a normal event.
 - A confirmed transfer whose credit never landed is recovered two ways: a `localStorage` stash replayed
@@ -135,7 +144,14 @@ they can withdraw it to their own wallet on demand. This card is the money found
   value objects in `Domain/Orbit/ValueObjects/`. `GameParameters.AllowOrbit`.
 - Config — `Domain/Configs/Entities/OrbitSettings.cs`. ⚠️ `DepositOptions` is **deliberately
   uninitialized**: `ConfigurationBinder` APPENDS to a pre-initialized array, so a C# initializer plus
-  the config entry yields six deposit buttons. Read `AvailableDepositOptions`.
+  the config entry yields six deposit buttons. Read `AvailableDepositOptions`. It is **no longer the
+  deposit contract** (see Deposits above) but is retained rather than deleted, because removing it
+  would disturb that binder hazard for no gain.
+  ⚠️ `MaxDepositPerTransaction` is set in **two** places — the C# default *and*
+  `SpaceStroker.Common/spacestrokersettings.json`. The committed config wins, and it is what the
+  `/orbit` payload advertises to a client that validates against it, so raising one without the other
+  ships a client that lets players send money the handler then refuses. An integration test asserts
+  the shipped value.
 - Services — `Infrastructure/Services/Orbit/`: `OrbitSessionService` (HMAC, `FixedTimeEquals`),
   `OrbitAccountResolver` (⚠️ derives the **ATA** — `SolanaTokenDescriptor.SenderAccount` feeds
   `TokenProgram.Transfer`'s SOURCE and must be a token account, not a wallet), `OrbitLedgerService`,
