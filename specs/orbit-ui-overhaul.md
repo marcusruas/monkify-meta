@@ -1,5 +1,13 @@
 # Space Stroker — "Orbit UI/UX overhaul" — Implementation Spec
 
+> ⚠️ **PARTIALLY SUPERSEDED (2026-08-04) by [`orbit-page-restructure.md`](orbit-page-restructure.md).**
+> That card replaces this one's **`/orbit` page design (D1's page half), the violet/amber split
+> (D6.1), the grey page material, the modal's game picker, the deposit ladder and AC33** — read its
+> §0 for the exact list before implementing anything below.
+> **Still authoritative here and untouched:** §4 (identity tokens, the mark, the four glyphs), §7.4
+> (the console module), §7.8 (mobile deeplink sign-in), §7.9 (the cancellable redirect), and the
+> §3.1 trade-off, which the restructure re-examined and kept.
+
 > **Status: Ready for implementation** — refined via Trello card
 > [Orbit UI/UX overhaul (#141)](https://trello.com/c/knC5QbPJ/141-orbit-ui-ux-overhaul) (2026-08-03),
 > container bake-off decided the same day (**Option C**). Written against `monkify-front@993261e` /
