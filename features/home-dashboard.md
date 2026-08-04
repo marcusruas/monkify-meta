@@ -127,13 +127,21 @@ is a module singleton `HomePlayerStats` already loads.
 
 | | Round live on the floor | Floor quiet |
 | --- | --- | --- |
-| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TRY IT FREE] [HOW IT WORKS]` |
+| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TUTORIAL MODE] [HOW IT WORKS]` |
 | **Returning** | `WELCOME BACK` · `[JOIN {NAME}] [GAME HISTORY]` | `WELCOME BACK` · `[PLAY {most-played}] [GAME HISTORY]` |
 
 - **Primary is decided by the floor, secondary by the player.** An open round is the most valuable
-  thing either player can do, so JOIN/WATCH wins for both. `TRY IT FREE` is the newcomer's constant
-  (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only appears when
-  it is not needed above); `GAME HISTORY` is the regular's constant.
+  thing either player can do, so JOIN/WATCH wins for both. The practice screen is the newcomer's
+  constant (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only
+  appears when it is not needed above); `GAME HISTORY` is the regular's constant.
+- ⚠️ **One destination, two labels — and that asymmetry is deliberate.** `/game/practice` is
+  **`TUTORIAL MODE`** in the newcomer's **primary** slot (quiet floor) but **`TRY IT FREE`** in the
+  newcomer's **secondary** slot (a round is live), and the **cold** hero's own button keeps
+  `TRY IT FREE` too. Owner's call at the `release/ui-ux-changes` ship (2026-08-04), on top of #143:
+  #142 turned that screen into a guided, always-win tutorial, so the slot a newcomer lands on when
+  there is nothing else to do names the **mode**, while the two fallback slots keep naming the
+  **benefit**. This is the one place `HomeHero`'s own "one button, one name, everywhere" rule is
+  knowingly broken — do not unify the three labels without asking.
 - ⚠️ **Nothing in this band may be a scroll-to-what-you-can-already-see.** `Play again` — whose only
   job was scrolling to mode cards ~48 px below it — is deleted, and with it the hero's `play` emit,
   `HomePage`'s `scrollToModes` and its `modesSection` ref. Every path out of the band is a real
