@@ -9,6 +9,12 @@
 > Trello [#122](https://trello.com/c/h7MF4Oky), umbrella
 > [#118](https://trello.com/c/yxwdNTrb). Builds on
 > [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) (#121).
+>
+> ⚠️ **Orbit is dark in production** since #146 (2026-08-04): the build-time frontend flag
+> `VUE_APP_ORBIT_ENABLED` hides every Orbit surface and silences every Orbit client path. **This
+> engine is NOT gated and keeps running** — it is safe only because enrolment is unreachable while
+> the UI is hidden, so no player is enrolled and no game type has `AllowOrbit = true`. See
+> [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) → "The production gate".
 
 ## What it does
 

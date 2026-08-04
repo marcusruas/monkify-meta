@@ -1,6 +1,19 @@
 # Space Stroker — "Hide Orbit behind a frontend env flag" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped — merged to `main` on 2026-08-04** via `feature/orbit-frontend-flag` in
+> `monkify-front` + `monkify-backend` + `monkify-meta`. Distilled into
+> `features/orbit-custodial-wallet.md` → "The production gate" and `conventions/frontend.md` →
+> "Feature flags".
+> Verified before the merge: `yarn lint` + `yarn build` clean; backend **761 unit** and **98
+> integration** tests green; the flag proved reversible in the browser (OFF → no ☰ Orbit row and
+> **zero `/orbit/*` requests**; ON → the row returns and the modal opens, same build).
+>
+> ⚠️ **AC 11 (local Docker stack) was not run** — the running stack was left intact by choice.
+> ⚠️ **AC 12 was satisfied by owner attestation, not by a query.** At ship time the owner confirmed
+> production has no Orbit-enrolled players and no `AllowOrbit = true` game type. That is the entire
+> safety argument for a frontend-only gate — **re-verify it before any deploy that flips the flag.**
+>
+> Refined via Trello card
 > [Hide orbit in frontend, env controlled](https://trello.com/c/zJsoFVaW) (#146, refined 2026-08-04).
 > Repos affected: **`monkify-front`**, **`monkify-backend`** (one generated env line in a `.bat`
 > script — **no C#**), and this doc in **`monkify-meta`**.
