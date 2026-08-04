@@ -1,5 +1,15 @@
 # Space Stroker — "House commission 0.5% → 1%" — Implementation Spec
 
+> **Status: SHIPPED 2026-08-04** — merged into `main` (and `master` for the LP) via
+> `feature/commission-rate-1-percent` in `monkify-backend` + `monkify-lp` + `monkify-meta`.
+> Distilled into the existing `features/crypto-commission.md` (Minor change ⇒ no new `features/` doc).
+>
+> **Two deviations from this spec, both deliberate — see §11.1 and §16:**
+> 1. The guard lives in the **fast unit suite** (`SpaceStroker.Tests/UnitTests/Api/CommissionRateTests.cs`),
+>    **not** in `GameFlowTests.cs:123` as §10.1 row 2 proposed. User-approved; §11.1 authorized the
+>    substitution. AC2's letter ("loaded by a real host") is therefore not met — its intent is exceeded.
+> 2. **Merging did not change the production rate.** The live deploy (AC13) is a separate ops step.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [Increase comission from 0.5% per pot to 1%](https://trello.com/c/quCTPKxZ) (#147, 2026-08-04).
 > Repos affected: `monkify-backend`, `monkify-lp`, and this doc in `monkify-meta`.
@@ -426,3 +436,43 @@ Mirrors the Trello **Acceptance Criteria** checklist (14 items) verbatim in inte
 | Date | Change |
 | --- | --- |
 | 2026-08-04 | Initial spec from refined card #147 (short-mode refinement, same session). Corrected the card's guard-test line reference (`GameFlowTests.cs` **123**, not 127 — the card cited a stale worktree copy) and its note about uncommitted `monkify-lp` work (the hub is clean; the `CLAUDE.md` warning is stale). |
+| 2026-08-04 | **Shipped.** See §16 for what actually landed and why the guard moved suites. |
+
+---
+
+## 16. Post-ship notes
+
+**Shipped 2026-08-04**, merged to `main` / `master` in three repos. 763/763 unit and 98/98 integration
+green on the feature branch before the merge.
+
+**The guard moved to the fast unit suite.** §10.1 row 2 proposed tightening
+`GameFlowTests.cs:123` from `ShouldBeGreaterThan(0m)` to `ShouldBe(1m)`; §11.1 permitted a unit-level
+substitute. During implementation the codebase turned out to already have **two precedents** for pinning
+committed `spacestrokersettings.json` values in the fast suite — `UnitTests/Api/RateLimitSettingsTests.cs`
+and `UnitTests/Api/OrbitSettingsBindingTests.cs`, both loading the file with
+`ConfigurationBuilder.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "spacestrokersettings.json"))`
+(it is `CopyToOutputDirectory=Always` on `SpaceStroker.Common`). The user chose that route, so:
+
+- **Added** `SpaceStroker.Tests/UnitTests/Api/CommissionRateTests.cs` — `CommissionPercentage_IsOnePercent`
+  (the guard) and `CommissionPercentage_IsAPercentNotAFraction` (catches a future `0.01`/`100` mix-up).
+- **`GameFlowTests.cs:123` was left as `ShouldBeGreaterThan(0m)`** — it is a correct *precondition* for
+  that flow, not a rate assertion, and the test body already derives the expected payout from the live
+  config.
+- **Why it is the better home:** the fast suite runs on **every** backend change; the integration suite
+  is Docker-gated and on demand, so a silent revert could have survived many runs. AC2's literal wording
+  ("loaded by a real host") is not satisfied; its intent — reverting to 0.5 fails the suite — is
+  satisfied more strongly.
+
+**No existing test was modified.** In particular the `BetDomainServiceTests` fixtures keep their own
+`0.5m` rate and `1.4975` / `19.95` / `18.98` expectations by design (they test the formula, not the
+configured rate).
+
+**Verified on the local Docker stack before shipping:** `GET /games/active-types` returned
+`commissionPercentage: 1.0` for all three seeded types and `GET /games/stats` returned `1.0`, rendering
+as `1% HOUSE CUT` — confirming the decimal serializes without a `1.0%` artifact (AC9).
+
+**⚠️ AC13 is still open and is an ops step, not code.** Merging to `main` did **not** change the live
+rate: prod bakes the committed `spacestrokersettings.json` into the image, so production keeps charging
+**0.5%** until **both** Cloud Run services are redeployed — and per §3.3 that deploy must happen with
+**no paid round open**, i.e. just after Space Jackpot's 22:00 UTC draw. AC14 (KB sync) was completed as
+part of the ship.

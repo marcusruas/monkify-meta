@@ -129,8 +129,9 @@ Every step after the transfer is money already gone, so the consumer is delibera
 **Settlement**
 
 - An Orbit-funded win pays to the **Orbit account**, never the player's wallet, and appends a
-  `WinCredit` net of the shipped 0.5% commission. The `TransactionLog` `Credit` row is still written —
-  `CalculateRewardForBet` reads it for idempotency, so skipping it double-pays on retry.
+  `WinCredit` net of the house commission (**1%** since 2026-08-04; 0.5% before — the rate is read from
+  config at payout, so Orbit needs no change when it moves). The `TransactionLog` `Credit` row is still
+  written — `CalculateRewardForBet` reads it for idempotency, so skipping it double-pays on retry.
 - A refunded Orbit stake returns to the **Orbit account** with a `Refund` row. Paid to the player's
   wallet it would leave the pool short with no ledger row, and reconciliation would report that
   shortfall forever. `RefundInvalidBetEvent` carries the funding source, because pre-insert refunds

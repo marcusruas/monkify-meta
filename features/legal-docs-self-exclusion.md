@@ -47,9 +47,15 @@ feature.
 - `/terms` and `/responsible-gambling`, siblings of `/cookies`, linked from the LP footer and picked
   up by the sitemap automatically.
 - The Terms are written against **what the code actually does**: non-custodial (we never hold keys),
-  USDC on Solana, no accounts, provably-fair verification, the **0.5% crypto house cut** taken only
-  from profit above the player's own stake, and **exactly when a bet is and is not auto-refunded**.
-  They state plainly that they are **not legal advice and have not been reviewed by a lawyer**.
+  USDC on Solana, no accounts, provably-fair verification, the house cut (**"currently 1%"** since
+  2026-08-04; 0.5% before) taken only from profit above the player's own stake, and **exactly when a bet
+  is and is not auto-refunded**. They state plainly that they are **not legal advice and have not been
+  reviewed by a lawyer**.
+- ⚠️ **The house-cut rate is the one number the Terms hardcode, and it goes stale silently.** The rate
+  lives in backend config, every in-app badge renders it live, and this page does not — it was found
+  still claiming 0.5% after the rate rose. The wording now says *"currently 1%"* and points at the
+  in-app STATS panel as the live figure, but **any rate change must still update
+  `monkify-lp/src/pages/terms.astro`** (see `features/crypto-commission.md`).
 - ⚠️ **No restricted-jurisdictions clause.** We do not geo-block, and an unenforced clause is worse
   than silence. Geoblocking is a separate, unclaimed card.
 - ⚠️ **No legal entity and no governing law are named** — a deliberate known gap, not an oversight.

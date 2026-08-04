@@ -279,8 +279,9 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   dropped; `ExternalTransactionReference` is now just `Signature`. `BetDomainService` reads the ledger
   by type for reward/refund idempotency and never subtracts `Debit` rows, so a placement is never read
   as a payout. A house **commission** applies to winnings above each winner's own stake
-  (`GeneralSettings.Operator.Token.CommissionPercentage`, default 0.5%) — see
-  `features/crypto-commission.md`.
+  (`GeneralSettings.Operator.Token.CommissionPercentage`, **1%** since 2026-08-04; was 0.5%) — see
+  `features/crypto-commission.md`. The committed value is the production rate and is read at payout
+  time, so changing it takes a redeploy of **both** hosts and no in-flight paid round.
 
 ## 8b. Custody: the Orbit wallet
 
