@@ -13,6 +13,41 @@
   ⚠️ **Never pass `--no-build` to `dotnet ef migrations add`.** It compares the model from *stale*
   assemblies, so a migration for a property you just added comes out with an **empty `Up`/`Down`** and
   no error. Always read the generated file before committing it.
+- **⚠️ Every new query must land on a suitable index — find it (or add it) before you ship the query.**
+  When you write a new EF query, or change the filter/sort of an existing one, open the entity's
+  `modelBuilder.Entity<T>(...)` block in `SpaceStrokerDbContext` and confirm an existing index actually
+  serves it. If none does, add one in the same change. Nothing in the test suite catches a missing
+  index — the in-memory unit tests ignore indexes entirely and the Testcontainers suite runs on data
+  volumes too small for a seq scan to hurt — so an unindexed query passes green and only shows up as
+  production latency.
+
+  How to tell whether an index serves your query:
+  - **A composite index only helps a query whose filter matches a *leading prefix* of its columns.**
+    `(ParametersId, Status, CreatedDate)` serves `ParametersId = …`, `ParametersId = … AND Status = …`,
+    and all three; it does **nothing** for a query that filters `Status` alone.
+  - **Order the columns equality-first, range/sort-last.** Everything compared with `==` comes first,
+    then the column you range over (`CreatedDate <= x`) or sort by. A range column in the middle stops
+    the index being used for anything after it.
+  - **`OrderBy…().First()` / `.Take(n)` needs the sort column *in* the index, in the right
+    direction** — otherwise Postgres filters and then sorts the whole match set. Spell the direction
+    with `.IsDescending(false, false, true)` so a `ORDER BY … DESC LIMIT 1` becomes one index probe.
+  - **Prefer extending an existing index to adding a new one.** An extended index still serves every
+    query its old prefix served, so it *replaces* rather than adds — and EF's foreign-key convention
+    skips its automatic FK index when an existing index already leads with that column. Watch the
+    generated migration: a `DropIndex` of the old FK index is the expected, correct signal.
+  - **The classic miss is a background job.** A timer that scans one low-cardinality column
+    (`Status == NeedsRefunding`, `Type == CashOut AND Status == Pending`) is invisible in review and a
+    full scan of the biggest table in production. `GameBets` and `OrbitTransactions` are the two tables
+    where this actually bites.
+  - **Index changes are schema changes** — they need a `dotnet ef migrations add` like any other, and
+    they are applied by `SpaceStroker.Consumers` at startup (§4 of `constraints.md`). On a populated
+    production table a plain `CREATE INDEX` blocks writes for its duration; for a large table, consider
+    running it as `CREATE INDEX CONCURRENTLY` by hand ahead of the deploy.
+
+  The current index set was audited query-by-query on 2026-08-04 (`AddQueryCoveringIndexes`); every
+  table has at least one index, and each one carries a comment in `SpaceStrokerDbContext` naming the
+  query it exists for. **Keep that comment habit** — an index with no stated query is the one nobody
+  dares delete later.
 - **Startup self-heal writes use `ExecuteUpdate`, and their change predicate must handle NULL.** The
   `SpaceStrokerDbContext` is `NoTracking` by default, so a load-mutate-`SaveChanges` at startup
   silently persists nothing. When such a patch is guarded by "only rows that differ", remember SQL
