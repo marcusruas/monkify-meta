@@ -239,7 +239,25 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-Nothing in flight.
+**Backfill `Players` in `RemoveOperators`** (production incident fix) — branch
+`feature/remove-operators-backfill` across `monkify-backend` (one migration file) and `monkify-meta`
+(`monkify-front` untouched — the defect is server-side only). Spec:
+[`specs/remove-operators-backfill.md`](specs/remove-operators-backfill.md).
+
+The 2026-08-05 production deploy of `main` failed and was rolled back:
+`20260729190119_RemoveOperators` is a **greenfield** migration that drops `OperatorPlayers`, renames
+`GameBets.OperatorPlayerId` → `PlayerId`, then adds an FK to a **brand-new, empty `Players`** — so on
+a database that already holds bets, every row is orphaned and it dies with `23503`. The transaction
+rolled back whole, so no production data was lost. The fix stashes the player rows before the drop
+and replays them (de-duplicated onto the narrower `ExternalPlayerId`-only unique key, with the
+affected bets repointed) before the FK is added.
+
+⚠️ Two general findings from it, worth carrying forward:
+
+- **`ApplyMigrations` swallows its exception** and startup continues; the deploy tool still prints
+  `Deploy complete.` and exits 0. **A green deploy is not evidence that migrations applied.**
+- **A Terraform apply revokes IAM on retired secrets**, which silently blocks rolling Cloud Run back
+  to an older revision until the bindings are re-granted.
 
 **The home-hero sprite + wallet-connected animation** (Minor change, frontend-only) **landed on
 `main` on 2026-08-05** via `feature/home-hero-sprite` across `monkify-front` and `monkify-meta`
