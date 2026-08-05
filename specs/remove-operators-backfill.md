@@ -1,6 +1,14 @@
 # Space Stroker — "Backfill Players in RemoveOperators" — Fix Spec
 
-> **Status: fix implemented, verified locally, pending production deploy.**
+> **Status: Shipped — deployed to production and merged to `main` on 2026-08-05.**
+> Live on `api-00012-pxg` + `consumers-00009-w45`. Post-deploy verification: `/games/active-types`
+> public with no launch token, commission **1.0%**, `allowOrbit` flags present (migrations applied),
+> and bet history intact across the migration (Cosmic Sprint pot 2.0 / 2 bets / 1 winner; Beast Mode
+> pot 6.0 / 6 bets). 810 unit tests green.
+>
+> ⚠️ Two operational findings from the deploy are recorded in §6 and in `INDEX.md`: a green
+> `Deploy complete.` is **not** evidence that migrations applied, and `update-traffic --to-revisions`
+> **pins** a service so a later deploy stages revisions that never receive traffic.
 > Repos affected: **`monkify-backend`** (one migration file — no C# behaviour change) and this doc in
 > **`monkify-meta`**. **`monkify-front` needs no change** — the defect is entirely server-side.
 > Branch / worktree: `feature/remove-operators-backfill` →

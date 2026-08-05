@@ -239,10 +239,14 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-**Backfill `Players` in `RemoveOperators`** (production incident fix) — branch
-`feature/remove-operators-backfill` across `monkify-backend` (one migration file) and `monkify-meta`
-(`monkify-front` untouched — the defect is server-side only). Spec:
-[`specs/remove-operators-backfill.md`](specs/remove-operators-backfill.md).
+Nothing in flight.
+
+**Backfill `Players` in `RemoveOperators`** (production incident fix) **landed on `main` on
+2026-08-05** via `feature/remove-operators-backfill` across `monkify-backend` (one migration file)
+and `monkify-meta` (`monkify-front` untouched — the defect is server-side only). Spec:
+[`specs/remove-operators-backfill.md`](specs/remove-operators-backfill.md). Deployed to production
+the same day: `api-00012-pxg` + `consumers-00009-w45`, commission now **1.0%**, bet history verified
+intact across the migration.
 
 The 2026-08-05 production deploy of `main` failed and was rolled back:
 `20260729190119_RemoveOperators` is a **greenfield** migration that drops `OperatorPlayers`, renames
