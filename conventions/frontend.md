@@ -310,7 +310,7 @@
   | Intent | it recedes | it earns the attention it takes |
   | Today | everything else | the How to play guide's tip blocks, and nothing else (#130; was the quick tours) |
 
-  **Shared by both, by construction in the shell:** sizes `compact` 380 / `standard` 520 / `wide` 720
+  **Shared by both, by construction in the shell:** sizes `compact` 608 / `standard` 832 / `wide` 1000
   (mobile 100%), titlebar 36px desktop / 44px mobile, 18px body, 12–14px footer, 4px radius, a 90dvh
   cap with the body scrolling and both bars pinned, the dither backdrop, and dismissal by X / Esc /
   backdrop / the primary button.
@@ -352,10 +352,18 @@
     start drifting.
     **One way to make a button: a class.** `PrimaryButton.vue` and `SecondaryButton.vue` were deleted
     in #135 (0 and 4 consumers); do not reintroduce a wrapper component for a button.
-  - **Sizes: `compact` 380 · `standard` 520 · `wide` 720 · `xwide` 1024.** The design doc draws the
+  - **Sizes: `compact` 608 · `standard` 832 · `wide` 1000 · `xwide` 1280** — desktop (`lg:`) caps
+    only; below `lg` every dialog is already a full-width sheet or full screen, so the scale has no
+    effect there. **Rebased upwards 2026-08-05** from 380/520/720/1024 (owner's call: "on PC these
+    modals are way too small"). The old scale was drawn against a laptop; on a 2000px-wide display a
+    380px dialog reads as a tooltip that happened to dim the page. **Not a flat ×1.6:** `compact` and
+    `standard` took the full +60% because they are the sizes the complaint was about, while `wide` and
+    `xwide` — already the tuned "big modal on PC" end — grew less, because ×1.6 would have put them at
+    1152/1638, collapsed the two sizes into each other, and covered 85% of a 1920px screen.
+    The design doc draws the
     first three; **`xwide` is ours** (2026-08-02) — the "big modal on PC" size, added because the
-    5-step quick tour lays five illustrated steps out side by side and at 720 each column is ~128px,
-    which shrinks the art to a stamp and wraps every label. **Keep it rare.** If a surface reaches for
+    5-step quick tour lays five illustrated steps out side by side and at 720 each column was ~128px,
+    which shrank the art to a stamp and wrapped every label. **Keep it rare.** If a surface reaches for
     `xwide` and is not a wide illustrated row, it probably wants a page, not a dialog. Note that a
     consumer choosing a size is also choosing its mobile treatment: `wide` and `xwide` go **full
     screen** below `lg`, `compact` and `standard` become bottom sheets.
@@ -409,7 +417,7 @@
   it owns the whole contract, so surfaces cannot drift apart again.
   - **Props:** `variant` (`grey` default / `black`), `size`, `layer`, `dismissible`, `chrome`,
     `footerLayout`. Slots: `default` (body, exposes `titleId`), `strip`, `footer`, `titlebar-actions`.
-  - **Geometry:** four size tokens (`compact` 380 / `standard` 520 / `wide` 720 / `xwide` 1024);
+  - **Geometry:** four size tokens (`compact` 608 / `standard` 832 / `wide` 1000 / `xwide` 1280);
     titlebar 36px
     desktop, 44px below `lg`; body padding 18px; footer 12–14px; 4px radius; `max-h-[90dvh]` with the
     body as the internal scroll container. **No consumer declares its own max-width or max-height.**
@@ -625,7 +633,7 @@ between them is **frequency, not subject matter**.
 - **System tier — neutral hairline.** Overlays the player opens *themselves* and reopens constantly:
   Settings, Provably Fair, Connect Wallet, the **Orbit wallet modal**, the **header balance cluster**,
   the side panels, and the error/history/stats surfaces. Chrome that recedes:
-  - sizes: compact **380** · standard **520** · wide **720** · mobile **100%**
+  - sizes: compact **608** · standard **832** · wide **1000** · mobile **100%**
   - titlebar **36px** desktop / **44px** mobile; body padding **18px**; footer **12-14px**
   - border **1px `--color-line`**, radius **4px**
   - backdrop: **void at 55% + a 9px diagonal dither**
