@@ -231,6 +231,27 @@ Drift itself stays on — decision #7.
 | `src/assets/styles/arcade.css:38-59` | `.arcade-panel*` — collapse the 4-layer `box-shadow` stack to a single hard 1–2px edge (keeps the beveled read at a fraction of the cost) |
 | `src/assets/styles/arcade.css:91-96` | `.crt-screen` — drop the large inset blur shadow |
 | `src/components/game/GameMonkey.vue:279-280` | `.animate-wobble` — `animation: none` (the mascot **image** still animates; this is the wrapper's infinite wobble transform) |
+| `src/components/home/HomeHero.vue` (scoped) | `.hero-art-wobble` — `animation: none` (Trello #145). Same shape as `GameMonkey` above: the ship **GIF** keeps animating, this kills the wrapper's 5 s `hero-art-drift` transform |
+
+**Post-ship addendum (Trello #145, 2026-08-05) — the home hero's two-layer art.** The band now carries
+a static `hero/coin.png` under one ship GIF (`sleep` / `alert` / `orbit`), and the exception this spec
+grants it was **extended, not re-opened**:
+
+- **The ship GIF is exempt and keeps looping on every device**, on a stronger case than the 45 KB
+  sprite it replaced: 27 KB total, and because the coin is a static PNG **exactly one GIF is ever
+  decoding** — the same count as before. Only the file changed. The principle: the GIF *is* the
+  feedback that the wallet connected, so removing it removes information, not polish.
+- **The CSS drift is NOT exempt** — `.hero-art-wobble` is killed outright (row above). Decoration does
+  not inherit an exception granted to information.
+- **The glow moved to the static coin layer**, so the browser computes the `drop-shadow` **once**
+  rather than re-deriving it per GIF frame — a direct win for exactly the CPU-rasterizing devices this
+  spec exists for. `.hero-art` therefore stays **excluded** from §7.5's `filter: none` kill; do not
+  "fix" that by adding a rule for it.
+- ⚠️ **Correction to the scoped-style caveat below.** A `html.light-graphics .x { }` rule written
+  inside a `<style scoped>` block **does** match when `.x` is an element of that component — the scope
+  attribute lands on `.x` and the root is an ordinary ancestor. The caveat holds only when the
+  **target itself** is the root. Verified on `.hero-art-wobble`: `animation-name` resolves to `none`
+  with the class present and to `hero-art-drift` without it, from a plain scoped block.
 
 Scoped-style caveat: `GameTypes.vue`, `GameTypeCard.vue` and `GameMonkey.vue` use `<style scoped>`,
 so a `:root.light-graphics .x { }` rule written **inside** them will not match (the scope attribute

@@ -294,7 +294,7 @@ it pays them, so a deferred set would shrink mid-payout and over-reward later wi
     winner ⇒ the paid winner takes the whole pot).
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
   - **House commission:** subtract `rate × max(0, winnerReward − ownStake − houseFundedShare)`, where
-    `rate = GeneralSettings.Operator.Token.CommissionPercentage / 100` (default 0.5%, `0` disables) and
+    `rate = GeneralSettings.Operator.Token.CommissionPercentage / 100` (**1%** since 2026-08-04, `0` disables) and
     `houseFundedShare = (LotteryPot + CarriedExtra) / payableWinnerCount`. The cut comes only from
     **profit above the winner's own stake**, and the house-funded lottery base is excluded. It now
     applies to **every** game type, because there is only one. See `features/crypto-commission.md`.

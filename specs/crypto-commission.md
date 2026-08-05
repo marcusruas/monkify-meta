@@ -1,5 +1,10 @@
 # SpaceStroker — "Add commission (crypto games)" Feature — Implementation Spec
 
+> ⚠️ **POST-SHIP AMENDMENT — the rate is no longer 0.5%.** `specs/commission-rate-1-percent.md` raised it
+> to **1%** on 2026-08-04. Config only: the commission **base** and every formula in this document are
+> unchanged, and no code, entity or migration moved. The 0.5% figures below are the **historical record of
+> what this card shipped** — for current behavior read `features/crypto-commission.md`.
+
 > **Status: Shipped** — merged via `feature/crypto-commission` on 2026-07-17. Refined via Trello card
 > [Add comission (#66)](https://trello.com/c/qq0F0ZNJ). Distilled: `features/crypto-commission.md`.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.

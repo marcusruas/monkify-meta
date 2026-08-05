@@ -44,9 +44,15 @@ kept). The only new backend surface is one read: `GET /games/stats`.
 
 ### `GET /games/stats` (backend — new)
 
-- **Deployment-wide, all-time global stats.** No `parametersId` and no tenant — the endpoint is
+> ⚠️ **Superseded in part by `windowed-stats-query-performance.md` (2026-08-05).** The endpoint now
+> takes an optional `window` (`week` | `month` | `all`, omitted ⇒ `all`), the page has a period control
+> driving both sections, and the aggregation moved from C# into Postgres. The rules below still hold
+> for the default all-time case.
+
+- **Deployment-wide global stats, all-time BY DEFAULT.** No `parametersId` and no tenant — the endpoint is
   public. Read-only on the stateless **API**.
-- **On-demand + Redis-cached** (`CacheHelper.GenerateGlobalStatsCacheSettings`, 120s, one global key),
+- **On-demand + Redis-cached** (`CacheHelper.GenerateGlobalStatsCacheSettings`, 120s, **one key per
+  window** — it was a single global key before windowing; a miss is now single-flighted per instance),
   aggregated from existing `Game` / `GameBets` / `TransactionLogs` / `GameParameters` rows — **no new
   entity and no migration** (a direct generalization of `GameStatsService`).
 - **Which types.** All **active** types. *(There used to be a dominant-group rule: only the

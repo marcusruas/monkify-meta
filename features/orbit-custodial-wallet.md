@@ -114,6 +114,58 @@ they can withdraw it to their own wallet on demand. This card is the money found
   the balance is genuinely unreadable without ownership proof, so showing `0` would be a lie.
 - **Hidden entirely when embedded**, and when no Orbit account is configured.
 
+## ⚠️ The production gate — `VUE_APP_ORBIT_ENABLED` (#146, shipped 2026-08-04)
+
+**Orbit is on `main` but dark in production.** It was merged before it was production-deliverable, so
+every other change that landed on `main` was blocked behind it. A single **build-time frontend flag**
+now hides it, which is why the app can ship while Orbit is still in testing.
+
+- **`VUE_APP_ORBIT_ENABLED` → `orbitEnabled`** in `monkify-front/src/constants/featureFlags.ts`.
+- **Fail-closed: `=== 'true'`.** Only that exact string enables Orbit; unset, empty or anything else
+  hides it. ⚠️ **Deliberately the opposite test from its neighbour `allowFreeBets` (`!== 'false'`,
+  fail-open)** — an un-configured production build must not leak a feature we have called not
+  production-ready. Do not "make them consistent"; the asymmetry is the point.
+- **The gate is UI *and* runtime.** A flag-off build makes **zero** `/orbit/*` calls, joins **no**
+  `JoinOrbitNotifications` group, and runs **no** post-round poller. It is gated at both the **mount
+  points** (`GameHeader.vue`: balance row, ☰ Orbit row, `OrbitModal`, `OrbitFirstWinModal`, the
+  wallet-change watcher, `useOrbitNotifications().start()`) **and inside the composables**
+  (`useOrbitNotifications`, `useOrbitRedirect`, `useFirstWinUpsell`) — the upsell is invoked from
+  `useGame`'s victory one-shot, not from a template, so the composable guard is the one that cannot be
+  bypassed by a forgotten `v-if`.
+- ⚠️ **Never gate `useGame.ts`'s `if (won && ownBetWasPaid.value) useFirstWinUpsell().maybeOpen();`.**
+  That block also plays the **victory audio** and posts the embedded **`bet-settled`** message the
+  casino uses to refresh the player's balance. The refusal belongs inside `maybeOpen()`.
+- **Owner-only `ORBIT` markers are gated too** — one `myBetThisRoundIsOrbit` computed (covering two
+  console notes and two `betOutput` strings), the `YOU · ORBIT` terminal label, and both history chips.
+- **The admin `Allow Orbit auto-play` checkbox is NOT gated** — `GameParameters.AllowOrbit` is
+  settable at **creation only** on a deactivate-or-create portal, so hiding it would permanently
+  strand every game type created while Orbit is dark.
+- **No escape hatch** — build-time only, no `?orbit=1`, no localStorage override.
+- **Nothing is deleted or lazy-loaded.** `orbitService.ts`, `types/orbit.ts` and `components/orbit/*`
+  stay compiled in; the bundle does not shrink. ⚠️ **Grepping a built bundle for Orbit strings proves
+  nothing** — they are all still there. The only real test is opening the page and watching the
+  network tab.
+- **Environment matrix:** local `yarn serve` ON, local Docker stack ON, GCP **development** ON,
+  GCP **production** OFF. Carried by the existing `frontBuild` block in `secrets.<env>.json` →
+  `Deployer.WriteFrontEnv`, so **no `SpaceStroker.Deploy` C# change** was needed.
+
+⚠️ **The backend engine is NOT gated and keeps running.** The safety argument is:
+*no enrolled players + no `AllowOrbit = true` game type ⇒ the planner plans nothing.* It rests on
+production state, not on code. Re-verify it before any deploy that flips the flag — at ship time
+(2026-08-04) the owner attested production met both conditions; that attestation was **not** a query
+this repo ran.
+
+⚠️ **Accepted limitation — stranded balance.** A wallet that already holds an Orbit balance sees no
+balance, no cash-out and no disable on a flag-off build. Recovery is a flag-on build (local or the
+development deploy) or a manual backend payout. Exposure ≈ nil: production has never rendered the
+enrolment UI.
+
+⚠️ **Every developer's git-ignored `.env.local` predates the key**, so Orbit vanishes from local
+`yarn serve` until each dev adds `VUE_APP_ORBIT_ENABLED=true`. That is fail-closed working as
+designed, not a bug.
+
+Spec: `../specs/orbit-frontend-flag.md`. Trello [#146](https://trello.com/c/zJsoFVaW).
+
 ## Known gaps (shipped knowingly)
 
 - ⚠️ **Mobile deeplink wallets cannot sign in.** The `signMessage` deeplink helpers exist, but the

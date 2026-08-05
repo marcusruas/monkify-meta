@@ -3,30 +3,48 @@
 > Status: **shipped.** Authoritative spec: `../specs/how-to-play.md`
 > (merged via `feature/how-to-play` on 2026-08-02).
 >
+> ⚠️ **Restructured by #144** (`../specs/how-to-play-changes.md`, `feature/how-to-play-changes`,
+> merged into **`release/ui-ux-changes`** on 2026-08-03 — on `main` once that train lands). The page
+> now has **SIX** sections, not eight: the first three merged into **`how-the-game-works`** and
+> `your-setup` became **`player-preferences`**. This doc describes the **post-#144** page; where a rule
+> changed, the old one is marked.
+>
 > Frontend-only. No backend entity, endpoint, migration, consumer or SignalR change; `SpaceStroker.Tests`
 > and `SpaceStroker.Tests.Integration` were not run for this card and are unaffected.
 
 ## What it does
 
 `/how-to-play` is one readable, linkable page that explains the game — replacing the **Quick Tour**,
-which auto-opened once behind seven guards and was then gone forever. Eight deep-linkable sections
-cover the premise, getting in, the round, the payout, the live modes, provable fairness, refunds and
-the optional settings. **Nothing auto-opens any more, on any route, for any player.** The same card
-converted **Responsible Gaming** from a ☰ modal into its own page at `/responsible-gaming`.
+which auto-opened once behind seven guards and was then gone forever. Six deep-linkable sections cover
+the game itself (premise + getting in + the round, in one section since #144), the payout, the live
+modes, provable fairness, refunds and the optional preferences. **Nothing auto-opens any more, on any
+route, for any player.** The same card converted **Responsible Gaming** from a ☰ modal into its own
+page at `/responsible-gaming`.
 
 ## Core rules
 
 ### The page
 
-- **Eight sections, in this order**, ids fixed as a deep-link contract:
-  `what-is-this` · `where-to-start` · `how-a-round-goes` · `what-you-win` · `the-modes` ·
-  `provably-fair` · `refunds` · `your-setup`.
-- **The order is an argument**, not a list: the idea → getting in → the round → the money → which
-  table → why believe it → what happens when it goes wrong → the optional knobs. ⚠️ An earlier
-  five-section version opened on *"connect a wallet"* and never said what the game **was**; it named
-  three of its five sections after **modals** (`Provably Fair`, `Player Settings`), billing a
-  display-name field level with the entire game. Do not reintroduce a section named after an app
-  surface.
+- **Six sections, in this order**, ids fixed as a deep-link contract:
+  `how-the-game-works` · `what-you-win` · `the-modes` · `provably-fair` · `refunds` ·
+  `player-preferences`.
+- **The order is an argument**, not a list: the game itself → the money → which table → why believe
+  it → what happens when it goes wrong → the optional knobs. ⚠️ An earlier five-section version opened
+  on *"connect a wallet"* and never said what the game **was**; it named three of its five sections
+  after **modals** (`Provably Fair`, `Player Settings`), billing a display-name field level with the
+  entire game. Do not reintroduce a section named after an app surface. (**`PLAYER PREFERENCES`** is
+  not a relapse: the surface is called **SETTINGS**, so the title names the thing you edit, not the
+  panel it lives in.)
+- ⚠️ **#144 merged the first three sections** — `what-is-this` + `where-to-start` + `how-a-round-goes`
+  — into **`how-the-game-works`**, and renamed `your-setup` → `player-preferences`. **Four ids
+  retired** (`#what-is-this`, `#where-to-start`, `#how-a-round-goes`, `#your-setup`) with **no alias
+  map**: nothing linked to them, and an unknown hash already lands at the top of the page by design.
+- **The merged section is** a short premise lead-in beside `typing.gif`, a **six-step** numbered rail
+  (`CONNECT A WALLET` · `PICK A MODE` · `PICK YOUR WORD` · `EDSON TYPES` · `FIRST WORD OUT WINS` ·
+  `WIN THE POT`), the fairness bridge paragraph, then the black tip. ⚠️ A seventh step,
+  `PLACE YOUR BET`, was built and then **dropped at ship time** for repeating its neighbours — so the
+  page no longer states anywhere that **betting closes when the round starts**, or that **a phone has
+  no lever**. Known gap; fold those into `PICK YOUR WORD` rather than reinstating the row.
 - **Registry-driven** (`constants/guideSections.ts` → `GUIDE_SECTIONS`). The nav **and** the body both
   derive from that one array; nothing downstream reads a hard-coded count or a literal id list, so the
   deferred **Orbit** section is one appended entry plus one component.
@@ -88,6 +106,14 @@ converted **Responsible Gaming** from a ☰ modal into its own page at `/respons
 - **Ticket price** comes from `usePlayerPreferences().formatGameAmount`, the same formatter the
   terminal uses. **Draw frequency** uses `formatLotteryFrequency`'s **long** form (`"24 HOURS"`) — the
   compact form is the lobby badge's, and "every DAILY" is broken copy.
+- ⚠️ **Since #144 an anchored daily lottery reads `EVERY DAY AT 10PM (UTC)`** instead of
+  `DRAW EVERY 24 HOURS` — a clock time is what a player plans around. The string is hardcoded but
+  **gated on the live values** via `utils/lotteryFrequency.isDailyAt(frequency, drawTimeUtc, 22)`,
+  never on the game's **name**; anything that is not a 24 h lottery anchored at 22:00 UTC falls back to
+  `DRAW EVERY {frequency}`. `drawTimeUtc` already shipped on `ActiveGame` (see
+  `lottery-draw-time.md`) — the guide simply never passed it, so this needed **no backend change**.
+  The card now renders one composed `schedule` string; the `DRAW EVERY` prefix moved **inside** the
+  interpolation, because one branch no longer starts with it.
 - **⚠️ The card art is `utils/gameArt.artFor`, the lobby picker's own illustration** — not a guide art
   slot. The three live terminal recreations (`pick-terminal` / `bet-terminal` / `win-reveal`) all draw
   the same green console, so the one block whose job is showing how the modes **differ** showed three
@@ -105,9 +131,13 @@ converted **Responsible Gaming** from a ☰ modal into its own page at `/respons
 - **`.arcade-frame--black` is new**, and the guide's `GuideTip` is its only consumer. It inherited the
   black material when the quick tours — the previous only consumer — were deleted, which would
   otherwise have left a documented-but-unused rule. **At most one tip per section**, and the rule is
-  unchanged: black needs **both** axes, brief-and-informative **and** light in tone. The page ships
-  **two**, bookending it (`what-is-this`, `your-setup`); `refunds` and `what-you-win` have none because
-  money is serious in tone.
+  unchanged: black needs **both** axes, brief-and-informative **and** light in tone; `refunds` and
+  `what-you-win` have none because money is serious in tone.
+- ⚠️ **Since #144 the page ships exactly ONE tip** — `THE WHOLE GAME`, closing the merged section. It
+  used to ship two, bookending the page, but #144 deleted the second (`NONE OF IT REQUIRED`, on the
+  renamed `player-preferences` section). **Keeping the survivor is load-bearing:** it is the sole
+  remaining render of `.arcade-frame--black`, so deleting it would leave that rule dangling — the
+  condition #124 exists to prevent.
 
 ### Routing, embedding and analytics
 
@@ -168,7 +198,14 @@ converted **Responsible Gaming** from a ☰ modal into its own page at `/respons
 - `src/pages/ResponsibleGamingPage.vue` — the ex-modal on the grey page fill; loads preferences itself.
 - `src/constants/guideSections.ts` — `GuideSectionId`, `GuideSection`, `GuideArt`, `GUIDE_SECTIONS`, and
   the ⚠️ VOICE note.
-- `src/components/guide/sections/*.vue` — one component per section (8).
+- `src/components/guide/sections/*.vue` — one component per section (**6** since #144).
+  `GuideHowTheGameWorks.vue` is the merged one; `GuidePlayerPreferences.vue` was `GuideYourSetup.vue`.
+  **Deleted by #144:** `GuideWhatIsThis.vue`, `GuideWhereToStart.vue`, `GuideHowARoundGoes.vue`.
+- `src/utils/lotteryFrequency.ts` — owns **all** .NET `TimeSpan` parsing; `isDailyAt` (added by #144)
+  gates the guide's anchored-daily draw line. ⚠️ A 24 h lottery serializes as `"1.00:00:00"`, not
+  `"24:00:00"` — never `parseInt` these strings, reuse `parseTimeSpan`.
+- `src/assets/guide/won.gif` — the `WIN THE POT` art (570×520, 111 KB), added by #144. Loops under
+  `html.light-graphics`, extending #138's scoped exception to `specs/light-graphics-mode.md` §7.10.
 - `src/components/guide/` — `GuideSectionNav.vue`, `GuideSectionCard.vue`, `GuideRail.vue`,
   `GuideFactList.vue` (the shared multi-column row list), `GuideTip.vue`, `GuideModeCards.vue`,
   `GuideArt.vue` + the nine adapted art components.
