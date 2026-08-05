@@ -18,7 +18,6 @@ public class ChoicePickerTests
             ChoiceRequiredLength: length,
             AcceptDuplicatedCharacters: duplicates,
             GameCharacterType: charType,
-            PaymentMethod: 1,
             PresetChoices: presets,
             TokenMintAddress: "mint",
             TokenDecimals: 6,

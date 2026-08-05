@@ -39,44 +39,37 @@ public sealed class SeedingPass
         => types.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Mints a launch token and reads the operator's active game types. Used by every pass AND by
-    /// the startup guard, which needs the token receiver before any money can move.
+    /// Reads the active game types. Used by every pass AND by the startup guard, which needs the
+    /// token receiver before any money can move.
     ///
-    /// The token is minted fresh each time on purpose: MainTokenTtlSeconds is 3600 (1h), shorter
-    /// than the seeding interval, so a cached one would always be expired.
+    /// There is no auth step in front of this any more. It used to mint a launch token first, but
+    /// `remove-operators` deleted that endpoint — the 404 aborted every pass before it read anything.
+    ///
+    /// Returns NULL when the catalogue could not be READ at all (that skips the whole pass), and an
+    /// EMPTY list when the API answered with no active types — a real answer, not a failure.
     /// </summary>
-    public async Task<(string? LaunchToken, List<GameTypeDto> Types)> ResolveTargetsAsync(CancellationToken ct)
+    public async Task<List<GameTypeDto>?> ResolveTargetsAsync(CancellationToken ct)
     {
-        var mint = await WithRetryAsync(
-            () => _api.MintLaunchTokenAsync(ct), SeederOperation.Discovery, RetryPhase.PreSend,
-            "mint a launch token", ct);
-
-        if (!mint.Ok || string.IsNullOrWhiteSpace(mint.Value))
-        {
-            Log.Error($"could not mint a launch token ({mint.Error})");
-            return (null, new List<GameTypeDto>());
-        }
-
         var types = await WithRetryAsync(
-            () => _api.GetActiveTypesAsync(mint.Value!, ct), SeederOperation.Discovery, RetryPhase.PreSend,
+            () => _api.GetActiveTypesAsync(ct), SeederOperation.Discovery, RetryPhase.PreSend,
             "read the active game types", ct);
 
         if (!types.Ok || types.Value is null)
         {
             Log.Error($"could not read the active game types ({types.Error})");
-            return (mint.Value, new List<GameTypeDto>());
+            return null;
         }
 
-        return (mint.Value, types.Value);
+        return types.Value;
     }
 
     public async Task RunAsync(CancellationToken ct)
     {
         Log.Info("pass starting");
 
-        var (launchToken, types) = await ResolveTargetsAsync(ct);
+        var types = await ResolveTargetsAsync(ct);
 
-        if (launchToken is null)
+        if (types is null)
         {
             Log.Warn("skipping this pass — the API could not be reached");
             return;
@@ -88,7 +81,7 @@ public sealed class SeedingPass
 
             try
             {
-                await SeedOneAsync(launchToken, types, name, ct);
+                await SeedOneAsync(types, name, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -104,7 +97,7 @@ public sealed class SeedingPass
         Log.Info("pass finished");
     }
 
-    private async Task SeedOneAsync(string launchToken, List<GameTypeDto> types, string name, CancellationToken ct)
+    private async Task SeedOneAsync(List<GameTypeDto> types, string name, CancellationToken ct)
     {
         var type = FindByName(types, name);
 
@@ -114,7 +107,7 @@ public sealed class SeedingPass
         if (type is not null)
         {
             var round = await WithRetryAsync(
-                () => _api.GetActiveGameAsync(launchToken, type.GameTypeId, ct),
+                () => _api.GetActiveGameAsync(type.GameTypeId, ct),
                 SeederOperation.Discovery, RetryPhase.PreSend, $"read the active round for \"{name}\"", ct);
 
             game = round.Value;
@@ -142,10 +135,10 @@ public sealed class SeedingPass
             return;
         }
 
-        await PayAndBetAsync(launchToken, type!, name, ct);
+        await PayAndBetAsync(type!, name, ct);
     }
 
-    private async Task PayAndBetAsync(string launchToken, GameTypeDto type, string name, CancellationToken ct)
+    private async Task PayAndBetAsync(GameTypeDto type, string name, CancellationToken ct)
     {
         var choice = ChoicePicker.Pick(type, _random);
 
@@ -179,7 +172,7 @@ public sealed class SeedingPass
         // gameId, and refusing here would strand tokens that already left the wallet. Emptiness
         // gates whether we PAY, not where an already-paid stake lands.
         var current = await WithRetryAsync(
-            () => _api.GetActiveGameAsync(launchToken, type.GameTypeId, ct),
+            () => _api.GetActiveGameAsync(type.GameTypeId, ct),
             SeederOperation.PlaceBet, RetryPhase.PostSend, $"re-read the active round for \"{name}\"", ct);
 
         var target = current.Value;
@@ -204,7 +197,7 @@ public sealed class SeedingPass
             Nonce: nonce);
 
         var placed = await WithRetryAsync(
-            () => _api.PlaceBetAsync(launchToken, target.GameId, body, ct),
+            () => _api.PlaceBetAsync(target.GameId, body, ct),
             SeederOperation.PlaceBet, RetryPhase.PostSend, $"place the bet for \"{name}\"", ct);
 
         if (!placed.Ok)
