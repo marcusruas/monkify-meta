@@ -48,6 +48,26 @@
   table has at least one index, and each one carries a comment in `SpaceStrokerDbContext` naming the
   query it exists for. **Keep that comment habit** — an index with no stated query is the one nobody
   dares delete later.
+
+  ⚠️ **An index is a WRITE cost too — measure both sides before you keep one.** Read latency alone will
+  always say "add the index". `SpaceStroker.Tests.Integration/Benchmarks/` has both rigs
+  (`scripts/run_index_benchmarks.bat`): the read rig compares plans and timings across index sets, and
+  the write rig times inserts and updates and reads the **HOT-update ratio** from
+  `pg_stat_user_tables`. Two findings from that audit are worth internalising:
+
+  - **Indexing a column that an UPDATE touches can forfeit HOT updates entirely.** Postgres can apply
+    an update in place, with zero index writes, only when no indexed column changed. `GameBets(Status)`
+    made the refund sweep 45.8ms → 6.3ms, but `UpdateBetStatusWithoutSaving` touches only `Status` and
+    `UpdatedDate` — so indexing `Status` took bet settlement from **92% HOT to 0% HOT** and +0.323ms per
+    update. Against ~80ms/day earned from a twice-daily sweep, it went net-negative past ~124 settled
+    bets/day. **It was dropped.** Do not re-add it without re-running the write rig.
+  - **A "redundant" prefix index is not always free.** Dropping `Games(ParametersId, Status)` because it
+    is a prefix of a wider composite cost the history `COUNT(*)` its cheap index-only scan (6.9ms →
+    11.0ms at 1M): the wider index carries 16 more bytes per entry. It was restored.
+
+  If you are measuring `pg_stat_user_tables` yourself: the clear and the read must happen on the **same
+  connection** (each backend caches a snapshot), and you must **poll** for the counter rather than
+  sleeping — the collector reports asynchronously and a fixed sleep races it.
 - **Startup self-heal writes use `ExecuteUpdate`, and their change predicate must handle NULL.** The
   `SpaceStrokerDbContext` is `NoTracking` by default, so a load-mutate-`SaveChanges` at startup
   silently persists nothing. When such a patch is guarded by "only rows that differ", remember SQL

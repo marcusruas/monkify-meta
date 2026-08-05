@@ -5,6 +5,11 @@
 
 ## What it does
 
+> ⚠️ **Superseded in part by `windowed-stats-query-performance.md` (2026-08-05).** The endpoint now
+> takes an optional `window` (`week` | `month` | `all`, omitted ⇒ `all`), so "all-time" below is the
+> DEFAULT rather than the only option, and "hottest choice" is hottest-**in-window**. The aggregation
+> also moved from C# into Postgres — see that doc before adding a stat here.
+
 Players can open a **STATS** tab on the live `/game` screen to see casino-style all-time stats for the
 game type they're playing: biggest pot ever split, biggest single payout, rounds played, total paid
 out, and (for preset-choice types) the hottest choice — plus a "0% house cut" trust tile. Stats are
@@ -33,7 +38,8 @@ scoped to one game type (`GameParameters`) and aggregated across every round it 
   `useAmountFormatter`, same as the `> POT:` line). *(This rule used to be "single currency per type",
   because a type was either all-`Standard` (USD) or all-`SolanaToken`.)*
 - **Hottest choice = most-picked, preset types only.** For preset-choice types it is the single choice
-  with the most paid bets (all-time), with an ordinal tiebreak. Free-type races return no hottest
+  with the most paid bets (all-time by default, or within the selected window), with an ordinal
+  tiebreak — computed as a SQL `GROUP BY` since 2026-08-05, not an in-memory tally. Free-type races return no hottest
   choice.
 - **Empty state.** A type with zero completed reward rounds returns zeroed/null stats; the panel shows
   "No rounds yet".

@@ -1,6 +1,17 @@
 # SpaceStroker — "Windowed stats + query-layer performance" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged via `feature/query-indexes` on 2026-08-05. Distilled summary:
+> `../features/windowed-stats-query-performance.md`. Ships Trello #148 and #133 together.
+>
+> **What changed between spec and ship** (the spec is design intent; the feature doc is what runs):
+> - **§6.7 keyset pagination was NOT implemented.** Keyset needs a cursor and the endpoint is
+>   page-number addressed; the cache-key bound landed instead. The deep-page cost remains.
+> - **§4.3's index set lost `GameBets(Status)`.** The §6.9 write gate measured 92% → 0% HOT updates on
+>   bet settlement; it was net-negative and the migration was regenerated without it.
+> - **§6.6's single LEFT JOIN became two bounded queries** — the join would not materialise in EF. The
+>   N+1 is gone either way.
+>
+> Originally: **Ready for implementation** — refined via Trello card
 > [Windowed stats (weekly/monthly) + query-layer performance fixes](https://trello.com/c/UhmNIabO) (2026-08-04).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
