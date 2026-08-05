@@ -91,26 +91,76 @@ element nobody can click. Measured: **531 px → 249–250 px cold / 223 px conn
 heading moved from 617 px to 336 px and the first card from 672 px to 391 px, clearing even a real
 maximized 1366×768 window (~640 px of viewport) with ~250 px to spare.
 
+⚠️ **#145 raised the band back to 288 px** (cold and connected alike) when it enlarged the art to
+200 px — an explicit owner decision, not drift. #138's 265 px ceiling is **superseded**, but its
+*reason* is not: the picker must stay above the fold. At 288 px the heading sits ~375 px down and the
+first card ~430 px, still clear of a maximized 1366×768 window. Re-check that, not the old number, if
+the band grows again.
+
 - **Still frameless** — a short wide band, never `.arcade-frame` / `.arcade-panel`. The page's first
   object must not be a box.
-- **The art can never drive the band's height, by construction.** The art column is `shrink-0` and
-  sized by **height** (`h-[110px] md:h-[140px] w-auto`) — never a width cap, never a flex basis — so
-  its height is a constant (140 px) against a 151–178 px copy column. Sizing it by width is what let
-  the old saucer reach 355 px, because width was a function of the viewport.
-- **The art is `guide/game-modes.gif`** (45 KB, the same sprite `/how-to-play` renders for PICK A
-  MODE) and is **explicitly temporary** — a real asset is [Trello #145](https://trello.com/c/6T053xnq),
-  which also owns deleting the now-unimported `edson-ship.gif`/`.png` (559 KB, kept only so the swap
-  back stays a two-line revert; webpack emits neither).
+- **The art is sized by HEIGHT, never a width cap.** The art column is `shrink-0` and sized by height
+  (`h-[156px] md:h-[200px] w-auto`) — never a width cap, never a flex basis. Sizing it by width is
+  what let the old saucer reach 355 px, because width was a function of the viewport.
+  ⚠️ **The art now DRIVES the band** (200 px against a 151–178 px copy column), so #138's "the art can
+  never drive the height, by construction" no longer holds — it is a **measured** property now, in
+  **both** states. Band is **288 px** at 1366×768, cold and connected alike. Re-measure both states
+  before touching the height.
+- **The art is purpose-drawn and reacts to the wallet** ([Trello #145](https://trello.com/c/6T053xnq),
+  `specs/home-hero-sprite.md`). It replaced the borrowed `guide/game-modes.gif` — the same sprite
+  `/how-to-play` renders for PICK A MODE, so the front door and the guide were showing one picture.
+  **Two layers on one shared 740×500 canvas** (27 KB total): a static `hero/coin.png` in flow (the
+  sizing layer, carrying the glow) under one ship `<img>`, absolutely positioned `inset-0`, whose
+  `src` swaps between `ship-sleep` / `ship-alert` / `ship-orbit`. Because both files are pre-registered
+  on that canvas, the ship needs **no positioning math**. `edson-ship.gif`/`.png` and the unreferenced
+  `src/assets/coin.png` are **deleted**.
+- **The ship's state machine follows the wallet:** disconnected → `sleep` (loops); a connect → `alert`
+  (plays once, 1200 ms) → `orbit` (loops); disconnect → cuts straight back to `sleep`.
+  - ⚠️ **The alert must not become boot furniture.** `connected` flips true both on a click *and*
+    ~0.3–1 s after boot when a saved wallet auto-reconnects. A persisted `walletName` therefore opens
+    the hero **already in orbit** (never a sleeping-ship flash), with a 2500 ms fallback to `sleep` if
+    that connect never lands. The alert is allowed through on an automatic connect **once per tab**
+    (`sessionStorage['ss.heroAlertSeenThisTab']`) — without that it was unreachable for returning
+    players, who reconnect on every load.
+  - ⚠️ **`ship-alert.gif` has no loop block at all**, so it plays once and freezes on its last frame.
+    Replaying it needs a **changed URL**, not just a remount — see the warning below.
+  - ⚠️ **The coin layer is load-bearing, not decoration.** `ship-orbit.gif`'s 7th frame (700 ms) is
+    **empty** — the artist drew "behind the coin" by hiding the ship, and every frame uses disposal 2
+    (restore to transparent) so the coin shows through. Without the coin, that frame reads as the ship
+    vanishing.
+- ⚠️ **Replaying a non-looping GIF needs a NEW URL, not a new element.** Webpack **inlines** assets
+  under 8 KB as data URIs, and Chrome keys its decoded-image cache by **URL** — so remounting an
+  `<img>` at the identical URI hands the fresh element back the *same finished animation* and renders
+  the frozen frame. `shipSrc` appends `` `#${alertRun}` ``; a fragment changes the URL without touching
+  the payload. This was found in QA after a remount-only approach silently did nothing, and it applies
+  to **any** play-once GIF in this app, not just this one.
+- **The art still is not rendered below `sm` (640 px)**, and the state machine allocates **no timer and
+  preloads nothing** there — it is gated on a live `(min-width: 640px)` match, not on `useIsMobile`
+  (whose query is the 1023 px light-graphics boundary, a different number).
 - **The art is not rendered below `sm` (640 px).** Beside the copy at 390 px it leaves the headline a
   ~217 px column, which breaks `FIRST WORD OUT` to three lines; stacking it instead adds back the
   height this change exists to remove.
-- ⚠️ **The GIF loops on every device, `html.light-graphics` included** — no still-frame swap, no
-  `usePerfMode` branch. This is a **scoped, deliberate exception** to `specs/light-graphics-mode.md`
-  §7.10's ban on infinite animation, justified because `/how-to-play` already ships this exact sprite
-  raw on every phone and 45 KB is an eighth of the asset that rule was written about. **It is not a
-  repeal, and it does not extend to a heavier asset or a new animation.** Everything else in the band
-  obeys §7.10: the `.hero-art` glow is two **flat** `drop-shadow`s, and the band contains no
-  `backdrop-filter`, `blur()`, `mix-blend-mode` or infinite CSS animation.
+- ⚠️ **The ship GIF loops on every device, `html.light-graphics` included** — no still-frame swap, no
+  `usePerfMode` branch. This is a **scoped, deliberate exception** to `specs/light-graphics-mode.md`'s
+  ban on infinite animation, and #145 **extended** it on a stronger case than the one it replaced:
+  27 KB against the old 45 KB, and because the coin is a static PNG **exactly one GIF is ever
+  decoding** — the same count as before. Only the file changed. Its real exposure is narrow:
+  **640–1023 px** (the art renders from 640 px; light-graphics is on below 1024 px), or a desktop with
+  hardware acceleration off. **It is not a repeal.** The GIF earns it by *being the feedback that the
+  wallet connected.*
+- **The idle drift IS killed under light-graphics — the exception does not cover it.** The composite
+  carries a 5 s `hero-art-drift` (transform-only, ±6 px / ±0.6°), and
+  `html.light-graphics .hero-art-wobble { animation: none }` drops it entirely. The split is the
+  principle: the GIF is *information*, the drift is *decoration*, and decoration does not get an
+  exception. Everything else in the band still obeys the rule — no `backdrop-filter`, `blur()` or
+  `mix-blend-mode` anywhere in it.
+- **The glow lives on the static coin layer, not the wrapper** (`.hero-art`, two **flat**
+  `drop-shadow`s). A static layer means the browser computes the shadow **once** instead of
+  re-deriving it on every GIF frame — on exactly the CPU-rasterizing devices light-graphics exists for
+  — and the halo's silhouette no longer changes shape as the ship travels. The ship carries no filter.
+  ℹ️ A `html.light-graphics .x` rule written inside a `<style scoped>` block **does** match when `.x`
+  is a component element (the scope attribute lands on `.x`, and the root is a plain ancestor);
+  `specs/light-graphics-mode.md` §7.5's caveat is about targeting the **root itself**. Verified here.
 - **Press Start 2P advances ~1 em per character**, so a 14-character headline needs ~14× the font
   size of column width. This is why the flex bases were dropped: the copy column is now "everything
   the art does not take", which makes the check one arithmetic statement instead of a per-breakpoint

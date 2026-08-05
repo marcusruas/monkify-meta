@@ -1,6 +1,38 @@
 # Space Stroker — "Home hero sprite + wallet-connected animation" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-05** — merged to `main` via `feature/home-hero-sprite`
+> (`monkify-front`, `monkify-meta`). Distilled into
+> [`features/home-dashboard.md`](../features/home-dashboard.md) → "The hero band".
+>
+> **⚠️ Five things below are WRONG as shipped. Read this banner before trusting the body.**
+>
+> 1. **§7.5 / decision 12 — a `:key` remount does NOT replay `ship-alert.gif`.** The asset is
+>    **inlined by webpack as a data URI** (5 689 B, under the 8 KB threshold) and Chrome keys its
+>    decoded-image cache by **URL**, so a freshly-mounted `<img>` on the identical URI is handed back
+>    the *same finished animation* and renders the frozen last frame. Shipped fix: `shipSrc` returns
+>    `` `${shipAlertArt}#${alertRun}` `` — a fragment changes the URL without touching the payload,
+>    forcing a real re-decode from frame 0. The `:key` is retained but is **not** what does the work.
+>    This was caught only in QA; it fails silently and looks like a broken wallet.
+> 2. **§7.3.1 — the initial state cannot come from `props.connected` alone.** `solana-wallets-vue`'s
+>    `autoConnect` is **async** (~0.3–1 s), so a returning player rendered a **sleeping ship** for that
+>    second — the exact boot furniture AC3 forbids. Shipped: a persisted `walletName` opens **in
+>    orbit**, with a 2500 ms fallback to `sleep` if the connect never lands.
+> 3. **AC3 is amended** to "no sleeping ship during boot, **and at most one alert per tab**".
+>    Suppressing the alert on every automatic connect made it unreachable for returning players (they
+>    reconnect on every load), so it is allowed through once per tab via
+>    `sessionStorage['ss.heroAlertSeenThisTab']`.
+> 4. **§7.4's sizing window and AC12/AC13 are superseded by an owner decision.** Art is
+>    `h-[156px] md:h-[200px]` (coin 176 px), padding `pt-8 pb-12 md:pb-14`, art pulled `md:mr-8
+>    lg:mr-16` off the right gutter, band **288 px** cold *and* connected. The §7.4 arithmetic is still
+>    correct — it is the *bounds* that moved.
+> 5. **A 5 s transform-only idle drift (`hero-art-drift`) was added** to the composite, which §2's
+>    light-graphics rules forbid. It is **killed under `html.light-graphics`**, so the rule's actual
+>    target is unaffected — unlike the ship GIF, the drift is decoration and gets no exception.
+>
+> Everything else shipped as written. Full amendment record:
+> `docs/superpowers/plans/2026-08-05-home-hero-sprite.md`.
+
+> **Status (original): Ready for implementation** — refined via Trello card
 > [#145 — Replace the temp home-hero sprite with the real art + wallet-connected animation](https://trello.com/c/6T053xnq)
 > (refined 2026-08-04).
 > Repos affected: `monkify-front`, and this doc + `features/home-dashboard.md` in `monkify-meta`.

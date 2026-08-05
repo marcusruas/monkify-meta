@@ -4,7 +4,25 @@
 > and `monkify-meta`. Distilled into `features/home-dashboard.md` → "The hero band"; the rules this
 > card reversed carry a post-ship note in `specs/home-dashboard.md` §7.11.5. **§14 records how the
 > shipped result differs from the §7 design pass** — read it before treating §7 as current.
-> Follow-up: [#145 — replace the temp sprite + wallet-connected animation](https://trello.com/c/6T053xnq).
+>
+> **⚠️ SUPERSEDED IN PART by [#145](https://trello.com/c/6T053xnq) (shipped 2026-08-05,
+> `specs/home-hero-sprite.md`).** Four of this spec's shipped facts are no longer current:
+>
+> - **The temp sprite is gone.** `guide/game-modes.gif` was replaced by purpose-drawn two-layer art
+>   (`hero/coin.png` + a wallet-driven ship GIF). `/how-to-play` keeps the mode sprite; the hero no
+>   longer shares it.
+> - **`edson-ship.gif` / `.png` are DELETED**, so this spec's "the swap back stays a two-line revert"
+>   rationale for keeping them is closed. `src/assets/coin.png` went too (zero references).
+> - **The ≤ 265 px band ceiling (AC2) is superseded** — the band is now **288 px** in both states,
+>   raised deliberately by the owner along with the art (200 px). This spec's *reason* still stands
+>   (the picker must clear the fold) and still holds at 288 px; the *number* does not.
+> - **The art no longer "can never drive the band by construction"** — at 200 px it exceeds the copy
+>   column in both states, so band height is a **measured** property now. §7.6.4's headline-measure
+>   table was recomputed for the wider art (copy column 357 px at 640 px; headline still two lines).
+>
+> The light-graphics exception this spec opened was **extended**, not re-opened, and now carries an
+> explicit limit: the ship GIF keeps looping (it is the wallet feedback), but the new CSS idle drift is
+> killed under `html.light-graphics`.
 >
 > Refined via Trello card
 > [trim down hero card in home page](https://trello.com/c/U1Sdsk6Y) (#138, refined 2026-08-03).
