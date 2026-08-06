@@ -592,7 +592,24 @@ sits **under** its field. Keep copy from the spec, not the mockups.
 If a field needs a different size on the page, achieve it with the `.orbit-page` scope, not by
 touching the component.
 
-- [ ] **Task 7 — `① GAME`.** Word field, auto-pick opt-in, game mode select. Section title `GAME SETUP`. Verify: preset types show the picker, free-text types show letter cells; saving a word turns auto-pick off and vice versa. Lint + build. Commit `"Restyle the Orbit game tab."` Push.
+- [ ] **Task 7 — `① GAME`.** Word field, auto-pick opt-in, game mode select. Section title `GAME SETUP`.
+
+  ⚠️ **The auto-pick opt-in does not exist on the page yet and must be ADDED here.** It is the one
+  genuinely new control in this card. Discovered during Task 5: all 14 auto-pick references live in
+  `OrbitModal.vue`, and `git log --all -S'onToggleAutoPick' -- src/pages/OrbitPage.vue` is empty — the
+  page has never had it, so §5.3 listing it as GAME-tab content describes a page/modal parity gap
+  rather than existing behaviour. Task 5 deliberately did **not** add it (its acceptance test forbids
+  a new visible control), so it lands here.
+
+  Port it from `OrbitModal.vue`: the `Choose a random word for me every game` checkbox, the
+  `onToggleAutoPick` handler, and the mutual exclusion — **saving a word turns auto-pick off, and
+  enabling auto-pick clears the word**. They are opposite intentions, and letting both persist is what
+  made a blank word ambiguous in the first place (see the backend rationale in `33e396e`). The backend
+  field and its migration already shipped on this branch, so nothing server-side is needed.
+
+  Verify: preset types show the picker and free-text types show letter cells; saving a word turns
+  auto-pick off and vice versa; the modal's own copy still behaves identically afterwards. Lint +
+  build. Commit `"Restyle the Orbit game tab and add the auto-pick opt-in."` Push.
 - [ ] **Task 8 — `② MONEY`.** Add money and cash out, side by side above `lg`, stacked below. Cash out stays an **outline** control, never amber. Verify: MAX fills the full balance; amounts below `MinimumCashOut` are refused inline. Lint + build. Commit `"Restyle the Orbit money tab."` Push.
 - [ ] **Task 9 — `③ STOP RULES`.** Threshold above, floor below — ⚠️ **rule order is fixed everywhere** (rise on top, balance between, fall underneath; `orbit-ui-overhaul.md` §3.1). An **off** rule is drawn, never hidden. Verify: saving and clearing each rule independently. Lint + build. Commit `"Restyle the Orbit stop rules tab."` Push.
 - [ ] **Task 10 — `④ RECOVER`.** Signature + amount + confirm, with a line explaining what this is for — it is the one tab a player arrives at confused. Verify: an arbitrary whole amount is accepted. Lint + build. Commit `"Restyle the Orbit recover tab."` Push.
