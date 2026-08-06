@@ -43,7 +43,7 @@ session, 2026-08-06, from two owner mockups).
 
 | File | Responsibility |
 | --- | --- |
-| `src/components/orbit/OrbitStatStrip.vue` | Presentational. Three cells: holds / per round / wallet. No fetching, no actions. |
+| `src/components/orbit/OrbitStatStrip.vue` | Presentational. Two cells: holds / per round. No fetching, no actions. |
 | `src/components/orbit/OrbitTabBar.vue` | The numbered strip + `role="tablist"` semantics + horizontal scroll behaviour. Knows nothing about Orbit. |
 | `src/components/orbit/OrbitControlBar.vue` | The trio. Maps `orbitStatus` → per-button state; emits `run` / `stop` / `turn-off`. Performs **no** mutation itself. |
 | `src/components/orbit/tabs/OrbitGameTab.vue` | Word / auto-pick / game mode, and their handlers. |
@@ -218,16 +218,22 @@ git push origin feature/orbit-new-ui
 
 **Interfaces:**
 - Consumes: `.orbit-statstrip*` from Task 1. ⚠️ **Not `.orbit-stat*`** — that name belongs to `OrbitStatusBanner.vue`'s own scoped styles and must not be reused here.
-- Produces: `<OrbitStatStrip :holds="number" :per-round="number | null" :wallet="number | null" :token-label="string" />`. Purely presentational — no `useOrbit` import.
+- Produces: `<OrbitStatStrip :holds="number" :per-round="number | null" :token-label="string" />`. Purely presentational — no `useOrbit` import.
 
-- [ ] **Step 1: Write the component.** Three cells, violet frame, 32px VT323 values, 9px ink-mute captions. `perRound` and `wallet` are nullable because there is not always a game to divide by or a connected wallet balance to read — render `—`, never a fabricated `0`.
+- [ ] **Step 1: Write the component.** **Two** cells, violet frame, 32px VT323 values, 9px ink-mute captions. `perRound` is nullable because there is not always a game to divide by — render `—`, never a fabricated `0`. A fake zero on a money readout is worse than an obvious blank.
+
+⚠️ **There is no third cell, and mockup 2's `WALLET BALANCE` must not be re-added.** The page has no
+non-duplicate source for it: `useOrbit`'s `balance` is `orbit.value?.balance` (`useOrbit.ts:182`) —
+the *Orbit* balance, identical to `ORBIT HOLDS`. The real wallet balance is component-local state in
+`TokenBalance.vue` behind an on-chain poll, reachable only by lifting it into a shared composable or
+by running a second RPC read, and the app header already displays it. Owner ruling, 2026-08-06. Carry
+that reason as a comment on the component, or the next reader re-adds the cell from the mockup.
 
 ```vue
 <script setup lang="ts">
   defineProps<{
     holds: number;
     perRound: number | null;
-    wallet: number | null;
     tokenLabel: string;
   }>();
 </script>
@@ -237,7 +243,7 @@ git push origin feature/orbit-new-ui
 
   If your strip renders unstyled, this is why. Do **not** work around it by writing local styles in the component — that reintroduces the page/panel divergence this whole card exists to remove.
 
-- [ ] **Step 3: Mount it in its FINAL position** — top of `OrbitPage.vue`'s signed-in block, above the step list (which becomes the notice band + tab bar in Task 6) — wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`. ⚠️ This is a **permanent** mount, not scaffolding: the strip's position is already known, so it goes there now rather than being moved later. In the same edit, **remove `<OrbitStatusBanner>` from the page** — the strip replaces it here. The component file itself is untouched; it stays the modal's.
+- [ ] **Step 3: Mount it in its FINAL position** — top of `OrbitPage.vue`'s signed-in block, above the step list (which becomes the notice band + tab bar in Task 6) — wired to `orbit.balance`, `activeGameType?.requiredAmount` and `orbit.tokenLabel`. ⚠️ Do **not** wire `useOrbit`'s `balance` — it is the same value as `orbit.balance` (see Step 1's warning), and if the page no longer uses it, drop it from the destructure so lint stays clean. ⚠️ This is a **permanent** mount, not scaffolding: the strip's position is already known, so it goes there now rather than being moved later. In the same edit, **remove `<OrbitStatusBanner>` from the page** — the strip replaces it here. The component file itself is untouched; it stays the modal's.
 
 - [ ] **Step 4: Verify in the browser.** Dev server from the worktree on a **verified-free** port (⚠️ another worktree commonly holds 8081; a collision fails quietly and you test the wrong build — confirm by grepping the served bundle for `OrbitStatStrip`). Check: the strip is **styled** (32px values — if they render at body size, Step 2 was missed); values match what `OrbitStatusBanner` showed before removal; `—` renders when no game is selected.
 

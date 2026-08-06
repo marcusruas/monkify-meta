@@ -49,7 +49,7 @@ cut the branch, and reviews separately):
 | `pages/OrbitPage.vue` | 1,379 lines. Four `OrbitStepRow`s that collapse to a one-line answer, exactly one open at a time, plus cash-out and recover sections below them. | A **~250-line shell**: header, stat strip, tab bar, active panel, control trio, bet log. Every panel and its handlers live in their own file. |
 | Setup navigation | A **step list** — an order you work through, collapsing as it is satisfied | **Five tabs** — `① GAME · ② MONEY · ③ STOP RULES · ④ RECOVER · ⑤ TELEGRAM`. All are reachable at any time; none collapses. |
 | Run / stop / turn off | Turn-off buried in a utility strip; pause reachable from the status banner | A **trio of controls below the card**: `▶ RUN ORBIT`, `⏸ STOP ORBIT`, `⏻ TURN ORBIT OFF` |
-| Readout | `OrbitStatusBanner` (`wallet ▶ orbit holds ▶ per round` + rounds-left) | A **stat strip** — `ORBIT HOLDS` · `PER ROUND` · `WALLET BALANCE` — violet-framed, 32px values. `OrbitStatusBanner` stays for **the modal**, untouched. |
+| Readout | `OrbitStatusBanner` (`wallet ▶ orbit holds ▶ per round` + rounds-left) | A **stat strip** — `ORBIT HOLDS` · `PER ROUND`, violet-framed, 32px values. `OrbitStatusBanner` stays for **the modal**, untouched. |
 | Type scale | The modal's scale, used as-is at 1000px | The same **ranking**, every step **one size up** (§4), scoped under `.orbit-page` |
 | Cash out | Its own promoted row whenever a balance exists | Inside `② MONEY`, beside add-money — the two everyday money moves together |
 | Recover a deposit | A section under the step list | `④ RECOVER`, on its own — a repair path, not a daily action |
@@ -124,7 +124,7 @@ From `../constraints.md`, `../conventions/frontend.md` and `AGENTS.md`:
 | **D6** | The bet log — sixth tab, or below the card? | **Below the card**, where it already is and where `orbit-feedback-adjustments.md` put it. It is a record, not a setting; a tab strip of settings should not have a ledger in it. |
 | **D7** | Both trio buttons pressable at once (as drawn)? | **No.** The current state renders as *current* — filled, no hover, not activatable — and the others stay live. The mockup shows `RUN` and `STOP` equally pressable under a `● RUNNING` header, which asks the player to work out which state they are already in. |
 | **D8** | Component extraction, or tabs in place? | **Extract.** Each tab owns its fields *and* its handlers. The page is 1,379 lines and its script is ~640 of them; leaving that intact is the same trap that took `OrbitModal.vue` from the 916 lines #141 complained about to 1,397. |
-| **D9** | The stat strip's third cell | **`WALLET BALANCE`** (mockup 2), not `ROUNDS LEFT` (mockup 1). `roundsLeft` stays available in `useOrbit.ts:762` and is still rendered by `OrbitStatusBanner` in the modal. |
+| **D9** | The stat strip's third cell | ⚠️ **Revised 2026-08-06 during implementation: there is no third cell.** The strip is `ORBIT HOLDS` · `PER ROUND`. Mockup 2 drew `WALLET BALANCE`, but the page has **no non-duplicate source for it**: `useOrbit`'s `balance` is `orbit.value?.balance` (`useOrbit.ts:182`) — the *Orbit* balance, identical to `ORBIT HOLDS`. The real wallet balance lives in `TokenBalance.vue` as component-local state behind an on-chain poll, reachable only by lifting it into a shared composable (refactors a shipped header component, its poll and its idle-disconnect logic) or by running a second RPC read per player (breaks the page's never-re-reads architecture). The header already shows that number in the top-right of both mockups, so the cell would also have repeated something already on screen. Rejected alternatives: `ROUNDS LEFT` from mockup 1 (cheap — `useOrbit.ts:762` already computes it — but the owner chose the honest two-cell strip over filling the slot). `roundsLeft` remains available and is still rendered by `OrbitStatusBanner` in the modal. |
 
 ---
 
@@ -166,7 +166,7 @@ below the section title.
 │ Orbit auto-plays a game for you… How it works ▶                 │
 │                                                                 │
 │ ┌ stat strip (violet frame) ──────────────────────────────────┐ │
-│ │ ORBIT HOLDS 5,00 USDC │ PER ROUND 1,00 USDC │ WALLET 159,84 │ │
+│ │     ORBIT HOLDS 5,00 USDC     │     PER ROUND 1,00 USDC     │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │ [notice / error band — above the tabs, always visible]          │
@@ -334,7 +334,7 @@ this branch at `33e396e` (834 passed, 0 failed, via `scripts/run_tests.bat`, whi
 1. `/orbit` renders five tabs; exactly one panel is visible; the active tab is joined to its panel by the seam.
 2. Every tab is reachable at any time — no tab is gated, collapsed or hidden by another's state.
 3. The page opens on `① GAME`, except when `needsFirstDeposit` or `isPausedForFunds` is true, when it opens on `② MONEY`.
-4. The stat strip shows `ORBIT HOLDS`, `PER ROUND` and `WALLET BALANCE` with live values.
+4. The stat strip shows exactly two cells — `ORBIT HOLDS` and `PER ROUND` — with live values, and `PER ROUND` renders `—` rather than `0` when there is no game to divide by.
 5. The trio renders below the card and behaves exactly as the §5.2 table specifies in **all seven** states.
 6. The current state renders filled, is not activatable, and names its state to a screen reader.
 7. A **running, fully-configured** Orbit renders **no amber and no red inside the card**; every value in the card is plain ink.
