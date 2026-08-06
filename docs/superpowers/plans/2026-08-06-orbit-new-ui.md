@@ -58,7 +58,7 @@ session, 2026-08-06, from two owner mockups).
 | --- | --- |
 | `src/pages/OrbitPage.vue` | Rewritten to a shell: header, stat strip, notice band, tab bar, active panel, control trio, bet log. |
 | `src/assets/styles/colors.css` | Add `--ctl-h-xl: 3.5rem` beside the existing three. |
-| `src/assets/styles/arcade.css` | `.orbit-page` type scale, `.orbit-tab*`, `.orbit-stat*`, `.orbit-trio*`. |
+| `src/assets/styles/arcade.css` | `.orbit-page` type scale, `.orbit-tab*`, `.orbit-statstrip*`, `.orbit-trio*` — all scoped under `.orbit-page`. |
 
 **Delete**
 
@@ -80,7 +80,7 @@ description of the visuals. Run this task before writing any markup.
 **Files:** `src/assets/styles/colors.css`, `src/assets/styles/arcade.css`
 
 **Interfaces:**
-- Produces: CSS classes `.orbit-page`, `.orbit-page-title`, `.orbit-field-label`, `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active`, `.orbit-stat`, `.orbit-stat__label`, `.orbit-stat__value`, `.orbit-trio`, `.orbit-trio__btn`, and the token `--ctl-h-xl`. Every later task consumes these by name.
+- Produces: CSS classes `.orbit-page` (the page wrapper, and the ancestor scope for all of the below), `.orbit-page-title`, `.orbit-field-label`, `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active`, `.orbit-statstrip`, `.orbit-statstrip__label`, `.orbit-statstrip__value`, `.orbit-trio`, `.orbit-trio__btn`, and the token `--ctl-h-xl`. Every later task consumes these by name. ⚠️ **All of them are defined as `.orbit-page <selector>`** — see the scoping warnings in Step 4.
 
 - [ ] **Step 1: Run the `impeccable` skill** in `craft` mode against the three new surfaces (stat strip, tab bar, control trio), with the two mockups as the design source. ⚠️ It will report `NO_PRODUCT_MD` and offer an `init` interview — **skip that**; this workspace deliberately keeps no `PRODUCT.md`/`DESIGN.md` (decided 2026-07-29). The design source is the mockups plus the committed tokens in `colors.css`/`arcade.css`.
 
@@ -119,15 +119,32 @@ description of the visuals. Run this task before writing any markup.
   }
 ```
 
-- [ ] **Step 4: Add the stat, tab and trio classes.** The strip scrolls on narrow widths; follow `specs/standardize-scrollbars.md` for the scrollbar treatment rather than inventing one:
+- [ ] **Step 4: Add the stat, tab and trio classes.** The strip scrolls on narrow widths; follow `specs/standardize-scrollbars.md` for the scrollbar treatment rather than inventing one.
+
+⚠️ **Every selector below is scoped under `.orbit-page`, and that scoping is not cosmetic.** An
+earlier draft of this plan wrote them bare, which shipped a real regression: `OrbitStatusBanner.vue`
+defines its own `.orbit-stat` in a `<style scoped>` block with `display: flex; align-items: center`
+and **no `flex-direction`**. Vue's scoping only arbitrates per-property where both rules set the same
+property — so a bare `.orbit-stat { flex-direction: column }` applied unconditionally and flipped
+that banner's cards from row to column *inside `OrbitModal.vue`*, breaking the "the modal's
+appearance must not change" constraint. Neither `yarn lint` nor `yarn build` can catch that.
+
+⚠️ **The stat classes are named `.orbit-statstrip*`, not `.orbit-stat*`**, for the same reason.
+Scoping alone would leave `.orbit-page .orbit-stat` (0,2,0) tied with the scoped
+`.orbit-stat[data-v-x]` (0,2,0) and decided by source order — too fragile to build on, and Task 2
+introduces a second, differently-scaled stat concept that must not share a name with the panel's.
+
+⚠️ **`.orbit-page` belongs on the page's outer `max-w-[1000px]` wrapper, not on the
+`.arcade-frame--orbit` card.** The trio renders outside the card but inside that wrapper; scoping to
+the card would leave it unstyled.
 
 ```css
-  .orbit-tabs {
+  .orbit-page .orbit-tabs {
     display: flex;
     overflow-x: auto;
     scroll-snap-type: x proximity;
   }
-  .orbit-tab {
+  .orbit-page .orbit-tab {
     flex: 0 0 auto;
     scroll-snap-align: start;
     height: var(--ctl-h-lg);
@@ -139,14 +156,14 @@ description of the visuals. Run this task before writing any markup.
   }
   /* The seam: the active tab joins its panel by losing the border between them. This is the one cue
      that makes the strip read as tabs rather than as a row of buttons — do not remove it. */
-  .orbit-tab--active {
+  .orbit-page .orbit-tab--active {
     color: var(--color-ink);
     border-bottom-color: transparent;
     background-color: color-mix(in oklab, var(--color-orbit) 8%, var(--color-void-deep));
   }
-  .orbit-trio__btn { height: var(--ctl-h-xl); }
+  .orbit-page .orbit-trio__btn { height: var(--ctl-h-xl); }
 
-  .orbit-stat__label {
+  .orbit-page .orbit-statstrip__label {
     display: block;
     font-family: var(--font-display, 'Press Start 2P', system-ui, sans-serif);
     font-size: 9px;
@@ -160,7 +177,7 @@ description of the visuals. Run this task before writing any markup.
      titles below it stay quiet without the page losing its ranking. `tabular-nums` is load-bearing:
      these are money figures that update live, and without it the digits jitter sideways on every
      refresh. */
-  .orbit-stat__value {
+  .orbit-page .orbit-statstrip__value {
     font-family: var(--font-body, 'VT323', ui-monospace, monospace);
     font-size: 32px;
     line-height: 1;
@@ -170,12 +187,13 @@ description of the visuals. Run this task before writing any markup.
 
   /* One cell. Layout only — the strip's violet frame belongs to the container the component renders,
      never to each cell, or three borders stack into a table. */
-  .orbit-stat { /* layout only */ }
+  .orbit-page .orbit-statstrip { /* layout only */ }
 
   /* The trio's row: three across at `sm` and up; below `sm` it stacks and each control goes full
      width, KEEPING the run -> stop -> off order so the destructive control stays last. Button height
-     is `.orbit-trio__btn` above, never set here. */
-  .orbit-trio { /* three across at sm+, stacked below */ }
+     is `.orbit-trio__btn` above, never set here. ⚠️ Scope the `@media` block's rules too — a bare
+     rule inside a media query is still a bare rule. */
+  .orbit-page .orbit-trio { /* three across at sm+, stacked below */ }
 ```
 
 ⚠️ **These four are part of Task 1's deliverable, not Task 2's or Task 4's.** Every `.orbit-*` class
@@ -199,7 +217,7 @@ git push origin feature/orbit-new-ui
 **Files:** Create `src/components/orbit/OrbitStatStrip.vue`
 
 **Interfaces:**
-- Consumes: `.orbit-stat*` from Task 1.
+- Consumes: `.orbit-statstrip*` from Task 1. ⚠️ **Not `.orbit-stat*`** — that name belongs to `OrbitStatusBanner.vue`'s own scoped styles and must not be reused here.
 - Produces: `<OrbitStatStrip :holds="number" :per-round="number | null" :wallet="number | null" :token-label="string" />`. Purely presentational — no `useOrbit` import.
 
 - [ ] **Step 1: Write the component.** Three cells, violet frame, 32px VT323 values, 9px ink-mute captions. `perRound` and `wallet` are nullable because there is not always a game to divide by or a connected wallet balance to read — render `—`, never a fabricated `0`.
