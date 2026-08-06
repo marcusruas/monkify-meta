@@ -233,13 +233,19 @@ git push origin feature/orbit-new-ui
 </script>
 ```
 
-- [ ] **Step 2: Mount it in its FINAL position** — top of `OrbitPage.vue`'s signed-in block, above the step list (which becomes the notice band + tab bar in Task 6) — wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`. ⚠️ This is a **permanent** mount, not scaffolding: the strip's position is already known, so it goes there now rather than being moved later. In the same edit, **remove `<OrbitStatusBanner>` from the page** — the strip replaces it here. The component file itself is untouched; it stays the modal's.
+- [ ] **Step 2: Add `class="orbit-page"` to the page's outer wrapper.** ⚠️ **Do this first, and do not skip it.** Task 1 scoped every one of its classes under `.orbit-page`, but nothing in the app applies that class yet — so all of them are currently **inert**. `OrbitPage.vue`'s outer wrapper is the `<div class="mx-auto w-full max-w-[1000px] …">` (around line 672); the class goes **there**, not on the `.arcade-frame arcade-frame--orbit` card nested inside it, because the control trio renders outside the card but inside the wrapper.
 
-- [ ] **Step 3: Verify in the browser.** Dev server from the worktree on a **verified-free** port (⚠️ another worktree commonly holds 8081; a collision fails quietly and you test the wrong build — confirm by grepping the served bundle for `OrbitStatStrip`). Check: values match the old `OrbitStatusBanner` below it; `—` renders when no game is selected.
+  If your strip renders unstyled, this is why. Do **not** work around it by writing local styles in the component — that reintroduces the page/panel divergence this whole card exists to remove.
 
-- [ ] **Step 4: Verify.** `yarn lint` + `yarn build` — clean.
+- [ ] **Step 3: Mount it in its FINAL position** — top of `OrbitPage.vue`'s signed-in block, above the step list (which becomes the notice band + tab bar in Task 6) — wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`. ⚠️ This is a **permanent** mount, not scaffolding: the strip's position is already known, so it goes there now rather than being moved later. In the same edit, **remove `<OrbitStatusBanner>` from the page** — the strip replaces it here. The component file itself is untouched; it stays the modal's.
 
-- [ ] **Step 5: Commit.**
+- [ ] **Step 4: Verify in the browser.** Dev server from the worktree on a **verified-free** port (⚠️ another worktree commonly holds 8081; a collision fails quietly and you test the wrong build — confirm by grepping the served bundle for `OrbitStatStrip`). Check: the strip is **styled** (32px values — if they render at body size, Step 2 was missed); values match what `OrbitStatusBanner` showed before removal; `—` renders when no game is selected.
+
+- [ ] **Step 5: Verify the panel did not move.** Open the Orbit modal on `/game/play` and confirm `OrbitStatusBanner` still renders there unchanged — the page stopped using it, the modal did not.
+
+- [ ] **Step 6: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 7: Commit.**
 
 ```bash
 git add src/components/orbit/OrbitStatStrip.vue src/pages/OrbitPage.vue
