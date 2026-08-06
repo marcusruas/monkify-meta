@@ -180,7 +180,7 @@ git push origin feature/orbit-new-ui
 </script>
 ```
 
-- [ ] **Step 2: Mount it temporarily** at the top of `OrbitPage.vue`'s signed-in block, above the existing step list, wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`.
+- [ ] **Step 2: Mount it in its FINAL position** — top of `OrbitPage.vue`'s signed-in block, above the step list (which becomes the notice band + tab bar in Task 6) — wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`. ⚠️ This is a **permanent** mount, not scaffolding: the strip's position is already known, so it goes there now rather than being moved later. In the same edit, **remove `<OrbitStatusBanner>` from the page** — the strip replaces it here. The component file itself is untouched; it stays the modal's.
 
 - [ ] **Step 3: Verify in the browser.** Dev server from the worktree on a **verified-free** port (⚠️ another worktree commonly holds 8081; a collision fails quietly and you test the wrong build — confirm by grepping the served bundle for `OrbitStatStrip`). Check: values match the old `OrbitStatusBanner` below it; `—` renders when no game is selected.
 
@@ -242,14 +242,14 @@ Markup requirements: the container is `role="tablist"`; each control is `role="t
 ⚠️ `behavior: 'smooth'` is deliberately omitted — `usePerfMode` forces `light-graphics` below `lg`,
 which is exactly where this fires.
 
-- [ ] **Step 4: Verify in the browser.** Mount it temporarily above the step list with the five tab defs. Check at 1280px and at **360px**: the strip scrolls, Left/Right moves the active tab, Tab enters the strip once, the active tab scrolls into view.
+- [ ] **Step 4: Do NOT mount it in this task.** The tab bar's only honest position is above the tab panels, and those do not exist until Task 5 — a temporary mount here would be scaffolding that Task 6 deletes. Its keyboard and scroll behaviour is verified in **Task 6 Step 7**, where it is wired for real. Verify here only that it compiles and lints clean.
 
 - [ ] **Step 5: Verify.** `yarn lint` + `yarn build` — clean.
 
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add src/components/orbit/OrbitTabBar.vue src/pages/OrbitPage.vue
+git add src/components/orbit/OrbitTabBar.vue
 git commit -m "Add the Orbit tab bar."
 git push origin feature/orbit-new-ui
 ```
@@ -326,11 +326,32 @@ git push origin feature/orbit-new-ui
 
 - [ ] **Step 3: Stack on mobile.** Below `sm` the trio is full-width and stacked, **keeping the order run → stop → off** so the destructive control stays last.
 
-- [ ] **Step 4: Verify in the browser.** Mount temporarily below the card. Walk the states you can reach without money: `signed-out` (nothing renders), `off` (RUN primary, other two disabled), `cooling-off` (all disabled, locked label shown). The funded states are covered by the Task 12 manual pass.
+- [ ] **Step 4: Mount it in its FINAL position and wire the three actions.** ⚠️ **Permanent**, not scaffolding — outside and below the card, per spec §5.1. Wire the emits in `OrbitPage.vue` in the same edit so the trio ships working rather than as a dead control:
 
-- [ ] **Step 5: Verify.** `yarn lint` + `yarn build` — clean.
+  - `run` → `updateSettings(wallet, { enabled: true })` when status is `off`; `updateSettings(wallet, { stopped: false })` when status is `stopped`.
+  - `stop` → `updateSettings(wallet, { stopped: true })`. Moves no money, so it needs **no** signature.
+  - `turn-off` → move the existing `onTurnOff` (`OrbitPage.vue:615`) **verbatim**.
 
-- [ ] **Step 6: Commit.**
+  In the same edit, **remove the old turn-off button from the page's utility strip** — the trio owns that action now, and leaving both would ship two controls that force a cash-out.
+
+⚠️ **Keep `onTurnOff`'s ordering exactly as it is.** It reads the balance *before* the patch:
+
+```ts
+    const cashedOut = orbit.value?.balance ?? 0;
+    const label = orbit.value?.tokenLabel ?? '';
+    await updateSettings(wallet.value, { enabled: false });
+```
+
+By the time the patch returns the balance is already `0`, so reading it afterwards reports "there was
+no balance to cash out" to a player whose money was just sent — the toast would contradict their
+wallet. `updateSettings` owns the signing, including the mobile-deeplink hop; do not add a signature
+here.
+
+- [ ] **Step 5: Verify in the browser.** Walk the states reachable without money: `signed-out` (nothing renders), `off` (RUN primary, other two disabled), `cooling-off` (all disabled, locked label shown). The funded states are covered by the Task 12 manual pass.
+
+- [ ] **Step 6: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 7: Commit.**
 
 ```bash
 git add src/components/orbit/OrbitControlBar.vue src/pages/OrbitPage.vue
@@ -399,7 +420,7 @@ git push origin feature/orbit-new-ui
 
 - [ ] **Step 2: Default tab.** `game`, except open on `money` when `needsFirstDeposit` or `isPausedForFunds` is true — this preserves what the step list did by un-collapsing step 2. Compute the initial value **once on mount**; do not `watch` it, or the page yanks the player back to `money` mid-edit every time the balance changes.
 
-- [ ] **Step 3: Wire the trio's three actions in the shell.** `run` → `updateSettings(wallet, { enabled: true })` from `off`, or `{ stopped: false }` from `stopped`. `stop` → `{ stopped: true }` (moves no money, needs no signature). `turn-off` → move the existing `onTurnOff` (`OrbitPage.vue:615`) **verbatim**.
+- [ ] **Step 3: The trio is already mounted and wired** (Task 4 Step 4) — do **not** re-wire it. Verify only that its three actions still behave after the shell rewrite, and that `onTurnOff` still reads the balance *before* the patch:
 
 ⚠️ **Keep `onTurnOff`'s ordering exactly as it is.** It reads the balance *before* the patch:
 
@@ -416,7 +437,7 @@ here.
 
 - [ ] **Step 4: Move the notice/error band above the tab bar**, inside the card, and have it consume each tab's `notice` emit. A deposit error rendered *inside* `money` vanishes the moment the player opens `stop-rules`.
 
-- [ ] **Step 5: Place the stat strip and the trio** per spec §5.1 — strip above the notice band inside the card; trio outside and below; bet log below the trio. Remove `OrbitStatusBanner` from the page (it stays the modal's).
+- [ ] **Step 5: Confirm the final vertical order** per spec §5.1. The stat strip (Task 2) and the trio (Task 4) are already in place; this step only positions the notice band and the bet log around them: header → stat strip → notice band → tab bar → active panel → **card ends** → trio → bet log. `OrbitStatusBanner` was already removed from the page in Task 2.
 
 - [ ] **Step 6: Delete `OrbitStepRow.vue`** and confirm no imports remain:
 
@@ -424,7 +445,7 @@ here.
 grep -rn "OrbitStepRow" src/ || echo "no references"
 ```
 
-- [ ] **Step 7: Verify in the browser.** All five tabs reachable; every action still works; the page opens on `money` when unfunded; the bet log still loads only when shown.
+- [ ] **Step 7: Verify in the browser — including the tab bar behaviour deferred from Task 3.** All five tabs reachable; every action still works; the page opens on `money` when unfunded; the bet log still loads only when shown. Then, at 1280px **and 360px**: the strip scrolls, Left/Right arrows move the active tab and move focus with it, Tab enters the strip **once** (roving tabindex), and the active tab scrolls into view on change.
 
 - [ ] **Step 8: Verify.** `yarn lint` + `yarn build` — clean.
 
