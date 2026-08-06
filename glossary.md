@@ -314,6 +314,19 @@
   **third** panel beside grey and black. It exists because `/orbit` needed the black panel's depth but
   carries a stop-loss, and black is documented as *never a warning about money* — so Orbit got its own
   material rather than bending that rule. **Scope is the `/orbit` page only.**
+- **Orbit word claim** — `OrbitChoiceClaim`, unique on `(GameParametersId, Choice)`. The row's
+  existence **is** the claim. An Orbit player's optional fixed word becomes a **standing, cross-round**
+  reservation on that free-text game type, blocking other Orbit players **and human bettors** in every
+  round — including rounds Orbit does not bet in, because a conditional claim could be lost
+  mid-losing-streak and make STOP dangerous. Released on change, clear or **disable**; re-validated on
+  re-enable rather than silently restored. **Preset types are never claimed.** A blocked human sees the
+  ordinary `ChoiceAlreadyTaken`, byte-identical to a same-round collision, so Orbit stays invisible.
+  Distinct from the per-round reservation in `features/choice-exclusivity.md`, which frees up each round.
+- **STOPPED vs paused (Orbit)** — two different states, deliberately named apart.
+  **STOPPED** (`OrbitEnrollment.Stopped`) is the player's deliberate pause: it skips the planner and
+  **nothing else** — no forced cash-out, so no cool-off is owed, the word claim survives, deposits,
+  cash-outs and notifications keep working, and resuming is instant. **Paused** stays the name of the
+  *automatic* out-of-funds state (`isPausedForFunds`, client-derived), so no shipped copy moved.
 - **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it and
   what is left goes home. The complement of the "cash out at" threshold, which only ever fires on a
   **win** and so can never catch a balance losing its way down. Evaluated once the round **settles**,

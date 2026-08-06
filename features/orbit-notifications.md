@@ -84,7 +84,17 @@ running stack could surface.
   channel dies silently on the first network blip.
 - **Nothing at all happens when embedded** — no join, no toast, no Telegram UI, no upsell.
 
-**Telegram — cash-outs only**
+**Telegram — cash-outs, and (opt-in) zero-outs and wins**
+
+> ⚠️ **Amended 2026-08-06** ([#150](orbit-feedback-adjustments.md)) — Telegram is no longer cash-outs
+> only. Three independent per-player toggles now exist: **Cashout (on)**, **Zero out (on)** and
+> **Any bet's wins (off)**. The win toggle **deliberately reverses this card's decision** not to send
+> Telegram for wins; being **opt-in and off by default** is what makes the reversal safe, and an
+> always-on player would otherwise get dozens of messages a day. "Zero out" means the balance can no
+> longer cover the type's stake — it needed a **server-side** `OrbitEnrollment.ZeroOutNotifiedAt`,
+> because the out-of-funds state below is derived client-side and de-duplicated in `localStorage`,
+> which a sender in Consumers cannot read. **The toggles govern Telegram only** — the in-app toasts
+> below are unchanged.
 
 - **All four cash-out sources send**: `Manual`, `Threshold`, `ForcedOnDisable` and
   `ForcedOnSelfExclusion`. The two `Forced*` values did not exist when the umbrella said "manual and

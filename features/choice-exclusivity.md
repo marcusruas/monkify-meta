@@ -20,6 +20,15 @@ winning sequence now maps to exactly one bet, free-text rounds are effectively *
   `" abcdef "` == `abcdef`). Casing is **not** folded: uppercase is rejected as `InvalidCharacters`
   before reservation (the game alphabets are lowercase-only), so a reserved choice is always
   lowercase. See `specs/bet-choice-casing.md`.
+  > ⚠️ **A second, CROSS-round reservation exists since 2026-08-06**
+  > ([#150](orbit-feedback-adjustments.md)). An Orbit player may set a fixed word, and on a free-text
+  > type that word becomes a **standing claim on the game type** (an `OrbitChoiceClaim` row, unique on
+  > `(GameParametersId, Choice)`) that blocks everyone else in **every** round — including rounds Orbit
+  > does not bet in. Unlike the per-round reservation above, it does **not** free up on the next
+  > `Game`; it is released when the word is changed, cleared, or Orbit is disabled. **Preset types are
+  > never claimed.** A blocked human sees `ChoiceAlreadyTaken` and the same refund path,
+  > **byte-identical** to a same-round collision — deliberately, so Orbit stays invisible to other
+  > players. The practical effect is that the paid-`SolanaToken` refund path below runs more often.
 - **A different player taking a taken free-text choice is rejected** with a specific message,
   `ErrorMessages.ChoiceAlreadyTaken` ("This sequence has already been taken by another player. Pick a
   different one."). For a paid **`SolanaToken`** bet — where the on-chain debit happens *before*
