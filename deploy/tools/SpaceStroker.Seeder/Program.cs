@@ -87,11 +87,11 @@ catch (OperationCanceledException)
 // no-op, so without this guard the tool would burn fees and fail silently every 6 hours forever.
 static async Task GuardAgainstTheTreasuryWalletAsync(SeedingPass pass, SeederConfig config, CancellationToken ct)
 {
-    var (launchToken, types) = await pass.ResolveTargetsAsync(ct);
+    var types = await pass.ResolveTargetsAsync(ct);
 
-    if (launchToken is null || types.Count == 0)
+    if (types is null || types.Count == 0)
     {
-        Log.Warn("could not verify the seeder wallet against the operator's receiving wallet "
+        Log.Warn("could not verify the seeder wallet against the receiving wallet "
                + "(the API was unreachable at startup) — the guard has NOT run for this session");
         return;
     }
@@ -106,11 +106,11 @@ static async Task GuardAgainstTheTreasuryWalletAsync(SeedingPass pass, SeederCon
         if (string.Equals(type.TokenReceiverPublicKey, config.WalletPublicKey, StringComparison.Ordinal))
         {
             throw new SeederException(
-                $"The configured wallet ({config.WalletPublicKey}) IS the operator's receiving wallet for \"{name}\". "
+                $"The configured wallet ({config.WalletPublicKey}) IS the receiving wallet for \"{name}\". "
               + "A transfer from that wallet to itself confirms as a no-op, so every bet would be rejected as "
               + "underpaid after the money moved. Configure a separate wallet.");
         }
     }
 
-    Log.Info("  guard      OK — the seeder wallet is not the operator's receiving wallet");
+    Log.Info("  guard      OK — the seeder wallet is not the receiving wallet");
 }

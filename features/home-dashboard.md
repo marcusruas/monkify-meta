@@ -56,16 +56,27 @@ first-time player has no reason to open. Folded in because it rewrites the same 
   stack. The hero's own `pb-*` is the fourth step of that scale, because it is frameless and its
   bottom padding **is** the gap to the picker.
 - The picker reuses **`GameTypes.vue` verbatim**, so the lobby and the starting page can never drift.
+- **`HomeFeatureCards` is one panel, not two** (#143): `PROVABLY FAIR`, **full width**, with no grid
+  wrapper — one panel inside a one-column `auto-fit` grid still reads as half of something. Its twin
+  `TRY IT FREE` was deleted because the trimmed hero (#138) carries a `Try it free` CTA a few hundred
+  pixels above it, so the page made the same offer twice in one screen. Two consequences that must not
+  be undone silently: the **`home_link_click` / `practice` event moved to `HomePage.startPractice`**
+  (the hero's CTA routed without tracking, so leaving it would have killed the GA series on ship day),
+  and because the fair panel is `v-if="!isEmbedded"` and is now the component's only child, an embedded
+  render produces **nothing** rather than an empty full-width box.
 - ⚰️ ~~The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby
   visit, with every existing guard intact (catalogue loaded, not embedded, no other tour open, key
   unseen, no boot-recovery/idle/relaunch overlay, terms accepted, display-name prompt closed).
   Accepted gap: a player deep-linking straight to `/game` gets no overview.~~
   **GONE — Trello #130 (2026-08-02) deleted the Quick Tour outright.** Nothing auto-opens on `/`, or
-  on any route, for any player. `HomeHowItWorks` ("HOW A ROUND GOES") is now the dashboard's **only**
-  onboarding, and its button reads **`How to play`**, pushing to the `HowToPlay` route — it used to
-  say `Read the wiki` and push to `/soon?feature=wiki`, whose `FEATURES` entry is deleted (a
-  bookmarked `?feature=wiki` degrades to the generic fallback rather than breaking). See
-  `features/how-to-play.md`.
+  on any route, for any player. `HomeHowItWorks` — titled **`WANNA LEARN HOW TO PLAY?`** since #143,
+  with no eyebrow above it (a label over a question reads as noise) — is the dashboard's **only**
+  onboarding. Its three beats are named after what happens, not after the mechanic:
+  **`PLACE A BET` · `EDSON STARTS KEY-STROKING` · `FIRST BET TYPED WINS`** (#143; the sub-copy under
+  each is unchanged from #131). Its button reads **`Learn more`** and pushes to the `HowToPlay` route
+  — it said `How to play` between #130 and #143, and `Read the wiki` before that, pushing to
+  `/soon?feature=wiki`, whose `FEATURES` entry is deleted (a bookmarked `?feature=wiki` degrades to the
+  generic fallback rather than breaking). See `features/how-to-play.md`.
 - Fair and Settings modal state is a shared **`useHeaderModals`** singleton — it used to be local to
   `GameHeader.vue`, which the dashboard cannot reach and which a second modal instance cannot fix.
 
@@ -80,26 +91,76 @@ element nobody can click. Measured: **531 px → 249–250 px cold / 223 px conn
 heading moved from 617 px to 336 px and the first card from 672 px to 391 px, clearing even a real
 maximized 1366×768 window (~640 px of viewport) with ~250 px to spare.
 
+⚠️ **#145 raised the band back to 288 px** (cold and connected alike) when it enlarged the art to
+200 px — an explicit owner decision, not drift. #138's 265 px ceiling is **superseded**, but its
+*reason* is not: the picker must stay above the fold. At 288 px the heading sits ~375 px down and the
+first card ~430 px, still clear of a maximized 1366×768 window. Re-check that, not the old number, if
+the band grows again.
+
 - **Still frameless** — a short wide band, never `.arcade-frame` / `.arcade-panel`. The page's first
   object must not be a box.
-- **The art can never drive the band's height, by construction.** The art column is `shrink-0` and
-  sized by **height** (`h-[110px] md:h-[140px] w-auto`) — never a width cap, never a flex basis — so
-  its height is a constant (140 px) against a 151–178 px copy column. Sizing it by width is what let
-  the old saucer reach 355 px, because width was a function of the viewport.
-- **The art is `guide/game-modes.gif`** (45 KB, the same sprite `/how-to-play` renders for PICK A
-  MODE) and is **explicitly temporary** — a real asset is [Trello #145](https://trello.com/c/6T053xnq),
-  which also owns deleting the now-unimported `edson-ship.gif`/`.png` (559 KB, kept only so the swap
-  back stays a two-line revert; webpack emits neither).
+- **The art is sized by HEIGHT, never a width cap.** The art column is `shrink-0` and sized by height
+  (`h-[156px] md:h-[200px] w-auto`) — never a width cap, never a flex basis. Sizing it by width is
+  what let the old saucer reach 355 px, because width was a function of the viewport.
+  ⚠️ **The art now DRIVES the band** (200 px against a 151–178 px copy column), so #138's "the art can
+  never drive the height, by construction" no longer holds — it is a **measured** property now, in
+  **both** states. Band is **288 px** at 1366×768, cold and connected alike. Re-measure both states
+  before touching the height.
+- **The art is purpose-drawn and reacts to the wallet** ([Trello #145](https://trello.com/c/6T053xnq),
+  `specs/home-hero-sprite.md`). It replaced the borrowed `guide/game-modes.gif` — the same sprite
+  `/how-to-play` renders for PICK A MODE, so the front door and the guide were showing one picture.
+  **Two layers on one shared 740×500 canvas** (27 KB total): a static `hero/coin.png` in flow (the
+  sizing layer, carrying the glow) under one ship `<img>`, absolutely positioned `inset-0`, whose
+  `src` swaps between `ship-sleep` / `ship-alert` / `ship-orbit`. Because both files are pre-registered
+  on that canvas, the ship needs **no positioning math**. `edson-ship.gif`/`.png` and the unreferenced
+  `src/assets/coin.png` are **deleted**.
+- **The ship's state machine follows the wallet:** disconnected → `sleep` (loops); a connect → `alert`
+  (plays once, 1200 ms) → `orbit` (loops); disconnect → cuts straight back to `sleep`.
+  - ⚠️ **The alert must not become boot furniture.** `connected` flips true both on a click *and*
+    ~0.3–1 s after boot when a saved wallet auto-reconnects. A persisted `walletName` therefore opens
+    the hero **already in orbit** (never a sleeping-ship flash), with a 2500 ms fallback to `sleep` if
+    that connect never lands. The alert is allowed through on an automatic connect **once per tab**
+    (`sessionStorage['ss.heroAlertSeenThisTab']`) — without that it was unreachable for returning
+    players, who reconnect on every load.
+  - ⚠️ **`ship-alert.gif` has no loop block at all**, so it plays once and freezes on its last frame.
+    Replaying it needs a **changed URL**, not just a remount — see the warning below.
+  - ⚠️ **The coin layer is load-bearing, not decoration.** `ship-orbit.gif`'s 7th frame (700 ms) is
+    **empty** — the artist drew "behind the coin" by hiding the ship, and every frame uses disposal 2
+    (restore to transparent) so the coin shows through. Without the coin, that frame reads as the ship
+    vanishing.
+- ⚠️ **Replaying a non-looping GIF needs a NEW URL, not a new element.** Webpack **inlines** assets
+  under 8 KB as data URIs, and Chrome keys its decoded-image cache by **URL** — so remounting an
+  `<img>` at the identical URI hands the fresh element back the *same finished animation* and renders
+  the frozen frame. `shipSrc` appends `` `#${alertRun}` ``; a fragment changes the URL without touching
+  the payload. This was found in QA after a remount-only approach silently did nothing, and it applies
+  to **any** play-once GIF in this app, not just this one.
+- **The art still is not rendered below `sm` (640 px)**, and the state machine allocates **no timer and
+  preloads nothing** there — it is gated on a live `(min-width: 640px)` match, not on `useIsMobile`
+  (whose query is the 1023 px light-graphics boundary, a different number).
 - **The art is not rendered below `sm` (640 px).** Beside the copy at 390 px it leaves the headline a
   ~217 px column, which breaks `FIRST WORD OUT` to three lines; stacking it instead adds back the
   height this change exists to remove.
-- ⚠️ **The GIF loops on every device, `html.light-graphics` included** — no still-frame swap, no
-  `usePerfMode` branch. This is a **scoped, deliberate exception** to `specs/light-graphics-mode.md`
-  §7.10's ban on infinite animation, justified because `/how-to-play` already ships this exact sprite
-  raw on every phone and 45 KB is an eighth of the asset that rule was written about. **It is not a
-  repeal, and it does not extend to a heavier asset or a new animation.** Everything else in the band
-  obeys §7.10: the `.hero-art` glow is two **flat** `drop-shadow`s, and the band contains no
-  `backdrop-filter`, `blur()`, `mix-blend-mode` or infinite CSS animation.
+- ⚠️ **The ship GIF loops on every device, `html.light-graphics` included** — no still-frame swap, no
+  `usePerfMode` branch. This is a **scoped, deliberate exception** to `specs/light-graphics-mode.md`'s
+  ban on infinite animation, and #145 **extended** it on a stronger case than the one it replaced:
+  27 KB against the old 45 KB, and because the coin is a static PNG **exactly one GIF is ever
+  decoding** — the same count as before. Only the file changed. Its real exposure is narrow:
+  **640–1023 px** (the art renders from 640 px; light-graphics is on below 1024 px), or a desktop with
+  hardware acceleration off. **It is not a repeal.** The GIF earns it by *being the feedback that the
+  wallet connected.*
+- **The idle drift IS killed under light-graphics — the exception does not cover it.** The composite
+  carries a 5 s `hero-art-drift` (transform-only, ±6 px / ±0.6°), and
+  `html.light-graphics .hero-art-wobble { animation: none }` drops it entirely. The split is the
+  principle: the GIF is *information*, the drift is *decoration*, and decoration does not get an
+  exception. Everything else in the band still obeys the rule — no `backdrop-filter`, `blur()` or
+  `mix-blend-mode` anywhere in it.
+- **The glow lives on the static coin layer, not the wrapper** (`.hero-art`, two **flat**
+  `drop-shadow`s). A static layer means the browser computes the shadow **once** instead of
+  re-deriving it on every GIF frame — on exactly the CPU-rasterizing devices light-graphics exists for
+  — and the halo's silhouette no longer changes shape as the ship travels. The ship carries no filter.
+  ℹ️ A `html.light-graphics .x` rule written inside a `<style scoped>` block **does** match when `.x`
+  is a component element (the scope attribute lands on `.x`, and the root is a plain ancestor);
+  `specs/light-graphics-mode.md` §7.5's caveat is about targeting the **root itself**. Verified here.
 - **Press Start 2P advances ~1 em per character**, so a 14-character headline needs ~14× the font
   size of column width. This is why the flex bases were dropped: the copy column is now "everything
   the art does not take", which makes the check one arithmetic statement instead of a per-breakpoint
@@ -116,13 +177,21 @@ is a module singleton `HomePlayerStats` already loads.
 
 | | Round live on the floor | Floor quiet |
 | --- | --- | --- |
-| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TRY IT FREE] [HOW IT WORKS]` |
+| **New (0 rounds)** | `NEW HERE` · `[JOIN {NAME}] [TRY IT FREE]` | `NEW HERE` · `[TUTORIAL MODE] [HOW IT WORKS]` |
 | **Returning** | `WELCOME BACK` · `[JOIN {NAME}] [GAME HISTORY]` | `WELCOME BACK` · `[PLAY {most-played}] [GAME HISTORY]` |
 
 - **Primary is decided by the floor, secondary by the player.** An open round is the most valuable
-  thing either player can do, so JOIN/WATCH wins for both. `TRY IT FREE` is the newcomer's constant
-  (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only appears when
-  it is not needed above); `GAME HISTORY` is the regular's constant.
+  thing either player can do, so JOIN/WATCH wins for both. The practice screen is the newcomer's
+  constant (primary when there is nothing to join, secondary when there is, so `HOW IT WORKS` only
+  appears when it is not needed above); `GAME HISTORY` is the regular's constant.
+- ⚠️ **One destination, two labels — and that asymmetry is deliberate.** `/game/practice` is
+  **`TUTORIAL MODE`** in the newcomer's **primary** slot (quiet floor) but **`TRY IT FREE`** in the
+  newcomer's **secondary** slot (a round is live), and the **cold** hero's own button keeps
+  `TRY IT FREE` too. Owner's call at the `release/ui-ux-changes` ship (2026-08-04), on top of #143:
+  #142 turned that screen into a guided, always-win tutorial, so the slot a newcomer lands on when
+  there is nothing else to do names the **mode**, while the two fallback slots keep naming the
+  **benefit**. This is the one place `HomeHero`'s own "one button, one name, everywhere" rule is
+  knowingly broken — do not unify the three labels without asking.
 - ⚠️ **Nothing in this band may be a scroll-to-what-you-can-already-see.** `Play again` — whose only
   job was scrolling to mode cards ~48 px below it — is deleted, and with it the hero's `play` emit,
   `HomePage`'s `scrollToModes` and its `modesSection` ref. Every path out of the band is a real
@@ -140,8 +209,10 @@ is a module singleton `HomePlayerStats` already loads.
   match is by name — which is also what makes a genuinely deactivated favourite disappear correctly.
 - The hero emits `practice` / `history` / `how-to-play`; **`HomePage` owns all three destinations** and
   their `trackHomeLinkClick` links, as it already did for `practice`.
-- The **cold** state's second CTA is labelled **`TRY IT FREE`**, not "Practice" — the page's own
-  section for that action (`HomeFeatureCards`) is already titled TRY IT FREE. One action, one name.
+- The **cold** state's second CTA is labelled **`TRY IT FREE`**, not "Practice". It was named after the
+  page's own section for that action, and since #143 deleted that section (below) the hero is the
+  **only** place on `/` offering a free round — the label stays, because it names the benefit rather
+  than the mode.
 
 ### The picker card
 
@@ -156,11 +227,17 @@ is a module singleton `HomePlayerStats` already loads.
 - The tag is derived from the catalogue: `{n} CHARS · {charset}` / `PICK 1 OF {n}` / `DAILY DRAW`. An
   **anchored** lottery appends its slot — `DAILY DRAW · 22:00 UTC` — so the picker is not the one
   surface that knows the draw is daily but not when. The tag is the only field allowed to truncate.
-- Two chips float over the **artwork's bottom-right**, so they cost the card no height: `TICKET`
-  always, plus `PLAYERS` on a race/preset or `POT` on a lottery. Both chip values use the same neutral
-  colour on every card — a price that is amber on one card and cyan on the next reads as a different
-  *kind* of fact. The `PLAYERS` dot uses the semantic `--color-live` green and is lit **only** when
-  the round actually has players.
+- Chips float over the **artwork's bottom-right**, so they cost the card no height: `TICKET` always,
+  plus `POT` **on a lottery only**. Both chip values use the same neutral colour on every card — a
+  price that is amber on one card and cyan on the next reads as a different *kind* of fact.
+  ⚰️ ~~plus `PLAYERS` on a race/preset, whose dot uses the semantic `--color-live` green and is lit
+  only when the round actually has players~~ — **the `PLAYERS` chip is GONE (Trello #143).** A player
+  count was a scoreboard on a card whose job is to say what the game *is*, and on a quiet floor its
+  headline was a zero. The **status pill still reports `FILLING`** off the same `live.players`, so the
+  count is still fetched and still drives the one signal a player can act on — it is simply no longer
+  printed. This applies to **`/` and the `/game` lobby alike**, because the picker is one shared
+  component. `.live-dot` / `.live-dot--on` and `--color-live` survive in the tree **unreferenced**,
+  keeping the "never light a green dot over an empty round" rule available to a future chip.
 - Fonts follow the repo's 2-font system: the name in **Press Start 2P**, the description in **VT323**.
 - ⚠️ **`loading="lazy"` never fires inside these frames.** `.pixel-border-outer` / `-inner` clip the
   card with a `clip-path` polygon, and Chrome folds ancestor clips into the intersection check that
@@ -173,6 +250,26 @@ is a module singleton `HomePlayerStats` already loads.
 
 - The live snapshot is **three `GET /games/{gameTypeId}` calls and no backend** — fired in parallel
   **once on mount** and again **when the tab regains focus** behind a 15 s guard. No interval polling.
+  Trello #143 proposed deleting this fan-out and it was **considered and rejected by the owner**: it is
+  the single source of the `POT` chip, the `FILLING`/`STARTING`/`LIVE NOW` pill, the picker's
+  "N rounds filling now" eyebrow **and** the hero's live line + `Join`/`Watch` CTA. Anything that
+  removes it takes all five with it.
+- **The catalogue is fetched once per page load** (#143). `App.vue`'s boot probe keeps its result in
+  the module-level `gameTypes` ref instead of discarding it, and `GameTypes.vue` fetches only when
+  that store is empty — which still happens on a cold mount from a non-player route
+  (`/wallet-bridge`, `/admin`, `/error`, where the probe never runs) or after a failed probe.
+  ⚠️ `mainService.getGamesTypes()` resolves to the **envelope** `DefaultResponse<ActiveGame[]>`, not
+  to the array — the service's own destructure unwraps the *axios response*. Both call sites must take
+  `.data`. Assigning the envelope whole puts an object in an array-typed ref, and `v-for` then renders
+  one nameless `TICKET undefined` card per envelope field with the eyebrow reading `0 games`. **No
+  gate in this repo catches it:** `yarn lint`, `yarn build` and `tsc --noEmit` all pass, because plain
+  `tsc` does not type-check `.vue` script blocks and `vue-tsc` is not a dependency.
+- **`THE FLOOR` loads when it is reached, not on mount** (#143). Its `GET /games/stats` +
+  `GET /games/history?take=6` fire from a **one-shot `IntersectionObserver`** (`rootMargin: 200px`,
+  disconnected *before* the load so scrolling away and back never refires); with no observer available
+  the reads run immediately. `loading` therefore starts **`true`** and means *"we do not have the floor
+  yet"*, covering both the deferred and the in-flight window — starting it `false` would fall through
+  to the empty branch and claim **"No rounds have settled yet"** about a floor nobody has read.
 - `/` opens **no SignalR connection and joins no hub group**: `useGameHub` keeps its
   one-connection/one-group invariant. The price is that a figure can be one focus-cycle stale, which
   is why the status pill is coarse (`FILLING`, not a per-second counter).

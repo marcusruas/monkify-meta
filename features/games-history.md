@@ -49,6 +49,15 @@ covers the current round). See `features/provably-fair-final.md`.
   live** on every request and never cached under another player's key (the service clones cached rows
   before stamping own columns, so it never poisons a shared cache entry). Accepted trade: a
   just-completed round can lag on page 1 by up to the 5-min TTL; own columns are always current.
+  ⚠️ **An out-of-range page is never cached** (2026-08-05). `pageNumber` has no upper bound on the
+  public endpoint and it is part of the key, so caching those let a caller iterating `pageNumber` mint
+  unlimited 5-minute keys, each holding a page of rows. Page 1 is always cached even when empty. The
+  page is deliberately **not** clamped to the last real page — that would turn the documented
+  empty-page response into a last-page response, silently changing a shipped contract.
+- **Pagination is still `OFFSET`-based, and deep pages are O(offset)** — ~45ms at 1M rows, bounded by
+  the real page count and absorbed by the 5-minute cache. Keyset pagination was considered and
+  deferred: it needs a cursor, and this endpoint is page-number addressed. See
+  `windowed-stats-query-performance.md` → "Known limits".
 - **On-demand, no new table.** History is aggregated on demand from existing `Game` / `Bet` /
   `TransactionLog` / `Player` rows — **no new entity and no migration**. Read-only on the
   stateless API; no Consumers/typer change.

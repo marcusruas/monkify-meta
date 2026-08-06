@@ -690,5 +690,48 @@ See `GameFairModal.vue`, `PlayerCustomizationModal.vue`, `OrbitModal.vue`.
 There is no shared shell component yet. `OrbitModal.vue` hand-rolls this chrome and is the reference
 implementation a future shared shell should be extracted from.
 
+## Feature flags
+
+All flags live in **`src/constants/featureFlags.ts`** — one file, one exported `const` each, read
+from a **`VUE_APP_*`** env var. They are **build-time**: Vue CLI inlines `process.env.VUE_APP_*` at
+compile time, so a flag cannot be flipped at runtime and a changed value needs a rebuild.
+
+**State the fail direction, and pick it deliberately.** The two shipped flags test in *opposite*
+directions, and that is not an inconsistency to tidy up:
+
+```ts
+// fail-OPEN: absent key ⇒ enabled. The default is the feature being on.
+export const allowFreeBets = process.env.VUE_APP_ALLOW_FREE_BETS !== 'false';
+
+// fail-CLOSED: absent key ⇒ hidden. The default is the feature being off.
+export const orbitEnabled = process.env.VUE_APP_ORBIT_ENABLED === 'true';
+```
+
+Choose fail-closed whenever an un-configured build shipping the feature would be worse than one
+missing it — anything that moves real money, or anything not production-deliverable yet. Say which
+one you chose in a comment on the const, and why; the next reader cannot tell `!==` from `===` apart
+by intent alone.
+
+**Gate at the mount point *and* inside the composable.** A `v-if` alone only hides pixels — the
+composable still fires requests, joins hub groups and starts pollers. Guard both, because the mount
+point is what a reviewer sees and the composable guard is what a future caller cannot bypass by
+forgetting the `v-if`. `orbitEnabled` (#146) is the reference implementation: `GameHeader.vue` gates
+six mount points, and `useOrbitNotifications` / `useOrbitRedirect` / `useFirstWinUpsell` each refuse
+on their own first line.
+
+⚠️ **Guard the narrowest thing that does the feature's work**, never a shared block it happens to sit
+in. `useFirstWinUpsell.maybeOpen()` is called from inside `useGame`'s victory one-shot, alongside the
+victory audio and the embedded `bet-settled` post — gating that `if` would have silently broken both.
+
+⚠️ **A flag does not shrink the bundle.** Gated code is still imported and still compiled in, so
+grepping `dist/` for the feature's strings finds them all and proves nothing. Verify a flag by
+running the app in both states and watching the network tab.
+
+**Document every new flag in `.env.example`** with its production value and its fail direction; add
+it to `monkify-meta/deploy/secrets.example.json` → `frontBuild` if it must reach a deploy (the
+deploy tool serializes that whole block verbatim, so no C# change is needed), and to
+`monkify-backend/scripts/setup_local_environment.bat` if the local Docker stack needs it —
+`.env.production.local` is Vue CLI's highest-priority env file and overrides `.env.local`.
+
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
      handling patterns, and add examples. -->

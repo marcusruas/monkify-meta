@@ -3,6 +3,11 @@
 > **Status: Shipped** — merged to `main` via `feature/practice-mode` on 2026-08-03.
 > Distilled rules: `../features/practice-mode.md`.
 >
+> ⚠️ **Superseded in part by #142** (`specs/practice-mode-changes.md`, merged into
+> `release/ui-ux-changes` on 2026-08-03): the player now always wins, a guided speech-bubble
+> tutorial holds the round at two points, the run is 15 s, and `PracticeTyper`'s second render
+> clock is gone. Where this spec and that one disagree, **#142 is newer**.
+>
 > ⚠️ **This spec is the design archive, not current truth.** Owner feedback during implementation
 > superseded parts of it — §7.3 (timings), §7.4 (stream density), §7.7 (money copy), §7.8 (audio),
 > decision 9, decision 10 and AC #16. **`features/practice-mode.md` is authoritative** and lists every

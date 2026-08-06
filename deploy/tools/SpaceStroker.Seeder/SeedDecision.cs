@@ -18,11 +18,10 @@ public static class SeedDecision
     public static SeedVerdict Evaluate(string gameName, GameTypeDto? type, ActiveGameDto? game, decimal? balance)
     {
         if (type is null)
-            return new(false, $"\"{gameName}\" was not found among the operator's active game types");
+            return new(false, $"\"{gameName}\" was not found among the active game types");
 
-        if (type.PaymentMethod != PaymentMethods.SolanaToken)
-            return new(false, $"\"{gameName}\" is not a SolanaToken game (paymentMethod={type.PaymentMethod})");
-
+        // There is no paymentMethod to check any more — `remove-operators` dropped it and made every
+        // type crypto. A complete token block IS the "this type takes a paid on-chain bet" signal.
         if (string.IsNullOrWhiteSpace(type.TokenMintAddress)
             || string.IsNullOrWhiteSpace(type.TokenReceiverPublicKey)
             || type.TokenDecimals is null)

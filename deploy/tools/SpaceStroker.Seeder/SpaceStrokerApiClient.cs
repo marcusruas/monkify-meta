@@ -7,12 +7,16 @@ namespace SpaceStroker.Seeder;
 public sealed record ApiCall<T>(bool Ok, int? Status, T? Value, string Error);
 
 /// <summary>
-/// Thin client over the six endpoints the seeder uses. Every one of them already ships; this app
-/// adds nothing to the backend.
+/// Thin client over the endpoints the seeder uses. Every one of them already ships; this app adds
+/// nothing to the backend.
 ///
 /// Deliberately sends NO Origin header: /rpc and /solana/* run a server-side Origin allow-list
 /// (OriginAllowList) that permits an ABSENT Origin — the non-browser caller case — but would 403
 /// an unrecognised one.
+///
+/// It sends NO auth of any kind either. `remove-operators` deleted LaunchController and the
+/// X-Launch-Token gate outright: every route below is public, and the bet's identity is the wallet
+/// carried in the request body. Re-adding a token here would call a route that no longer exists.
 /// </summary>
 public sealed class SpaceStrokerApiClient : IDisposable
 {
@@ -20,42 +24,29 @@ public sealed class SpaceStrokerApiClient : IDisposable
     private readonly string _baseUrl;
 
     public SpaceStrokerApiClient(string baseUrl)
+        : this(baseUrl, new HttpClientHandler())
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     }
 
     /// <summary>
-    /// POST /launch-token/default — the anonymous Main-only token, enabled in production.
-    ///
-    /// NOTE the envelope difference: LaunchController extends ControllerBase, not BaseController,
-    /// so this response is a BARE { "token": "..." } and is NOT wrapped in ApiResult.
-    ///
-    /// Called every pass on purpose: MainTokenTtlSeconds is 3600 (1h), which is shorter than the
-    /// seeding interval, so a cached token would always be expired by the next pass.
+    /// Test seam. The seeder's whole contract with the backend is a set of URLs and headers, and the
+    /// one outage this tool has had was exactly that contract going stale — so the request shape has
+    /// to be assertable without a network.
     /// </summary>
-    public async Task<ApiCall<string>> MintLaunchTokenAsync(CancellationToken ct)
+    public SpaceStrokerApiClient(string baseUrl, HttpMessageHandler handler)
     {
-        var call = await SendAsync<LaunchTokenResponse>(
-            () => new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/launch-token/default"),
-            wrapped: false, ct);
-
-        if (!call.Ok)
-            return new(false, call.Status, null, call.Error);
-
-        return string.IsNullOrWhiteSpace(call.Value?.Token)
-            ? new(false, call.Status, null, "the mint response carried no token")
-            : new(true, call.Status, call.Value!.Token, "");
+        _baseUrl = baseUrl.TrimEnd('/');
+        _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
     }
 
-    public Task<ApiCall<List<GameTypeDto>>> GetActiveTypesAsync(string launchToken, CancellationToken ct)
+    public Task<ApiCall<List<GameTypeDto>>> GetActiveTypesAsync(CancellationToken ct)
         => SendAsync<List<GameTypeDto>>(
-            () => Authorized(HttpMethod.Get, $"{_baseUrl}/games/active-types", launchToken),
+            () => new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/games/active-types"),
             wrapped: true, ct);
 
-    public Task<ApiCall<ActiveGameDto>> GetActiveGameAsync(string launchToken, Guid gameTypeId, CancellationToken ct)
+    public Task<ApiCall<ActiveGameDto>> GetActiveGameAsync(Guid gameTypeId, CancellationToken ct)
         => SendAsync<ActiveGameDto>(
-            () => Authorized(HttpMethod.Get, $"{_baseUrl}/games/{gameTypeId}", launchToken),
+            () => new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/games/{gameTypeId}"),
             wrapped: true, ct);
 
     /// <summary>
@@ -71,22 +62,13 @@ public sealed class SpaceStrokerApiClient : IDisposable
                 $"{_baseUrl}/solana/balance?wallet={Uri.EscapeDataString(wallet)}&mint={Uri.EscapeDataString(mint)}"),
             wrapped: true, ct);
 
-    public Task<ApiCall<object>> PlaceBetAsync(string launchToken, Guid gameId, RegisterBetBody body, CancellationToken ct)
+    public Task<ApiCall<object>> PlaceBetAsync(Guid gameId, RegisterBetBody body, CancellationToken ct)
         => SendAsync<object>(
-            () =>
+            () => new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/games/{gameId}/bets")
             {
-                var request = Authorized(HttpMethod.Post, $"{_baseUrl}/games/{gameId}/bets", launchToken);
-                request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-                return request;
+                Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
             },
             wrapped: true, ct);
-
-    private static HttpRequestMessage Authorized(HttpMethod method, string url, string launchToken)
-    {
-        var request = new HttpRequestMessage(method, url);
-        request.Headers.Add("X-Launch-Token", launchToken);
-        return request;
-    }
 
     /// <summary>
     /// Sends one request and normalizes the outcome. A thrown HttpRequestException or a timeout

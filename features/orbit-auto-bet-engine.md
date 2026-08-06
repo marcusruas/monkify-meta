@@ -9,6 +9,12 @@
 > Trello [#122](https://trello.com/c/h7MF4Oky), umbrella
 > [#118](https://trello.com/c/yxwdNTrb). Builds on
 > [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) (#121).
+>
+> ⚠️ **Orbit is dark in production** since #146 (2026-08-04): the build-time frontend flag
+> `VUE_APP_ORBIT_ENABLED` hides every Orbit surface and silences every Orbit client path. **This
+> engine is NOT gated and keeps running** — it is safe only because enrolment is unreachable while
+> the UI is hidden, so no player is enrolled and no game type has `AllowOrbit = true`. See
+> [`orbit-custodial-wallet.md`](orbit-custodial-wallet.md) → "The production gate".
 
 ## What it does
 
@@ -129,8 +135,9 @@ Every step after the transfer is money already gone, so the consumer is delibera
 **Settlement**
 
 - An Orbit-funded win pays to the **Orbit account**, never the player's wallet, and appends a
-  `WinCredit` net of the shipped 0.5% commission. The `TransactionLog` `Credit` row is still written —
-  `CalculateRewardForBet` reads it for idempotency, so skipping it double-pays on retry.
+  `WinCredit` net of the house commission (**1%** since 2026-08-04; 0.5% before — the rate is read from
+  config at payout, so Orbit needs no change when it moves). The `TransactionLog` `Credit` row is still
+  written — `CalculateRewardForBet` reads it for idempotency, so skipping it double-pays on retry.
 - A refunded Orbit stake returns to the **Orbit account** with a `Refund` row. Paid to the player's
   wallet it would leave the pool short with no ledger row, and reconciliation would report that
   shortfall forever. `RefundInvalidBetEvent` carries the funding source, because pre-insert refunds
