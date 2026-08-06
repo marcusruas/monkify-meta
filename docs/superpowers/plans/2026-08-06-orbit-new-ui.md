@@ -480,7 +480,18 @@ git push origin feature/orbit-new-ui
 
 **Interfaces:**
 - Consumes: nothing from Tasks 1–4.
-- Produces: five components, each self-contained. Each imports `useOrbit()` **itself** rather than receiving twenty props — the composable is module-level singleton state, so this adds no fetching and no duplicated requests. Each emits `(event: 'notice', text: string)` for the page-level band.
+- Produces: five components, each self-contained. Each imports `useOrbit()` **itself** rather than receiving twenty props — the composable is module-level singleton state, so this adds no fetching and no duplicated requests. Each emits `(event: 'notice', text: string | null)` for the page-level band — **`null` clears it**, which the handlers rely on (they open with `notice.value = null` before acting).
+
+⚠️ **Wire that emit in this task, not in Task 6.** `OrbitPage.vue` already owns a `notice` ref
+(`OrbitPage.vue:85`) that the moved handlers set in about a dozen places — `Deposit credited.`,
+`Cash-out sent. It should land in your wallet shortly.`, the rule save/clear confirmations, the
+Telegram link results. If the handlers move out and nothing binds `@notice`, every one of those
+messages silently stops appearing, and this task's whole acceptance test — *nothing a player can see
+changed* — is failed in a way that is easy to miss because nothing errors. Bind `@notice="notice = $event"`
+on each of the five as you mount it.
+
+`lastError` needs no such wiring: it lives in `useOrbit`, so a component reading the composable sees
+it directly.
 
 - [ ] **Step 1: `OrbitGameTab.vue`** — move the step-1 body plus `onToggleAutoPick`, the word save/clear handlers and the game-type selection. Reuse `OrbitWordField.vue` **unmodified**.
 
