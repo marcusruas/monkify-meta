@@ -1,5 +1,16 @@
 # Space Stroker — "Orbit page restructure" — Implementation Spec
 
+> ⚠️ **PARTIALLY SUPERSEDED (2026-08-06) by [`orbit-new-ui.md`](orbit-new-ui.md).**
+> That card replaces this one's **`/orbit` information architecture**: §5.1's five-step
+> collapse-to-dashboard list becomes **five tabs**, run/stop/turn-off move into a **control trio
+> outside the card**, cash-out moves into a `MONEY` tab beside add-money (so the promoted cash-out row
+> in §1.1 is void), and the page's type scale steps up one class. Read its §0 and D1–D9 before
+> implementing anything below.
+> **Still authoritative here and untouched:** §4 (the four-hue system and the **weight** rule that
+> actually prevents the salad), §4.4 (`.arcade-frame--orbit`), §7 (free-form integer deposits and the
+> backend validator), §5.2's state derivations, and the rule that **no control on the page opens a
+> modal**.
+
 > **Status: Ready for implementation** — designed in a brainstorming session on 2026-08-04 against the
 > **uncommitted** `feature/orbit-ui-overhaul` working tree (`monkify-front@993261e` + working changes,
 > `monkify-meta@c6fc8bb`). Repos affected: **`monkify-front`**, **`monkify-backend`**, and this doc in
