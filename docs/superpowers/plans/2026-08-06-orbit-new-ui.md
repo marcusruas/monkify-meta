@@ -1,0 +1,524 @@
+# Orbit new UI — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
+> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Rebuild `/orbit` from a five-step collapse-to-dashboard list into five tabs, with
+run/stop/turn-off moved out of the card into a control trio beneath it, at a type scale one class
+above the modal's.
+
+**Architecture:** `OrbitPage.vue` (1,379 lines) becomes a ~250-line shell that owns only layout and
+the three control actions. Each tab is its own component owning its fields *and* its handlers. The
+structural swap happens **before** any restyle, so the page keeps working at every commit and a
+reviewer can reject "the tabs are wrong" separately from "the paint is wrong". No new state enters
+`useOrbit.ts`.
+
+**Tech Stack:** Vue 3.2 + TypeScript 5.5, Vue CLI 5 (webpack), Tailwind 3 + DaisyUI, `vue3-toastify`.
+Yarn. **No test runner in this repo** ⇒ every task verifies with `yarn lint` + `yarn build` and a
+named browser check.
+
+**Spec:** `specs/orbit-new-ui.md` — authoritative. **No Trello card** (designed in a brainstorming
+session, 2026-08-06, from two owner mockups).
+
+## Global Constraints
+
+- **Branch `feature/orbit-new-ui`**, worktree `.worktrees/orbit-ui-overhaul/monkify-front`; hubs stay on `main`. Push after every task (`AGENTS.md` rule 5).
+- **`monkify-front` only.** `monkify-backend` must diff to **zero** changes against `33e396e` (spec AC17).
+- ⚠️ **`OrbitStatusBanner.vue`, `OrbitAmountField.vue` and `OrbitWordField.vue` are SHARED with `OrbitModal.vue`.** Consume them as-is; **wrap, never edit**. Editing any of them regresses the panel shipped in `66e4df3` (spec AC12). `OrbitStepRow.vue` has one consumer and is deleted in Task 6.
+- **Every control height comes from `--ctl-h-*`**, never padding, never a literal.
+- **Do not stack Tailwind utilities on an arcade class.** Use it as-is, use plain Tailwind for a differently-shaped control, or add a modifier in `arcade.css`.
+- **Dither, never blur.** No `backdrop-filter`, no `blur()`, no infinite animation, no wide glow — `usePerfMode` forces `html.light-graphics` below `lg`.
+- **Colour has one job each:** green = running/OK, violet = identity + active tab, red = warning, amber = primary action buttons only. Inside the card, a running fully-configured Orbit shows **no amber and no red**; every in-card value is plain ink. Cyan stays the focus ring only.
+- **Everything stays behind `orbitEnabled`** (`VUE_APP_ORBIT_ENABLED`, fail-closed `=== 'true'`).
+- ⚠️ **Lint needs uniform CRLF.** `core.autocrlf=true`; never `sed -i` these files (it rewrites to LF and prettier then fails with `Insert ␍` and nothing else). Verify with `od -c` if lint complains about invisible characters.
+- ⚠️ **Copy the hub's `yarn.lock` into the worktree** before `yarn install` — it is gitignored, and without it the build resolves different prettier/eslint versions than the hub and lint disagrees.
+- **Copy comes from the spec, not the mockups.** Mockups routinely carry wording that refinement rejected.
+
+---
+
+## File Structure
+
+**Create**
+
+| File | Responsibility |
+| --- | --- |
+| `src/components/orbit/OrbitStatStrip.vue` | Presentational. Three cells: holds / per round / wallet. No fetching, no actions. |
+| `src/components/orbit/OrbitTabBar.vue` | The numbered strip + `role="tablist"` semantics + horizontal scroll behaviour. Knows nothing about Orbit. |
+| `src/components/orbit/OrbitControlBar.vue` | The trio. Maps `orbitStatus` → per-button state; emits `run` / `stop` / `turn-off`. Performs **no** mutation itself. |
+| `src/components/orbit/tabs/OrbitGameTab.vue` | Word / auto-pick / game mode, and their handlers. |
+| `src/components/orbit/tabs/OrbitMoneyTab.vue` | Add money + cash out, and their handlers. |
+| `src/components/orbit/tabs/OrbitStopRulesTab.vue` | Threshold + floor, and their handlers. |
+| `src/components/orbit/tabs/OrbitRecoverTab.vue` | Signature + amount recovery, and its handler. |
+| `src/components/orbit/tabs/OrbitTelegramTab.vue` | Link / verify / unlink + the three toggles. |
+
+**Modify**
+
+| File | Change |
+| --- | --- |
+| `src/pages/OrbitPage.vue` | Rewritten to a shell: header, stat strip, notice band, tab bar, active panel, control trio, bet log. |
+| `src/assets/styles/colors.css` | Add `--ctl-h-xl: 3.5rem` beside the existing three. |
+| `src/assets/styles/arcade.css` | `.orbit-page` type scale, `.orbit-tab*`, `.orbit-stat*`, `.orbit-trio*`. |
+
+**Delete**
+
+| File | Why |
+| --- | --- |
+| `src/components/orbit/OrbitStepRow.vue` | The collapse unit. `OrbitPage.vue` is its only consumer. |
+
+**Untouched (verify byte-identical at the end):** `OrbitStatusBanner.vue`, `OrbitAmountField.vue`,
+`OrbitWordField.vue`, `OrbitBetLog.vue`, `OrbitModal.vue`.
+
+---
+
+## Task 1: Design pass + the page scale
+
+⚠️ **`conventions/frontend.md` → "Design workflow (required for any new visual surface)" applies to
+this card.** The two owner mockups (2026-08-06) are the design source and outrank the spec's prose
+description of the visuals. Run this task before writing any markup.
+
+**Files:** `src/assets/styles/colors.css`, `src/assets/styles/arcade.css`
+
+**Interfaces:**
+- Produces: CSS classes `.orbit-page`, `.orbit-page-title`, `.orbit-field-label`, `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active`, `.orbit-stat`, `.orbit-stat__label`, `.orbit-stat__value`, `.orbit-trio`, `.orbit-trio__btn`, and the token `--ctl-h-xl`. Every later task consumes these by name.
+
+- [ ] **Step 1: Run the `impeccable` skill** in `craft` mode against the three new surfaces (stat strip, tab bar, control trio), with the two mockups as the design source. ⚠️ It will report `NO_PRODUCT_MD` and offer an `init` interview — **skip that**; this workspace deliberately keeps no `PRODUCT.md`/`DESIGN.md` (decided 2026-07-29). The design source is the mockups plus the committed tokens in `colors.css`/`arcade.css`.
+
+- [ ] **Step 2: Add the control token.** In `colors.css`, beside `--ctl-h-lg`:
+
+```css
+  --ctl-h-xl: 3.5rem; /* 56px — the /orbit control trio (RUN / STOP / TURN OFF).
+     ⚠️ Deliberately has NO mobile step-up, matching --ctl-h-lg. Only --ctl-h-sm and --ctl-h-md step
+     up below lg. The trio stacks full-width on phones, so it takes its touch target from width. */
+```
+
+- [ ] **Step 3: Add the page scale** to `arcade.css`, scoped under `.orbit-page` so the panel values shipped in `66e4df3` are untouched:
+
+```css
+  /* The /orbit page runs one size class above the panel: it is 1000px wide, not 380px.
+     ⚠️ The 11px section title is NOT a reversal of the 2026-08-05 9px ruling. That ruling's stated
+     principle is the RATIO to what a title introduces, not an absolute floor — and here the controls
+     are 48px and the stat values 32px, so 11px/ink-dim ranks LOWER than 9px did in the panel. */
+  .orbit-page .orbit-page-title {
+    font-family: var(--font-display, 'Press Start 2P', system-ui, sans-serif);
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+
+  .orbit-page .orbit-section-title { font-size: 11px; }
+  .orbit-page .dialog-copy { font-size: 20px; }
+
+  .orbit-page .orbit-field-label {
+    display: block;
+    font-family: var(--font-display, 'Press Start 2P', system-ui, sans-serif);
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-dim);
+  }
+```
+
+- [ ] **Step 4: Add the stat, tab and trio classes.** The strip scrolls on narrow widths; follow `specs/standardize-scrollbars.md` for the scrollbar treatment rather than inventing one:
+
+```css
+  .orbit-tabs {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .orbit-tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    height: var(--ctl-h-lg);
+    font-family: var(--font-display, 'Press Start 2P', system-ui, sans-serif);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--color-ink-dim);
+    border-bottom: 2px solid transparent;
+  }
+  /* The seam: the active tab joins its panel by losing the border between them. This is the one cue
+     that makes the strip read as tabs rather than as a row of buttons — do not remove it. */
+  .orbit-tab--active {
+    color: var(--color-ink);
+    border-bottom-color: transparent;
+    background-color: color-mix(in oklab, var(--color-orbit) 8%, var(--color-void-deep));
+  }
+  .orbit-trio__btn { height: var(--ctl-h-xl); }
+```
+
+- [ ] **Step 5: Verify.** `yarn lint` — clean. `yarn build` — clean. Nothing renders differently yet (no consumer); that is expected.
+
+- [ ] **Step 6: Commit.**
+
+```bash
+git add src/assets/styles/colors.css src/assets/styles/arcade.css
+git commit -m "Add the /orbit page type scale and the 56px control token."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Task 2: `OrbitStatStrip.vue`
+
+**Files:** Create `src/components/orbit/OrbitStatStrip.vue`
+
+**Interfaces:**
+- Consumes: `.orbit-stat*` from Task 1.
+- Produces: `<OrbitStatStrip :holds="number" :per-round="number | null" :wallet="number | null" :token-label="string" />`. Purely presentational — no `useOrbit` import.
+
+- [ ] **Step 1: Write the component.** Three cells, violet frame, 32px VT323 values, 9px ink-mute captions. `perRound` and `wallet` are nullable because there is not always a game to divide by or a connected wallet balance to read — render `—`, never a fabricated `0`.
+
+```vue
+<script setup lang="ts">
+  defineProps<{
+    holds: number;
+    perRound: number | null;
+    wallet: number | null;
+    tokenLabel: string;
+  }>();
+</script>
+```
+
+- [ ] **Step 2: Mount it temporarily** at the top of `OrbitPage.vue`'s signed-in block, above the existing step list, wired to `orbit.balance`, `activeGameType?.requiredAmount`, `balance` and `orbit.tokenLabel`.
+
+- [ ] **Step 3: Verify in the browser.** Dev server from the worktree on a **verified-free** port (⚠️ another worktree commonly holds 8081; a collision fails quietly and you test the wrong build — confirm by grepping the served bundle for `OrbitStatStrip`). Check: values match the old `OrbitStatusBanner` below it; `—` renders when no game is selected.
+
+- [ ] **Step 4: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 5: Commit.**
+
+```bash
+git add src/components/orbit/OrbitStatStrip.vue src/pages/OrbitPage.vue
+git commit -m "Add the Orbit stat strip."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Task 3: `OrbitTabBar.vue`
+
+**Files:** Create `src/components/orbit/OrbitTabBar.vue`
+
+**Interfaces:**
+- Consumes: `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active` from Task 1.
+- Produces: `<OrbitTabBar :tabs="OrbitTabDef[]" :active="string" @select="(id: string) => void" />` where `export interface OrbitTabDef { id: string; label: string; index: number }`. Generic — it must not import `useOrbit` or know any Orbit concept.
+
+- [ ] **Step 1: Write the component** with real tab semantics, not styled buttons:
+
+```vue
+<script setup lang="ts">
+  export interface OrbitTabDef {
+    id: string;
+    label: string;
+    index: number;
+  }
+
+  defineProps<{ tabs: OrbitTabDef[]; active: string }>();
+  defineEmits<{ (event: 'select', id: string): void }>();
+</script>
+```
+
+Markup requirements: the container is `role="tablist"`; each control is `role="tab"` with
+`:aria-selected`, `:aria-controls` pointing at the panel id, and `:tabindex="isActive ? 0 : -1"`
+(roving tabindex — a tablist takes **one** tab stop, then Left/Right moves between tabs).
+
+- [ ] **Step 2: Add Left/Right arrow-key handling** that moves the active tab and focuses the newly active control. Without it the roving tabindex in Step 1 traps keyboard users on one tab.
+
+- [ ] **Step 3: Scroll the active tab into view on change** so a phone never leaves the active tab off-screen:
+
+```ts
+  watch(
+    () => props.active,
+    async (id) => {
+      await nextTick();
+      document
+        .getElementById(`orbit-tab-${id}`)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  );
+```
+
+⚠️ `behavior: 'smooth'` is deliberately omitted — `usePerfMode` forces `light-graphics` below `lg`,
+which is exactly where this fires.
+
+- [ ] **Step 4: Verify in the browser.** Mount it temporarily above the step list with the five tab defs. Check at 1280px and at **360px**: the strip scrolls, Left/Right moves the active tab, Tab enters the strip once, the active tab scrolls into view.
+
+- [ ] **Step 5: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 6: Commit.**
+
+```bash
+git add src/components/orbit/OrbitTabBar.vue src/pages/OrbitPage.vue
+git commit -m "Add the Orbit tab bar."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Task 4: `OrbitControlBar.vue`
+
+**Files:** Create `src/components/orbit/OrbitControlBar.vue`
+
+**Interfaces:**
+- Consumes: `.orbit-trio*`, `--ctl-h-xl` from Task 1.
+- Produces: `<OrbitControlBar :status="OrbitStatus" :busy="boolean" :locked-label="string | null" @run @stop @turn-off />` where `OrbitStatus` is the union already exported by the `orbitStatus` computed in `useOrbit.ts:774`. **It performs no mutation** — the page shell owns the actions.
+
+- [ ] **Step 1: Write the state mapping.** This is the whole point of the component and it must cover **all seven** values (spec §5.2). `current` means the state you are already in: filled, but not activatable.
+
+```ts
+  type TrioState = 'primary' | 'enabled' | 'current' | 'disabled';
+  type OrbitStatus =
+    | 'signed-out' | 'off' | 'cooling-off' | 'stopped' | 'unfunded' | 'paused' | 'running';
+
+  const props = defineProps<{
+    status: OrbitStatus;
+    busy: boolean;
+    lockedLabel: string | null;
+  }>();
+
+  const run = computed((): { state: TrioState; label: string; note: string } => {
+    switch (props.status) {
+      case 'off':
+        return { state: 'primary', label: 'RUN ORBIT', note: 'Start automated mode' };
+      case 'stopped':
+        return { state: 'enabled', label: 'RESUME', note: 'Start automated mode' };
+      case 'running':
+        return { state: 'current', label: 'RUNNING', note: 'Automated mode is on' };
+      case 'unfunded':
+      case 'paused':
+        return { state: 'disabled', label: 'RUN ORBIT', note: 'Add money first' };
+      case 'cooling-off':
+        return { state: 'disabled', label: 'RUN ORBIT', note: props.lockedLabel ?? 'Cooling off' };
+      default:
+        return { state: 'disabled', label: 'RUN ORBIT', note: '' };
+    }
+  });
+
+  const stop = computed((): { state: TrioState; label: string; note: string } => {
+    switch (props.status) {
+      case 'running':
+        return { state: 'enabled', label: 'STOP ORBIT', note: 'Pause automated mode' };
+      case 'stopped':
+        return { state: 'current', label: 'STOPPED', note: 'Automated mode is paused' };
+      default:
+        return { state: 'disabled', label: 'STOP ORBIT', note: 'Pause automated mode' };
+    }
+  });
+
+  // ⚠️ Enabled in unfunded AND paused on purpose: a player can hold a balance in an Orbit that never
+  // ran, and turning off is how they get it back. Disabled in `off` (nothing to leave) and in
+  // `cooling-off` (already off).
+  const turnOff = computed((): { state: TrioState; label: string; note: string } => {
+    switch (props.status) {
+      case 'running':
+      case 'stopped':
+      case 'unfunded':
+      case 'paused':
+        return { state: 'enabled', label: 'TURN ORBIT OFF', note: 'Cash out and leave' };
+      default:
+        return { state: 'disabled', label: 'TURN ORBIT OFF', note: 'Cash out and leave' };
+    }
+  });
+```
+
+- [ ] **Step 2: Render the three buttons.** `signed-out` renders **nothing** (`v-if="status !== 'signed-out'"`) — the page shows the sign-in pitch instead. A `current` button must be `:disabled="false"` but **not activatable**: give it `aria-disabled="true"`, no `@click`, and an accessible name that states the condition (`Orbit is running`) so a screen reader is not told to press it. `TURN ORBIT OFF` renders as an **outline** control — it forces a cash-out and starts the cool-off, and must not carry the same visual pull as the reversible pause beside it. `busy` disables all three.
+
+- [ ] **Step 3: Stack on mobile.** Below `sm` the trio is full-width and stacked, **keeping the order run → stop → off** so the destructive control stays last.
+
+- [ ] **Step 4: Verify in the browser.** Mount temporarily below the card. Walk the states you can reach without money: `signed-out` (nothing renders), `off` (RUN primary, other two disabled), `cooling-off` (all disabled, locked label shown). The funded states are covered by the Task 12 manual pass.
+
+- [ ] **Step 5: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 6: Commit.**
+
+```bash
+git add src/components/orbit/OrbitControlBar.vue src/pages/OrbitPage.vue
+git commit -m "Add the Orbit control trio."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Task 5: Extract the five tab bodies (behaviour-preserving)
+
+**Goal of this task: change nothing a player can see.** It is a pure move, so a reviewer can check
+"identical behaviour" here and judge the visuals separately in Tasks 7–11.
+
+**Files:** Create the five `src/components/orbit/tabs/*.vue`; modify `src/pages/OrbitPage.vue`
+
+**Interfaces:**
+- Consumes: nothing from Tasks 1–4.
+- Produces: five components, each self-contained. Each imports `useOrbit()` **itself** rather than receiving twenty props — the composable is module-level singleton state, so this adds no fetching and no duplicated requests. Each emits `(event: 'notice', text: string)` for the page-level band.
+
+- [ ] **Step 1: `OrbitGameTab.vue`** — move the step-1 body plus `onToggleAutoPick`, the word save/clear handlers and the game-type selection. Reuse `OrbitWordField.vue` **unmodified**.
+
+- [ ] **Step 2: `OrbitMoneyTab.vue`** — move the step-2 deposit body plus `canDeposit` and `onDeposit`, **and** the separate cash-out section plus its handler. This is the one task that merges two existing surfaces (spec D5). Reuse `OrbitAmountField.vue` **unmodified** for both.
+
+- [ ] **Step 3: `OrbitStopRulesTab.vue`** — move the step-3 body plus `onSaveThreshold`, `onSaveFloor` and their clear paths, including the `thresholdError`/`floorError` refs and the minimum-value messages.
+
+- [ ] **Step 4: `OrbitRecoverTab.vue`** — move the recover section plus `recoverySignature` and `onRecover`.
+
+- [ ] **Step 5: `OrbitTelegramTab.vue`** — move the step-4 body plus `telegramLink`, `onStartTelegramLink`, `onVerifyTelegram`, `onUnlinkTelegram` and the three notify toggles.
+
+- [ ] **Step 6: Render them from the still-existing step rows.** `OrbitPage.vue` keeps its `OrbitStepRow` list for now; each row's default slot becomes `<OrbitGameTab />` etc. The page's script sheds the moved handlers.
+
+- [ ] **Step 7: Verify in the browser — the important check.** Every action still works and looks the same: deposit, cash out, save/clear both rules, recover, link/unlink Telegram, toggle auto-pick. Nothing moved position.
+
+- [ ] **Step 8: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 9: Commit.**
+
+```bash
+git add src/components/orbit/tabs src/pages/OrbitPage.vue
+git commit -m "Extract the Orbit page's five sections into components."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Task 6: Swap the step list for tabs
+
+**Files:** Modify `src/pages/OrbitPage.vue`; **delete** `src/components/orbit/OrbitStepRow.vue`
+
+**Interfaces:**
+- Consumes: `OrbitTabBar` (Task 3), `OrbitStatStrip` (Task 2), `OrbitControlBar` (Task 4), the five tabs (Task 5).
+- Produces: the final shell. Later tasks only touch tab internals.
+
+- [ ] **Step 1: Replace the step list** with `<OrbitTabBar>` + a single `role="tabpanel"` region rendering the active tab. Tab defs:
+
+```ts
+  const TABS = [
+    { id: 'game', label: 'GAME', index: 1 },
+    { id: 'money', label: 'MONEY', index: 2 },
+    { id: 'stop-rules', label: 'STOP RULES', index: 3 },
+    { id: 'recover', label: 'RECOVER', index: 4 },
+    { id: 'telegram', label: 'TELEGRAM', index: 5 },
+  ];
+```
+
+- [ ] **Step 2: Default tab.** `game`, except open on `money` when `needsFirstDeposit` or `isPausedForFunds` is true — this preserves what the step list did by un-collapsing step 2. Compute the initial value **once on mount**; do not `watch` it, or the page yanks the player back to `money` mid-edit every time the balance changes.
+
+- [ ] **Step 3: Wire the trio's three actions in the shell.** `run` → `updateSettings(wallet, { enabled: true })` from `off`, or `{ stopped: false }` from `stopped`. `stop` → `{ stopped: true }` (moves no money, needs no signature). `turn-off` → move the existing `onTurnOff` (`OrbitPage.vue:615`) **verbatim**.
+
+⚠️ **Keep `onTurnOff`'s ordering exactly as it is.** It reads the balance *before* the patch:
+
+```ts
+    const cashedOut = orbit.value?.balance ?? 0;
+    const label = orbit.value?.tokenLabel ?? '';
+    await updateSettings(wallet.value, { enabled: false });
+```
+
+By the time the patch returns the balance is already `0`, so reading it afterwards reports "there was
+no balance to cash out" to a player whose money was just sent — the toast would contradict their
+wallet. `updateSettings` owns the signing, including the mobile-deeplink hop; do not add a signature
+here.
+
+- [ ] **Step 4: Move the notice/error band above the tab bar**, inside the card, and have it consume each tab's `notice` emit. A deposit error rendered *inside* `money` vanishes the moment the player opens `stop-rules`.
+
+- [ ] **Step 5: Place the stat strip and the trio** per spec §5.1 — strip above the notice band inside the card; trio outside and below; bet log below the trio. Remove `OrbitStatusBanner` from the page (it stays the modal's).
+
+- [ ] **Step 6: Delete `OrbitStepRow.vue`** and confirm no imports remain:
+
+```bash
+grep -rn "OrbitStepRow" src/ || echo "no references"
+```
+
+- [ ] **Step 7: Verify in the browser.** All five tabs reachable; every action still works; the page opens on `money` when unfunded; the bet log still loads only when shown.
+
+- [ ] **Step 8: Verify.** `yarn lint` + `yarn build` — clean.
+
+- [ ] **Step 9: Commit.**
+
+```bash
+git add -A src/pages/OrbitPage.vue src/components/orbit
+git commit -m "Replace the Orbit page's step list with tabs."
+git push origin feature/orbit-new-ui
+```
+
+---
+
+## Tasks 7–11: Restyle each tab to the page scale
+
+Each task is the same shape, one tab at a time, so a reviewer can reject one tab's design without
+blocking the rest. For **each**: apply `.orbit-section-title` for the block heading,
+`.orbit-field-label` for field labels, `.dialog-copy` for helper text, `--ctl-h-lg` for field
+heights, and the `ⓘ` affordance beside labels that need explanation (per the mockups). Helper text
+sits **under** its field. Keep copy from the spec, not the mockups.
+
+⚠️ **`OrbitWordField` and `OrbitAmountField` are shared with the modal — wrap them, never edit them.**
+If a field needs a different size on the page, achieve it with the `.orbit-page` scope, not by
+touching the component.
+
+- [ ] **Task 7 — `① GAME`.** Word field, auto-pick opt-in, game mode select. Section title `GAME SETUP`. Verify: preset types show the picker, free-text types show letter cells; saving a word turns auto-pick off and vice versa. Lint + build. Commit `"Restyle the Orbit game tab."` Push.
+- [ ] **Task 8 — `② MONEY`.** Add money and cash out, side by side above `lg`, stacked below. Cash out stays an **outline** control, never amber. Verify: MAX fills the full balance; amounts below `MinimumCashOut` are refused inline. Lint + build. Commit `"Restyle the Orbit money tab."` Push.
+- [ ] **Task 9 — `③ STOP RULES`.** Threshold above, floor below — ⚠️ **rule order is fixed everywhere** (rise on top, balance between, fall underneath; `orbit-ui-overhaul.md` §3.1). An **off** rule is drawn, never hidden. Verify: saving and clearing each rule independently. Lint + build. Commit `"Restyle the Orbit stop rules tab."` Push.
+- [ ] **Task 10 — `④ RECOVER`.** Signature + amount + confirm, with a line explaining what this is for — it is the one tab a player arrives at confused. Verify: an arbitrary whole amount is accepted. Lint + build. Commit `"Restyle the Orbit recover tab."` Push.
+- [ ] **Task 11 — `⑤ TELEGRAM`.** Link/verify/unlink and the three toggles. Verify: defaults are cash-out **on**, zero-out **on**, any-win **off**. Lint + build. Commit `"Restyle the Orbit telegram tab."` Push.
+
+---
+
+## Task 12: Screenshot-compare + the seven-state manual pass
+
+⚠️ Required by `conventions/frontend.md` — *"Screenshot-compare the running surface against the mockup
+at desktop and phone widths before hand-off. Looking at it is the step that catches what tests never
+will."*
+
+**Files:** none (verification only)
+
+- [ ] **Step 1: Bring up the stack.** Backend on `:6001`. ⚠️ After a pull the front dev server self-recompiles but the backend image does **not** — rebuild with `docker compose up -d --build --no-deps api consumers`. If `database`/`redis` exited, use `docker start` (it preserves the 5433/6380 host remap); never `compose up`, which reverts it.
+- [ ] **Step 2: Screenshot `/orbit` at 1280px** and compare against mockup 2 — tab strip, stat strip, trio placement, type ranking.
+- [ ] **Step 3: Screenshot `/orbit` at 360px** — strip scrolls, active tab in view, trio stacked full-width in run/stop/off order.
+- [ ] **Step 4: Walk all seven states** (spec §11), using the free-bets operator via `POST /dev/launch-token` + `#launch_token=`:
+  1. Signed out → pitch, no tabs, no trio.
+  2. `off` → RUN primary; STOP and TURN OFF disabled.
+  3. `unfunded` → opens on `② MONEY`; RUN disabled reading `Add money first`; **TURN OFF enabled**.
+  4. Deposit → `running`; RUN filled and inert; STOP and TURN OFF live.
+  5. STOP → `stopped`; STOP inert, RUN reads `Resume`. Confirm balance intact, **no** cool-off, **no** forced cash-out.
+  6. Balance below the stake → `paused`; RUN disabled, TURN OFF live.
+  7. TURN OFF → forced cash-out, then `cooling-off`; all three disabled with `enableLockedLabel` shown.
+- [ ] **Step 5: Cross-tab notice check.** Raise a deposit error in `② MONEY`, switch to `③ STOP RULES` — the notice is still visible.
+- [ ] **Step 6: Confirm the modal is unchanged.** Open Orbit on `/game/play` and compare against `66e4df3`.
+
+---
+
+## Task 13: Verify and hand off
+
+- [ ] **Step 1:** `yarn lint` + `yarn build` — clean.
+- [ ] **Step 2: Prove the shared components were not touched** (spec AC12):
+
+```bash
+git diff --stat 66e4df3 -- \
+  src/components/orbit/OrbitStatusBanner.vue \
+  src/components/orbit/OrbitAmountField.vue \
+  src/components/orbit/OrbitWordField.vue \
+  src/components/orbit/OrbitModal.vue
+# expected: no output
+```
+
+- [ ] **Step 3: Prove the backend is untouched** (spec AC17): in the backend worktree, `git diff --stat 33e396e` → no output.
+- [ ] **Step 4: Check the size targets** (spec AC14): `wc -l src/pages/OrbitPage.vue` < 350; no new file over 300.
+- [ ] **Step 5:** Push, then build the compare link from `monkify-front`'s **own** `origin` (the three repos have different owners).
+- [ ] **Step 6:** ⚠️ **Do not merge to `main` before `feature/orbit-ui-overhaul` lands** (spec AC18) — this branch's ancestry contains #141 **and** #150, so merging first drags both in.
+
+---
+
+## Self-review
+
+**Spec coverage.** §4 type scale → Task 1. §5.1 structure → Tasks 2, 6. §5.2 seven states → Task 4
+(mapping) + Task 12 (walk). §5.3 tabs → Tasks 5–11; default-tab rule → Task 6 Step 2. §5.4 mobile →
+Task 3 Steps 3–4, Task 4 Step 3, Task 12 Step 3. §5.5 errors → Task 6 Step 4, Task 12 Step 5. §7 file
+checklist → File Structure. AC12 → Task 13 Step 2. AC17 → Task 13 Step 3. AC14 → Task 13 Step 4. AC18
+→ Task 13 Step 6. `conventions/frontend.md` design workflow → Task 1 Step 1 + Task 12.
+
+**Gap found and closed:** the first draft had no task for the `conventions/frontend.md` design
+workflow (mockups → `impeccable` → screenshot-compare), which is **required** for any new visual
+surface. It is now Task 1 Step 1 and Task 12.
+
+**Type consistency.** `OrbitStatus` in Task 4 matches the union at `useOrbit.ts:774` exactly.
+`OrbitTabDef` (Task 3) matches the `TABS` literal (Task 6 Step 1) — `id`, `label`, `index`. Tab ids
+`game`/`money`/`stop-rules`/`recover`/`telegram` are used identically in Tasks 6–11. `TrioState`
+values (`primary`/`enabled`/`current`/`disabled`) are used consistently across all three computeds.
+
+**Placeholder scan.** No TBD/TODO. Every code step carries real code; every verification step names
+the command and the expected result.
