@@ -145,7 +145,42 @@ description of the visuals. Run this task before writing any markup.
     background-color: color-mix(in oklab, var(--color-orbit) 8%, var(--color-void-deep));
   }
   .orbit-trio__btn { height: var(--ctl-h-xl); }
+
+  .orbit-stat__label {
+    display: block;
+    font-family: var(--font-display, 'Press Start 2P', system-ui, sans-serif);
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-mute);
+  }
+
+  /* ⚠️ The ~3.5x step from the 9px label to the 32px value is deliberate. This strip is the one place
+     on the page where a NUMBER is the loudest thing, and that is exactly what lets the 11px section
+     titles below it stay quiet without the page losing its ranking. `tabular-nums` is load-bearing:
+     these are money figures that update live, and without it the digits jitter sideways on every
+     refresh. */
+  .orbit-stat__value {
+    font-family: var(--font-body, 'VT323', ui-monospace, monospace);
+    font-size: 32px;
+    line-height: 1;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* One cell. Layout only — the strip's violet frame belongs to the container the component renders,
+     never to each cell, or three borders stack into a table. */
+  .orbit-stat { /* layout only */ }
+
+  /* The trio's row: three across at `sm` and up; below `sm` it stacks and each control goes full
+     width, KEEPING the run -> stop -> off order so the destructive control stays last. Button height
+     is `.orbit-trio__btn` above, never set here. */
+  .orbit-trio { /* three across at sm+, stacked below */ }
 ```
+
+⚠️ **These four are part of Task 1's deliverable, not Task 2's or Task 4's.** Every `.orbit-*` class
+in this codebase lives in `arcade.css` — including `.orbit-step*`, which are a *component's* own
+classes (`arcade.css:722`). Do not put them in a component `<style>` block.
 
 - [ ] **Step 5: Verify.** `yarn lint` — clean. `yarn build` — clean. Nothing renders differently yet (no consumer); that is expected.
 
