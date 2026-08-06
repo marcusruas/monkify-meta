@@ -361,6 +361,29 @@ this branch at `33e396e` (834 passed, 0 failed, via `scripts/run_tests.bat`, whi
 
 ---
 
+### 10.1 Verification status at implementation end (2026-08-06)
+
+Implemented over 16 commits, `66e4df3..97cfb3f`. Final whole-branch review found **no money-path
+defect**: the seven-state table, `onTurnOff`'s read-before-patch ordering, the auto-pick mutual
+exclusion and every handler moved in Tasks 5–6 were each verified behaviourally identical.
+
+| AC | Status |
+| --- | --- |
+| 1–13, 15–16, 19 | ✅ verified statically (code read + `yarn lint` + `yarn build` clean) |
+| **14** (size targets) | ❌ **missed, knowingly.** `OrbitPage.vue` 554 vs <350; `OrbitGameTab` 366 and `OrbitStopRulesTab` 338 vs <300. Review judged this **cosmetic, not tangling** — ~180 of the page's lines are comments and it holds no tab-specific state or handlers, so D8's extraction did happen. Extracting the 58-line signed-out pitch would clear it; deliberately not done, since restructuring to hit a number is not the point of the target. |
+| **17** (backend zero diff) | ✅ `git diff --stat 33e396e` empty |
+| **18** (merge order) | ⚠️ **OPEN — hard gate.** `feature/orbit-ui-overhaul` and `feature/orbit-feedback-adjustments` are **both still unmerged** (each 29 ahead of `origin/main`), and both are in this branch's ancestry: 30 of this branch's 46 commits ahead of `main` are theirs. Merging this first silently ships both. |
+
+⚠️ **No browser verification was performed.** Every wallet-gated state (`off`, `cooling-off`,
+`stopped`, `unfunded`, `paused`, `running`) needs a wallet sign-in whose extension approval popup
+automation cannot drive. §11 is therefore **outstanding in full** and is the owner's pass.
+
+**Known follow-ups, deliberately not fixed** (each needs a product decision): the auto-pick toggle
+gives no success message where the modal's does; and in `cooling-off` the MONEY and GAME tabs show
+disabled fields without stating why, now that `enableLockedLabel` renders only on the trio.
+
+---
+
 ## 11. Manual QA (local Docker stack)
 
 Backend on `:6001`, front dev server from the worktree on a **verified-free** port (another
