@@ -346,7 +346,7 @@ git push origin feature/orbit-new-ui
 
 ## Task 4: `OrbitControlBar.vue`
 
-**Files:** Create `src/components/orbit/OrbitControlBar.vue`
+**Files:** Create `src/components/orbit/OrbitControlBar.vue`; modify `src/types/orbit.ts`, `src/hooks/useOrbit.ts` and `src/pages/OrbitPage.vue`
 
 **Interfaces:**
 - Consumes: `.orbit-trio*`, `--ctl-h-xl` from Task 1.
@@ -354,10 +354,32 @@ git push origin feature/orbit-new-ui
 
 - [ ] **Step 1: Write the state mapping.** This is the whole point of the component and it must cover **all seven** values (spec §5.2). `current` means the state you are already in: filled, but not activatable.
 
+⚠️ **First, make `OrbitStatus` a single source of truth.** Today the union exists **only inline** as the
+type argument of the `orbitStatus` computed (`useOrbit.ts:773`), so declaring it again in this
+component would leave two copies that drift silently the first time a state is added or renamed —
+TypeScript would not catch it, because each file would be internally consistent. Add it to
+`src/types/orbit.ts` and have **both** `useOrbit.ts` and this component import it:
+
 ```ts
+/** What Orbit is doing right now. Order matters where it is computed, not here. */
+export type OrbitStatus =
+  | 'signed-out'
+  | 'off'
+  | 'cooling-off'
+  | 'stopped'
+  | 'unfunded'
+  | 'paused'
+  | 'running';
+```
+
+Then in `useOrbit.ts`, `computed<OrbitStatus>(...)` replaces the inline union. That is a **type-only**
+change — no new state, no behaviour change, and the existing ordering comments stay exactly as they
+are.
+
+```ts
+  import type { OrbitStatus } from '@/types/orbit';
+
   type TrioState = 'primary' | 'enabled' | 'current' | 'disabled';
-  type OrbitStatus =
-    | 'signed-out' | 'off' | 'cooling-off' | 'stopped' | 'unfunded' | 'paused' | 'running';
 
   const props = defineProps<{
     status: OrbitStatus;
