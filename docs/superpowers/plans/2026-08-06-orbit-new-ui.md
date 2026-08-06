@@ -263,21 +263,32 @@ git push origin feature/orbit-new-ui
 
 ## Task 3: `OrbitTabBar.vue`
 
-**Files:** Create `src/components/orbit/OrbitTabBar.vue`
+**Files:** Create `src/components/orbit/OrbitTabBar.vue`; modify `src/types/orbit.ts`
 
 **Interfaces:**
-- Consumes: `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active` from Task 1.
-- Produces: `<OrbitTabBar :tabs="OrbitTabDef[]" :active="string" @select="(id: string) => void" />` where `export interface OrbitTabDef { id: string; label: string; index: number }`. Generic — it must not import `useOrbit` or know any Orbit concept.
+- Consumes: `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active` from Task 1 — all scoped under `.orbit-page`, which `OrbitPage.vue`'s outer wrapper already carries as of Task 2.
+- Produces: `OrbitTabDef` in `src/types/orbit.ts`, and `<OrbitTabBar :tabs="OrbitTabDef[]" :active="string" @select="(id: string) => void" />`. Generic — it must not import `useOrbit` or know any Orbit concept.
 
-- [ ] **Step 1: Write the component** with real tab semantics, not styled buttons:
+- [ ] **Step 1: Add the type to `src/types/orbit.ts`** (not to the component):
+
+```ts
+/** One tab on the /orbit page. `index` is the pip number shown in the strip, 1-based. */
+export interface OrbitTabDef {
+  id: string;
+  label: string;
+  index: number;
+}
+```
+
+⚠️ **The type cannot live in the component.** Vue's `<script setup>` compiles to a setup function and
+**cannot contain ES module exports** — `export interface` inside it does not compile. No SFC in this
+codebase does it, and shared types already live in `src/types/`.
+
+- [ ] **Step 2: Write the component** with real tab semantics, not styled buttons:
 
 ```vue
 <script setup lang="ts">
-  export interface OrbitTabDef {
-    id: string;
-    label: string;
-    index: number;
-  }
+  import type { OrbitTabDef } from '@/types/orbit';
 
   defineProps<{ tabs: OrbitTabDef[]; active: string }>();
   defineEmits<{ (event: 'select', id: string): void }>();
@@ -288,9 +299,9 @@ Markup requirements: the container is `role="tablist"`; each control is `role="t
 `:aria-selected`, `:aria-controls` pointing at the panel id, and `:tabindex="isActive ? 0 : -1"`
 (roving tabindex — a tablist takes **one** tab stop, then Left/Right moves between tabs).
 
-- [ ] **Step 2: Add Left/Right arrow-key handling** that moves the active tab and focuses the newly active control. Without it the roving tabindex in Step 1 traps keyboard users on one tab.
+- [ ] **Step 3: Add Left/Right arrow-key handling** that moves the active tab and focuses the newly active control. Without it the roving tabindex in Step 2 traps keyboard users on one tab.
 
-- [ ] **Step 3: Scroll the active tab into view on change** so a phone never leaves the active tab off-screen:
+- [ ] **Step 4: Scroll the active tab into view on change** so a phone never leaves the active tab off-screen:
 
 ```ts
   watch(
@@ -307,14 +318,14 @@ Markup requirements: the container is `role="tablist"`; each control is `role="t
 ⚠️ `behavior: 'smooth'` is deliberately omitted — `usePerfMode` forces `light-graphics` below `lg`,
 which is exactly where this fires.
 
-- [ ] **Step 4: Do NOT mount it in this task.** The tab bar's only honest position is above the tab panels, and those do not exist until Task 5 — a temporary mount here would be scaffolding that Task 6 deletes. Its keyboard and scroll behaviour is verified in **Task 6 Step 7**, where it is wired for real. Verify here only that it compiles and lints clean.
+- [ ] **Step 5: Do NOT mount it in this task.** The tab bar's only honest position is above the tab panels, and those do not exist until Task 5 — a temporary mount here would be scaffolding that Task 6 deletes. Its keyboard and scroll behaviour is verified in **Task 6 Step 7**, where it is wired for real. Verify here only that it compiles and lints clean.
 
-- [ ] **Step 5: Verify.** `yarn lint` + `yarn build` — clean.
+- [ ] **Step 6: Verify.** `yarn lint` + `yarn build` — clean.
 
-- [ ] **Step 6: Commit.**
+- [ ] **Step 7: Commit.**
 
 ```bash
-git add src/components/orbit/OrbitTabBar.vue
+git add src/components/orbit/OrbitTabBar.vue src/types/orbit.ts
 git commit -m "Add the Orbit tab bar."
 git push origin feature/orbit-new-ui
 ```
