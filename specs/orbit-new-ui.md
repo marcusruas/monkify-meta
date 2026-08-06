@@ -103,7 +103,7 @@ From `../constraints.md`, `../conventions/frontend.md` and `AGENTS.md`:
   identity and the active tab, red = warning, amber = primary action buttons only. The trio in §5.2
   is the one place green and red appear as **button fills**, and §5.2 states why that does not
   reopen the salad.
-- **Cyan is not spent.** The focus ring stays the single cyan element.
+- **Cyan is not spent** — but ⚠️ **on this page the focus ring is VIOLET, not cyan.** "Cyan is the focus ring" is the app-wide default; Orbit surfaces already override it. `arcade.css:1032-1038` repaints `outline-color: var(--color-orbit)` for `.input-arcade:focus`, `.btn-arcade:focus-visible` and `.btn-dialog:focus-visible` under `.arcade-frame--orbit`/`.dialog--orbit`, set by commit `f7716c7` ("put Orbit's focus ring in violet"). **Every new focusable control this card adds joins that exception**, or the page ends up with one stray cyan ring among violet ones. Cyan stays unspent *elsewhere* and remains Beast Mode's archetype accent.
 - **`constraints.md` §6 survives the copy pass verbatim in effect.** A forged session, an unknown
   nonce and a missing session stay indistinguishable.
 - **Secrets/config:** mock/placeholder values only.

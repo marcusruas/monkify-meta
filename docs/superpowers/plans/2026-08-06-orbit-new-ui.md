@@ -29,7 +29,8 @@ session, 2026-08-06, from two owner mockups).
 - **Every control height comes from `--ctl-h-*`**, never padding, never a literal.
 - **Do not stack Tailwind utilities on an arcade class.** Use it as-is, use plain Tailwind for a differently-shaped control, or add a modifier in `arcade.css`.
 - **Dither, never blur.** No `backdrop-filter`, no `blur()`, no infinite animation, no wide glow — `usePerfMode` forces `html.light-graphics` below `lg`.
-- **Colour has one job each:** green = running/OK, violet = identity + active tab, red = warning, amber = primary action buttons only. Inside the card, a running fully-configured Orbit shows **no amber and no red**; every in-card value is plain ink. Cyan stays the focus ring only.
+- **Colour has one job each:** green = running/OK, violet = identity + active tab, red = warning, amber = primary action buttons only. Inside the card, a running fully-configured Orbit shows **no amber and no red**; every in-card value is plain ink.
+- ⚠️ **The focus ring on this page is VIOLET, not cyan.** "Cyan is the focus ring" is the app-wide default that Orbit surfaces deliberately override — `arcade.css:1032-1038`, commit `f7716c7`. Every new focusable control this card adds joins that violet exception block; do not write a cyan ring anywhere on `/orbit`.
 - **Everything stays behind `orbitEnabled`** (`VUE_APP_ORBIT_ENABLED`, fail-closed `=== 'true'`).
 - ⚠️ **Lint needs uniform CRLF.** `core.autocrlf=true`; never `sed -i` these files (it rewrites to LF and prettier then fails with `Insert ␍` and nothing else). Verify with `od -c` if lint complains about invisible characters.
 - ⚠️ **Copy the hub's `yarn.lock` into the worktree** before `yarn install` — it is gitignored, and without it the build resolves different prettier/eslint versions than the hub and lint disagrees.
@@ -263,7 +264,18 @@ git push origin feature/orbit-new-ui
 
 ## Task 3: `OrbitTabBar.vue`
 
-**Files:** Create `src/components/orbit/OrbitTabBar.vue`; modify `src/types/orbit.ts`
+**Files:** Create `src/components/orbit/OrbitTabBar.vue`; modify `src/types/orbit.ts` and `src/assets/styles/arcade.css`
+
+⚠️ **`arcade.css` is in scope here.** Task 1 gave `.orbit-tab` its type and colour but not its box, so
+this task adds the layout (`display`, `align-items`, `gap`, `cursor`, `white-space`, horizontal
+padding with its `md` step) to `.orbit-page .orbit-tab`. It does **not** go in the template: stacking
+Tailwind utilities on an arcade class is forbidden by the global constraints.
+
+⚠️ **The focus ring on this page is VIOLET, not cyan.** "Cyan is the focus ring" is the app-wide
+default, and Orbit surfaces deliberately override it — `arcade.css:1032-1038` already repaints it for
+`.arcade-frame--orbit`/`.dialog--orbit`, set by commit `f7716c7` ("put Orbit's focus ring in violet").
+Add `.orbit-page .orbit-tab:focus-visible` to that existing block rather than writing a separate
+rule, so the exception stays in one place.
 
 **Interfaces:**
 - Consumes: `.orbit-tabs`, `.orbit-tab`, `.orbit-tab--active` from Task 1 — all scoped under `.orbit-page`, which `OrbitPage.vue`'s outer wrapper already carries as of Task 2.
