@@ -298,9 +298,10 @@ has no bets, so an empty round never reads as a dead game. Runs a pass immediate
 every 6 hours. A local operator tool — it is never deployed anywhere, and it is unrelated to the
 Terraform stack above.
 
-It is a pure client of endpoints that already ship (`/launch-token/default`, `/games/active-types`,
-`/games/{id}`, `/solana/balance`, `/rpc`, `/games/{id}/bets`) and changes nothing in the backend or
-the frontend. Spec: [`specs/auto-bet-seeder.md`](../specs/auto-bet-seeder.md).
+It is a pure client of endpoints that already ship (`/games/active-types`, `/games/{id}`,
+`/solana/balance`, `/rpc`, `/games/{id}/bets`) and changes nothing in the backend or the frontend.
+All of them are **public** — the seeder sends no auth header at all, because `remove-operators`
+deleted the launch token. Spec: [`specs/auto-bet-seeder.md`](../specs/auto-bet-seeder.md).
 
 ### Configure
 

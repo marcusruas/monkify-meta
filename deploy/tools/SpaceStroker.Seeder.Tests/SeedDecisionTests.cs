@@ -5,7 +5,7 @@ namespace SpaceStroker.Seeder.Tests;
 
 public class SeedDecisionTests
 {
-    private static GameTypeDto Type(decimal stake = 1m, int paymentMethod = 1)
+    private static GameTypeDto Type(decimal stake = 1m)
         => new(
             GameTypeId: Guid.NewGuid(),
             Name: "Cosmic Sprint",
@@ -14,7 +14,6 @@ public class SeedDecisionTests
             ChoiceRequiredLength: 6,
             AcceptDuplicatedCharacters: true,
             GameCharacterType: 2,
-            PaymentMethod: paymentMethod,
             PresetChoices: new List<string>(),
             TokenMintAddress: "mint",
             TokenDecimals: 6,
@@ -92,15 +91,6 @@ public class SeedDecisionTests
     }
 
     [Fact]
-    public void Skips_a_non_solana_game_type()
-    {
-        var verdict = SeedDecision.Evaluate("Cosmic Sprint", Type(paymentMethod: 0), Game(), 5m);
-
-        verdict.ShouldSeed.ShouldBeFalse();
-        verdict.Reason.ShouldContain("SolanaToken");
-    }
-
-    [Fact]
     public void Skips_when_the_balance_is_below_the_stake()
     {
         var verdict = SeedDecision.Evaluate("Cosmic Sprint", Type(stake: 2m), Game(), balance: 1.5m);
@@ -125,6 +115,11 @@ public class SeedDecisionTests
         verdict.Reason.ShouldContain("balance");
     }
 
+    /// <summary>
+    /// Since `remove-operators` there is no paymentMethod to gate on — every type is crypto — so a
+    /// COMPLETE token block is the only signal that a type takes a paid on-chain bet. That makes
+    /// this the check that stands in for the old "is it a SolanaToken game?" branch.
+    /// </summary>
     [Theory]
     [InlineData(null, 6, "receiver")]
     [InlineData("mint", null, "receiver")]

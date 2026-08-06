@@ -34,14 +34,13 @@ One **seeding pass** does this, per target game, sequentially:
 
 | Step | Action | Skip / stop condition |
 | --- | --- | --- |
-| 1 | Mint a launch token (`POST /launch-token/default`) | mint fails ⇒ abort the pass |
-| 2 | Resolve the game type **by name** (`GET /games/active-types`) | name absent, or not `SolanaToken` ⇒ skip game |
-| 3 | Read the current round (`GET /games/{gameTypeId}`) | no active round; status ∉ {`WaitingBets`, `GameStarting`}; **≥ 1 bet already** ⇒ skip game |
-| 4 | Read the wallet's token balance (`GET /solana/balance`) | balance < `RequiredAmount` ⇒ skip game |
-| 5 | Pick a valid choice | preset list empty for a preset game ⇒ skip game |
-| 6 | Build + sign + send the SPL `transferChecked` (via `POST /rpc`) | send fails ⇒ skip game (no signature exists ⇒ safe) |
-| 7 | Confirm the signature (`getSignatureStatuses` poll) | **never re-sends** — poll only |
-| 8 | Re-read the current round, then `POST /games/{gameId}/bets` | no round accepting bets ⇒ log the **orphan signature** at error |
+| 1 | Resolve the game type **by name** (`GET /games/active-types`, no auth) | catalogue unreadable ⇒ abort the pass; name absent, or an incomplete token block ⇒ skip game |
+| 2 | Read the current round (`GET /games/{gameTypeId}`) | no active round; status ∉ {`WaitingBets`, `GameStarting`}; **≥ 1 bet already** ⇒ skip game |
+| 3 | Read the wallet's token balance (`GET /solana/balance`) | balance < `RequiredAmount` ⇒ skip game |
+| 4 | Pick a valid choice | preset list empty for a preset game ⇒ skip game |
+| 5 | Build + sign + send the SPL `transferChecked` (via `POST /rpc`) | send fails ⇒ skip game (no signature exists ⇒ safe) |
+| 6 | Confirm the signature (`getSignatureStatuses` poll) | **never re-sends** — poll only |
+| 7 | Re-read the current round, then `POST /games/{gameId}/bets` | no round accepting bets ⇒ log the **orphan signature** at error |
 
 The pass runs **immediately on start**, then every **6 hours**, until the process is stopped.
 
@@ -92,7 +91,7 @@ card did not reach; each states why.
 | 4 | **One bet per empty round.** Never two; the round is not made to start. |
 | 5 | **Self-limiting:** the app's own prior bet makes the round non-empty, so no stacking. No state file. |
 | 6 | **Cadence:** long-running process, pass on start then every 6h. Reboot stops seeding until restarted — accepted. |
-| 7 | **Auth = launch token only** (`POST /launch-token/default`). No admin token, no operator signing key. |
+| 7 | ~~**Auth = launch token only** (`POST /launch-token/default`). No admin token, no operator signing key.~~ **Superseded 2026-08-05** — `remove-operators` deleted `LaunchController` and the `X-Launch-Token` gate. **Auth = none**: every route the seeder calls is public and identity is the wallet on the bet body. The "no admin token, no signing key" half still binds. |
 | 8 | **Chain = the API's `POST /rpc` proxy**, using only `getLatestBlockhash`, `sendTransaction`, `getSignatureStatuses`. **The allow-list is not widened.** |
 | 9 | **Balance = `GET /solana/balance`** (cached ~10s). The `/balance/live` route is **not** used — a 6-hourly pre-flight has no staleness problem and that route carries the tightest rate rule (20/min). |
 | 10 | **Key storage = unversioned `deploy/secrets.seeder.json`**, template `deploy/secrets.seeder.example.json`. |
@@ -101,7 +100,7 @@ card did not reach; each states why.
 | 13 | **Retry is phase-aware.** Free retries before the transfer; **once a signature exists it is never re-sent** — poll `getSignatureStatuses`, then POST with that same signature. |
 | 14 | **Choices:** Cosmic Sprint → a random 6-character lowercase-letter sequence; Beast Mode → a random entry from the type's `presetChoices` as returned by the API. |
 | 15 | **Spec decision — a confirmed stake is always spent if it can be.** After confirmation the app re-reads the round; if the round **rolled over**, it POSTs into whichever round is **currently accepting bets**, even if that round is no longer empty. Rationale: the payment signature is not bound to a `gameId`, so refusing to bet would strand tokens the wallet has already lost for no gain. Emptiness gates **whether we pay**, not **where an already-paid stake lands**. Only when *no* round is accepting does the app log the orphan signature. |
-| 16 | **Spec decision — the launch token is re-minted every pass.** `LaunchTokens.MainTokenTtlSeconds` is **3600** (1 hour) and the interval is 6 hours, so a cached token is always expired by the next pass. Minting is one unauthenticated call; there is no refresh flow to build. |
+| 16 | ~~**Spec decision — the launch token is re-minted every pass.**~~ **Void 2026-08-05** — there is no launch token any more (see decision 7). A pass now opens straight on `GET /games/active-types`. |
 | 17 | **Spec decision — no ATA creation instruction.** Both token accounts are associated token accounts that must already exist: the destination is the operator's, which receives every player's bet, and the source is the seeder wallet's, which must already hold the token to bet at all. Solnet 6.1.0 has no *idempotent* ATA-create instruction, and creating a non-idempotent one would fail on an existing account. The app derives both ATAs locally (pure PDA maths, **zero RPC**) and sends a single `TransferChecked`. A missing source ATA surfaces as a zero balance at step 4 and skips the game. |
 | 18 | **Spec decision — provably-fair fields.** `Seed` is generated as `HMAC-SHA256(clientSeed, nonce)` hex (exactly 64 chars, matching the `[MaxLength(64)]` contract) from a random 32-byte client seed created **once per process**, with `Nonce` incrementing per bet. This mirrors the shipped Stake-style client-seed model (`features/provably-fair.md`) rather than sending an arbitrary random string. The client seed is not persisted — verification of a seeded bet is possible within a process run, which is all this tool needs. |
 
@@ -223,19 +222,19 @@ its stack trace, and the loop proceeds to the next wait.
 
 Per pass, once:
 
-1. **Mint a launch token** — `POST /launch-token/default`, no auth, no body.
-   Response is **bare** `{ "token": "..." }` — `LaunchController` extends `ControllerBase`, not
-   `BaseController`, so this response is **not** wrapped in `ApiResult`. A failure here aborts the
-   whole pass (nothing else can be read without it).
-2. **Resolve both game types** — `GET /games/active-types` with `X-Launch-Token`.
-   Response **is** wrapped: `{ "data": [ GameParametersDto, … ], "messages": [] }`.
-   Match `name` **case-insensitively** against the two constants. For each match, require
-   `paymentMethod == 1` (`SolanaToken`) and non-null `tokenMintAddress`, `tokenDecimals`,
-   `tokenReceiverPublicKey`; otherwise log and skip that game.
+1. **Resolve both game types** — `GET /games/active-types`, **no auth header**.
+   Response **is** wrapped: `{ "data": [ GameParametersDto, … ], "messages": [] }`. A failure here
+   aborts the whole pass (nothing else can be resolved without it).
+   Match `name` **case-insensitively** against the two constants. For each match, require non-null
+   `tokenMintAddress`, `tokenDecimals`, `tokenReceiverPublicKey`; otherwise log and skip that game.
+
+   > ⚠️ **There is no `paymentMethod` to check.** `remove-operators` dropped the column and the DTO
+   > field — every game type is a crypto type now. A complete token block is what marks a type as
+   > payable. Gating on `paymentMethod` deserializes the absent field to `0` and skips every game.
 
 Then, per target game, independently — **a failure on the first game must not skip the second**:
 
-3. **Read the current round** — `GET /games/{gameTypeId}` with `X-Launch-Token`.
+2. **Read the current round** — `GET /games/{gameTypeId}`, no auth header.
    Response wrapped: `{ "data": ActiveGameDto, "messages": [] }`; `data` is `null` with a **404** when
    there is no active round. Skip the game when:
    - `data` is null (no active round), or
@@ -244,7 +243,7 @@ Then, per target game, independently — **a failure on the first game must not 
 
    Each skip is logged with its reason and the observed status.
 4. **Pre-flight the balance** — `GET /solana/balance?wallet={pubkey}&mint={tokenMintAddress}`.
-   No launch token (the route is outside `ProtectedPrefixes`). **Send no `Origin` header** — a
+   No auth header (nothing in the app reads one any more). **Send no `Origin` header** — a
    console app has none, and `OriginAllowList.IsAllowed` returns `true` for an absent Origin. Response
    wrapped: `{ "data": { wallet, mint, uiAmount, rawAmount, decimals }, "messages": [] }`.
    If `uiAmount < requiredAmount`, log the shortfall and skip — **no transfer is attempted**.
@@ -310,7 +309,7 @@ Uses **Solnet 6.1.0** (`Solnet.Rpc`, `Solnet.Wallet`, `Solnet.Programs` — the 
 > with a string `method` and 400s on anything else. Solnet's per-method calls are all single
 > requests; do **not** use any batching API.
 
-**Rate budget.** One pass costs at most: 1 `/launch-token/default` + 1 `/games/active-types` +
+**Rate budget.** One pass costs at most: 1 `/games/active-types` +
 2 `/games/{id}` (+2 re-reads) + 2 `/solana/balance` + 2 `getLatestBlockhash` + 2 `sendTransaction` +
 ~180 `getSignatureStatuses` + 2 `POST /bets`. Against `*:/rpc` 240/min, `*:/solana/*` 120/min and
 Cloud Armor's 600/60s per IP, a once-per-6h pass is far inside every bucket.
@@ -322,7 +321,7 @@ Cloud Armor's 600/60s per IP, a once-per-6h pass is far inside every bucket.
      than the one seen at step 3 and even if it now has bets;
    - no round is accepting → **do not** POST. Log at **error**: the payment signature, the seeder
      wallet, the game name and the amount, so the stranded stake can be reconciled by hand.
-2. `POST /games/{gameId}/bets` with `X-Launch-Token` and body `RegisterBetRequestBody`:
+2. `POST /games/{gameId}/bets` (no auth header) with body `RegisterBetRequestBody`:
 
    | Field | Value |
    | --- | --- |
@@ -364,7 +363,7 @@ Retrying the bet POST is safe: a reused signature is rejected by `RegisterBetHan
 Console only (`stdout`), one line per event, timestamped `yyyy-MM-dd HH:mm:ss`. No log file, no
 telemetry, no external calls. Levels are a prefix (`INFO` / `WARN` / `ERROR`).
 
-**Never logged:** the wallet private key, the launch token, the RPC upstream URL (the app only ever
+**Never logged:** the wallet private key, the RPC upstream URL (the app only ever
 knows `{apiBaseUrl}/rpc`, which carries no key).
 
 These conditions get distinguishable, greppable messages so the log alone diagnoses them:
@@ -397,9 +396,7 @@ sequenceDiagram
     participant CH as Solana mainnet
 
     Note over S: pass starts (on boot, then every 6h)
-    S->>API: POST /launch-token/default
-    API-->>S: { token }
-    S->>API: GET /games/active-types (X-Launch-Token)
+    S->>API: GET /games/active-types (no auth)
     API-->>S: data[] incl. mint, decimals, receiver, stake, presets
 
     loop for each of Cosmic Sprint, Beast Mode
@@ -508,7 +505,7 @@ is pure.
 | | status `InProgress` (3), `Ended` (4), `RewardForWinnersCompleted` | `false`, reason names the status |
 | | active game is `null` (404) | `false`, reason "no active round" |
 | | balance < `requiredAmount` (incl. exact-boundary `balance == stake` ⇒ seed) | `false` below, `true` at equality |
-| | `paymentMethod != SolanaToken` | `false`, reason names the payment method |
+| | an incomplete token block (mint / decimals / receiver missing) | `false`, reason names the token block |
 | | game type not found by name | `false`, reason names the missing type |
 | `ChoicePickerTests` | preset game | result is always a member of `presetChoices`, verbatim |
 | | preset list empty on a preset game | throws / returns a skip result, never fabricates a choice |
@@ -532,6 +529,8 @@ is pure.
 | `BetSeedsTests` | generated seed | exactly 64 chars, lowercase hex |
 | | same client seed + same nonce | identical seed (deterministic) |
 | | same client seed + different nonce | different seed |
+| `ApiContractTests` | the live `/games/active-types` payload parses and is seedable | pins the DTOs to the shape `main` actually returns |
+| `SeedingPassTests` | one discovery pass against a canned handler | never calls `/launch-token/*`, sends no `X-Launch-Token`, reads active-types once then each resolved round |
 
 ---
 
@@ -546,7 +545,7 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (17 items).
 5. Given a target game whose current round is `InProgress`, `Ended`, or any other non-betting status, when a pass runs, then no bet is placed and the skip is logged with the observed status.
 6. Given Beast Mode is the target, when the app picks a choice, then it is one of the `presetChoices` returned by the API; given Cosmic Sprint is the target, then the choice is a randomly generated 6-character lowercase-letter sequence.
 7. Given the app needs chain access, when it builds, sends and confirms the stake transfer, then every JSON-RPC call goes through the API's `POST /rpc` proxy and uses only `getLatestBlockhash`, `sendTransaction` and `getSignatureStatuses` — the allow-list is not widened.
-8. Given the app authenticates, when it calls the launch-token-protected endpoints, then it uses only a token minted by `POST /launch-token/default` and never holds, signs with, or requires the Main operator's signing key or an admin token.
+8. ~~Given the app authenticates, when it calls the launch-token-protected endpoints, then it uses only a token minted by `POST /launch-token/default`~~ **— superseded 2026-08-05: there are no launch-token-protected endpoints any more.** The binding half stands: the app never holds, signs with, or requires the Main operator's signing key or an admin token.
 9. Given the configured bot wallet equals the game type's `tokenReceiverPublicKey` (the operator/treasury wallet), when the app starts, then it fails fast with a clear error and places no bet — because a same-ATA SPL transfer confirms as a no-op and the bet would be rejected as underpaid.
 10. Given the bot wallet's token balance read from `GET /solana/balance` is below the game's `RequiredAmount`, when a pass runs, then the app logs the shortfall, places no bet, and attempts no on-chain transfer.
 11. Given a transient failure occurs BEFORE any transfer signature exists, when the app retries, then it retries a bounded number of times with jitter within the same pass and gives up to the next 6h tick without crashing the process.
@@ -602,4 +601,5 @@ steps for the user.
 
 | Date | Change |
 | --- | --- |
+| 2026-08-05 | **Fix — the seeder had been dead since 2026-07-29.** `remove-operators` (backend `0b28ebc`) deleted `LaunchController`, so `POST /launch-token/default` 404'd and every pass aborted before reading anything; the same commit dropped `PaymentMethod` from `GameParametersDto`, so the `paymentMethod == SolanaToken` gate would have skipped both games even once discovery worked. Both gates removed, `X-Launch-Token` dropped from every request, and the DTO/request shape re-pinned by new `ApiContractTests` + `SeedingPassTests`. |
 | 2026-07-28 | Initial spec from refined card #113, with code exploration against `monkify-backend` `main` (`GameParametersDto`, `LaunchController`, `RpcProxyOptions`, `SolanaController`, `OriginAllowList`, `SolanaService.ValidateBetPayment`, `RegisterBetRequestBody`, `ApiResult<T>`, `IpRateLimiting`). |
