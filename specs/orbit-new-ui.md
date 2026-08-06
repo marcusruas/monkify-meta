@@ -175,6 +175,7 @@ below the section title.
 │ │                                                            │  │
 │ │  active panel — joined to its tab by the seam              │  │
 │ └────────────────────────────────────────────────────────────┘  │
+│   WON 12,40 USDC          BETS 37        ← thin counters strip   │
 └─────────────────────────────────────────────────────────────────┘
 
         ▶ RUN ORBIT        ⏸ STOP ORBIT       ⏻ TURN ORBIT OFF
@@ -187,6 +188,13 @@ The tab bar sits **inside** the card; the active panel is joined to its tab by t
 what makes a tab bar read as tabs rather than as a row of buttons. The trio sits **outside and
 below** — the owner's *"they dictate everything"* — which also keeps the controls from scrolling
 away behind a long Telegram panel.
+
+⚠️ **The counters strip is retained** from `orbit-page-restructure.md` — one thin footer row inside
+the card carrying `totalWonViaOrbit` and `orbitBetsPlaced`, identical at every width. An earlier draft
+of this diagram omitted it, and Task 6 correctly refused to drop it silently: `totalWonViaOrbit` is a
+player's lifetime winnings through Orbit and has **no other surface in the app** — the bet log below
+shows individual rows, never the total. It stays **quiet** — plain ink, small type, no colour — so it
+cannot compete with the stat strip's 32px values. Counters are history; the strip above is state.
 
 **Signed out** the trio does not render at all; the existing sign-in pitch replaces the whole
 tabs-and-controls block, exactly as it replaces the step list today.
