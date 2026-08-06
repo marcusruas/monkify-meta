@@ -168,12 +168,15 @@ Spec: `../specs/orbit-frontend-flag.md`. Trello [#146](https://trello.com/c/zJso
 
 ## Known gaps (shipped knowingly)
 
-- ⚠️ **Mobile deeplink wallets cannot sign in.** The `signMessage` deeplink helpers exist, but the
-  pending-hop stash in `useMobileWallet.ts` is **per purpose**, and Orbit has none. Desktop extensions
-  and wallet in-app browsers work. AC5 is **not met**.
-- ⚠️ **The Orbit UI does not use the arcade design system** — no `press-start-2p` / `vt323` /
+- ~~⚠️ **Mobile deeplink wallets cannot sign in.** The `signMessage` deeplink helpers exist, but the
+  pending-hop stash in `useMobileWallet.ts` is **per purpose**, and Orbit has none. AC5 is **not met**.~~
+  **Closed by [#141](orbit-ui-overhaul.md)** — the stash now carries a three-value Orbit `action`
+  discriminator (`session | cashout | disable`). ⚠️ Verifiable only on a physical phone, and it has not
+  been run on one.
+- ~~⚠️ **The Orbit UI does not use the arcade design system** — no `press-start-2p` / `vt323` /
   `.arcade-panel`. Geometry follows #124's system tier, but it reads as a plain box beside
-  `GameFairModal`.
+  `GameFairModal`.~~ **Closed by [#141](orbit-ui-overhaul.md)** — every Orbit overlay now goes through
+  `ArcadeModal`, and `/orbit` renders on the new `.arcade-frame--orbit` material.
 - ⚠️ **Committed config carries a real throwaway DEVNET keypair**, not `MOCK_ORBIT_*` — a deliberate
   exception to `constraints.md` §1 so the local stack works out of the box. AC31 and the card's
   Config bullet still claim otherwise and are **stale**. Consequence: `IsConfigured` treats
