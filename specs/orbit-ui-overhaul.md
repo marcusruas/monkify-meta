@@ -8,7 +8,11 @@
 > (the console module), §7.8 (mobile deeplink sign-in), §7.9 (the cancellable redirect), and the
 > §3.1 trade-off, which the restructure re-examined and kept.
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-08-06** via `feature/orbit-ui-overhaul` in
+> `monkify-front`, `monkify-backend` (the deposit validator only — AC33 was voided by the restructure)
+> and `monkify-meta`. Distilled in
+> [`../features/orbit-ui-overhaul.md`](../features/orbit-ui-overhaul.md).
+> Refined via Trello card
 > [Orbit UI/UX overhaul (#141)](https://trello.com/c/knC5QbPJ/141-orbit-ui-ux-overhaul) (2026-08-03),
 > container bake-off decided the same day (**Option C**). Written against `monkify-front@993261e` /
 > `monkify-meta@824d1dd`, read on 2026-08-03.

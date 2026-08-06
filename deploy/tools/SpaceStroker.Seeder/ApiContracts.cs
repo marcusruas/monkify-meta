@@ -3,9 +3,8 @@ using System.Text.Json.Serialization;
 namespace SpaceStroker.Seeder;
 
 /// <summary>
-/// The API's standard envelope (SpaceStroker.Results.ApiResult&lt;T&gt;). Every endpoint uses it
-/// EXCEPT POST /launch-token/default, which returns a bare { "token": "..." } because
-/// LaunchController extends ControllerBase rather than BaseController.
+/// The API's standard envelope (SpaceStroker.Results.ApiResult&lt;T&gt;). Every endpoint the seeder
+/// touches uses it.
 /// </summary>
 public sealed record ApiResult<T>(
     [property: JsonPropertyName("data")] T? Data,
@@ -14,10 +13,13 @@ public sealed record ApiResult<T>(
 public sealed record ApiMessage(
     [property: JsonPropertyName("content")] string? Content);
 
-public sealed record LaunchTokenResponse(
-    [property: JsonPropertyName("token")] string? Token);
-
-/// <summary>Mirrors SpaceStroker.Infrastructure.Contracts.Games.GameParametersDto.</summary>
+/// <summary>
+/// Mirrors SpaceStroker.Infrastructure.Contracts.Games.GameParametersDto.
+///
+/// NOTE there is no <c>paymentMethod</c>: `remove-operators` dropped the column and the DTO field,
+/// because every game type is a crypto type now. The token block below is what identifies a payable
+/// type — an absent mint/decimals/receiver, not an enum.
+/// </summary>
 public sealed record GameTypeDto(
     [property: JsonPropertyName("gameTypeId")] Guid GameTypeId,
     [property: JsonPropertyName("name")] string? Name,
@@ -26,7 +28,6 @@ public sealed record GameTypeDto(
     [property: JsonPropertyName("choiceRequiredLength")] int? ChoiceRequiredLength,
     [property: JsonPropertyName("acceptDuplicatedCharacters")] bool AcceptDuplicatedCharacters,
     [property: JsonPropertyName("gameCharacterType")] int GameCharacterType,
-    [property: JsonPropertyName("paymentMethod")] int PaymentMethod,
     [property: JsonPropertyName("presetChoices")] List<string>? PresetChoices,
     [property: JsonPropertyName("tokenMintAddress")] string? TokenMintAddress,
     [property: JsonPropertyName("tokenDecimals")] int? TokenDecimals,
@@ -82,11 +83,4 @@ public static class GameStatus
         9 => "GameEndedAbruptely",
         _ => $"#{status}",
     };
-}
-
-/// <summary>PaymentMethod values (SpaceStroker.Domain.Games.ValueObjects.PaymentMethod).</summary>
-public static class PaymentMethods
-{
-    public const int Standard = 0;
-    public const int SolanaToken = 1;
 }

@@ -298,11 +298,22 @@
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.
 
 - **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
-  balance, funded by fixed on-chain deposits, withdrawable on demand, and **auto-bet once per round**
+  balance, funded by on-chain deposits, withdrawable on demand, and **auto-bet once per round**
   on the game type the player chose. All three cards are done (custody + engine + notifications), so
-  shipped to `main` together as the `release/orbit` train on 2026-08-03. See
-  `features/orbit-custodial-wallet.md`,
-  `features/orbit-auto-bet-engine.md` and `features/orbit-notifications.md`.
+  shipped to `main` together as the `release/orbit` train on 2026-08-03; its player-facing surface was
+  rebuilt by **#141** on 2026-08-06. See `features/orbit-custodial-wallet.md`,
+  `features/orbit-auto-bet-engine.md`, `features/orbit-notifications.md` and
+  `features/orbit-ui-overhaul.md`.
+- **Orbit panel vs the `/orbit` page** — Orbit's two player-facing surfaces, with one job each. The
+  **panel** is the compact `ArcadeModal` for money you move **mid-round**: turn Orbit on for the game
+  you are already in, and add money — plus a status strip and the seam row. The **page** is everything
+  else, as a four-step collapse-to-dashboard list (`Game → Money → Stop rules → Telegram`), and **no
+  control on it opens a modal**. The panel is the short version of the page, never a second copy.
+  ⚠️ The split's accepted cost: the **cash-out floor** is readable but not editable from inside a round.
+- **`.arcade-frame--orbit`** — Orbit's own page material (void-deep fill, 2px violet-deep frame), the
+  **third** panel beside grey and black. It exists because `/orbit` needed the black panel's depth but
+  carries a stop-loss, and black is documented as *never a warning about money* — so Orbit got its own
+  material rather than bending that rule. **Scope is the `/orbit` page only.**
 - **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it and
   what is left goes home. The complement of the "cash out at" threshold, which only ever fires on a
   **win** and so can never catch a balance losing its way down. Evaluated once the round **settles**,
