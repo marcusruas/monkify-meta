@@ -1,5 +1,20 @@
 # Space Stroker — "Auto Bet Seeder" — Implementation Spec
 
+> ⛔ **SUPERSEDED 2026-08-07 by [`specs/house-seed-bet.md`](house-seed-bet.md)** (Trello
+> [#155](https://trello.com/c/34W17kio)). Seeding moved **into `monkify-backend`**: a consumer on
+> `GameOpenedEvent` places one ordinary paid house bet into **every** newly created round, on **all
+> three** game types, in **production only** — where this tool polled every 6 hours, covered 2 of 3
+> types, and only ran while the operator's machine was on.
+>
+> **`SpaceStroker.Seeder` and `SpaceStroker.Seeder.Tests` are deleted**, along with
+> `deploy/secrets.seeder.example.json` and the `deploy/README.md` section. This document is kept as
+> the history of why the tool existed and what it learned — several of its findings carry over
+> **verbatim** into the replacement: the treasury-wallet same-ATA no-op (§6.1), the phase-aware retry
+> rule that a transfer is never re-sent once a signature exists (§6.7), and the greppable operator log
+> shapes (§6.8). Read it for that context, not as a description of anything that still runs.
+>
+> ---
+>
 > **Status: Shipped** — merged to `main` on **2026-07-28** from `feature/auto-bet-seeder`
 > (`monkify-meta` only). Refined via Trello card
 > [#113 Setup a console app to automatically add 1 bet in beast mode & cosmit sprint](https://trello.com/c/AhRfdxga)
