@@ -11,10 +11,18 @@
 > backend validator), §5.2's state derivations, and the rule that **no control on the page opens a
 > modal**.
 
-> **Status: Ready for implementation** — designed in a brainstorming session on 2026-08-04 against the
-> **uncommitted** `feature/orbit-ui-overhaul` working tree (`monkify-front@993261e` + working changes,
+> **Status: Shipped** — merged to `main` on **2026-08-06** via `feature/orbit-ui-overhaul` in
+> `monkify-front`, `monkify-backend` and `monkify-meta`. Distilled in
+> [`../features/orbit-ui-overhaul.md`](../features/orbit-ui-overhaul.md); Trello #141
+> ([knC5QbPJ](https://trello.com/c/knC5QbPJ)).
+> Designed in a brainstorming session on 2026-08-04 against the **uncommitted**
+> `feature/orbit-ui-overhaul` working tree (`monkify-front@993261e` + working changes,
 > `monkify-meta@c6fc8bb`). Repos affected: **`monkify-front`**, **`monkify-backend`**, and this doc in
 > **`monkify-meta`**.
+>
+> ⚠️ **Post-ship note — the page shipped with FOUR steps, not five.** §1.1's "five-step list" is the
+> only place that number survives; §3 R2, §5.1 and the implementation all say
+> `Game → Money → Stop rules → Telegram`, with sign-in a precondition rather than a step. Read R2.
 >
 > **Purpose:** [`orbit-ui-overhaul.md`](orbit-ui-overhaul.md) shipped a working but text-heavy `/orbit`
 > page: three bands of prose, deposits and cash-outs still behind a modal opened *from* the page, no

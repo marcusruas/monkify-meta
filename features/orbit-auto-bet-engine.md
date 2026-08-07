@@ -33,10 +33,16 @@ are finally written.
 
 - Every eligible enrolled player bets **every round — no cap**. Filling only the gap to
   `MinimumNumberOfPlayers` was rejected: it silently skips rounds a player enrolled to play.
-- Eligible means: enrolment `Enabled`, `GameParametersId` matches the round's type, **not**
-  self-excluded, and the pool balance covers `RequiredAmount`. A player who **already has a bet in
-  the round** is excluded — Orbit gets no exemption from the one-bet-per-round rules, so dispatching
-  them would produce a guaranteed refusal.
+- Eligible means: enrolment `Enabled` **and not `Stopped`**, `GameParametersId` matches the round's
+  type, **not** self-excluded, and the pool balance covers `RequiredAmount`. A player who **already has
+  a bet in the round** is excluded — Orbit gets no exemption from the one-bet-per-round rules, so
+  dispatching them would produce a guaranteed refusal.
+  > ⚠️ **`Stopped` added 2026-08-06** ([#150](orbit-feedback-adjustments.md)). It is a state **separate
+  > from `Enabled`** and skips the planner and **nothing else** — the balance stays, the reserved word
+  > stays claimed, deposits, cash-outs and notifications keep working, and resuming is instant. It
+  > takes effect from the **next planning pass**: a placement already dispatched behind an armed start
+  > gate must still land or decrement, or the round waits on a bet that never comes. The automatic
+  > out-of-funds state keeps the name **"paused"**; the deliberate one is **STOPPED**.
 - Lottery types are excluded outright regardless of `AllowOrbit`: a 24h draw would lock an
   auto-bettor's funds for a day, and a start gate is meaningless for a scheduled draw.
 

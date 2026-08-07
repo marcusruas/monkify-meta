@@ -32,6 +32,14 @@ they can withdraw it to their own wallet on demand. This card is the money found
   `CashOutReversal` at `+X`; rows are never edited or deleted to correct money.
 - The **ledger is authoritative**. When the materialized column disagrees, the ledger wins, the column
   is corrected and an `Error` is logged — failing closed would freeze real funds over one bad row.
+  > ⚠️ **The self-healing read itself was a money bug until 2026-08-06**
+  > ([#150](orbit-feedback-adjustments.md)). `ResolveBalance` summed the ledger and read the column in
+  > **two separate statements**; every writer commits both in one transaction, so the pair is never
+  > genuinely inconsistent — but under READ COMMITTED the two reads take **separate snapshots** and
+  > could straddle a commit, seeing a debit in one and not the other. The routine then "corrected" the
+  > column to a mid-flight total, the real update landed on top, and the player was left **short by
+  > exactly one stake**. Both reads now share a **REPEATABLE READ** snapshot, and the correction is
+  > **guarded on the column still holding the value that was read**. Do not re-split those reads.
 
 **Authorization**
 
@@ -83,9 +91,14 @@ they can withdraw it to their own wallet on demand. This card is the money found
 - Consumers executes it, claiming the row with `SET Executing WHERE Status = Pending` — a conditional
   update, so at-least-once bus delivery cannot pay twice. A failure appends a `CashOutReversal` and
   restores the balance.
-- One manual cash-out per UTC day, and a configured minimum. **Threshold and forced cash-outs are
-  exempt from both** — a limit must never trap a player's funds. (#123 added a fifth source,
-  **`Floor`**, exempt for the same reason.)
+- A **rolling 1h gap** between manual cash-outs, and a configured minimum. **Threshold and forced
+  cash-outs are exempt from both** — a limit must never trap a player's funds. (#123 added a fifth
+  source, **`Floor`**, exempt for the same reason.)
+  > ⚠️ **Superseded the one-per-UTC-day cap on 2026-08-06** ([#150](orbit-feedback-adjustments.md)).
+  > `ReEnableLockHours` went 24 → 1 in the same change — the re-enable lock existed *only* to stop
+  > off/on/off walking around the daily cap. A manual cash-out is also now a **partial** amount
+  > (floored at `MinimumCashOut`, ceiling the ledger balance); exempt sources still take the **whole**
+  > balance.
 - The hourly sweep re-drives a stuck `Pending` row but **never** an `Executing` one: that row may have
   a transfer in flight, so it is escalated to a human instead.
 - ⚠️ **Extended by [#123](orbit-notifications.md):** every completed cash-out — all five sources —
@@ -103,9 +116,14 @@ they can withdraw it to their own wallet on demand. This card is the money found
   exclusion resumes in one tap. Re-enabling is refused while it is active.
 - ⚠️ **Superseded by [#122](orbit-auto-bet-engine.md):** the enable toggle no longer just persists a
   preference — the engine reads it, and three further rules now hang off it. A deposit is **refused
-  while Orbit is off** and while the **disable cool-off** runs (both named refusals, both deferrals
-  the client replays); turning Orbit off force-cashes-out and starts that cool-off; and the toggle now
-  **prompts for a game type**, saving type and flag in one patch instead of sitting greyed out.
+  while Orbit is off** (a named refusal, a deferral the client replays); turning Orbit off
+  force-cashes-out and starts a cool-off; and the toggle now **prompts for a game type**, saving type
+  and flag in one patch instead of sitting greyed out.
+  > ⚠️ **Amended 2026-08-06** ([#150](orbit-feedback-adjustments.md)): a deposit **is** accepted during
+  > the **disable cool-off**. Enable-first still refuses everyone else, so the cool-off is now a
+  > **named exception** to it, not a deleted check — deleting the cool-off refusal alone was a no-op,
+  > because disabling clears `Enabled` *before* writing the row the cool-off keys on, so enable-first
+  > refused the same deposit one line later with a different message.
 
 **Frontend**
 
@@ -168,12 +186,15 @@ Spec: `../specs/orbit-frontend-flag.md`. Trello [#146](https://trello.com/c/zJso
 
 ## Known gaps (shipped knowingly)
 
-- ⚠️ **Mobile deeplink wallets cannot sign in.** The `signMessage` deeplink helpers exist, but the
-  pending-hop stash in `useMobileWallet.ts` is **per purpose**, and Orbit has none. Desktop extensions
-  and wallet in-app browsers work. AC5 is **not met**.
-- ⚠️ **The Orbit UI does not use the arcade design system** — no `press-start-2p` / `vt323` /
+- ~~⚠️ **Mobile deeplink wallets cannot sign in.** The `signMessage` deeplink helpers exist, but the
+  pending-hop stash in `useMobileWallet.ts` is **per purpose**, and Orbit has none. AC5 is **not met**.~~
+  **Closed by [#141](orbit-ui-overhaul.md)** — the stash now carries a three-value Orbit `action`
+  discriminator (`session | cashout | disable`). ⚠️ Verifiable only on a physical phone, and it has not
+  been run on one.
+- ~~⚠️ **The Orbit UI does not use the arcade design system** — no `press-start-2p` / `vt323` /
   `.arcade-panel`. Geometry follows #124's system tier, but it reads as a plain box beside
-  `GameFairModal`.
+  `GameFairModal`.~~ **Closed by [#141](orbit-ui-overhaul.md)** — every Orbit overlay now goes through
+  `ArcadeModal`, and `/orbit` renders on the new `.arcade-frame--orbit` material.
 - ⚠️ **Committed config carries a real throwaway DEVNET keypair**, not `MOCK_ORBIT_*` — a deliberate
   exception to `constraints.md` §1 so the local stack works out of the box. AC31 and the card's
   Config bullet still claim otherwise and are **stale**. Consequence: `IsConfigured` treats

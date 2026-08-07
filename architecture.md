@@ -304,9 +304,16 @@ The first place the platform holds player money rather than passing it straight 
 - Two new Hangfire jobs join the schedule (§7): an **hourly** cash-out sweep that re-drives stuck
   `Pending` rows and never touches `Executing` ones, and a **6-hourly** reconciliation that compares
   each player's ledger to their column and each pool's total to its on-chain balance, logging only.
-- Eight **public** `/orbit/*` endpoints (five here, plus the three Telegram routes #123 added),
-  authorized by a stateless HMAC session for reads and a
+- Nine **public** `/orbit/*` endpoints (five here, the three Telegram routes #123 added, and
+  `GET /orbit/history` from #150), authorized by a stateless HMAC session for reads and a
   fresh purpose-scoped wallet signature for anything that moves money.
+- ⚠️ **The ledger's self-healing read takes one `REPEATABLE READ` snapshot** for both the ledger sum
+  and the materialized column, and its correction is guarded on the column still holding the value it
+  read. Two independent `READ COMMITTED` reads could straddle a commit and heal the column to a
+  mid-flight total — see `features/orbit-feedback-adjustments.md`.
+- **`OrbitChoiceClaim`** (unique `(GameParametersId, Choice)`) reserves an Orbit player's fixed word
+  across rounds. ⚠️ It is read from `RegisterBetHandler` on **every free-text bet** — the money path —
+  so it must stay a cheap indexed read.
 
 ## 8c. The Orbit auto-bet engine
 

@@ -1,8 +1,27 @@
 # Space Stroker — "Orbit feedback adjustments" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [#150 Orbit feedback adjustments](https://trello.com/c/fiKfaawz) (2026-08-05).
-> Repos affected: **`monkify-backend`**, **`monkify-front`**, and this doc in **`monkify-meta`**.
+> **Status: Shipped** — merged to `main` on **2026-08-06** via `feature/orbit-feedback-adjustments` in
+> `monkify-backend`, `monkify-front` and `monkify-meta`, immediately after #141. Distilled in
+> [`../features/orbit-feedback-adjustments.md`](../features/orbit-feedback-adjustments.md).
+> Refined via Trello card [#150 Orbit feedback adjustments](https://trello.com/c/fiKfaawz)
+> (2026-08-05). Repos affected: **`monkify-backend`**, **`monkify-front`**, and this doc in
+> **`monkify-meta`**.
+>
+> ⚠️ **Three post-ship corrections — the code wins over this document:**
+> 1. **The endpoint is `GET /orbit/history`, not `/orbit/bets`** (§6.4, §10.1). `RateLimitSettingsTests`
+>    guards the money bet path with a blunt `/bets` substring check; the route moved rather than
+>    weakening that guard for a read-only page.
+> 2. **§7.5's `useGame.bet()` pre-pay guard was NOT built.** It requires an "is this word reserved?"
+>    lookup, which *is* the Orbit-membership probe the #118 invisibility rule forbids. Protection is the
+>    backend refusal plus the automatic refund.
+> 3. **§6.8's deposit change is a named exception to enable-first, not a deleted cool-off check.**
+>    Disabling clears `Enabled` *before* writing the row the cool-off keys on, so removing the cool-off
+>    refusal alone was a no-op — enable-first refused the same deposit one check later.
+>
+> ⚠️ Implementation also fixed a **pre-existing** money bug this card's zero-out evaluation exposed:
+> `OrbitLedgerService.ResolveBalance` read the ledger sum and the materialized column in two separate
+> `READ COMMITTED` statements, so a self-heal could write a mid-flight total and leave a player short
+> by exactly one stake. Both reads now share a `REPEATABLE READ` snapshot with a guarded correction.
 >
 > **Purpose:** Orbit shipped as three cards (#121 custody, #122 auto-bet engine, #123 notifications)
 > and came back from live testing with six pieces of feedback sharing one theme: **the player has too
