@@ -149,6 +149,7 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 | `GameParametersCreatedEvent` | `CreateGameTypeHandler` | `GameParametersCreatedConsumer` | Opens the first game for a newly created game type (idempotent). |
 | `GameTypeDeactivatedEvent` | `DeactivateGameTypeHandler` | `GameTypeDeactivatedConsumer` | Cancels `WaitingBets` games of a deactivated type (refunds paid bets, skips free). |
 | `BetNotificationEvent` | `GameService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
+| `GameOpenedEvent` (ids only) | `GameService.CreateGame` (all four creation paths), `UpdateOrbitSettingsHandler` | `OrbitPlacementPlannerConsumer` **and** `HouseSeedBetConsumer` — **separate receive endpoints**, so a slow house placement never delays Orbit planning for the same round | Orbit decides who auto-bets (§8c). The house seeder places **one ordinary paid bet** into the round, **production only** (§8e, `features/house-seed-bet.md`). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,
 > not the API.
@@ -374,6 +375,41 @@ What spends the custody above: the house bets on an enrolled player's behalf, on
   a hosted service that only starts **at** `app.Run()` — so on a cold boot the first rounds opened
   with their `GameOpenedEvent` publish failing, and Orbit never planned them. Silent on every warm
   boot; it only bites a fresh volume or a brand-new environment's first start.
+
+## 8e. The house seed bet
+
+> Shipped on `main` 2026-08-07 — see `features/house-seed-bet.md`. Replaces `SpaceStroker.Seeder`,
+> the manual 6-hourly console app, which is deleted.
+
+Every newly created round opens with **one paid bet already on it**, from a dedicated house wallet, on
+all three game types — **production only**.
+
+- **It is an ORDINARY bet, and that is the architecture.** No marker, no column, no migration, no
+  payment-validation bypass, no payout redirect, no branch anywhere. It works because the house wallet
+  is **both the transfer's sender and the bet's own `Wallet`**, so `ValidateBetPayment` — which matches
+  the sender on `bet.GetWalletAddress()` and the recipient on `token.TokenOwnerPublicKey` — passes
+  untouched. Contrast §8c: Orbit's *custody account* signs for a **different** player's wallet, which
+  is the entire reason `Bet.FundedByOrbit` exists. ⚠️ **That flag must never be set here** — it would
+  discard a validation that genuinely passes and route a win into player custody.
+- **The gate is in the consumer; every decision is in the service.** `HouseSeedBetConsumer` does the
+  hard `IsProduction()` check and nothing else, so `IHouseSeedBetService` stays drivable by the
+  Testcontainers harness, which pins every host to `Development` across a shared fixture. There is
+  **no config enable-flag** — turning seeding off is a code change and a deploy.
+- **One consumer, its own endpoint, one bet.** It shares `GameOpenedEvent` with the Orbit planner but
+  never its endpoint, because it sleeps out a randomised placement delay. The delay is clamped strictly
+  inside `MinimumWaitPeriodForBets`, so it costs no start latency, and the round is re-checked for
+  `GameAcceptingBets` **before** signing. Idempotent on "a bet from the house player already exists on
+  this round", so a redelivered event cannot spend a second stake.
+- **It counts as a distinct player**, via `BetPlacedConsumer`'s existing distinct-`PlayerId` count — so
+  a **single real player is now enough to start a round**. Nothing in the start logic changed.
+- **The choice is derived, not picked** — `OrbitChoiceGenerator.DeriveChoice` over the committed
+  `ServerSeed`, so nothing is chosen after the commitment. Free-text candidates must clear both an
+  existing bet and an `OrbitChoiceClaim`.
+- ⚠️ **Two hard refusals, both fail-closed:** a house wallet equal to the treasury (a same-ATA transfer
+  is an on-chain no-op — the shipped production incident) or to the Orbit account (player custody
+  money) disables seeding with a `Fatal` log **without aborting the host**; and a game type with
+  `MinimumNumberOfPlayers < 2` is never seeded, because the typer keystream mixes in every bet's seed
+  and the house must not be able to run a round where it controls every input.
 
 ## 9. The game mechanic (the "Typer")
 

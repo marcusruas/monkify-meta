@@ -1,6 +1,26 @@
 # SpaceStroker — "House Seed Bet" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> ✅ **Status: SHIPPED** — merged to `main` on **2026-08-07** from `feature/house-seed-bet`
+> (`monkify-backend` + `monkify-meta`; `monkify-front` untouched, zero files). Distilled summary:
+> [`features/house-seed-bet.md`](../features/house-seed-bet.md).
+>
+> Verified before the merge, on the branch **after `origin/main` was merged into it** (the
+> `orbit-new-ui` train had landed meanwhile and changed `ISolanaService`'s signature):
+> **901 unit / 116 integration, all green.** 48 unit tests and 6 integration tests added; no existing
+> test changed.
+>
+> ⚠️ **Not yet running in production.** The gate is `IsProduction()`, and the house wallet must first
+> be created, funded with the game token **and** SOL, verified as neither the treasury nor the Orbit
+> account, and its keypair placed in Secret Manager (`constraints.md` §5 keeps agents off production).
+> Until then the resolver reports "not configured" and seeding is inert.
+>
+> Two §3 decisions were implemented as written and are worth knowing: the treasury/Orbit collision
+> **disables seeding and logs `Fatal` without aborting the host** (decision 16), and a game type with
+> `MinimumNumberOfPlayers < 2` is **refused outright** (AC 21).
+>
+> ---
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [#155 Auto-place a house bet on every newly created round (all 3 game types)](https://trello.com/c/34W17kio)
 > (2026-08-07).
 > Repos affected: **`monkify-backend`** (the feature) and **`monkify-meta`** (this spec, the KB, and
