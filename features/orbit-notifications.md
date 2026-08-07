@@ -100,6 +100,9 @@ running stack could surface.
   `ForcedOnSelfExclusion`. The two `Forced*` values did not exist when the umbrella said "manual and
   threshold", and a forced cash-out is precisely the movement the player did not initiate and most
   needs to see land.
+  > ⚠️ **`ForcedOnDisable` has no writer since 2026-08-07**
+  > ([orbit-single-control](orbit-single-control.md)) — disabling no longer cashes out, so that
+  > source can no longer fire. The rule stands for the sources that remain (incl. `Floor`).
 - Sent from `OrbitCashOutConsumer` **once the row reaches `Completed`** with an on-chain signature.
   **A failed or reversed transfer sends nothing** — an ops event the player cannot act on, with the
   balance already restored.
