@@ -34,20 +34,21 @@ must not change that.
 ```
 ┌─ .arcade-frame--orbit (void-deep fill, 2px violet-deep border) ────────────┐
 │  ⟡ AUTO-PLAY                        ← .eyebrow--orbit + <OrbitMark />     │
-│  + ORBIT +                          ← HomeSection's standard h2           │
+│  + PUT YOUR MONEY IN ORBIT +        ← HomeSection's standard h2           │
 │                                                                            │
-│  Orbit is an optional auto-player. Pick a game, pick your word, and it     │
-│  presses the button for you round after round — it changes who plays,      │
-│  not the odds.                                                             │
+│  Stop pressing the button. Park a stack, pick your word, and Orbit apes    │
+│  in for you every single round — while you sleep, while the app is shut.   │
+│  It changes who plays, not the odds.                                       │
 │                                                                            │
-│  01                    02                    03                            │
+│  ───────────────────  ───────────────────   ───────────────────           │
 │  IT PLAYS WHILE        YOU SET WHEN          YOU CAN OWN                   │
 │  YOU'RE GONE           IT STOPS              A WORD                        │
-│  One bet a round on    Bank a winning run,   On the type-it-yourself       │
-│  the game you picked,  or set a floor that   games, the word you pick      │
-│  whether or not this   sends what's left     is claimed while Orbit is     │
-│  app is open.          back before it's      running — nobody else can     │
-│                        gone.                 bet it.                       │
+│  One bet, every        Bank a hot run at     On the type-it-yourself       │
+│  round, on the game    your number, or drop  games, the word you pick      │
+│  you picked — app      a floor that yanks    is locked to you while        │
+│  open, app shut,       what's left out       Orbit is running — nobody     │
+│  phone face-down in    before a cold one     else can bet it.              │
+│  your pocket.          eats it.                                            │
 │  ──────────────────────────────────────────────────────────────────────    │
 │  [ Set up Orbit ]                                                          │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -213,11 +214,16 @@ three-beat pattern on this page) with the violet identity applied:
 - Renders `eyebrowTone="orbit"`, `tone="orbit"`, `title="ORBIT"`, and puts the mark in the **`#eyebrow`
   slot** (`<orbit-mark :size="10" /> Auto-play`) rather than changing `HomeSection`'s title markup —
   `HomeSection` already renders `<slot name="eyebrow">` in place of the `eyebrow` prop.
-- The three beats use the same `<ol>` / `auto-fit minmax(210px, 1fr)` grid and the same type ramp as
-  `HomeHowItWorks` (VT323 numerals, Press Start 2P 10px headings, VT323 17px body on `#8e9bad`), with
-  **one substitution**: the amber `text-primary` numerals and `border-primary/45` top rules become
-  their Orbit equivalents (`text-orbit` / a violet-deep border), so the panel reads as Orbit rather
-  than as a second copy of the how-to-play section.
+- The three beats use the `auto-fit minmax(210px, 1fr)` grid and the Press Start 2P 10px heading /
+  VT323 17px body on `#8e9bad` type ramp, with a violet-deep (`border-orbit-deep`) top rule per cell
+  in place of `HomeHowItWorks`' `border-primary/45`.
+  ⚠️ **A `<ul>`, and with NO `01/02/03` numerals** (owner, 2026-08-07, revised during implementation —
+  the first build copied `HomeHowItWorks` wholesale). Two independent reasons, both load-bearing:
+  the numerals are **wrong markup** here (`HomeHowItWorks`' three beats are a sequence you walk
+  through; these are three unordered, independent capabilities — hence `ul`, not `ol`), and they made
+  the panel a **second copy of the how-to-play look** sitting two panels above it. The per-cell top
+  rule is what keeps three side-by-side cells reading as separate things on a wide screen; do not
+  re-add a numeral, a step count or an ordinal of any kind.
 - One `#actions` button, `class="btn-arcade btn-arcade--ghost"`, label `Set up Orbit`, emitting
   `orbit`. Ghost matches both sibling panels' action buttons; it is deliberately **not** amber —
   `/orbit` is available, not urged.
@@ -227,11 +233,24 @@ Copy is fixed by §3 decisions 4, 5 and 10 — reproduce it exactly:
 | Slot | Text |
 | --- | --- |
 | eyebrow | `Auto-play` |
-| title | `ORBIT` (rendered by `HomeSection` as `+ ORBIT +`) |
-| lead | `Orbit is an optional auto-player. Pick a game, pick your word, and it presses the button for you round after round — it changes who plays, not the odds.` |
-| beat 1 | **`IT PLAYS WHILE YOU'RE GONE`** — `One bet a round on the game you picked, whether or not this app is open.` |
-| beat 2 | **`YOU SET WHEN IT STOPS`** — `Bank a winning run, or set a floor that sends what's left back before it's gone.` |
-| beat 3 | **`YOU CAN OWN A WORD`** — `On the type-it-yourself games, the word you pick is claimed while Orbit is running — nobody else can bet it.` |
+| title | `PUT YOUR MONEY IN ORBIT` (rendered by `HomeSection` as `+ PUT YOUR MONEY IN ORBIT +`) |
+| lead | `Stop pressing the button. Park a stack, pick your word, and Orbit apes in for you every single round — while you sleep, while the app is shut. It changes who plays, not the odds.` |
+| beat 1 | **`IT PLAYS WHILE YOU'RE GONE`** — `One bet, every round, on the game you picked — app open, app shut, phone face-down in your pocket.` |
+| beat 2 | **`YOU SET WHEN IT STOPS`** — `Bank a hot run at your number, or drop a floor that yanks what's left out before a cold one eats it.` |
+| beat 3 | **`YOU CAN OWN A WORD`** — `On the type-it-yourself games, the word you pick is locked to you while Orbit is running — nobody else can bet it.` |
+
+⚠️ **Revised at implementation (owner, 2026-08-07).** The first draft above shipped as neutral product
+prose and the owner rejected it on sight — *"dont like these texts. need to sound more hyped, also
+something like PUT YOUR MONEY TO ORBIT"*. The rewrite moves the hype into the **title** and the lead's
+first clause, matching the voice the page already speaks (`GameTypeCard` says *ape in*, *degen*,
+*moons the whole pot*). What did **not** move: the three beat **headings** are unchanged (AC5 names
+them verbatim), and every rule below still holds line for line — the odds clause, the floor's
+asymmetry and both word-claim qualifiers survived the rewrite intact. The eyebrow stays the quiet
+`Auto-play` label so the panel still scans like its siblings.
+
+⚠️ **Consequence, accepted knowingly:** `PUT YOUR MONEY IN ORBIT` is the longest `h2` on the front
+door and **wraps to two lines below ~430 px**, where every sibling panel's title is one line. This is
+a deliberate trade for the hype, not a layout bug — do not "fix" it by shortening the title.
 | action | `Set up Orbit` |
 
 ⚠️ Copy rules the implementer must not soften or "improve":
@@ -414,7 +433,9 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (17 items).
    nothing — regardless of the value of `orbitEnabled`.
 4. Given the ORBIT panel renders, when its markup is inspected, then it is a single full-width section
    with no grid wrapper of its own, carrying `.arcade-frame--orbit`, a violet eyebrow containing the
-   Orbit mark, and the title `+ ORBIT +`.
+   Orbit mark, and the title `+ PUT YOUR MONEY IN ORBIT +`.
+   *(Revised at implementation — the Trello checklist item still reads `+ ORBIT +`, from before the
+   owner's copy call above. The title here is authoritative; the card carries a note.)*
 5. Given the panel body, when it renders, then it shows the lead paragraph plus exactly three labelled
    beats — IT PLAYS WHILE YOU'RE GONE, YOU SET WHEN IT STOPS, YOU CAN OWN A WORD — and exactly one
    action button reading `Set up Orbit`.
@@ -502,4 +523,6 @@ looking at this build.
 
 | Date | Change |
 | --- | --- |
+| 2026-08-07 | **Beat numerals dropped during implementation** (owner's call): the `01/02/03` VT323 numerals borrowed from `HomeHowItWorks` are gone and the list is a `<ul>`, not an `<ol>` — the beats are unordered capabilities, not steps, and the numbered look duplicated the how-to-play panel. §1.1 and §7.3 updated. |
+| 2026-08-07 | **Copy revised during implementation** (owner's call): title becomes `PUT YOUR MONEY IN ORBIT`, lead and all three beat bodies rewritten in the page's own hyped voice. Beat headings, the odds clause, the floor's asymmetry and both word-claim qualifiers unchanged. §1.1, §7.3 and AC4 updated; the Trello AC4 checklist item still carries the old title. |
 | 2026-08-07 | Initial spec from refined card #156 (refined the same day). Code-verified against `monkify-front` at `origin/main` `1d4f9bf`: `/orbit` has no route guard; `.arcade-frame--orbit` already exists; `trackHomeLinkClick`'s `link` is a closed union; `GuideOrbit` has no word-claim row. |
