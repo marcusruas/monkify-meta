@@ -4,6 +4,10 @@
 > (**read this first**) and [`../specs/orbit-ui-overhaul.md`](../specs/orbit-ui-overhaul.md)
 > (*partially superseded* — see the restructure's §0). Merged via `feature/orbit-ui-overhaul` on
 > 2026-08-06. Trello #141 ([knC5QbPJ](https://trello.com/c/knC5QbPJ)).
+> ⚠️ The control surface changed again on 2026-08-07
+> ([orbit-single-control](orbit-single-control.md)): the page's control trio became a RUN/PAUSE +
+> CASH OUT **duo**, the cool-off states are deleted, and the panel gained a game picker, a switch
+> guard and the word gate.
 
 ## What it does
 

@@ -99,6 +99,9 @@ they can withdraw it to their own wallet on demand. This card is the money found
   > off/on/off walking around the daily cap. A manual cash-out is also now a **partial** amount
   > (floored at `MinimumCashOut`, ceiling the ledger balance); exempt sources still take the **whole**
   > balance.
+  > ⚠️ **2026-08-07** ([orbit-single-control](orbit-single-control.md)): the re-enable lock is
+  > **deleted** and `ForcedOnDisable` has **no writer** — disable no longer cashes out. The rolling
+  > manual gap is Orbit's only cool-off; `ForcedOnSelfExclusion` is unchanged.
 - The hourly sweep re-drives a stuck `Pending` row but **never** an `Executing` one: that row may have
   a transfer in flight, so it is escalated to a human instead.
 - ⚠️ **Extended by [#123](orbit-notifications.md):** every completed cash-out — all five sources —
@@ -124,6 +127,11 @@ they can withdraw it to their own wallet on demand. This card is the money found
   > **named exception** to it, not a deleted check — deleting the cool-off refusal alone was a no-op,
   > because disabling clears `Enabled` *before* writing the row the cool-off keys on, so enable-first
   > refused the same deposit one line later with a different message.
+  > ⚠️ **Superseded 2026-08-07** ([orbit-single-control](orbit-single-control.md)): the toggle is a
+  > plain play/pause settings write again — **no forced cash-out on disable, no cool-off at all**
+  > (`OrbitReEnableLock`/`ReEnableLockHours` deleted; the rolling manual gap is Orbit's only
+  > cool-off). Enable-first is gone too: deposits are gated on the **enrolment existing** (the game
+  > pick creates the row), so a parked Orbit takes deposits and waits for RUN.
 
 **Frontend**
 

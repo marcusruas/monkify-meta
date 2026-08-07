@@ -43,6 +43,12 @@ are finally written.
   > takes effect from the **next planning pass**: a placement already dispatched behind an armed start
   > gate must still land or decrement, or the round waits on a bet that never comes. The automatic
   > out-of-funds state keeps the name **"paused"**; the deliberate one is **STOPPED**.
+  > ⚠️ **`Stopped` dropped 2026-08-07** ([orbit-single-control](orbit-single-control.md)): the pause
+  > was merged INTO `Enabled` (`Enabled = Enabled AND NOT Stopped`), so eligibility is `Enabled`
+  > alone again, and the front's auto-park **persists** `Enabled = false` instead of deriving a
+  > pause. Flipping `Enabled` moves no money and signs nothing. The reserved word is released while
+  > parked or dry (the claim follows playability), and the `STOPPED` copy is gone — surfaces show
+  > `OFF / PAUSED / RUNNING`.
 - Lottery types are excluded outright regardless of `AllowOrbit`: a 24h draw would lock an
   auto-bettor's funds for a day, and a start gate is meaningless for a scheduled draw.
 
@@ -168,6 +174,10 @@ Every step after the transfer is money already gone, so the consumer is delibera
   still succeeds.
 - Turning Orbit **off** force-cashes-out the whole balance, so turning it back **on** waits out a
   cool-off — and deposits are refused for its duration too.
+  > ⚠️ **Superseded 2026-08-07** ([orbit-single-control](orbit-single-control.md)): the forced
+  > cash-out on disable and the cool-off are **deleted** — `Enabled` is a plain play/pause. The one
+  > deposit gate left is the **enrolment existing** (the game pick creates the row): a parked Orbit
+  > takes deposits, still as a named, replayable deferral, and waits for RUN.
 - The enable toggle **prompts for a game type** and saves the type and the flag in **one** patch. It
   used to be greyed out until a type was chosen, with the reason buried in a caption — a dead toggle
   the player had no way to read as "pick a game first".

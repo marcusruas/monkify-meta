@@ -5,6 +5,9 @@
 > ([fiKfaawz](https://trello.com/c/fiKfaawz)). Builds on
 > [`orbit-ui-overhaul.md`](orbit-ui-overhaul.md) (#141), which shipped the `/orbit` page this work
 > extends.
+> ⚠️ **Partially superseded 2026-08-07** by [orbit-single-control](orbit-single-control.md):
+> STOP/`Stopped`, the re-enable lock, deposits-during-cool-off and the claim lifetime all changed —
+> see the inline notes below.
 
 ## What it does
 
@@ -33,6 +36,11 @@ Still gated by `VUE_APP_ORBIT_ENABLED` — Orbit remains dark in production.
   preset round at 8 bets and start refunding human bets on a game that has never rejected a duplicate.
 - **Disabling releases the claim; re-enabling re-validates it** and is refused with a clear message if
   it was taken in the gap — never a silent restore. The word survives as a remembered preference.
+  > ⚠️ **Claim lifetime narrowed 2026-08-07** ([orbit-single-control](orbit-single-control.md)): the
+  > claim is held only while Orbit **can actually play** — `Enabled` **and** balance ≥ the enrolled
+  > game's stake. A paused, dry or cashed-out-to-zero Orbit releases it (so "including rounds Orbit
+  > does not bet" above no longer covers the out-of-funds case). The preference still survives
+  > everything, and RUN re-attempts the claim through this same machinery.
 - **Switching game type re-claims on the new type**, validated at switch time; the switch is refused if
   it fails, and the old claim is released only once the new one succeeds.
 - ⚠️ **A blocked human sees the existing `ErrorMessages.ChoiceAlreadyTaken`** and the shipped refund
@@ -48,6 +56,12 @@ Still gated by `VUE_APP_ORBIT_ENABLED` — Orbit remains dark in production.
   untouched.
 
 ### STOP
+
+> ⚠️ **Superseded 2026-08-07** ([orbit-single-control](orbit-single-control.md)): `Stopped` was
+> merged INTO `Enabled` and the column dropped (`Enabled = Enabled AND NOT Stopped`). The free-pause
+> semantics this section fought for are now what `Enabled = false` itself means — no forced
+> cash-out, no cool-off, instant resume — and the armed-start-gate rule below carries over
+> unchanged. The `STOPPED` state and copy are gone; surfaces show `OFF / PAUSED / RUNNING`.
 
 - **STOPPED is a state separate from `Enabled`.** It makes the planner skip the player and **nothing
   else**: the balance stays put (**no forced cash-out, so no cool-off is owed**), the reserved word
@@ -70,8 +84,15 @@ Still gated by `VUE_APP_ORBIT_ENABLED` — Orbit remains dark in production.
   last Manual cash-out, and `ReEnableLockHours` went 24 → 1. They move together: the re-enable lock
   existed only to stop off/on/off walking around the daily cap.
   ⚠️ Stricter in one window, deliberately — 23:50 used to allow another at 00:00; now it waits to 00:50.
+  > ⚠️ **The re-enable lock is gone entirely since 2026-08-07**
+  > ([orbit-single-control](orbit-single-control.md)): `ReEnableLockHours` deleted, not shortened —
+  > disable no longer withdraws, so the lock had nothing left to guard. The rolling manual gap is
+  > the **only** cool-off in Orbit, and it closes the off/on/off loophole by itself (a full
+  > cash-out is a `Manual` cash-out and consumes the gap).
 - `Threshold`, `Floor`, `ForcedOnDisable` and `ForcedOnSelfExclusion` stay **exempt** from both the gap
   and the minimum, and still cash out the **whole** balance. A rate limit must never trap funds.
+  > ⚠️ `ForcedOnDisable` has had **no writer since 2026-08-07** — disabling stopped cashing out; the
+  > enum value survives only so historical ledger rows keep explaining themselves.
 - The reserver still computes from the **ledger**, never the materialized column. A partial cash-out
   racing a bet debit fails cleanly on the atomic conditional debit rather than over-withdrawing.
 
@@ -110,6 +131,11 @@ Still gated by `VUE_APP_ORBIT_ENABLED` — Orbit remains dark in production.
   the hot placement path; "why isn't Orbit betting" is already answered by the status banner.
 
 ### Deposits during the cool-off
+
+> ⚠️ **Superseded 2026-08-07** ([orbit-single-control](orbit-single-control.md)): there is no
+> cool-off left to except, and even the enable-first rule is gone — deposits are gated on the
+> **enrolment existing** (the game pick creates the row), so a parked Orbit takes deposits and
+> waits for RUN. A deposit never starts play; only RUN sets `Enabled`.
 
 - **Only the cool-off refusal was dropped; the enable-first rule stays.** A player mid-cool-off intends
   to come back, and with the lock at 1h the money is playable within the hour.
