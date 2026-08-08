@@ -1,7 +1,6 @@
 # Local secrets — the operator's source of truth. NEVER commit (only the templates are tracked).
 secrets*.json
 !secrets.example.json
-!secrets.seeder.example.json
 
 # Terraform working files + state + real variable files
 **/.terraform/*
