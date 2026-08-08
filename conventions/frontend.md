@@ -13,8 +13,33 @@
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
   interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches **no auth header** (player
   endpoints are public; only `adminService.ts` sends a token). Add new endpoints here and export them
-  from the default object. Nothing is intercepted by status any more — a `401`, `429`, `5xx` or network
-  error rejects and each caller handles it locally (a toast in `GameTypes.vue` / `GamePage.vue`).
+  from the default object. Nothing is intercepted **by status** — a `401`, `429`, `5xx` or network error
+  rejects like any other; there is no blanket `401 → /error` on `mainAPI` (that belongs to
+  `adminService.ts`).
+- **Error copy comes from the API, through one reader (`utils/apiError.ts`).** Every rejection carries
+  the envelope `{ data, messages: [{ type, value }] }`, and `apiErrorMessage(err)` is the **single**
+  place in `src/` that reads it — five hand-rolled copies were folded into it by #158. It prefers the
+  first `type === 2` entry with a usable `value`, then the first usable entry of any type, then `null`.
+  ⚠️ **`type` is NUMERIC** — `Informational 0 / Alert 1 / ValidationFailure 2 / Error 3`, and the API has
+  no `JsonStringEnumConverter`. Two screens filtered `type === 1` under a `/* ValidationFailure */`
+  comment; that is **Alert**, so they never matched. Use `2`.
+- **`error.message` is never shown to a player.** On an AxiosError it is the status line
+  ("Request failed with status code 400") — it goes to `console.error` and nowhere else.
+  `services/handlers.ts` toasts `apiErrorMessage(error) ?? API_ERROR_FALLBACK`
+  (`Something went wrong — please try again.`), keyed by the message text as its `toastId` so identical
+  failures refresh one toast instead of stacking. A surface that renders the failure **itself** uses
+  `displayableErrorMessage(err, fallback)`, which keeps a genuinely thrown sentence (a wallet that
+  cannot sign) while still blocking status lines — the presence of `response` separates the two.
+- **If you report a failure yourself, mark it `handled`.** `err.handled = true` short-circuits the
+  interceptor's toast, and the 200 ms `setTimeout` in `handlers.ts` exists precisely so a caller's
+  `catch` runs first. Since the toast now carries real copy, a site that also shows its own toast or an
+  inline error line **must** set the flag or the player reads the same sentence twice
+  (`useGame`'s game-data load, `useTokenBalance` on **both** branches, `DisplayNamePrompt`,
+  `PlayerCustomizationModal`, `ResponsibleGamingPage`, plus the pre-existing `GamePage`, `GameTypes`,
+  `useBootRecovery`, `useOrbit*`, `OrbitTelegramTab`).
+  ⚠️ The counter-example is deliberate: **`useGame`'s `submitBet` catch is NOT marked** — its terminal
+  line (`> There was an error processing your bet`) carries no reason, so the interceptor toast is the
+  only explanation the player gets. See `features/api-error-messages.md`.
 - **Concurrent-request dedupe (`singleFlight`)** — `mainService.ts` holds a module-local
   `Map<string, Promise>`; while a request for a key is in flight every later caller receives **that same
   promise**, and the entry is deleted in `finally`. It is **not a cache**: nothing survives across time,
@@ -310,6 +335,20 @@
   owner stated in those words. If a future surface makes it feel wrong, change it here rather than
   quietly making an exception at the call site.
 
+  ⚠️ **`--color-phosphor` is a fifth hue on an Orbit surface, and it is a NAMED EXCEPTION** (#157,
+  2026-08-08). `#4ade80` — the exact green `GameTerminal.vue` already paints its hot near-miss rows
+  and its pot value in — is promoted to a token so the first-win modal can render the winning word
+  inside a miniature CRT (`.win-screen`, below). It is licensed **only** for **text the monkey typed,
+  drawn on a black screen, in the display face** — i.e. output being *quoted* from the game. It is not
+  a status, not an accent, and not available to anything that is not a screen showing machine output.
+  Violet still owns Orbit identity, amber still owns the action, red is still warning only.
+  ⚠️ **Do not confuse it with `--color-live`.** `--color-live` (`oklch(0.79 0.19 145)`) is a **state**
+  — "something is happening right now". `--color-phosphor` is a **material** — phosphor on glass. They
+  are close in hue and mean entirely different things; using one for the other's job is the mistake
+  this paragraph exists to prevent.
+  ⚠️ It is named `phosphor`, not `term`, on purpose: `--color-terminal-border` already exists in
+  `GuideBetPanelArt.vue`, and `--color-term` reads as its prefix.
+
   | | **GREY** | **BLACK** |
   | --- | --- | --- |
   | The player is | doing something — typing, choosing, confirming, signing | reading something short |
@@ -319,9 +358,9 @@
   | Titlebar | title **left**, amber, behind a 6px amber square, on a sunken `--color-surface-bar` | title **centred**, cyan, between two pixel sparkles, on the panel's own fill |
   | Footer | right-aligned button pair on the sunken bar | one centred amber ghost button |
   | Intent | it recedes | it earns the attention it takes |
-  | Today | everything else | the How to play guide's tip blocks, and nothing else (#130; was the quick tours) |
+  | Today | everything else | the How to play guide's tip blocks, and nothing else — as a **page** material (`.arcade-frame--black`). As a **dialog** (`variant="black"`) it has **no consumer at all** since #157 moved the first-win upsell to the Orbit material; the tier is kept, not deleted (see "Two overlay tiers") |
 
-  **Shared by both, by construction in the shell:** sizes `compact` 608 / `standard` 832 / `wide` 1000
+  **Shared by both, by construction in the shell:** sizes `compact` 540 / `standard` 832 / `wide` 1000
   (mobile 100%), titlebar 36px desktop / 44px mobile, 18px body, 12–14px footer, 4px radius, a 90dvh
   cap with the body scrolling and both bars pinned, the dither backdrop, and dismissal by X / Esc /
   backdrop / the primary button.
@@ -363,7 +402,7 @@
     start drifting.
     **One way to make a button: a class.** `PrimaryButton.vue` and `SecondaryButton.vue` were deleted
     in #135 (0 and 4 consumers); do not reintroduce a wrapper component for a button.
-  - **Sizes: `compact` 608 · `standard` 832 · `wide` 1000 · `xwide` 1280** — desktop (`lg:`) caps
+  - **Sizes: `compact` 540 · `standard` 832 · `wide` 1000 · `xwide` 1280** — desktop (`lg:`) caps
     only; below `lg` every dialog is already a full-width sheet or full screen, so the scale has no
     effect there. **Rebased upwards 2026-08-05** from 380/520/720/1024 (owner's call: "on PC these
     modals are way too small"). The old scale was drawn against a laptop; on a 2000px-wide display a
@@ -433,7 +472,7 @@
   it owns the whole contract, so surfaces cannot drift apart again.
   - **Props:** `variant` (`grey` default / `black`), `size`, `layer`, `dismissible`, `chrome`,
     `footerLayout`. Slots: `default` (body, exposes `titleId`), `strip`, `footer`, `titlebar-actions`.
-  - **Geometry:** four size tokens (`compact` 608 / `standard` 832 / `wide` 1000 / `xwide` 1280);
+  - **Geometry:** four size tokens (`compact` 540 / `standard` 832 / `wide` 1000 / `xwide` 1280);
     titlebar 36px
     desktop, 44px below `lg`; body padding 18px; footer 12–14px; 4px radius; `max-h-[90dvh]` with the
     body as the internal scroll container. **No consumer declares its own max-width or max-height.**
@@ -495,6 +534,26 @@
     control joins a step, it does not invent a height out of padding.
   - **Every overlay goes through `ArcadeModal.vue`**; surfaces use `.arcade-frame` / `.arcade-panel`
     and the `.dialog-*` content helpers rather than hand-rolled boxes.
+  - **`.win-screen` — the miniature CRT (#157, 2026-08-08).** The one primitive licensed to *quote the
+    game's terminal*: black glass (`#000`), a phosphor-green `>` prompt and value in **Press Start 2P**,
+    an inset shadow, and a block caret. Reach for it when a surface has to show **what the monkey
+    typed** and that string is the point of the surface; do **not** reach for it to make an ordinary
+    value look exciting — a second decorative consumer is the signal the rule is being read too
+    loosely, the same test `--black` and `--orbit` are held to.
+    ⚠️ **The font size is computed from the character count, not fixed.** `--win-cells` is set by the
+    consumer to `word.length + 3` (the `>`, its space, the caret) and the class resolves
+    `min(44px, calc(100cqi / var(--win-cells) / 1.06))` inside a `container-type: inline-size` wrapper.
+    This is load-bearing, not polish: **Press Start 2P's advance is exactly 1.0em** (measured), against
+    VT323's **0.4em**, so a size that flatters a 5-letter word overflows the 20-character
+    `choiceRequiredLength` ceiling by a factor of four. A plain `font-size` is declared **above** the
+    `min()` as the required fallback for engines without container-query units (older in-app wallet
+    browsers) — do not delete it as duplication.
+    ⚠️ Its entrance types the value out one character at a time in JS, then fires one glow throb and
+    starts the caret blinking. **`prefers-reduced-motion` is honoured in the component, not the
+    stylesheet** — a media query cannot stop a timer, so the consumer reads `matchMedia` and prints the
+    whole string on the first frame. `html.light-graphics` drops the bloom and the throb (both
+    `text-shadow`) and keeps the typing and the caret; the green is ≈11:1 on black, so no legibility
+    depended on the glow.
   - Do **not** introduce ad-hoc inline styles, one-off component libraries, or bespoke controls when a
     design-system primitive already exists; reuse and extend so new screens (modals, headers, forms)
     match the current look and feel. **If a needed primitive is missing, add it to the design system**
@@ -649,15 +708,28 @@ between them is **frequency, not subject matter**.
 - **System tier — neutral hairline.** Overlays the player opens *themselves* and reopens constantly:
   Settings, Provably Fair, Connect Wallet, the **Orbit wallet modal**, the **header balance cluster**,
   the side panels, and the error/history/stats surfaces. Chrome that recedes:
-  - sizes: compact **608** · standard **832** · wide **1000** · mobile **100%**
+  - sizes: compact **540** · standard **832** · wide **1000** · mobile **100%**
   - titlebar **36px** desktop / **44px** mobile; body padding **18px**; footer **12-14px**
   - border **1px `--color-line`**, radius **4px**
   - backdrop: **void at 55% + a 9px diagonal dither**
   - **Esc** closes, and so does a backdrop click
 - **Tutorial / help tier — black + a 2px CRT-cyan frame.** Overlays that appear **unprompted**, have to
-  earn attention, and are shown **once and then never again**. Since the quick tours became the
-  `/how-to-play` **page**, the first-win Orbit upsell (`OrbitFirstWinModal.vue`) is the tier's only
-  implementation — and therefore its reference one.
+  earn attention, and are shown **once and then never again**.
+
+  ⚠️ **This tier currently has NO implementation** (#157, 2026-08-08). The quick tours became the
+  `/how-to-play` **page** in #130, and the first-win Orbit upsell (`OrbitFirstWinModal.vue`) — its last
+  overlay — moved to the **Orbit material** (`variant="orbit"`), because a surface that sells Orbit
+  should read as one object with `/orbit`, `OrbitModal` and `HomeOrbitCard`. `variant="black"` /
+  `.dialog--black` are **kept, not deleted**: the tier is still the right answer for the next
+  unprompted, brief, light-in-tone overlay, and deleting a shipped material inside a copy/skin card
+  would have been an unrelated design-system change. It is recorded here rather than left as drift —
+  a documented tier that no code proves is exactly the dangling-rule condition #124 was filed to fix.
+  `.arcade-frame--black` (the How to play guide's `GuideTip`) is the black **material's** remaining
+  live consumer and is untouched.
+
+  The behavioural half of the tier below is **not** consumer-less — it still describes
+  `useFirstWinUpsell`, which kept every guard, the `localStorage` key and every-exit-marks-seen
+  through #157. Only the skin moved.
 
   A once-ever overlay owes two things beyond the chrome. **Every exit marks it seen** — X, Esc,
   backdrop and the primary CTA alike — so nobody is nagged for dismissing it "the wrong way". And its
@@ -669,8 +741,11 @@ between them is **frequency, not subject matter**.
   keyed on a public address that would let anybody suppress a stranger's modal.
 
 Provably Fair is *system* tier even though it explains something, because it is reopened every round.
-The first-win upsell is *tutorial* tier even though it is small, because it arrives uninvited — the
-same test that put the quick tours there before they became a page.
+The first-win upsell is *tutorial* tier **by behaviour** even though it is small, because it arrives
+uninvited — the same test that put the quick tours there before they became a page. ⚠️ Since #157 it
+no longer wears the tier's **skin**: it is the Orbit material, because it sells Orbit and should read
+as one object with `/orbit`. Tier and material are separate choices here, and this is the one shipped
+surface where they diverge.
 
 Two rules that are easy to get wrong and expensive to debug:
 

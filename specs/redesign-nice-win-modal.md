@@ -8,27 +8,37 @@
 > **Purpose:** `OrbitFirstWinModal.vue` — the once-ever Orbit upsell that fires right after a
 > player's first **paid** win — is oversized, wordy and visually anonymous: an 832px black panel with
 > a cyan `NICE WIN!` titlebar and 28 words of documentation-voice body copy. Nothing on it says
-> *Orbit*, and the celebration is a caption. This rebuilds the surface with Orbit's identity, at half
-> the width, with the hype carried by the **message** — the win, the word the player hit, and what
-> makes Orbit worth having.
+> *Orbit*, and the celebration is a caption. This rebuilds the surface as **a celebration first and
+> an upsell second**: the win owns the panel, the word the player hit is quoted from the game's own
+> terminal, and Orbit is one line plus the CTA.
+>
+> ⚠️ **This spec was rewritten on 2026-08-08, after implementation, at the visual gate.** The first
+> build followed §§1–7 as originally written and the owner rejected it twice — *"i still think the
+> modal is ugly"*, then *"nice win repeated 2 times… still small fonts on titles, too much empty
+> black space, orbit logo too small"*. The sections below describe **what shipped**, not what was
+> first designed; the superseded decisions are kept in §3 with the reason they fell, because the
+> reasoning that produced them is still the reasoning a future reader will re-derive. See §15.
 
 ---
 
 ## 1. Summary
 
-One component is rebuilt, one composable grows two values, and two call sites pass them through.
-**Nothing about when or how often the modal fires changes.**
+One component is rebuilt, one composable grows two values, two call sites pass them through, and the
+design system gains one colour token and one primitive. **Nothing about when or how often the modal
+fires changes.**
 
 | | Today | After |
 | --- | --- | --- |
 | Panel | `variant="black"` (void-deep + 2px cyan) | `variant="orbit"` (void-deep + 2px violet-deep) |
 | Desktop width | `size="standard"` → **832px** | `size="compact"` → **540px** |
-| Titlebar | `NICE WIN!` centred between two sparkles | `ORBIT` left-aligned, `OrbitMark` in `titlebar-lead`, X kept |
-| Celebration | the 9px titlebar caption | a large in-body `NICE WIN!` headline |
-| The winning word | **not shown at all** | the hero, directly under the headline |
+| Titlebar | `NICE WIN!` centred between two sparkles | **`CONGRATS!`** left-aligned, a 6px phosphor square in `titlebar-lead`, X kept |
+| Celebration | the 9px titlebar caption | an in-body **`NICE WIN!` at 34px** + `you won your first game` at 28px |
+| The winning word | **not shown at all** | the hero, inside a **miniature CRT** — phosphor green, Press Start 2P, typed out |
 | Body copy | 28 words, one paragraph, identical for every game type | **one short line, conditional on game type** |
 | CTAs | amber `Set up Orbit` + outline `Not now` | **unchanged** |
-| Edson sprite | `h-24` / `md:h-28` | **unchanged** (explicitly decided) |
+| Edson sprite | `h-24` / `md:h-28` | **168px** desktop / 112px mobile, left-anchored |
+| Motion | none | a **~640ms entrance beat**, then still |
+| Palette | — | **`--color-phosphor`** added as a named exception |
 | Trigger / guards / `seen` | `useGame.ts:462` one-shot, `localStorage` per browser | **unchanged** |
 | Backend | — | **no change of any kind** |
 
@@ -36,21 +46,31 @@ One component is rebuilt, one composable grows two values, and two call sites pa
 
 ```
 ┌─ .dialog--orbit (void-deep fill, 2px violet-deep border, 540px on lg) ─────┐
-│ ⟡ ORBIT                                                              [X]  │ ← 46px violet titlebar
+│ ▪ CONGRATS!                                                          [X]  │ ← 46px violet titlebar
 ├───────────────────────────────────────────────────────────────────────────┤
-│                            (Edson, h-24 / md:h-28)                        │
+│  ╭──────────╮                                                              │
+│  │          │   NICE WIN!                        ← .dialog-headline, 34px  │
+│  │  EDSON   │   you won your first game          ← .first-win__sub, 28px   │
+│  │  168px   │                                                              │
+│  ╰──────────╯                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │            >  B A N A N A  █                                          │ │ ← .win-screen
+│  └──────────────────────────────────────────────────────────────────────┘  │   (black glass,
+│                                                                            │    phosphor green)
+│  ⟡  Orbit keeps playing it for you, every round — and the word stays        │ ← .dialog-copy +
+│     yours while it runs.                                                   │   a 30px OrbitMark
 │                                                                            │
-│                              NICE WIN!                                     │ ← .dialog-headline
-│                                                                            │
-│                          B  A  N  A  N  A                                  │ ← .dialog-word (violet)
-│                                                                            │
-│      Orbit keeps playing it for you, every round — and the word            │ ← .dialog-copy
-│                 stays yours while it runs.                                 │   (free-text copy)
-│                                                                            │
-│                    [        Set up Orbit        ]                          │ ← btn-dialog--primary
-│                    [          Not now           ]                          │ ← btn-dialog
+│  [                      Set up Orbit                      ]                │ ← btn-dialog--primary
+│  [                        Not now                         ]                │ ← btn-dialog
 └────────────────────────────────────────────────────────────────────────────┘
 ```
+
+⚠️ **The titlebar and the sub-line are one sentence, split.** `CONGRATS!` + `you won your first game`
+is the owner's phrasing; it is split because the full 33-character string costs **~471px** at the
+bar's 14px Press Start (advance 1.0em), against ~466px of room on a 540px dialog and **~308px on a
+390px phone** — and `.dialog__title` is `overflow: hidden` with no ellipsis, so it would be chopped
+mid-word on every phone. Splitting it also let the second half get *bigger* instead of smaller.
+**Edit the two halves together or the sentence breaks.**
 
 Below `lg` it is the same content in the shell's existing **bottom sheet** (full width, 90dvh cap,
 body as the scroll container) — `compact` and `standard` are identical there, so "smaller on mobile"
@@ -101,16 +121,20 @@ From `monkify-meta/constraints.md` (full list there):
 | D1 | **`variant="black"` → `variant="orbit"`** — a full material switch, not violet accents on the black panel. | Makes the modal read as one surface with `/orbit`, `OrbitModal` and `HomeOrbitCard`. `ArcadeModal` already supports `orbit` (#141), so no design-system change is needed to adopt it. Rejected "violet accents on black": two Orbit looks for one feature is the drift `.dialog--orbit` was created to end. |
 | D2 | **`variant="black"` / `.dialog--black` is KEPT, not deleted** — and becomes **consumer-less**. | Deleting it would be a second, unrelated design-system change inside a copy/skin card. ⚠️ Accepted consequence: the tutorial/help **overlay** tier now has **no implementation**, which `conventions/frontend.md` must record (D11) rather than leaving a documented tier that no code proves. `.arcade-frame--black` — the How to play guide's `GuideTip` — is the black **material's** remaining live consumer and is **untouched**. |
 | D3 | **`size="standard"` (832) → `size="compact"` (540).** | Desktop-only effect: below `lg`, `compact` and `standard` are both full-width bottom sheets. 832px for a headline, a word, one line and two buttons is a page pretending to be a dialog. |
-| D4 | **The Edson sprite stays at `h-24` / `md:h-28`.** | Explicitly decided, not an oversight — he is the celebration's only illustration and the panel is already halving its width. Do not "tidy" him smaller. |
-| D5 | **The titlebar is kept and retitled `ORBIT`**, with `<OrbitMark />` in the **`titlebar-lead`** slot. | Preserves the **X**, keeps `aria-labelledby` pointed at a real title, and puts identity where the design system already has a slot for it (`ArcadeModal.vue:234` — `titlebar-lead` renders for `grey` and `orbit`, never for `black`). Rejected `chrome="none"`: it deletes the X, and on mobile (no Esc) that leaves an **unprompted** modal with only the backdrop and `Not now` as exits. Rejected a hand-rolled floating X as design-system drift. |
-| D6 | **`NICE WIN!` is promoted out of the titlebar into a large in-body headline**, and **the winning word is the hero** beneath it. | The titlebar now says `ORBIT`, so there is no duplication. The word is the single most personal thing the app knows at that moment and it was being thrown away. |
+| ~~D4~~ | ~~**The Edson sprite stays at `h-24` / `md:h-28`.**~~ **SUPERSEDED (2026-08-08) → 168px desktop / 112px mobile, left-anchored.** | The original reasoning — *he is the celebration's only illustration and the panel is already halving its width* — was written for a **centred column**. In the shipped left-anchored band he is beside the headline, not above it, and at `h-24` in that position he read as **a bullet point** rather than a mascot (owner's call). The panel also lost its second bordered block, which freed the height. |
+| D5 | **The titlebar is kept** (retitled — see D5.1), with the `titlebar-lead` slot filled. | Preserves the **X**, keeps `aria-labelledby` pointed at a real title, and puts a mark where the design system already has a slot for it (`ArcadeModal.vue:234` — `titlebar-lead` renders for `grey` and `orbit`, never for `black`). Rejected `chrome="none"`: it deletes the X, and on mobile (no Esc) that leaves an **unprompted** modal with only the backdrop and `Not now` as exits. Rejected a hand-rolled floating X as design-system drift. |
+| **D5.1** | **The title is `CONGRATS!`, not `ORBIT`, and the lead is a 6px phosphor square, not `OrbitMark`.** (2026-08-08) | `ORBIT` made the **first word a player reads after their first-ever win a feature name** — an ad where a congratulation belongs. Once the celebration leads, an Orbit glyph at the top of the panel puts the identity back in the position the retitle just took it out of. Orbit's identity moved to the 30px mark on the pitch line and the amber CTA, both of which are *below* the win. |
+| ~~D6~~ | ~~**`NICE WIN!` is promoted out of the titlebar into a large in-body headline**~~ — **kept, but see D6.1.** The winning word is the hero. | The word is the single most personal thing the app knows at that moment and it was being thrown away. |
+| **D6.1** | **`NICE WIN!` appears exactly once — in the body — and the bar carries `CONGRATS!`.** (2026-08-08) | D6 assumed the bar would say `ORBIT`, so promoting the phrase into the body created no duplication. D5.1 changed the bar, and the first build shipped **`NICE WIN!` in both places** — the owner's first note on it was *"nice win repeated 2 times"*. ⚠️ Whatever the bar says in future, it may not be the body headline's phrase. |
+| **D6.2** | **The word renders inside `.win-screen`, a miniature CRT: black glass, a `>` prompt, Press Start 2P in `--color-phosphor`, a blinking block caret.** (2026-08-08) | The first build put the headline and the word in one bordered inset block and the Orbit pitch in a **second, identical** one — same border, same radius, same glyph-left layout. Two equal blocks read as **two table rows**, which is what "still ugly" and "too much empty black space" were describing: no focal point, and a box-in-a-box-in-a-box. The fix was to delete one box and make the other a different **object**. It quotes the terminal because the word genuinely *is* terminal output — the monkey typed it — which also settles the face: **Press Start 2P**, what `#app` and the console word input actually inherit, not the VT323 the first draft chose. |
 | D7 | **One short supporting line replaces the 28-word paragraph, conditional on game type.** Free-text: *"Orbit keeps playing it for you, every round — and the word stays yours while it runs."* Preset: *"Orbit keeps playing for you, every round. Hands off."* | `orbit-single-control.md` → *"the word claim follows playability"* makes **two** qualifiers mandatory whenever word ownership is advertised: **free-text games only**, and **only while Orbit is running**. This modal fires after **any** paid win, preset types included, where word claims do not exist — so a flat "your word stays yours" is **false** for a Beast Mode winner. Rendering the claim beat **only where it is true** removes the need for the "type-it-yourself games" clause `HomeOrbitCard` has to carry; `while it runs` is retained inline. Rejected a disclaimer sentence (it re-introduces the documentation voice this card exists to delete). |
 | D8 | **If `selectedGame` is unavailable, the PRESET (claim-free) copy is used.** | Never assert word ownership on unknown ground. ⚠️ This inverts the natural expression — see the trap in §7.2. |
 | D9 | **CTAs unchanged: amber `btn-dialog--primary` `Set up Orbit`, outline `btn-dialog` `Not now`.** | Orbit's palette rule assigns **amber to the primary action** and **violet to identity**, so a violet fill would be both off-rule and lower-contrast against a violet-deep frame. |
-| D10 | **The headline is ink; the word hero is full `--color-orbit`.** | Amber is spoken for by the CTA (`arcade.css`: *"amber owns one job now — the active step's primary action"*), so a big amber headline would compete with the only thing the player is meant to press. Full violet (0.72) rather than `--color-orbit-deep` (0.5) follows #141's shipped **"frame deep, content full"** intensity split — the same call `.eyebrow--orbit` makes. Rejected cyan (it is the *black* panel's frame colour and is deliberately unspent on `--orbit`) and rejected red outright (warning only). |
+| D10 | **The headline is ink.** ~~The word hero is full `--color-orbit`.~~ **Word colour SUPERSEDED (2026-08-08) → `--color-phosphor` (`#4ade80`).** | The headline half stands: amber is spoken for by the CTA (`arcade.css`: *"amber owns one job now — the active step's primary action"*), so a big amber headline would compete with the only thing the player is meant to press. **The word half fell with D6.2.** Once the word is drawn on a screen, violet is the wrong ink for it — phosphor is what that hardware paints. Requested directly by the owner (*"show the winning word in green with a `>` thing and flashing"*, *"use the same word font used in the terminal and orbit input"*). ⚠️ This is a **fifth hue on an Orbit surface** and therefore a **named exception**, recorded in `conventions/frontend.md` and in the token's own docblock: licensed **only** for quoted machine output drawn on a screen, never as a general accent. Distinct from `--color-live`, which is a *state*; this is a *material*. |
 | D11 | **`conventions/frontend.md` is corrected in the same change:** the black **overlay** tier is recorded as having **no implementation**, and `compact` is stated as **540**, not 608. | ⚠️ **KB drift found during refinement:** the doc says `compact` = 608 in **four** places; `ArcadeModal.vue:173` says `lg:max-w-[540px]`. **The code is truth.** Left alone, this card's "540" would look like a regression against the doc. |
 | D12 | **Rejected: showing any amount.** | At the moment this fires the front knows the stake (`requiredAmount`) and the pot (`currentPot`) but **not the payout** — rewards settle asynchronously (`RewardForWinnersInProgress` → `RewardForWinnersCompleted`) and the pot splits across winners minus commission. A wrong number on a money screen is the expensive kind of wrong. |
-| D13 | **Rejected: motion.** No entrance pop, sprite bounce or frame pulse. | The hype is the message. The shell's existing 140ms fade/translate is untouched, so `prefers-reduced-motion` is moot for this card. |
+| ~~D13~~ | ~~**Rejected: motion.**~~ **SUPERSEDED (2026-08-08) → a ~640ms entrance beat, then still.** | *"The hype is the message"* was tested and the message did not carry it — a static celebration read as a form. What shipped: Edson scale-pops at 120ms, the headline rises at 200ms, the screen rises at 300ms, then the word **types out at ~40ms/char**, and on the last character one glow throb fires and the caret starts blinking. The typing is the point — it is the MonkeyTyper's own behaviour played back, which is what makes the word feel produced rather than printed. ⚠️ `prefers-reduced-motion` is **no longer moot**: every keyframe ends on the element's resting state so cancelling them lands the panel fully formed, the caret blink is cancelled outright, and the **type-out is cancelled in JS** — a media query cannot stop a timer, so the component reads `matchMedia` itself and prints the whole word on the first frame. |
+| **D13.1** | **The word's font size is computed from its character count**, not fixed: `min(44px, calc(100cqi / var(--win-cells) / 1.06))` in a `container-type: inline-size` wrapper, with a plain `font-size` above it as the no-container-query fallback. | Forced by D6.2's face change. **Press Start 2P's advance is exactly 1.0em** (measured in-browser), against VT323's **0.4em** — the very reason the first draft picked VT323 (§7.5's original fit maths). A fixed size that flatters a 5-letter word overflows the 20-character `choiceRequiredLength` ceiling by ~4×. Sizing from the count keeps the common case (real games are 3–7 characters) at the 44px cap **and** keeps 20 characters on one line at every width, with no wrap and no sideways scroll. |
 | D14 | **Rejected: touching the trigger.** Once-ever, first **paid** win, the guard ordering, the `localStorage` key, per-browser-not-per-wallet and every-exit-marks-seen are all untouched. | They are a separate, working design (`features/orbit-ui-overhaul.md`, `conventions/frontend.md` → "Two overlay tiers"). |
 
 ---
@@ -226,33 +250,39 @@ const {
 
 The `v-if`, the `@enable` → `isOrbitOpen = true` hand-off and the mount location are **unchanged**.
 
-### 7.4 `src/components/orbit/OrbitFirstWinModal.vue` — the rebuild
+### 7.4 `src/components/orbit/OrbitFirstWinModal.vue` — the rebuild (as shipped)
 
 ```html
-<ArcadeModal
-  :open="open"
-  variant="orbit"
-  size="compact"
-  title="ORBIT"
-  :dismissible="true"
-  @close="emit('dismiss')"
->
+<ArcadeModal :open="open" variant="orbit" size="compact" title="CONGRATS!"
+             :dismissible="true" @close="emit('dismiss')">
   <template #titlebar-lead>
-    <OrbitMark :size="13" class="flex-none text-orbit" aria-hidden="true" />
+    <span class="h-[6px] w-[6px] flex-none bg-[var(--color-phosphor)]" aria-hidden="true" />
   </template>
 
-  <div class="flex flex-col items-center">
-    <img :src="edson" alt="" aria-hidden="true"
-         class="pixelated h-24 w-24 object-contain md:h-28 md:w-28" />
+  <div class="first-win flex flex-col gap-4">
+    <div class="first-win__band">
+      <img :src="edson" alt="" aria-hidden="true" class="first-win__edson pixelated" />
+      <div class="first-win__titles">
+        <p class="dialog-headline">NICE WIN!</p>
+        <p class="first-win__sub">you won your first game</p>
+      </div>
+    </div>
 
-    <p class="dialog-headline mt-3">NICE WIN!</p>
+    <!-- HIDDEN, not blanked: the invitation must never fail to open over a missing decoration,
+         and an empty CRT is worse than no CRT. -->
+    <div v-if="winningWord" class="win-screen" :style="{ '--win-cells': cells }">
+      <p class="win-screen__line" :class="{ 'is-struck': struck }">
+        <span class="win-screen__prompt" aria-hidden="true">&gt;</span>{{ typed
+        }}<i class="win-screen__caret" :class="{ 'is-live': caretLive }" aria-hidden="true" />
+      </p>
+    </div>
 
-    <!-- Hidden, not blanked: the modal must never fail to open over a missing decoration. -->
-    <p v-if="winningWord" class="dialog-word mt-2.5">{{ winningWord }}</p>
+    <p class="dialog-copy first-win__pitch">
+      <OrbitMark :size="30" class="first-win__pitch-mark" aria-hidden="true" />
+      <span class="min-w-0">{{ supportingLine }}</span>
+    </p>
 
-    <p class="dialog-copy mt-3 max-w-[32ch] text-balance text-center">{{ supportingLine }}</p>
-
-    <div class="mt-6 flex w-full flex-col items-center gap-2.5">
+    <div class="flex flex-col gap-2.5">
       <button type="button" class="btn-dialog btn-dialog--primary w-full" @click="emit('enable')">
         Set up Orbit
       </button>
@@ -270,17 +300,95 @@ const supportingLine = computed(() =>
     ? 'Orbit keeps playing it for you, every round — and the word stays yours while it runs.'
     : 'Orbit keeps playing for you, every round. Hands off.'
 );
+
+// The `>`, its space, and the caret — the three cells beyond the word itself. `|| 1` floors it so
+// the divisor in `.win-screen__line` can never reach 0 through a future edit.
+const cells = computed(() => (props.winningWord?.length || 1) + 3);
 ```
 
-- `:size="13"` on the mark matches `OrbitModal.vue:925` exactly — one Orbit titlebar look, not two.
-- The uppercase rendering of the word is **presentational only** (`text-transform` in CSS, §7.5).
-  Stored choices are always lowercase (uppercase is rejected as `InvalidCharacters` —
-  `bet-choice-casing.md`); **nothing here may echo the displayed string back into a bet path.**
-- ⚠️ **Rewrite the file's docblock.** Its current text says the modal is BLACK and "the black tier's
-  only overlay implementation, so it is also its reference one" — after this card that is false in
-  both halves. The `EVERY EXIT MARKS IT SEEN` and shell-ownership paragraphs stay.
+**The type-out** (`typed` / `struck` / `caretLive`, driven by a `setInterval` at 40ms):
 
-### 7.5 `src/assets/styles/arcade.css` — two new dialog content helpers
+- It is armed by a `watch` on `[open, winningWord]` with `immediate: true`, and cleared on close and
+  in `onBeforeUnmount` — a timer that outlives the overlay is a leak and a stale-word bug.
+- ⚠️ **`prefers-reduced-motion` is honoured here, in JS.** A stylesheet cannot stop a timer. Under
+  `reduce` the whole word is assigned on the first frame and the caret is set live immediately; the
+  CSS media query separately cancels the blink animation, so the caret renders as a static block.
+- ⚠️ The caret only goes live **after** the last character. A caret blinking while characters are
+  still arriving reads as a glitch, not as a prompt.
+- 40ms/char: a 20-character choice still finishes inside a second, and a 5-character one is legibly
+  typed rather than a flicker.
+
+Other notes:
+
+- The uppercase rendering of the word is **presentational only** (`text-transform` in `.win-screen__line`).
+  Stored choices are always lowercase (uppercase is rejected as `InvalidCharacters` —
+  `bet-choice-casing.md`); **nothing here may echo the displayed string back into a bet path.** The
+  component renders `typed`, which is a prefix of the prop — never a re-cased string.
+- ⚠️ **`OrbitMark` is 30px here, not the titlebar's 13px.** At 13px in a bare text row it was *"too
+  small, barely noticeable"* — deleting the pitch's bordered block also deleted the 52px glyph that
+  had been carrying Orbit's identity, and the weight had to come back without the border.
+- ⚠️ **Rewrite the file's docblock.** Its original text says the modal is BLACK and "the black tier's
+  only overlay implementation, so it is also its reference one" — false in both halves. The
+  `EVERY EXIT MARKS IT SEEN` and shell-ownership paragraphs stay.
+
+### 7.5 `src/assets/styles/arcade.css` + `colors.css` — the new primitives (as shipped)
+
+> ⚠️ **This section replaces the original §7.5**, whose `.dialog-word` (VT323, 34px, violet, wrapping)
+> was superseded by D6.2/D10/D13.1. The original fit maths is preserved in D13.1 because it is *why*
+> the shipped rule has the shape it has.
+
+**`colors.css`** gains one token: `--color-phosphor: #4ade80` — the exact green `GameTerminal.vue`
+already paints its hot near-miss rows and its pot value in. Named `phosphor`, not `term`, because
+`--color-terminal-border` already exists in `GuideBetPanelArt.vue`. Its docblock carries the named
+exception (see D10).
+
+**`arcade.css`** gains, in the dialog content helpers block:
+
+| Class | Job |
+| --- | --- |
+| `.dialog-headline` | The in-body shout. **34px** Press Start, ink. Sets no `text-align` — the block it sits in decides. |
+| `.win-screen` | The CRT. `container-type: inline-size`, `#000` fill, 1px phosphor border at 34%, inset shadow, 88px min-height. |
+| `.win-screen__line` | `font-size: 20px` **then** `min(44px, calc(100cqi / var(--win-cells, 12) / 1.06))`, Press Start, uppercase, `nowrap`, phosphor + an 8px resting bloom. |
+| `.win-screen__prompt` | The `>`, at 62% phosphor — punctuation the machine prints, not the prize. |
+| `.win-screen__caret` | A block cursor sized in `em` so it tracks the resolved font size. Blinks only with `.is-live`. |
+| `.win-screen__line.is-struck` | The one 340ms glow throb, ending on the resting shadow. |
+| `.first-win__band` / `__edson` / `__sub` / `__pitch` / `__pitch-mark` | The celebration band: Edson **168px** left-anchored at `margin-left: -10px`, the sub-line at **28px** VT323 in `ink-dim`, the pitch as bare text with a 30px mark. |
+| `@keyframes win-pop` / `win-rise` / `win-caret` / `win-strike` | The entrance beat. Every one ends on the resting state. |
+
+⚠️ **The two declarations of `font-size` on `.win-screen__line` are not duplication.** The plain
+`20px` is the fallback for engines without container-query units (older in-app wallet browsers), which
+drop the `min()` line entirely. Deleting it ships a 20-character word at whatever the cascade leaves.
+
+⚠️ **`margin-left: -10px` on the band is safe only because it is smaller than the body's 18px
+padding.** The dialog body is the scroll container; anything wider than it earns a horizontal
+scrollbar on a surface that must never have one.
+
+**Mobile step-downs** go in the existing `@media (max-width: 1023px)` dialog block:
+
+| | Value | Why |
+| --- | --- | --- |
+| `.dialog-headline` | `clamp(16px, 5.4vw, 26px)` | ⚠️ **The one thing here that cannot take a flat number.** It sits beside a fixed-width Edson: at a 320px sheet the text column is only ~180px, so anything above ~19px collides with the sprite, while a size chosen for 320px wastes half a 768px row. The sheet is full-bleed below `lg`, so its width **is** the viewport width — the one case where `vw` genuinely tracks the container. |
+| `.win-screen__line` | cap `30px` | The fit maths itself is container-relative and needs no mobile variant. |
+| `.first-win__edson` | 112px | |
+| `.first-win__sub` | `clamp(17px, 5vw, 24px)` | VT323's 0.4em advance means it never collides; clamped only to stay in proportion. |
+| `.win-screen` | 72px min-height, 12/10 padding | |
+
+**Reduced motion** (`@media (prefers-reduced-motion: reduce)`) cancels `win-pop`, `win-rise`,
+`is-struck` and the caret blink. **`html.light-graphics`** drops `.win-screen__line`'s `text-shadow`
+**and** names `.is-struck` explicitly — the throb sets `text-shadow` in its own keyframes, so killing
+only the resting shadow would leave the bloom this mode exists to remove. The typing and the caret
+survive both modes' *layout*; the green is ≈11:1 on black, so no legibility depended on the glow.
+
+**Fit verification (measured in-browser, not derived):**
+
+| Width | Headline | 20-char word | Horizontal scroll |
+| --- | --- | --- | --- |
+| 1440 (540px dialog) | 34px, 312px wide | 19.4px | none |
+| 390 sheet | ~21px | one line | none |
+| 320 sheet | 17.3px, 159px in ~180px | 10.6px, 247px in a 280px screen | none; titlebar not clipped |
+
+<details>
+<summary>Superseded original §7.5 — two dialog content helpers</summary>
 
 They go in the **"Dialog content helpers"** block, beside `.dialog-copy` / `.dialog-eyebrow` (~line
 539). Classes, not call-site utilities: the cascade rule makes utilities on an arcade class lose
@@ -343,6 +451,8 @@ the same block that already carries the 44px titlebar and the 9px `.btn-dialog`:
 the sheet gives ≈284px; at 28px/0.14em a character costs ≈15.7px ⇒ 20 characters ≈ 314px, which
 **wraps to two lines** via `overflow-wrap: anywhere` and never scrolls the page sideways. Both ends
 must be verified at the maximum length (AC12, QA step 6).
+
+</details>
 
 ### 7.6 Copy — load-bearing, read before changing a word
 
@@ -431,8 +541,14 @@ sequenceDiagram
 | 1 | `src/hooks/useFirstWinUpsell.ts` | Add module refs `winningWord` / `isFreeTextGame`; `maybeOpen(context?)` sets them **after every guard**, immediately before `isOpen = true`; expose both as computeds. `dismiss()` untouched. |
 | 2 | `src/hooks/useGame.ts` (~462) | Compute `freeText = !!selectedGame.value && !selectedGame.value.presetChoices?.length` and pass `{ word: winnerCh, freeText }` into `maybeOpen`. Comment the undefined-game trap. No change to the one-shot's gating. |
 | 3 | `src/components/GameHeader.vue` (~110, ~453) | Destructure the two new computeds; bind `:winning-word` / `:free-text` on `<OrbitFirstWinModal>`. |
-| 4 | `src/components/orbit/OrbitFirstWinModal.vue` | Rebuild: `variant="orbit"`, `size="compact"`, `title="ORBIT"`, `OrbitMark` in `titlebar-lead`, in-body `NICE WIN!` headline, conditional word hero, one conditional supporting line, CTAs unchanged, sprite unchanged. New props + `supportingLine` computed. **Rewrite the docblock** (it currently documents the black panel). |
-| 5 | `src/assets/styles/arcade.css` | Add `.dialog-headline` + `.dialog-word` to the dialog content helpers; add their two mobile step-downs to the existing `@media (max-width: 1023px)` dialog block. |
+| 4 | `src/components/orbit/OrbitFirstWinModal.vue` | Rebuild: `variant="orbit"`, `size="compact"`, `title="CONGRATS!"`, a 6px phosphor square in `titlebar-lead`, the Edson band, the `.win-screen` CRT with its JS type-out, one conditional supporting line beside a 30px `OrbitMark`, CTAs unchanged. New props + `supportingLine` / `cells` computeds + the `typed`/`struck`/`caretLive` beat. **Rewrite the docblock.** |
+| 5 | `src/assets/styles/arcade.css` | Add `.dialog-headline`, the `.win-screen*` block, the `.first-win__*` block and the four `@keyframes`; add the mobile step-downs, the `prefers-reduced-motion` cancellations and the `html.light-graphics` carve-out. |
+| 6 | `src/assets/styles/colors.css` | Add `--color-phosphor: #4ade80` with its named-exception docblock. |
+
+⚠️ **`src/components/orbit/OrbitModal.vue` is NOT in this list, deliberately.** An intermediate build
+moved `.orbit-intro` out of its scoped style into `arcade.css` so the upsell could share it. D6.2
+deleted the upsell's use of that shape, so the move became churn with one consumer again and was
+reverted — `OrbitModal.vue` ends this card byte-identical to `main`.
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -467,21 +583,26 @@ The verification bar for this card is:
 Copied 1:1 from the Trello **Acceptance Criteria** checklist (#157).
 
 1. **AC1** — Given a player wins their first paid game, when the upsell opens, then it renders through `ArcadeModal` with `variant="orbit"` (violet-deep frame on void-deep) and `size="compact"`.
-2. **AC2** — Given the upsell is open, when the titlebar renders, then it shows `OrbitMark` in the `titlebar-lead` slot beside the title `ORBIT`, and the close X is present and dismisses the modal.
-3. **AC3** — Given the upsell is open, when the body renders, then `NICE WIN!` appears as a large in-body headline and no longer as the titlebar title.
-4. **AC4** — Given the winning choice is known, when the upsell opens, then that word is rendered as the hero directly beneath the headline.
-5. **AC5** — Given the winning choice is missing or empty, when the upsell opens, then the word row is hidden and the headline, supporting line and both buttons still render normally.
+2. **AC2** — ⚠️ **AMENDED (D5.1).** Given the upsell is open, when the titlebar renders, then it shows a small phosphor square in the `titlebar-lead` slot beside the title **`CONGRATS!`** — **not** `ORBIT`, and **not** `OrbitMark` — and the close X is present and dismisses the modal.
+3. **AC3** — ⚠️ **AMENDED (D6.1).** Given the upsell is open, when the body renders, then `NICE WIN!` appears as a large in-body headline **and appears exactly once on the surface** — the titlebar must not repeat it.
+4. **AC4** — ⚠️ **AMENDED (D6.2).** Given the winning choice is known, when the upsell opens, then that word is rendered inside the `.win-screen` CRT — phosphor green, Press Start 2P, behind a `>` prompt, followed by a block caret — beneath the celebration band.
+5. **AC5** — Given the winning choice is missing or empty, when the upsell opens, then the **whole screen block is hidden** and the headline, sub-line, supporting line and both buttons still render normally.
+5b. **AC5b** *(new, D13)* — Given the upsell opens with motion allowed, then the word types out one character at a time and the caret begins blinking only after the final character. Given `prefers-reduced-motion: reduce`, then the whole word is present on the first frame, nothing animates, and the caret is a static block.
+5c. **AC5c** *(new, D13.1)* — Given any winning choice from 1 to 20 characters, when the upsell opens at 1440px, 390px and 320px, then the word renders on **one line**, inside the screen, and `document.documentElement` does not scroll horizontally.
 6. **AC6** — Given the player won a FREE-TEXT game type (`presetChoices` empty), when the upsell opens, then the supporting line states both that Orbit keeps playing every round AND that the word stays theirs while it runs.
 7. **AC7** — Given the player won a PRESET game type (e.g. Beast Mode), when the upsell opens, then the supporting line mentions hands-off auto-play only and makes NO claim about word ownership.
 8. **AC8** — Given `selectedGame` is unavailable when the upsell opens, then the PRESET (claim-free) copy is used — word ownership is never asserted on unknown ground.
 9. **AC9** — Given the upsell is open, when the body copy is read, then the previous 28-word paragraph ("Put it in orbit. Fund an Orbit balance once…") is gone and exactly one short supporting line remains.
 10. **AC10** — Given the upsell is open, when the CTAs render, then `Set up Orbit` is the amber `btn-dialog--primary` and `Not now` is the outline `btn-dialog`; neither carries a violet fill.
 11. **AC11** — Given the upsell is open, when the player exits via the X, Esc, the backdrop, `Not now` or `Set up Orbit`, then it is marked seen and never opens again in that browser.
-12. **AC12** — Given a 20-character winning choice, when the upsell opens at 540px desktop and at the smallest supported mobile width, then the word hero stays inside its container and the page does not scroll horizontally.
+12. **AC12** — Given a 20-character winning choice, when the upsell opens at 540px desktop and at the smallest supported mobile width, then the word hero stays inside its container and the page does not scroll horizontally. ⚠️ **The mechanism changed (D13.1):** it is satisfied by the container-query size, on one line, **not** by wrapping.
+12b. **AC12b** *(new, D5.1)* — Given the upsell opens at 320px, then the titlebar title is not clipped (`scrollWidth <= clientWidth`) — the bar and the sub-line together must read as one complete sentence at every supported width.
 13. **AC13** — Given a build with `orbitEnabled === false`, when a player wins their first paid game, then the modal never mounts and `seen` is not persisted (the invitation still fires the first time they win after Orbit ships).
 14. **AC14** — Given the app is embedded in an iframe, or Settings / Provably Fair / the Orbit panel is open, or the app is recovering / idle-disconnected / relaunching, or terms are not accepted, when a player wins their first paid game, then the upsell does not open and no error is surfaced.
 15. **AC15** — Given the redesign is merged, when the codebase is searched, then `variant="black"` / `.dialog--black` still exist with zero consumers, and `.arcade-frame--black` (the guide's `GuideTip`) is unchanged.
 16. **AC16** — Given the redesign is merged, when `monkify-meta/conventions/frontend.md` is read, then it records that the tutorial/help OVERLAY tier has no implementation, and `compact` is stated as 540px (not 608).
+16b. **AC16b** *(new, D10)* — Given the redesign is merged, when `conventions/frontend.md` is read, then `--color-phosphor` is recorded as a **named palette exception** scoped to quoted machine output on a screen, and explicitly distinguished from `--color-live`.
+16c. **AC16c** *(new)* — Given the redesign is merged, when `git diff main -- src/components/orbit/OrbitModal.vue` is run in `monkify-front`, then it is **empty**.
 17. **AC17** — Given the redesign is merged, when the backend repo is diffed, then it contains no changes for this card (no entity, handler, consumer, endpoint, EF mapping or migration).
 
 ---
@@ -496,16 +617,23 @@ repeatable; steps 3–8 are the checks.
    `orbit.value?.enabled`).
 2. **Win a paid round** on a **free-text** game (Cosmic Sprint) with two players against the local
    Docker stack — a free bet will **not** open it (`ownBetWasPaid`).
-3. **AC1/AC2/AC3:** violet frame, 540px on desktop, `⟡ ORBIT` titlebar with a working X, `NICE WIN!`
-   in the body.
-4. **AC4/AC6:** the word you bet is the hero, and the line ends *"…and the word stays yours while it
-   runs."*
+3. **AC1/AC2/AC3:** violet frame, 540px on desktop, a `▪ CONGRATS!` titlebar with a working X,
+   `NICE WIN!` in the body **and nowhere else on the surface**.
+4. **AC4/AC5b/AC6:** the word you bet appears in the black CRT strip in phosphor green behind a `>`,
+   typed out character by character, with the caret blinking **only after** the last character; the
+   line ends *"…and the word stays yours while it runs."*
+4b. **AC5b (reduced motion):** enable *Emulate `prefers-reduced-motion`* in DevTools → Rendering and
+   reopen — the whole word must be there on the first frame with a static caret.
 5. **AC7:** repeat on **Beast Mode** (reset `seen` first) — the line must be the hands-off one, with
    **no** word-ownership claim.
-6. **AC12:** with the modal open, in DevTools set the word to 20 characters
-   (`document.querySelector('.dialog-word').textContent = 'abcdefghijklmnopqrst'`) and check 540px
-   desktop **and** a 320px viewport — no horizontal scrollbar on `body`.
-7. **AC5:** with the modal open, blank the word node — headline, line and both buttons still render.
+6. **AC12/AC12b/AC5c:** with a 20-character choice, check 1440px, 390px **and** 320px (use device
+   emulation — resizing the Chrome *window* bottoms out around 500px on Windows and will silently
+   test the wrong width). Assert `documentElement.scrollWidth === clientWidth`, that
+   `.win-screen__line` does not overflow its screen, and that `.dialog__title` is not clipped.
+   ⚠️ Setting `--win-cells` requires re-rendering with a real word — editing only the node's
+   `textContent` leaves the cell count stale and gives a false pass.
+7. **AC5:** with the modal open, reopen with an empty word — the whole `.win-screen` block is gone
+   and the headline, sub-line, line and both buttons still render.
 8. **AC11:** close via Esc, reload, win again → it must not reopen. Repeat for the X, the backdrop,
    `Not now` and `Set up Orbit` (the last one should also open the Orbit panel).
 
@@ -525,3 +653,4 @@ repeatable; steps 3–8 are the checks.
 | Date | Change |
 | --- | --- |
 | 2026-08-07 | Initial spec from refined card #157 (+ the refinement changelog comment). Adds, beyond the card: the `selectedGame`-undefined expression trap (§7.2), the two `arcade.css` helpers and their fit maths (§7.5), and the four-place `compact` 608→540 correction (§10.3). |
+| 2026-08-08 | **Rewritten after the visual gate rejected the first build twice.** The surface became a *celebration first, upsell second*. Superseded **D4** (Edson 168px, left-anchored), **D6** → **D6.1/D6.2** (`NICE WIN!` exactly once; the word moved into a miniature CRT quoting the terminal, in Press Start 2P), **D10**'s word colour (→ `--color-phosphor`, a new named palette exception), **D13** (a ~640ms entrance beat with a JS type-out and a `matchMedia` reduced-motion path), and added **D5.1** (`CONGRATS!` titlebar) and **D13.1** (character-count-driven sizing via a container query, forced by Press Start's 1.0em advance). New: §7.5 rewritten with the shipped primitives + measured fit table (old §7.5 folded into a `<details>`), file-checklist row 6 (`colors.css`) and the note that `OrbitModal.vue` is deliberately untouched, ACs **2/3/4/5/12** amended and **5b/5c/12b/16b/16c** added. Verification: `yarn lint` + `yarn build` clean; all states checked in-browser at 1440/390/320. |

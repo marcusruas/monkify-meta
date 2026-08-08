@@ -119,7 +119,15 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
 ### Identity, overlays and flow
 
 - **Every Orbit overlay goes through `ArcadeModal`.** The Orbit panel is **grey**; the first-win upsell
-  is **black**. That grey/black split is a rule, not a style, and reskinning both did not blur it.
+  was **black**. That grey/black split was a rule, not a style, and reskinning both did not blur it.
+  ⚠️ **Superseded for the upsell by #157 (2026-08-08):** `OrbitFirstWinModal.vue` is now the **Orbit**
+  material at `size="compact"` (540), which leaves `variant="black"` with no dialog consumer at all
+  (`conventions/frontend.md` records the consumer-less tier). The panel is still grey. The upsell is
+  also no longer led by Orbit: its titlebar reads **`CONGRATS!`**, the body shouts **`NICE WIN!`**, and
+  the winning word is quoted from the game's terminal inside a miniature CRT in phosphor green. Orbit's
+  identity on that surface is now one 30px mark beside the supporting line, plus the amber CTA — the
+  celebration leads, the upsell follows. The **conditional** supporting line is unchanged in intent:
+  the word-ownership beat renders only on free-text types, with its `while it runs` qualifier.
 - Orbit ships **one mark and four action glyphs**, on a 16px/2px grid in `currentColor`. The two
   stop-rule glyphs carry the semantic OK/ERR hues so nothing is stolen from the accents. **There is no
   app-wide icon system** — the glyph set stays Orbit-scoped.
