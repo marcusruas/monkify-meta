@@ -11,6 +11,25 @@
 > a player out **while their bet is still riding**. This spec makes every settlement-time stop rule
 > read a **settled** balance, defers the floor's cash-out until nothing is riding, and stops the
 > planner entering a player whose floor has been crossed.
+>
+> ⚠️ **Three implementation deviations — the code wins over §6.6 and §7 below.** All three trace to the
+> **auto-park watcher** (`useOrbit.ts`), which the single-control merge added and which this spec did
+> not account for: it PATCHes `enabled: false` the moment Orbit cannot pay for a round, which is
+> exactly what a tripped floor produces.
+>
+> 1. **The sweep does NOT filter on `Enabled`** (§6.6 said it did). An `Enabled` filter would skip
+>    precisely the players the sweep exists to pay — auto-parked mid-deferral — and skip them
+>    permanently, since they are also barred from new rounds. **Accepted consequence (owner,
+>    2026-08-07): a parked player at or below their floor is now cashed out**, which previously could
+>    not happen because `EvaluateFloor` was only reachable through settlement.
+> 2. **`isStoppedByFloor` is NOT gated on `enabled`** (§7.2 said it was), and `'stop-loss'` outranks
+>    **`off`** as well as `unfunded`. Gated on `enabled` the state would be all but unreachable, and the
+>    player would be shown PAUSED or NEEDS MONEY for a balance deliberately sent home.
+> 3. **Two more frontend files were touched** than §7 lists: `OrbitControlBar.vue` (RUN is disabled with
+>    "Stop loss reached — raise or clear it", because pressing it would flip the flag and change nothing
+>    — the backend gate still bars the player) and `OrbitStatusBanner.vue` (the rounds-left line is
+>    suppressed). The floor's explanatory copy lives in **`components/orbit/tabs/OrbitStopRulesTab.vue`**,
+>    not `OrbitPage.vue` — the field moved in the `/orbit` restructure.
 
 ---
 
@@ -156,6 +175,7 @@ which only becomes true with this card:
 | 8 | **A 5-minute recurring sweep re-drives the floor.** | Once the floor trips the player stops betting, so **no settlement pass will ever run for them again** — the only other trigger is gone. Without the sweep, decision 7's window is decorative and a player who walks away is never cashed out. It also clears anyone already stuck in this state today. |
 | 9 | **The client derives a `'stop-loss'` status**; no `GET /orbit` change. | The inputs (`enabled`, `cashOutFloor`, `balance`, `orbitBetsPlaced`) are already on the payload. Over a backend-only card (the sit-out window would be silent, and after the cash-out "NEEDS MONEY" is a lie) and over a new server field (a shipped contract change for something the client can compute). |
 | 10 | **The settled balance is a DECISION INPUT ONLY.** Cash-out amounts still come from `ResolveBalance`. | Sizing a transfer off the settled balance would send money that is currently staked in a live round. |
+| 11 | **The sweep ignores `Enabled`** — added during implementation (owner, 2026-08-07). | The auto-park watcher parks a player mid-deferral, and an `Enabled` filter would then strand the very cash-out the sweep exists to complete. See the deviation note in the header. |
 
 ---
 
@@ -768,3 +788,5 @@ Orbit is dark in production (`VUE_APP_ORBIT_ENABLED`), so verify locally with th
 | Date | Change |
 | --- | --- |
 | 2026-08-07 | Initial spec from refined card #154. Includes the §0 base note reconciling the card against the single-control merge (`Stopped` removed, `orbitStatus` reduced), which landed on `main` after refinement. |
+| 2026-08-07 | Implemented. Header amended with the three deviations the **auto-park watcher** forced (sweep ignores `Enabled`; `isStoppedByFloor` not gated on `enabled` and outranking `off`; two extra frontend files, and the floor copy living in `OrbitStopRulesTab.vue`). Decision 11 added. 874 unit tests green, no migration; integration suite 110/110 — see the flake note below. |
+| 2026-08-07 | ⚠️ **Open item:** on the FIRST full integration run, `OrbitFeedbackFlowTests.ASettledOrbitRound_LeavesTheBalanceAndTheLedgerAgreeing` failed with the column one stake below the ledger. It did **not** reproduce in two further full runs, nor in isolation on this branch, and the same test passed isolated and in a full run on the `origin/main` baseline. Most likely mechanism: the integration harness boots Hangfire (`ScheduleRecurringJobs` on `ApplicationStarted`), so the new **5-minute** `orbit-stop-rule-sweep` now fires during the ~5-minute suite — a concurrent writer the baseline did not have. It only selects enrolments with a `CashOutFloor`, and that test's player has none, so it cannot have written that column directly; the effect would be timing, not corruption. **Not closed — watch this test.** |
