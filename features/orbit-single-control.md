@@ -54,6 +54,17 @@ rolling manual cash-out gap.
 - **Orbit never bets a word the player did not opt into**: a null `Choice` no longer implies
   "derive one"; the explicit `AutoPickChoice` opt-in is required (word and opt-in are mutually
   exclusive — saving one clears the other).
+- **The claim is advertised publicly since #156** — on the front door (`HomeOrbitCard` on `/`) and in
+  the guide (`GuideOrbit`'s `YOU CAN OWN A WORD` row), which until then said nothing about it anywhere
+  in the app. Both surfaces state plainly that nobody else can bet a claimed word, and both carry the
+  **two qualifiers this rule makes mandatory**: free-text games only (a preset type never claims
+  anything), and only **while Orbit is running** — because the claim dies with playability, "the word
+  is yours" without that clause overpromises a claim a pause or a dry balance already released.
+  ⚠️ **Accepted consequence, recorded knowingly:** a human refused with `ChoiceAlreadyTaken` can now
+  *infer* the block might be an Orbit claim rather than another human's bet — #150 made those two
+  responses byte-identical on purpose. #118's rule is unbroken: it protects **who** runs Orbit, and
+  identity stays invisible. Neither surface may ever name, count or hint at **which** players or
+  **which** words are claimed, and neither may add an "is this word reserved?" probe.
 
 ### The front: one toggle + a money door
 

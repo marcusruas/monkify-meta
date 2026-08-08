@@ -1,6 +1,12 @@
 # Monkify — "Home Orbit card" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged to `main` on **2026-08-07** via `feature/home-orbit-card`
+> (`monkify-front` + `monkify-meta`; no `monkify-backend` branch ever existed). Distilled into
+> [`../features/home-dashboard.md`](../features/home-dashboard.md) — this feature is one panel on an
+> existing page and deliberately has **no standalone `features/` doc**. See §15 for the two copy/layout
+> revisions the owner made during implementation; §7.3 and AC4 already carry them.
+>
+> _Originally: Ready for implementation_ — refined via Trello card
 > [Add home card for orbit, focus on what it does, why its cool. and how you can OWN a word](https://trello.com/c/k9cAI4ag)
 > (#156, refined 2026-08-07).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **`monkify-backend` is NOT touched

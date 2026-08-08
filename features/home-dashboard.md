@@ -64,6 +64,40 @@ first-time player has no reason to open. Folded in because it rewrites the same 
   (the hero's CTA routed without tracking, so leaving it would have killed the GA series on ship day),
   and because the fair panel is `v-if="!isEmbedded"` and is now the component's only child, an embedded
   render produces **nothing** rather than an empty full-width box.
+- **`HomeOrbitCard` — the front door's Orbit panel** (#156, 2026-08-07). Full width, no grid wrapper of
+  its own (same reason as the fair panel), sitting **between `PROVABLY FAIR` and `YOUR RECORD`**. It
+  keeps the page's logic — act (picker) → learn → trust → **extra capability** → numbers; it was
+  deliberately *not* promoted above `WANNA LEARN HOW TO PLAY?`, which would answer a power user before
+  a first-timer's own question. Three things about it are load-bearing:
+  - **It is static copy and opens no request.** No balance, no status, no owned word, no
+    `GET /orbit`, no hub group, no wallet signature — a cold visitor, a connected wallet and a running
+    Orbit player all see the identical pitch. **The home page opens no Orbit call at all, and this
+    panel must not become the first one**; a live-status variant was rejected for exactly that reason.
+  - **It gates itself** on `v-if="orbitEnabled && !isEmbedded"`, like every other Orbit surface.
+    `orbitEnabled` is fail-closed and build-time only, so **the panel is dark in production** until
+    that flag flips (accepted knowingly on ship day). A false gate renders a comment node, which is
+    not a grid item, so the section rhythm is byte-identical to a build without it.
+  - **`HomePage` owns the destination and the tracking**: `openOrbit()` fires
+    `trackHomeLinkClick({ link: 'orbit' })` — the sixth member of that closed union — and *then*
+    `router.push({ name: 'Orbit' })`. Same #143 lesson as `practice` above: a CTA that routes without
+    firing its event kills the GA series silently. `/orbit` has **no route guard**, so a wallet-less
+    visitor lands on its own signed-out state rather than an error.
+
+  Copy rules the panel inherits from the guide and must keep: **no win-rate, strategy or profitability
+  promise** (Orbit changes *who presses the button*, not the odds); **only the floor catches a losing
+  run** — the take-profit threshold fires on a win and cannot; and the word-claim beat keeps **both**
+  qualifiers (free-text games only, and only while Orbit is running). ⚠️ **Custody is deliberately not
+  named on this panel** (owner's call) — it is still disclosed on `/orbit` and in the guide before any
+  money moves. That is a decision, not an oversight.
+
+  ⚠️ Its three beats are an **unordered `ul` with no `01/02/03` numerals** — they are independent
+  capabilities, not steps. The numbered treatment belongs to `HomeHowItWorks` (whose three beats *are*
+  a sequence) and copying it here made the two panels read as the same object; a violet top rule per
+  cell carries the separation instead. Do not re-add an ordinal.
+- **`HomeSection` has a third tone, `orbit`** (#156), mapping to the existing `.arcade-frame--orbit`
+  material plus a new `.eyebrow--orbit` colour. It is **feature-scoped, not a general option**: violet
+  stays Orbit's identity and nothing else's, so a panel that is not about Orbit takes `line` or `cyan`.
+  `tone` and `eyebrowTone` keep their defaults, so every pre-existing call site is untouched.
 - ⚰️ ~~The Quick Tour **`overview@1` auto-open fires on the first `/` visit**, not the first lobby
   visit, with every existing guard intact (catalogue loaded, not embedded, no other tour open, key
   unseen, no boot-recovery/idle/relaunch overlay, terms accepted, display-name prompt closed).
@@ -337,12 +371,13 @@ is a module singleton `HomePlayerStats` already loads.
 - `src/routes.ts` — `Home` at `/`, the prefix-free map, the strip-prefix shim, the catch-all
 - `src/pages/HomePage.vue`, `src/pages/ComingSoonPage.vue`
 - `src/components/home/` — `HomeHero`, `HomePlayerStats`, `HomeFloor`, `HomeHowItWorks`,
-  `HomeFeatureCards`, `HomeFooter`, `HomeSection`
+  `HomeFeatureCards`, `HomeOrbitCard`, `HomeFooter`, `HomeSection`
 - `src/components/game-selection/GameTypeCard.vue` · `GameTypes.vue` — the rebuilt picker
 - `src/hooks/useLiveGames.ts` · `usePlayerStats.ts` · `useGamePicker.ts` · `useHeaderModals.ts`
 - `src/utils/gameArt.ts` · `pot.ts` · `players.ts`
-- `src/assets/styles/arcade.css` — `.arcade-frame` / `--cyan` / `__rule`;
-  `src/assets/styles/colors.css` — `--color-live`
+- `src/assets/styles/arcade.css` — `.arcade-frame` / `--cyan` / `--orbit` / `__rule`;
+  `.eyebrow--orbit`; `src/assets/styles/colors.css` — `--color-live`, `--color-orbit`
+- `src/hooks/useAnalytics.ts` — `trackHomeLinkClick`'s closed `link` union (`orbit` added by #156)
 - `src/components/GameHeader.vue` — wordmark → `Home` (lobby when embedded)
 - `EMBEDDING.md` · `public/embed-example.html` — prefix-free paths (the `#launch_token` flow they
   documented no longer exists and was **not** restored)
