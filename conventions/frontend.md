@@ -13,8 +13,33 @@
 - **API access via `src/services/mainService.ts`** — a single axios instance with a request
   interceptor that sets `baseURL` (`VUE_APP_API_BASE_URL`) and attaches **no auth header** (player
   endpoints are public; only `adminService.ts` sends a token). Add new endpoints here and export them
-  from the default object. Nothing is intercepted by status any more — a `401`, `429`, `5xx` or network
-  error rejects and each caller handles it locally (a toast in `GameTypes.vue` / `GamePage.vue`).
+  from the default object. Nothing is intercepted **by status** — a `401`, `429`, `5xx` or network error
+  rejects like any other; there is no blanket `401 → /error` on `mainAPI` (that belongs to
+  `adminService.ts`).
+- **Error copy comes from the API, through one reader (`utils/apiError.ts`).** Every rejection carries
+  the envelope `{ data, messages: [{ type, value }] }`, and `apiErrorMessage(err)` is the **single**
+  place in `src/` that reads it — five hand-rolled copies were folded into it by #158. It prefers the
+  first `type === 2` entry with a usable `value`, then the first usable entry of any type, then `null`.
+  ⚠️ **`type` is NUMERIC** — `Informational 0 / Alert 1 / ValidationFailure 2 / Error 3`, and the API has
+  no `JsonStringEnumConverter`. Two screens filtered `type === 1` under a `/* ValidationFailure */`
+  comment; that is **Alert**, so they never matched. Use `2`.
+- **`error.message` is never shown to a player.** On an AxiosError it is the status line
+  ("Request failed with status code 400") — it goes to `console.error` and nowhere else.
+  `services/handlers.ts` toasts `apiErrorMessage(error) ?? API_ERROR_FALLBACK`
+  (`Something went wrong — please try again.`), keyed by the message text as its `toastId` so identical
+  failures refresh one toast instead of stacking. A surface that renders the failure **itself** uses
+  `displayableErrorMessage(err, fallback)`, which keeps a genuinely thrown sentence (a wallet that
+  cannot sign) while still blocking status lines — the presence of `response` separates the two.
+- **If you report a failure yourself, mark it `handled`.** `err.handled = true` short-circuits the
+  interceptor's toast, and the 200 ms `setTimeout` in `handlers.ts` exists precisely so a caller's
+  `catch` runs first. Since the toast now carries real copy, a site that also shows its own toast or an
+  inline error line **must** set the flag or the player reads the same sentence twice
+  (`useGame`'s game-data load, `useTokenBalance` on **both** branches, `DisplayNamePrompt`,
+  `PlayerCustomizationModal`, `ResponsibleGamingPage`, plus the pre-existing `GamePage`, `GameTypes`,
+  `useBootRecovery`, `useOrbit*`, `OrbitTelegramTab`).
+  ⚠️ The counter-example is deliberate: **`useGame`'s `submitBet` catch is NOT marked** — its terminal
+  line (`> There was an error processing your bet`) carries no reason, so the interceptor toast is the
+  only explanation the player gets. See `features/api-error-messages.md`.
 - **Concurrent-request dedupe (`singleFlight`)** — `mainService.ts` holds a module-local
   `Map<string, Promise>`; while a request for a key is in flight every later caller receives **that same
   promise**, and the entry is deleted in `finally`. It is **not a cache**: nothing survives across time,

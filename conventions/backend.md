@@ -234,6 +234,32 @@
   entry per HTTP request (`httpRequest.requestMethod`/`status`/`latency`), emitted by the platform, not
   the app. Silencing those needs a Cloud Logging exclusion filter, not a code change.
 
+## `ErrorMessages.resx` values are player-facing verbatim
+
+Since #158 the frontend renders `ApiResult.messages[].value` **exactly as written** — there is no
+front-side rewrite map and no string matching on the wording. That makes a `.resx` edit a **UX change**,
+not a refactor:
+
+- **Write for a player, not a developer.** "The requested payment signature have not sent tokens from
+  the request wallet" was live copy for months. Internal vocabulary ("the request wallet", "informed in
+  the request", "check the data" — the data is on-chain) reads as noise to the person it is addressed to.
+- **`ErrorMessages.Designer.cs` must not drift.** It is generated from the `.resx`, and its XML doc
+  comments quote the value. Regenerate it, or mirror the edit exactly.
+- **Preserve format placeholders.** `AdviceOnDifferentSignatureBetAmount` carries `{0}`, which
+  `SolanaService.cs` formats `_settings.Games.SupportEmail` into. Dropping it silently loses the support
+  address — nothing throws.
+- **Never let whitespace be a separator.** `SignaturePaid{Less,More}ThanBetAmount` used to end in a
+  trailing space, which was the *only* thing separating them from the advice sentence they get
+  concatenated with. It is invisible in an editor and did not survive the first copy tidy.
+  `GenerateErrorMessageForTokenExchange` joins with an explicit `" "` now.
+- **Some keys are load-bearing and must NOT be reworded** — `ChoiceAlreadyTaken` and `RefundWarning`
+  (byte-identical output is what keeps an Orbit cross-round reservation indistinguishable from a
+  same-round collision, #150), `GameNotValidForBets` and every auth/wallet-proof message
+  (`constraints.md` §6 — unknown vs inactive must stay indistinguishable).
+- **Tests assert symbolically** (`ErrorMessages.X`, `BetValidationResult.X.StringValueOf()`), so a value
+  change flows through and `run_tests.bat` stays green with **zero test edits**. If a test *does* need
+  editing, you reworded a key that was supposed to stay put — fix the `.resx`, not the assertion.
+
 ## Middleware ordering and client-IP keying (`SpaceStroker.Api/Program.cs`)
 
 The API's middleware order is load-bearing, and two ordering/config traps silently disabled the

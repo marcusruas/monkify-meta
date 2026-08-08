@@ -1,6 +1,10 @@
 # Space Stroker — "Real API error messages" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-08** — merged to `main` via `feature/api-error-messages` in all three
+> repos. Distilled into [`../features/api-error-messages.md`](../features/api-error-messages.md); this
+> spec stays the deep design archive. See §16 for what changed between this document and what shipped.
+>
+> Refined via Trello card
 > [response and handling/UI when betting on a reserverd word (#158)](https://trello.com/c/cmb6wfm7)
 > (2026-08-07).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
@@ -565,3 +569,71 @@ Local Docker stack (see `AGENTS.md` / memory: `docker start`, never `compose up`
 | Date | Change |
 | --- | --- |
 | 2026-08-07 | Initial spec from refined card #158. Backend copy pass **retargeted** at the live payment-signature strings after F1 showed the card's targets were already the current values; helper's `type` filter corrected to `2` (F3); double-toast sweep (§7.4) and AC 15 added; AC 8 and AC 11 amended against F5 and F3. |
+| 2026-08-08 | **Shipped.** Two owner decisions taken at implementation time — see §16. |
+
+---
+
+## 16. What changed at implementation time (2026-08-08)
+
+Two things this document got wrong, both found while implementing and both decided by the owner. The
+**code wins**; this section records why.
+
+### D1 — The trailing space was load-bearing (`SolanaService.cs` joins the backend's two files)
+
+§6.2 says to strip the trailing space from `SignaturePaidLessThanBetAmount` /
+`SignaturePaidMoreThanBetAmount`, and §10.1 says "no other backend file changes". Both cannot be true:
+`SolanaService.GenerateErrorMessageForTokenExchange` (`SolanaService.cs:665-677`) builds one sentence by
+concatenation, and that trailing space was the **only** separator before
+`AdviceOnDifferentSignatureBetAmount`. Following both instructions literally produces
+`…than this bet requires.If your transaction sent…`. No test asserts the concatenation, so nothing
+would have caught it.
+
+**Decision: join with an explicit `" "` in code**, so the values can be trimmed as §6.2 intends.
+`src/SpaceStroker.Infrastructure/Services/Solana/SolanaService.cs` therefore joins the two files in
+§10.1. One line, string joining only — no logic change. Recorded as a convention in
+`conventions/backend.md`: never let whitespace inside a resource value be a separator.
+
+### D2 — §7.4's "own toast — unchanged" was wrong for three sites (`displayableErrorMessage`)
+
+§7.4 lists `GamePage.vue:80` and `GameTypes.vue:47` as "own toast — unchanged", on the assumption that a
+site with its own toast is already serving the player. It is not: both do
+`toast.error(err.message || 'Failed to fetch game types')`, and `err.message` on an AxiosError **is**
+`Request failed with status code 500`. The lobby and the game page — the two most-seen screens — would
+have kept printing the exact string this spec exists to remove.
+
+A third site is worse. `ResponsibleGamingPage.vue:85` toasted `error.message` **and did not mark
+`handled`**, so a failed self-exclusion showed `Request failed with status code 400` **twice** — its own
+toast and the interceptor's.
+
+**Decision: fix all three.** They keep `handled = true` (AC 7 untouched — the interceptor still stays
+silent) and keep their existing fallback copy. `ResponsibleGamingPage` gains the flag it was missing.
+
+This needed a second helper, because these surfaces render the failure themselves and also receive
+**non-HTTP** throws whose `message` is a real sentence worth showing ("This wallet cannot sign
+messages."):
+
+```ts
+export const displayableErrorMessage = (error: unknown, fallback: string): string;
+```
+
+It returns `apiErrorMessage(error)` when the envelope has one; otherwise the thrown `message` **only
+when the error carries no `response`** (i.e. it is not an HTTP failure); otherwise the fallback. The
+presence of `response` is what separates a real thrown sentence from an axios status line. It also
+replaced the `apiErrorMessage(err) ?? (err as Error)?.message ?? fallback` chain in `DisplayNamePrompt`
+and `PlayerCustomizationModal`, which had the same latent leak on a 500 with no envelope.
+
+### Left open, deliberately
+
+**8 sites in `useOrbit.ts`** (~646, 730, 781, 997, 1023, 1042, 1075, 1102) still read
+`serverMessage(error) ?? (error instanceof Error ? error.message : '…')`, so a 500 with no envelope
+leaks the axios status line into Orbit's inline `lastError`. One-line fix each via
+`displayableErrorMessage`; left out to keep this card inside the scope §7.3 set for the money
+composable. Also still open: the F6 observations (dead `Wallet*`/`Rg*` families,
+`ParameterNotFound` vs `ParameterHasNoActiveGames`).
+
+### Verified at ship
+
+`run_tests.bat` **901/901** and `run_integration_tests.bat` **116/116**, both green with **zero
+test-file edits** — exactly what §11/F2 predicted. `ChoiceExclusivityFlowTests.cs:103`
+(`ShouldContain("invalid characters")`) passes untouched. Frontend: `yarn lint` + `yarn build` clean.
+The manual QA in §13 was **not** run — the owner shipped without the local-stack pass.
