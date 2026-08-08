@@ -185,7 +185,17 @@ page at `/responsible-gaming`.
 
 - **The first-visit nudge is gone and nothing replaces it** (knowingly accepted). The app lost its only
   **unprompted** teaching surface; `HomeHowItWorks` on `/` is the onboarding now.
-- **The Orbit section is deferred** (#121–#123) — its own Trello card.
+- ⚰️ ~~**The Orbit section is deferred** (#121–#123) — its own Trello card.~~ **Shipped.** `orbit` /
+  `ORBIT — LET IT PLAY` (`GuideOrbit.vue`) is a registered entry in `GUIDE_SECTIONS`, and it is the
+  section every other Orbit surface deep-links to (`/how-to-play#orbit`) — which is what lets the
+  `/orbit` page and the panel carry almost no explanatory prose of their own.
+  Since **#156** it also carries a **`YOU CAN OWN A WORD`** row, added directly after `IT PLAYS FOR
+  YOU` because the claim is about *what Orbit plays*, not about the money. Before that the guide — the
+  app's only long-form Orbit explainer — said **nothing** about the word claim anywhere, so the new
+  front-door panel would have advertised a mechanic the guide was silent on. The row keeps the same
+  two qualifiers the panel uses (free-text games only; only while Orbit is running) and, being the long
+  form, additionally spells out the preset-type exception: on a fixed-choice game Orbit plays your pick
+  but **never reserves it**.
 - **The copy has not been reviewed by the team** — Trello **"Validate the /how-to-play texts with the
   dev team"**. The UI, section shell and cards are settled; the wording is what is open.
 - **`/responsible-gaming`'s mobile deeplink return has never run on a physical phone.**

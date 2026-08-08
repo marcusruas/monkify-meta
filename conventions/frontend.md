@@ -257,7 +257,10 @@
   filed to fix.
 
   **The third material — `.arcade-frame--orbit` (Trello #141, 2026-08-04).** `--color-void-deep` fill
-  behind a **2px `--color-orbit-deep`** frame, no glow. **Scope is the `/orbit` page only.**
+  behind a **2px `--color-orbit-deep`** frame, no glow. **Scope is Orbit's own surfaces** — the
+  `/orbit` page, and since **#156** the front door's `HomeOrbitCard` (via `HomeSection`'s third
+  `tone="orbit"`). The scope test did not loosen: it is still *"is this surface about Orbit?"*, never
+  *"does this surface want depth?"*. A panel that is not about Orbit takes `line` or `cyan`.
 
   It exists because `/orbit` needed the *depth* of the black panel and could not have it: black
   requires **both** informative-only-and-brief **and** light in tone, and `/orbit` is a money page
@@ -378,7 +381,12 @@
   - **Pages and sections use `.arcade-frame`**, the same flat hairline family — `.dialog--grey` is
     its overlay member, with the sunken bars a page has no use for. Two fills exist and **which one a
     surface takes is a recorded decision, not a free choice**:
-    - `.arcade-frame` alone — near-black. `/`'s `HomeSection`, `/error`, `/soon`, **`/how-to-play`**
+    - `.arcade-frame .arcade-frame--orbit` — the Orbit material above, as a page/section surface.
+      **`/orbit`, and the `HomeOrbitCard` panel on `/`** (#156). Its eyebrow takes **full
+      `--color-orbit`** through `.eyebrow--orbit`, not the deep token: 9px Press Start 2P on
+      near-black needs the full intensity, and this is the same "frame deep, content full" split
+      `.eyebrow--cyan` already makes inside a cyan frame.
+    - `.arcade-frame` alone — near-black. `/`'s other `HomeSection` panels, `/error`, `/soon`, **`/how-to-play`**
       (#130 — it is the destination of a button on `/`, so the material must not change under the
       player mid-journey, and it gives the black tip blocks far less contrast to fight), and the side
       panel's mobile chat container.
