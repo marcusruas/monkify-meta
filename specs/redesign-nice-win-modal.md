@@ -1,6 +1,7 @@
 # SpaceStroker — "Redesign nice win modal" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-08** — merged to `main` from `feature/redesign-nice-win-modal` in
+> `monkify-front` + `monkify-meta`. Refined via Trello card
 > [Redesign nice win modal](https://trello.com/c/fcklCgcd) (#157, refined 2026-08-07).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **`monkify-backend` is NOT touched
 > — this card has zero backend surface** (AC17 asserts an empty backend diff).

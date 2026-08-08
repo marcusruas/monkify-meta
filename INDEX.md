@@ -255,10 +255,13 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-**Redesign nice win modal** ([#157](https://trello.com/c/fcklCgcd)) — **spec created 2026-08-07,
-redesigned at the visual gate 2026-08-08**, branch `feature/redesign-nice-win-modal` in
-`monkify-front` + `monkify-meta` (worktrees at `.worktrees/redesign-nice-win-modal/<repo>`; **no
-`monkify-backend` branch — zero backend surface**). Spec:
+**Redesign nice win modal** ([#157](https://trello.com/c/fcklCgcd)) **landed on `main` on 2026-08-08**
+via `feature/redesign-nice-win-modal` in `monkify-front` + `monkify-meta` (**no `monkify-backend`
+branch — zero backend surface**, so `AGENTS.md` rule 8's integration test had nothing to exercise, and
+`monkify-front` has no test harness at all: the bar was `yarn lint` + `yarn build` + an in-browser
+pass at 1440/390/320, re-verified after merging `origin/main` in). **Spec created 2026-08-07,
+rewritten at the visual gate 2026-08-08.** No new `features/` doc — this redesigns a surface
+`features/orbit-ui-overhaul.md` already describes, and that doc carries the update. Spec:
 [`specs/redesign-nice-win-modal.md`](specs/redesign-nice-win-modal.md). The first-win Orbit upsell
 moves off the **black** panel onto the **Orbit** material at `compact` (540) and keeps its
 game-type-**conditional** supporting line — the word-ownership beat renders only on free-text games,
