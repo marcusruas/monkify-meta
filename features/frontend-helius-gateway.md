@@ -124,7 +124,9 @@ provider does not cost credits in proportion to player count.
 - **monkify-front**
   - `src/hooks/useConnection.ts` — the single transport, `confirmSignature`, explicit `decimals`.
   - `src/services/mainService.ts` — `getTokenBalance(wallet, mint, { live })`.
-  - `src/components/TokenBalance.vue` — service-backed read, tunable + idle-gated poll.
+  - `src/hooks/useTokenBalance.ts` — service-backed read, tunable + idle-gated poll. ⚠️ Since #151
+    ([money-changing-animations](money-changing-animations.md)) this is a **module singleton and the
+    app's only `getTokenBalance` call site**; `src/components/TokenBalance.vue` is **deleted**.
   - `src/hooks/useGame.ts` — resolves and guards `tokenDecimals` across all four bet paths.
   - `src/utils/walletBridge.ts` — `SignRequestPayload.decimals` (same-origin contract only).
 - **monkify-meta**

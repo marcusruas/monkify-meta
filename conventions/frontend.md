@@ -35,9 +35,17 @@
   `utils/launchToken.ts`, and no blanket `401 → /error`. The only fragment still handled is
   `#admin_token=<jwt>` on the game page, which hands off to the admin portal (`hooks/useAdmin.ts`).
 - **Wallet UX is unconditional.** Every game settles in the one configured token, so the header wallet
-  cluster (`WalletButtons.vue` + `TokenBalance`) uses the `tokenSymbol` / `tokenMintAddress` published
-  on the game-type payload — there is no `paymentMethod` branch. `GameConsole.vue` requires a connected
-  wallet to place a **paid** bet.
+  cluster uses the `tokenSymbol` / `tokenMintAddress` published on the game-type payload — there is no
+  `paymentMethod` branch. `GameConsole.vue` requires a connected wallet to place a **paid** bet.
+  ⚠️ Since #151 the cluster is **two balance-carrying pills** (`WalletButtons.vue` amber +
+  `OrbitLauncher.vue` violet); `TokenBalance.vue` is deleted and the balance lives in the
+  **`useTokenBalance` module singleton**, which is the app's only `getTokenBalance` call site. The
+  header **owns the mint** and pushes it in with `setMint()`.
+- **A money figure that moves is rendered by `MoneyValue.vue`, never by hand.** One component owns the
+  roll, the `± ` chip, the credit-green/debit-dim-ink colours, the queue and the reduced-motion branch;
+  the **formatter is injected** per call site. A change animates **only when it is attributed** — see
+  [`../features/money-changing-animations.md`](../features/money-changing-animations.md). Do not add a
+  second animated readout, and do not animate a figure the player is currently typing into.
 - **A write that proves wallet ownership must be signed.** `usePlayerPreferences.ts` is the pattern:
   fetch a purpose-scoped nonce (`GET /players/nonce`), build the canonical message **byte-for-byte
   identical** to the backend's `BuildMessage`, sign it with the connected wallet, then send

@@ -1,6 +1,29 @@
 # Space Stroker — "Money change animations" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED (2026-08-08)** — merged via `feature/money-changing-animations` into `main` in
+> `monkify-front` + `monkify-meta`. Distilled into
+> [`../features/money-changing-animations.md`](../features/money-changing-animations.md), which is the
+> doc to read on a normal task; this file stays the deep design archive.
+>
+> ⚠️ **Three owner deviations landed after this spec was written — the feature doc is authoritative
+> where they disagree:**
+> 1. **The chip rises from BELOW the number and never above it** (mockup gate). §7.4 / D3-D4's *"the
+>    downward travel carries the direction"* is **false**: travel is identical both ways, and
+>    **colour + the `+ / −` sign carry direction alone**. Structural — the header bar is the top of
+>    the viewport, so a chip above would be clipped.
+> 2. **A credit HOLDS ~2.5s, a debit does not.** §5's single `CHIP_MS = 900` became
+>    `CHIP_MS_CREDIT = 3400` (rise ~410ms → hold ~2.5s → fade ~510ms) and `CHIP_MS_DEBIT = 900`. They
+>    **must stay in sync with the CSS durations**.
+> 3. **Header figures are 10px mobile / 12px desktop with a `$` prefix** — header-only; Orbit's
+>    readouts split their unit into a `USDC` tag, so a prefix there would say it twice.
+>
+> ⚠️ **One instruction could NOT be followed.** §7.2.5 / §7.3.3 said to register the watchers at
+> **module scope**. That crashes the app at boot: they derive from `useWallet()`, which throws until
+> `main.ts` runs `initWallet()`, and module bodies execute at import time. The shipped code uses the
+> files' existing **register-once flag** idiom (`moneyWiringDone`, `ensureWatchers()`). Behaviour is
+> as specified; only the registration mechanism differs.
+>
+> Refined via Trello card
 > [Add money changing animations (#151)](https://trello.com/c/AaPjqrw5) (2026-08-07).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend` is untouched.**
 > Branch/worktree: `feature/money-changing-animations` → `.worktrees/money-changing-animations/<repo>`.
@@ -852,3 +875,5 @@ Local Docker stack (`docker compose up -d --build` in `monkify-backend`, API on 
 | Date | Change |
 | --- | --- |
 | 2026-08-07 | Initial spec from refined card #151 (refined 2026-08-07, answer mode Short) + live code exploration of `monkify-front`. Resolved D14 (formatting: injected formatter + width reservation) and D15 (optimistic delta must not feed Orbit's auto-park watcher) — both delegated to the spec by the card. |
+| 2026-08-07 | **Mockup gate closed (D12 / AC 25).** Picks: header **H1 "twin pills"** (the shipped `.btn-door`, widened); signed-out Orbit **(b)** — the pill keeps its width and reads `ORBIT`; animation **A2 "ledger slip"**. ⚠️ Owner correction to A2 forced deviation 1 above (the chip rises from below). |
+| 2026-08-08 | **Shipped.** 15 commits on `feature/money-changing-animations` in `monkify-front`, merged to `main` with the KB sync. Verified after merging `origin/main` (the Home Orbit card #156) in: `yarn lint` clean, `yarn build` green. Deviations 1–3 and the module-scope reversal recorded in the banner above and distilled into `features/money-changing-animations.md`. D15's hazard verified contained in code — `orbitOptimisticDelta` is read in exactly **one** place, the display `balance` computed, and every affordability rule still reads `orbit.value.balance`. |

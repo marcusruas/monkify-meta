@@ -58,6 +58,14 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
 - **The weight rule is what prevents the salad:** colour lives only in small marks (a pip, a 3px bar,
   one status tag, one filled button). **Every value is plain ink.** The single exception is `no floor`,
   which is red text inside an otherwise-ink value.
+
+  > ⚠️ **Extended by #151, and the rule above is exactly why.**
+  > [money-changing-animations](money-changing-animations.md) adds a floating `+ / −` chip beside a
+  > moving money figure: **credit is green (`--color-live`), debit is dim ink (`--color-ink-mute`) —
+  > never red.** A red debit chip would fire on a **healthy running Orbit every single round** and burn
+  > the warning signal `no floor` / `paused` / a failed deposit depend on. The `−` sign and the colour
+  > carry the direction instead. **The value itself is still plain ink** — the chip is a small mark
+  > beside it, which is precisely the shape this rule allows.
 - The violet/violet clash (identity frame vs open step) is **resolved by intensity, not hue** — the
   frame and mark sit at `--color-orbit-deep`, the open step takes full `--color-orbit`. Do not "fix"
   it by giving the active step another colour.
@@ -98,6 +106,13 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
 - **The header `ORBIT` row stays on every route**, subordinate to the module. ⚠️ Two live renderings of
   one balance exist and Orbit's balance **moves without the player acting**, so both read the same
   module-level state and never refresh independently.
+
+  > ⚠️ **Corrected by #151 (2026-08-08).** This card's header control was a bare 40px violet **door**
+  > carrying no number — *"a DOOR, not a readout"*, the owner's 2026-08-04 call.
+  > [money-changing-animations](money-changing-animations.md) **narrowly reversed the number part**:
+  > the door is now a **balance-carrying pill**, still one door, still no `SIGN IN` and no text label.
+  > The "one module-level state, never refresh independently" rule is untouched and now **load-bearing
+  > for the animation** — the pill and Orbit's own `ORBIT HOLDS` figures animate off the same signal.
 - **All three #123 toasts still fire, unchanged.** The module additionally carries `paused` and the last
   win **as state** — the toast says "it happened", the module says "it is true".
 

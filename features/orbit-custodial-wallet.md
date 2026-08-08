@@ -138,6 +138,15 @@ they can withdraw it to their own wallet on demand. This card is the money found
 - `ORBIT` sits in the header menu beside Settings · Stats · Fair · History, with a stacked
   `WALLET` / `ORBIT` balance pair. Signed out, the Orbit row shows `SIGN IN` rather than a number —
   the balance is genuinely unreadable without ownership proof, so showing `0` would be a lie.
+
+  > ⚠️ **Superseded twice.** #141 (2026-08-04) deleted the stacked pair **and** the `SIGN IN` label,
+  > leaving a bare 40px violet **door**: *"a DOOR, not a readout"*. #151 (2026-08-08,
+  > [money-changing-animations](money-changing-animations.md)) then narrowly reversed **the number
+  > part** of that call — the door became a **balance-carrying pill** showing the Orbit balance, with
+  > colour and the mark supplying the context. **`SIGN IN` stays deleted**: signed out, the pill reads
+  > the word `ORBIT`, and it is gated on `hasSession && orbit !== null` so an unloaded Orbit never
+  > renders a false `0`. The "showing `0` would be a lie" principle above is what that gate enforces.
+
 - **Hidden entirely when embedded**, and when no Orbit account is configured.
 
 ## ⚠️ The production gate — `VUE_APP_ORBIT_ENABLED` (#146, shipped 2026-08-04)
@@ -153,7 +162,8 @@ now hides it, which is why the app can ship while Orbit is still in testing.
   production-ready. Do not "make them consistent"; the asymmetry is the point.
 - **The gate is UI *and* runtime.** A flag-off build makes **zero** `/orbit/*` calls, joins **no**
   `JoinOrbitNotifications` group, and runs **no** post-round poller. It is gated at both the **mount
-  points** (`GameHeader.vue`: balance row, ☰ Orbit row, `OrbitModal`, `OrbitFirstWinModal`, the
+  points** (`GameHeader.vue`: the Orbit pill — `OrbitLauncher`, formerly the balance row — ☰ Orbit
+  row, `OrbitModal`, `OrbitFirstWinModal`, the
   wallet-change watcher, `useOrbitNotifications().start()`) **and inside the composables**
   (`useOrbitNotifications`, `useOrbitRedirect`, `useFirstWinUpsell`) — the upsell is invoked from
   `useGame`'s victory one-shot, not from a template, so the composable guard is the one that cannot be

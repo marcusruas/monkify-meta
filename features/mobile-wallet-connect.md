@@ -111,8 +111,11 @@ unchanged.
   → address + explicit **Disconnect** menu.
 - `monkify-front/src/components/header/PlayerCustomizationModal.vue` — the connect gate renders
   `WalletButtons` (→ the modal on mobile); identity reads `effectivePublicKey`.
-- `monkify-front/src/components/TokenBalance.vue` — reads the **effective** wallet (desktop adapter OR
-  mobile session).
+- `monkify-front/src/hooks/useTokenBalance.ts` — reads the **effective** wallet (desktop adapter OR
+  mobile session), and re-reads when the deeplink session resolves after boot. ⚠️ Since #151
+  ([money-changing-animations](money-changing-animations.md)) the balance lives here, in a module
+  singleton; `src/components/TokenBalance.vue` is **deleted** and the number is rendered inside the
+  header wallet pill.
 - `monkify-front/src/main.ts` — pre-router `localStorage` stash of the wallet return params.
 - `monkify-front/src/App.vue` — `handleMobileDeeplinkReturn` at boot; auto-connect inside a wallet's
   in-app browser; `MobileWalletModal` rendered once.

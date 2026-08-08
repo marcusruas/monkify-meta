@@ -44,6 +44,16 @@ nebula layer was **deleted** for everyone — it was the single most expensive t
     wrapper), `mix-blend-mode` overlays go `normal`, multi-layer `box-shadow` / `text-shadow` glows
     collapse to a flat edge, and the lobby art's `drop-shadow` filters are dropped.
   - The **animated mascot image itself keeps animating** — only its wrapper's infinite wobble stops.
+  - ⚠️ **The strip list is for INFINITE animations only, and there are two documented exceptions.**
+    The mascot image above is one. The other is the **money change readout** (#151,
+    [money-changing-animations](money-changing-animations.md)): `.money-value*` is deliberately **not**
+    in the list. Its chip is a **one-shot** (900ms for a debit, 3.4s for a credit, most of which is a
+    motionless hold) that fires only when the player's own money actually moved, and the number roll is
+    a transform/text update on a single inline element. **Every viewport below 1024px is permanently in
+    light-graphics**, so adding it would mean *most players never see the feature* — which is exactly
+    why the owner ruled that phones get the full animation. Both exceptions carry their reasoning as a
+    comment in `arcade.css`; **do not re-add either selector in a future perf pass** — cut the loop or
+    change the `@keyframes` timing instead.
 - **In normal mode the app looks exactly as it did before this feature**, apart from the removed
   nebula. The background's 30 FPS cap in normal mode is pre-existing behavior, unchanged.
 - `.section-vignette` is kept in both modes: one static linear gradient with no blur, blend or

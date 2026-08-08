@@ -524,9 +524,13 @@ another operator means **deploying the app again with a different `spacestrokers
   reached from the header menu) browses one game type's completed rounds via
   `GET /games/{parametersId}/history` — paginated, "mine only" toggle (keyed on the connected wallet),
   per-row Verify link-out to `public/verify.html`. See `features/games-history.md`.
-- **Wallet UX:** the header wallet cluster (`WalletButtons` + `TokenBalance`) uses the configured
-  token's `tokenSymbol` / `tokenMintAddress`, published on the game-type payload. Every game is paid in
-  that one token, so there is no per-game payment branch.
+- **Wallet UX:** the header wallet cluster uses the configured token's `tokenSymbol` /
+  `tokenMintAddress`, published on the game-type payload. Every game is paid in that one token, so
+  there is no per-game payment branch. Since #151 the cluster is **two balance-carrying pills** —
+  amber wallet (`WalletButtons`) and violet Orbit (`OrbitLauncher`) — and the on-chain balance is
+  owned by the **`useTokenBalance` module singleton** (one refcounted poll, the app's only
+  `getTokenBalance` call site; `TokenBalance.vue` is deleted). Attributed changes animate through the
+  shared `MoneyValue` readout; see `features/money-changing-animations.md`.
 - **Real-time:** `useGameHub` (`src/hooks/useGameHub.ts`) owns **one** SignalR connection per tab to
   the `Games` hub at `VUE_APP_WEBSOCKET_BASE_URL` — opened lazily on the first game load and kept
   across rollovers, game switches and lobby round-trips, with each round joining/leaving its group and
