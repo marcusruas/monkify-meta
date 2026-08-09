@@ -26,7 +26,9 @@ refinement:
 integration test) does **not** apply, and there is no backend surface to test. `monkify-front` has no
 test suite, so verification is the manual QA in §13 against the acceptance criteria in §12.
 
-### 1.1 The six confirmed defects
+### 1.1 The confirmed defects
+
+Six from refinement; **#7 was folded in during implementation** on the user's call (§1.4).
 
 Line references are **pre-fix**, verified against `monkify-front@main` (74c3dbe) while writing this
 spec.
@@ -39,6 +41,7 @@ spec.
 | 4 | `GameBackground.vue:227-235` | `restartSpawning` no-ops while hidden (line 232) and is only re-armed from `handleVisibilityChange` (line 314). Any desync of the plain `let isPageVisible` (line 67) leaves spawning permanently dead while the rAF loop keeps running — "no elements spawning". |
 | 5 | `GameTerminal.vue:362` | The terminal form is `overflow-auto` (**both** axes) whenever the game is not `InProgress`. This is the reported X-scroll. |
 | 6 | `GameBackground.vue:324` + `:353-369` | The template shifts the backdrop by a hard-coded `70vw` (`backgroundPositionX: ${-bgPosition * 70}vw`), but CSS sets `background-size` to `150%` (`<=1024px`) and `200%` (`<=768px`). The shift stops matching the tile width, so the tile seam becomes visible ("many BGs") on tablet/phone widths. |
+| 7 | `main.css:51-54` | *(added to scope 2026-08-09 — see §1.4)* DaisyUI's base layer paints the **root element** with its own `base-100`, so the canvas is `#2A303C` instead of `--color-void` and every page taller than the viewport carries a hard horizontal colour seam. |
 
 ### 1.2 Two additional findings from code exploration
 
@@ -77,6 +80,36 @@ Today, for reference:
 | Elements per layer | `MAX_ELEMENTS = 64` → **up to 128 on screen** across the two layers | `LIGHT_MAX_ELEMENTS = 8` |
 | Spawn delay | `timeout / speed³` — secondary layer reaches **~37ms** at speed 3 (`1000 / 27`); main layer ~185ms (`5000 / 27`) | the same `× LIGHT_SPAWN_FACTOR (2.5)` |
 | Torpedoes | **uncapped** — one per bet | disabled entirely (`App.vue:262`) |
+
+### 1.4 Defect #7 — the root-element colour seam (folded in during implementation)
+
+Reported by the user **mid-implementation (2026-08-09)** and folded into this card on their explicit
+call, on the same reasoning decision 2 used for the terminal X-scroll: an unrelated root cause, but a
+one-line CSS change squarely inside "the background looks wrong".
+
+Two rules fight over the **root element's** background, and DaisyUI wins on specificity:
+
+| Rule | Selector | Specificity | Value |
+| --- | --- | --- | --- |
+| DaisyUI base layer | `:root, [data-theme]` | **(0,1,0)** | `hsla(var(--b1) / …)` → `#2A303C` |
+| `main.css:51-54` | `html, body` | (0,0,1) | `var(--color-void)` → `oklch(0.115 0.018 280)` |
+
+`:root` is a pseudo-class, so it outranks the bare `html` type selector. Measured on the running app:
+`getComputedStyle(html).backgroundColor` was `rgb(42, 48, 60)` while `body` was the intended void.
+
+**Why that is not merely cosmetic on `html`:** the root element's background paints the **canvas**,
+i.e. the entire scrollable area (3975-4415px on the lobby), while `<body>` paints only its **own box**
+— and body is viewport-height here, because the `min-h-screen` wrapper inside it overflows visibly
+instead of stretching it. The result is a hard horizontal seam at exactly one viewport down: void
+above, DaisyUI `#2A303C` below, showing through the `opacity-95` starfield layer. It affects **every
+page taller than the viewport**, not just the lobby.
+
+The intuition "the `<html>` tag only goes that far" is right about the symptom and inverted about the
+cause: html's *box* is short but its *background is global*; it is **body's** background that stops.
+
+**Fix (§7.7).** Raise our selector above DaisyUI's — `html:root` is (0,1,1) and therefore wins
+**regardless of stylesheet order**. A plain `:root` would only tie DaisyUI and leave the outcome
+depending on load order, which is exactly the fragility that produced this bug.
 
 ---
 
@@ -144,11 +177,14 @@ The single new value is a source constant:
  * Scales the per-layer element cap, the spawn rate, and the concurrent torpedo cap together.
  * 1 = the pre-#149 look (2 layers x 64 elements). The default is deliberately below that.
  */
-export const BG_DENSITY = 0.5; // starting value — tuned visually before the card advances (§12 AC 17)
+export const BG_DENSITY = 0.45; // approved by the user 2026-08-09 against the local stack (§12 AC 17)
 ```
 
-- `0.5` is a **placeholder**: per decision 12 the implementer deploys to the local Docker stack and
-  the user approves the look before the card advances. Do not treat it as final.
+- **`0.45` is the approved value** (AC 17 satisfied 2026-08-09). It yields **29 elements per layer**
+  (`round(64 × 0.45)`) against today's 64 — measured live at 1440px, the secondary layer settles at
+  exactly 29 and the two layers together hold ~33 sprites versus up to 128 before — and a concurrent
+  torpedo cap of **5** (`round(12 × 0.45)`). Light mode still floors at 8/layer (`Math.min`), verified
+  at 500px.
 - The constant lives in a **new** `src/constants/background.ts` rather than in
   `src/constants/space-elements.ts` (which is an asset manifest) or `featureFlags.ts` (which is
   env-driven and this value is not).
@@ -401,7 +437,30 @@ const gradualSpeedReset = () => {
 - Clean up the listener where the composable already tears down (`stopIdleWatch` and friends) so a
   route change does not leave it bound.
 
-### 7.7 What must NOT change
+### 7.7 `main.css` — the root element must paint `--color-void` (defect #7)
+
+`main.css:51-54` becomes:
+
+```css
+html:root,
+body {
+  background-color: var(--color-void);
+}
+```
+
+- **`html:root`, not `html`, and not `:root`.** DaisyUI's base layer ships
+  `:root, [data-theme] { background-color: hsla(var(--b1) / …) }`. `:root` (0,1,0) beats the bare type
+  selector `html` (0,0,1), which is why the root was painting `#2A303C`. `html:root` is (0,1,1) and so
+  wins **regardless of stylesheet order**; a plain `:root` would merely tie and leave the result
+  depending on load order — the exact fragility that produced the bug.
+- **Do not "fix" this by stretching `<body>` instead.** The seam is a *canvas* problem: the root
+  element's background is what paints the scrollable area. Once the root paints void, body's box being
+  viewport-height is invisible and needs no change. Giving body a `min-height` would paper over the
+  symptom and leave the root still wrong for anything that paints outside body's box.
+- No other declaration in that rule changes; `html { overflow-x: hidden }` at `main.css:63-65` is
+  untouched (its comment there explains why that guard must stay on the root).
+
+### 7.8 What must NOT change
 
 - **No unification of `background-size`** and no frozen mobile backdrop (decision 5).
 - **No per-route density override** — `/space-stroker/background` and practice inherit the global
@@ -501,6 +560,7 @@ sequenceDiagram
 | 4 | `src/hooks/useGame.ts` | `gradualSpeedReset()` → wall-clock deadline + `evaluateSpeedReset()` + `visibilitychange` catch-up (§7.6); overwrite-not-stack on a second call; listener teardown. |
 | 5 | `src/components/game/GameTerminal.vue` | Line 362 → `overflow-y-auto overflow-x-hidden`; add `break-all` to the `PAID TO` lines at 395-399 (§7.5). |
 | 6 | `src/components/practice/PracticeTerminal.vue` | Apply the same overflow fix **if** it carries the same `overflow-auto` branch (verify first). |
+| 7 | `src/main.css` | *(defect #7, §7.7)* `html, body` → `html:root, body` so the root element paints `--color-void` instead of DaisyUI's `base-100`. |
 
 **Not changed:** `src/hooks/usePerfMode.ts`. The refined card listed it, but light mode composes as a
 floor **inside `GameBackground.vue`** (§7.2) — `usePerfMode` only publishes the `lightMode` verdict
@@ -553,6 +613,8 @@ Copied 1:1 from the Trello checklist.
 17. Given the change is deployed to the local Docker stack, when the user reviews the starfield, then the chosen `BG_DENSITY` default is **approved by the user** before the card advances.
 18. Given the frontend changes are complete, when `yarn lint` runs in `monkify-front`, then it passes with no new errors (CRLF line endings preserved).
 
+19. *(added with defect #7, §1.4)* Given any page taller than the viewport, when the player scrolls past one viewport, then the background colour behind the starfield stays constant — `getComputedStyle(document.documentElement).backgroundColor` equals `body`'s, and no horizontal colour seam appears.
+
 **Implied by §1.2 Finding B, verified alongside AC 14:** a winning player's raw external id on the
 `PAID TO` line wraps and stays fully readable — it is never clipped by the new `overflow-x-hidden`.
 
@@ -595,6 +657,9 @@ Run against the local Docker stack (`setup_local_environment.bat`; see
 13. **Lint (AC 18).** `yarn lint` in the `monkify-front` worktree. → Clean, no `Insert ␍`.
 14. **Density approval (AC 17).** Deploy to the local Docker stack and get the user's sign-off on the
     chosen default **before** advancing the card.
+15. **Root-element seam (AC 19).** On the lobby, scroll past one viewport. → No horizontal colour
+    seam. In the console, `getComputedStyle(document.documentElement).backgroundColor` and the same
+    for `document.body` return the **same** value (`oklch(0.115 0.018 280)`), not `rgb(42, 48, 60)`.
 
 ---
 
@@ -616,3 +681,5 @@ Run against the local Docker stack (`setup_local_environment.bat`; see
 | Date | Change |
 | --- | --- |
 | 2026-08-09 | Initial spec from refined card #149, plus two findings from code exploration (§1.2): the dead `<=768px` media query, and the winner-id clipping risk in the overflow fix. |
+| 2026-08-09 | **Implementation pass.** (a) **Defect #7 folded in on the user's call** (§1.4, §7.7, §10.2 row 7, AC 19, QA 15): DaisyUI's `:root` base rule outranks `main.css`'s `html`, so the root element painted `#2A303C` and every page taller than the viewport carried a hard colour seam one viewport down. (b) `BG_DENSITY` **default fixed at 0.45** and approved against the local stack (§5, AC 17). (c) Old §7.7 renumbered to §7.8. |
+| 2026-08-09 | **Implementation notes** (behaviour unchanged from the design above, recorded so ship-time KB sync is accurate): the `visibilitychange` catch-up for `gradualSpeedReset` is registered **once at module scope** in `useGame.ts` rather than hung off `stopIdleWatch` as §7.6 suggested — `useGame` is a module-level singleton with no lifecycle hooks, and the idle watch follows the socket, so the speed must still land after an idle disconnect. Also: **defect #6's seam is near-unreachable in practice** — `lightMode = isMobile ‖ weakRenderer`, `isMobile` is `max-width: 1023px`, and light mode **freezes** `bgPosition` entirely, so below 1024px the backdrop never drifts; the `150%` `background-size` starts at `max-width: 1024px`, leaving exactly a 1px band (viewport = 1024px) where the old hard-coded `70vw` was actually wrong. The fix is kept as code correctness and as insurance if light mode ever stops freezing the drift, but it was **not** the cause of the reported "many BGs" — defect #1 was. |
