@@ -1,6 +1,9 @@
 # Space Stroker — "Background & Game Display Lifecycle Hardening" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged to `main` via `feature/background-lifecycle-hardening` on
+> **2026-08-09**. Distilled for day-to-day use in
+> [`features/background-lifecycle-hardening.md`](../features/background-lifecycle-hardening.md);
+> this spec stays the deep design archive. Refined via Trello card
 > [background and game display get really bugged](https://trello.com/c/No2Z0NMP) (2026-08-09).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **No backend change.**
 >

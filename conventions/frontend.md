@@ -824,5 +824,72 @@ deploy tool serializes that whole block verbatim, so no C# change is needed), an
 `monkify-backend/scripts/setup_local_environment.bat` if the local Docker stack needs it —
 `.env.production.local` is Vue CLI's highest-priority env file and overrides `.env.local`.
 
+## Deadlines, not timers — anything that must survive a hidden tab
+
+**Rule: if a delay must still be correct after the player switches tabs, express it as a wall-clock
+timestamp and evaluate it on `visibilitychange`. Never trust `setTimeout`/`setInterval` alone.**
+Chrome throttles timers in background tabs and **freezes them entirely** in a discarded/frozen one, so
+an armed timer is not a trigger you can rely on. `useIdleDisconnect.ts:26-29` is where this is written
+down; read it before adding any new deadline.
+
+The shape, copied from `useIdleDisconnect.ts:70-79`:
+
+```ts
+const onVisibilityChange = () => {
+  if (document.hidden) { hiddenSince = Date.now(); return; }
+  // Evaluate BEFORE clearing hiddenSince: this is the load-bearing path — it is what notices that
+  // the deadline elapsed while the timer was asleep.
+  evaluate();
+  hiddenSince = null;
+};
+```
+
+- **Keep the `setTimeout` if you want, but only as the visible-tab fast path.** Correctness comes from
+  the timestamp; the timer just makes the common case fire on time. `useGame.gradualSpeedReset()` does
+  exactly this.
+- **A second arm overwrites the deadline, it does not stack.** Clear the fast-path timer when you
+  re-arm, and read the delay from a local rather than from state you just mutated.
+- **Where the listener lives depends on the composable's shape.** A component registers in
+  `onMounted` / tears down in `onBeforeUnmount`. A **module-level singleton** composable (`useGame`,
+  `useIdleDisconnect`) has no lifecycle hooks — register once at module scope, for the tab's lifetime.
+  ⚠️ Do **not** hang a deadline off `startIdleWatch`/`stopIdleWatch` unless it genuinely belongs to the
+  socket: that watch follows the connection, and most deadlines must still land after an idle
+  disconnect.
+- **Also resync visual state on return, do not resume it.** Anything animating (positions, speeds,
+  transitions) should be re-derived from current props/state on becoming visible rather than
+  fast-forwarded from a paused value — see
+  [background-lifecycle-hardening](../features/background-lifecycle-hardening.md) for what "repair the
+  paused transition" cost.
+
+Used by: `useIdleDisconnect.ts`, `useTokenBalance.ts`, `useGame.ts` (`gradualSpeedReset`),
+`GameBackground.vue`, `TorpedoSpawner.vue`.
+
+## DaisyUI's base layer outranks bare element selectors
+
+`:root` is a **pseudo-class** (specificity 0,1,0); `html` is a **type selector** (0,0,1). DaisyUI's
+base layer ships:
+
+```css
+:root, [data-theme] {
+  background-color: hsla(var(--b1) / var(--tw-bg-opacity, 1));
+  color: hsla(var(--bc) / var(--tw-text-opacity, 1));
+}
+```
+
+so a rule written as `html { background-color: … }` **loses to DaisyUI** and never applies. This
+shipped as a real bug (#149): the root element painted DaisyUI's `base-100` (`#2A303C`) instead of
+`--color-void`.
+
+- **Write `html:root, body`** (0,1,1) when you need to beat it. A plain `:root` only **ties** and then
+  depends on stylesheet order — the exact fragility that caused the bug.
+- ⚠️ **On the root element this is never merely cosmetic.** The root's background paints the
+  **canvas**, i.e. the whole scrollable area, while `<body>` paints only its own box — and body is
+  viewport-height in this app, because the `min-h-screen` wrapper inside it overflows visibly instead
+  of stretching it. A mismatch therefore shows as a **hard horizontal colour seam exactly one viewport
+  down**, on every page taller than the screen. Fix the root's colour; do **not** paper over it by
+  giving `<body>` a `min-height`.
+- The same specificity trap applies to any other bare-element override of a DaisyUI base rule
+  (`color` on `html`, etc.). Check the computed value in DevTools rather than assuming your rule won.
+
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
      handling patterns, and add examples. -->

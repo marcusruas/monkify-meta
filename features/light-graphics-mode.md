@@ -37,9 +37,10 @@ nebula layer was **deleted** for everyone — it was the single most expensive t
 - **In light mode:**
   - No `backdrop-filter` / `filter: blur()` anywhere — the header, lobby panels, game-type cards and
     toasts become opaque.
-  - The space background **keeps drifting**, heavily reduced: **8 elements** max (trimmed immediately
-    on entering the mode, not lazily), a **24 FPS** frame target, a **frozen** `background-position`
-    scroll, and ~2.5× slower spawns. Per-bet **torpedoes are disabled**.
+  - The space background **keeps drifting**, heavily reduced: **at most 8 elements** (trimmed
+    immediately on entering the mode, not lazily), a **24 FPS** frame target, a **frozen**
+    `background-position` scroll, and ~2.5× slower spawns. Per-bet **torpedoes are disabled**.
+    ⚠️ **Since #149 that 8 is a ceiling, not a fixed number** — see the `BG_DENSITY` note below.
   - Infinite animations stop (`blink`, `bar-scan`, `pulse`, `crt-flicker`, the mascot's `wobble`
     wrapper), `mix-blend-mode` overlays go `normal`, multi-layer `box-shadow` / `text-shadow` glows
     collapse to a flat edge, and the lobby art's `drop-shadow` filters are dropped.
@@ -56,6 +57,27 @@ nebula layer was **deleted** for everyone — it was the single most expensive t
     change the `@keyframes` timing instead.
 - **In normal mode the app looks exactly as it did before this feature**, apart from the removed
   nebula. The background's 30 FPS cap in normal mode is pre-existing behavior, unchanged.
+  ⚠️ **Superseded in part by #149:** normal mode is no longer "unchanged" — the starfield's baseline
+  cost was lowered for *everyone*, not just weak renderers. See the next bullet.
+- ⚠️ **Since #149 ([background-lifecycle-hardening](background-lifecycle-hardening.md)), light mode is
+  a FLOOR over a global density value, not a competing knob.** The element cap and spawn rate are now
+  scaled by a single exported `BG_DENSITY` (0..1, currently `0.45`) in
+  `src/constants/background.ts`, and light mode composes as
+  `Math.min(LIGHT_MAX_ELEMENTS, round(MAX_ELEMENTS × BG_DENSITY))`. Consequences for anyone touching
+  this area:
+  - **Light mode can only ever get cheaper.** At `BG_DENSITY = 1` it still gets 8; at `0.05` it gets
+    3. Nothing done to the density can make light mode heavier than it is today — that `Math.min` is
+    the load-bearing part, and it must stay a `min`.
+  - **Normal mode is now 29 elements per layer, not 64** (`round(64 × 0.45)`) — ~33 sprites on screen
+    across the two layers instead of up to 128. `MAX_ELEMENTS = 64` remains only as the
+    `BG_DENSITY = 1` reference point; **do not lower it** to reduce density, lower `BG_DENSITY`.
+  - `spawnDelay` **divides** by the density and is floored at `SPAWN_DELAY_FLOOR_MS = 150` (the
+    secondary layer used to reach ~37ms at speed 3). The floor is applied **after**
+    `LIGHT_SPAWN_FACTOR`, so it can never make light mode spawn faster.
+  - Torpedoes now also carry a concurrent cap (`round(12 × BG_DENSITY)`), on top of the `v-if`
+    that already disables them entirely in light mode.
+  - `usePerfMode.ts` is **not** density-aware and must not become so — it publishes the `lightMode`
+    verdict only; the floor composition lives in `GameBackground.vue`.
 - `.section-vignette` is kept in both modes: one static linear gradient with no blur, blend or
   animation, and with the nebula gone it is the only thing framing the screen edges.
 - Mode changes are **presentational only**. Flipping mid-game never remounts the terminal, drops the
@@ -76,7 +98,8 @@ nebula layer was **deleted** for everyone — it was the single most expensive t
 - `src/App.vue` — mirrors `lightMode` onto `document.documentElement` as `light-graphics`; gates
   `<torpedo-spawner>`.
 - `src/components/background/GameBackground.vue` — `maxElements` / `frameInterval` / `spawnDelay`
-  branch on the mode; the watcher trims live elements on entry; frozen `bgPosition` in light mode.
+  branch on the mode (`maxElements` and `spawnDelay` now compose the mode **with** `BG_DENSITY`, #149);
+  the watcher trims live elements on entry; frozen `bgPosition` in light mode.
   Also the per-frame cleanups: rarity pool hoisted to a `computed`, `transform` precomputed on each
   element instead of a template helper.
 - `src/assets/styles/arcade.css` — the single `html.light-graphics` override block (documented
@@ -100,6 +123,12 @@ rendered 5 clouds, each a 40–82 vw radial gradient carrying **both** `filter: 
   are unrelated static gradients — **not** the deleted Vue component. Do not remove them.
 - The frame throttle applies **only** to `GameBackground`'s own rAF loop, not to the page, the
   terminal or input handling.
+- **The frozen `bgPosition` has a non-obvious side effect on narrow viewports.** Because every
+  viewport below 1024px is permanently light-graphics and light mode freezes the backdrop scroll, the
+  backdrop **never drifts on phones or tablets** — so backdrop-drift bugs (tile seams, shift/tile-width
+  mismatches) are invisible there. #149's breakpoint-aware shift fix is therefore mostly insurance;
+  see [background-lifecycle-hardening](background-lifecycle-hardening.md) → Gotchas. Anything that
+  un-freezes the drift below 1024px makes those paths live again.
 - Feature worktrees are fresh checkouts and do **not** carry gitignored files: without copying
   `.env.local` from the hub, `VUE_APP_API_BASE_URL` is undefined and every API call 404s against the
   dev server's own origin.
