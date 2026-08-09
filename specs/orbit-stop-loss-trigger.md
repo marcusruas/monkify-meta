@@ -112,7 +112,7 @@ here."* (`OrbitPage.vue`). This card makes that copy true.
 | 2 | The floor **defers** its cash-out while anything is riding, and compares on the settled number | `EvaluateFloor` |
 | 3 | The planner **will not enter** a player whose settled balance is at or below their floor | `OrbitBetPlacementService.ResolveCandidates` |
 | 4 | The threshold and the zero-out read the settled number too (arithmetic only — the threshold keeps its immediate cash-out) | `EvaluateThreshold`, `EvaluateZeroOut` |
-| 5 | A **5-minute recurring sweep** re-drives the floor for players who have stopped betting | new `OrbitStopRuleSweepJob` |
+| 5 | An **hourly BACKSTOP sweep** for the cases where no settlement event ever arrives | new `OrbitStopRuleSweepJob` |
 | 6 | A **`'stop-loss'`** status on `/orbit` and in the modal, derived client-side | `useOrbit`, `types/orbit.ts`, `OrbitStatusTag.vue` |
 
 **No entity change. No migration. No new endpoint. No API contract change.**
@@ -172,7 +172,7 @@ which only becomes true with this card:
 | 5 | **The threshold gets the arithmetic fix only** — settled comparison, immediate cash-out, no deferral. | Its promise is *"Orbit sends the balance to your wallet as soon as a win takes it here"*; deferring it a round would break shipped copy. Accepted consequence in §6.4. |
 | 6 | **Zero-out reads the settled balance too.** | Two lines, and it stops a false *"Orbit has stopped betting"* while a bet is riding — which `ZeroOutNotifiedAt` would then make permanent for that episode. |
 | 7 | **A never-resolving bet ages out** after `RidingBetStaleAfterMinutes` (default 60). | Over trusting game status alone: card #153 documents a round sitting in `WaitingBets` for **32h** looking perfectly normal. A trapped stop loss holds money the player asked to have sent home. |
-| 8 | **A 5-minute recurring sweep re-drives the floor.** | Once the floor trips the player stops betting, so **no settlement pass will ever run for them again** — the only other trigger is gone. Without the sweep, decision 7's window is decorative and a player who walks away is never cashed out. It also clears anyone already stuck in this state today. |
+| 8 | **An hourly sweep BACKSTOPS the floor — it is not the main trigger.** | ⚠️ Corrected during implementation (2026-08-07). The ordinary deferred cash-out is already event-driven: a tripped player is barred from further rounds, so their riding bet is their LAST, and `RewardGameConsumer.EvaluateOrbitFloors` iterates that round's own Orbit bettors when it settles and pays them out. The sweep is only for where that event never comes — a round that never terminates (which is what makes decision 7's window more than decorative), players already stuck below their floor at ship, and a parked player who never bets again. None is latency-sensitive, so hourly, matching `orbit-cash-out-sweep`. |
 | 9 | **The client derives a `'stop-loss'` status**; no `GET /orbit` change. | The inputs (`enabled`, `cashOutFloor`, `balance`, `orbitBetsPlaced`) are already on the payload. Over a backend-only card (the sit-out window would be silent, and after the cash-out "NEEDS MONEY" is a lie) and over a new server field (a shipped contract change for something the client can compute). |
 | 10 | **The settled balance is a DECISION INPUT ONLY.** Cash-out amounts still come from `ResolveBalance`. | Sizing a transfer off the settled balance would send money that is currently staked in a live round. |
 | 11 | **The sweep ignores `Enabled`** — added during implementation (owner, 2026-08-07). | The auto-park watcher parks a player mid-deferral, and an `Enabled` filter would then strand the very cash-out the sweep exists to complete. See the deviation note in the header. |
@@ -436,7 +436,7 @@ New file `SpaceStroker.Infrastructure/Jobs/OrbitStopRuleSweepJob.cs`, following
 /// <summary>
 /// Re-drives the cash-out floor for players nothing else will ever re-check.
 ///
-/// ⚠️ This is not belt-and-braces; it is the ONLY remaining trigger for a tripped player. EvaluateFloor
+/// ⚠️ A BACKSTOP, not the main path — see §6.6's prose. EvaluateFloor
 /// is called from settlement, and settlement only happens for a round the player bet in — but a player
 /// whose floor has tripped is barred from new rounds (§6.5). So the moment their last riding bet
 /// resolves, they leave the settlement path forever. Without this job, a floor that trips while a bet
@@ -473,7 +473,8 @@ public class OrbitStopRuleSweepJob
             }
             catch (Exception ex)
             {
-                // One player's failure must not stop the rest — this is the only thing that pays them.
+                // One player's failure must not stop the rest — for the no-event cases this is the
+                // only thing that pays them.
                 Log.Error(ex, "Could not evaluate the Orbit cash-out floor for player {PlayerId}.", playerId);
             }
         }
@@ -487,8 +488,9 @@ Wiring, both in `SpaceStroker.Consumers/Program.cs`:
 builder.Services.AddScoped<OrbitStopRuleSweepJob>();                          // beside line 62-63
 
 // in ScheduleRecurringJobs(), beside the existing four:
-// Every 5 minutes: a tripped stop loss is barred from new rounds, so settlement will never re-check it.
-recurringJobs.AddOrUpdate<OrbitStopRuleSweepJob>("orbit-stop-rule-sweep", job => job.Run(), "*/5 * * * *");
+// Hourly, like the cash-out sweep beside it — a BACKSTOP. The ordinary deferred cash-out is handled by
+// RewardGameConsumer when the player's last riding round settles; this covers only the no-event cases.
+recurringJobs.AddOrUpdate<OrbitStopRuleSweepJob>("orbit-stop-rule-sweep", job => job.Run(), "0 * * * *");
 ```
 
 ⚠️ **Consumers only.** The API does not run Hangfire recurring jobs and must not gain one
@@ -631,7 +633,7 @@ sequenceDiagram
     else nothing riding
         S->>S: Reserve(Floor) immediately
     end
-    Note over J: every 5 min — the ONLY trigger<br/>once the player stops betting
+    Note over J: hourly BACKSTOP — only for<br/>rounds that never settle at all
     J->>S: EvaluateFloor(every enabled player with a floor)
 ```
 
@@ -665,7 +667,7 @@ sequenceDiagram
 | 5 | `src/SpaceStroker.Infrastructure/Services/Orbit/OrbitBetPlacementService.cs` | Post-filter barring candidates at/below their floor; add the `IOrbitLedgerService` ctor dependency. |
 | 6 | `src/SpaceStroker.Infrastructure/Jobs/OrbitStopRuleSweepJob.cs` | **New.** §6.6. |
 | 7 | `src/SpaceStroker.Domain/Configs/Entities/OrbitSettings.cs` | Add `RidingBetStaleAfterMinutes` (default 60). |
-| 8 | `src/SpaceStroker.Consumers/Program.cs` | `AddScoped<OrbitStopRuleSweepJob>()` (~line 62) + `AddOrUpdate` at `*/5 * * * *` in `ScheduleRecurringJobs` (~line 248). |
+| 8 | `src/SpaceStroker.Consumers/Program.cs` | `AddScoped<OrbitStopRuleSweepJob>()` (~line 62) + `AddOrUpdate` at `0 * * * *` in `ScheduleRecurringJobs` (~line 248). |
 | 9 | `src/SpaceStroker.Api/appsettings*.json`, `src/SpaceStroker.Consumers/appsettings*.json` | Optional: surface `RidingBetStaleAfterMinutes` under `Operator:Token:Orbit`. Mock values only; the code default already works, so this is documentation, not a requirement. |
 
 **No** migration, **no** `SpaceStrokerDbContext` change, **no** controller change, **no** rate-limit
@@ -766,7 +768,7 @@ Orbit is dark in production (`VUE_APP_ORBIT_ENABLED`), so verify locally with th
 5. Repeat, but arrange for the last riding bet to **win** past the floor: confirm **no** cash-out and
    that Orbit resumes on the next round.
 6. Set `RidingBetStaleAfterMinutes` to `1`, leave a round jammed in `WaitingBets`, and confirm the
-   5-minute sweep pays the player out anyway.
+   hourly sweep pays the player out anyway (or trigger it by hand from the Hangfire dashboard).
 7. Re-run the sweep and confirm it writes nothing the second time.
 
 ---
@@ -788,5 +790,6 @@ Orbit is dark in production (`VUE_APP_ORBIT_ENABLED`), so verify locally with th
 | Date | Change |
 | --- | --- |
 | 2026-08-07 | Initial spec from refined card #154. Includes the §0 base note reconciling the card against the single-control merge (`Stopped` removed, `orbitStatus` reduced), which landed on `main` after refinement. |
+| 2026-08-07 | ⚠️ **Sweep cadence corrected 5 min → hourly, and its role restated (owner's question).** The spec and the job's own comment claimed the sweep was "the ONLY remaining trigger" for a tripped player. **That was wrong.** The ordinary deferred cash-out is already event-driven: a tripped player is barred from further rounds, so their riding bet is their LAST — and when that round settles, `RewardGameConsumer.EvaluateOrbitFloors` iterates that game's own Orbit bettors (`RewardGameConsumer.cs:150-154`), finds them with nothing riding, and pays out. The sweep only covers where no settlement event ever arrives (a round that never terminates, the at-ship backfill, a parked player who never bets again) — none latency-sensitive. Hourly, matching `orbit-cash-out-sweep`. |
 | 2026-08-07 | Implemented. Header amended with the three deviations the **auto-park watcher** forced (sweep ignores `Enabled`; `isStoppedByFloor` not gated on `enabled` and outranking `off`; two extra frontend files, and the floor copy living in `OrbitStopRulesTab.vue`). Decision 11 added. 874 unit tests green, no migration; integration suite 110/110 — see the flake note below. |
-| 2026-08-07 | ⚠️ **Open item:** on the FIRST full integration run, `OrbitFeedbackFlowTests.ASettledOrbitRound_LeavesTheBalanceAndTheLedgerAgreeing` failed with the column one stake below the ledger. It did **not** reproduce in two further full runs, nor in isolation on this branch, and the same test passed isolated and in a full run on the `origin/main` baseline. Most likely mechanism: the integration harness boots Hangfire (`ScheduleRecurringJobs` on `ApplicationStarted`), so the new **5-minute** `orbit-stop-rule-sweep` now fires during the ~5-minute suite — a concurrent writer the baseline did not have. It only selects enrolments with a `CashOutFloor`, and that test's player has none, so it cannot have written that column directly; the effect would be timing, not corruption. **Not closed — watch this test.** |
+| 2026-08-07 | ⚠️ **Open item:** on the FIRST full integration run, `OrbitFeedbackFlowTests.ASettledOrbitRound_LeavesTheBalanceAndTheLedgerAgreeing` failed with the column one stake below the ledger. It did **not** reproduce in two further full runs, nor in isolation on this branch, and the same test passed isolated and in a full run on the `origin/main` baseline. Most likely mechanism: the integration harness boots Hangfire (`ScheduleRecurringJobs` on `ApplicationStarted`), so the then-**5-minute** `orbit-stop-rule-sweep` fired during the ~5-minute suite — a concurrent writer the baseline did not have. **Mitigated the same day:** the cadence is now hourly (see the row below), so the sweep no longer fires during a suite run at all. It only selects enrolments with a `CashOutFloor`, and that test's player has none, so it cannot have written that column directly; the effect would be timing, not corruption. **Not closed — watch this test.** |
