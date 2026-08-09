@@ -891,5 +891,45 @@ shipped as a real bug (#149): the root element painted DaisyUI's `base-100` (`#2
 - The same specificity trap applies to any other bare-element override of a DaisyUI base rule
   (`color` on `html`, etc.). Check the computed value in DevTools rather than assuming your rule won.
 
+## Icons — one registry, two grids, always decorative
+
+Since **#159** the app has exactly one icon system. **Never inline an `<svg>` icon in a component,
+and never reach for a text character as a glyph** (`✓ ✗ ▶ ▼` and a VT323 letter `X` all used to be
+marks here). Full behaviour: `features/icons-and-menu-overhaul.md`.
+
+- **Render `<AppIcon :name="…" :size="…" />`** (`src/components/ui/AppIcon.vue`). Adding an icon is a
+  **data change** in `src/constants/icons.ts` — declare a drawing, get a mark. It is not a system
+  change and needs no component edit.
+- **Authoring is a bitmap, not path data.** `b` = eight 8-character rows (coarse); `b16` = sixteen
+  16-character rows (fine); `#` is filled, anything else is empty. `r` = raw rects, **emitted
+  verbatim and never rasterised** — for production drawings that must not shift by a unit.
+- **Legal sizes are a real constraint, not a style note.** Coarse is pixel-exact at
+  **16 / 24 / 32 / 40**; fine only at **16 / 32 / 48**. Off-ladder sizes go visibly soft.
+  ⚠️ **Opting a drawing into the fine grid costs it the 24px rung** — check where it is actually
+  placed before choosing. Coarse is the default; reach for fine only when the coarse grid provably
+  cannot hold the silhouette (today: `practice`, `wallet`).
+  ⚠️ Orbit's inherited call sites render off-ladder (11/13/14/18/20/26/28/30/52px) and **stay that
+  way**: zero visual change on a shipped surface outranks the ladder, which governs new placements.
+- ⚠️ **Icons are DECORATIVE.** `aria-hidden="true"` + `focusable="false"` are unconditional; the
+  accessible name comes from the control's `aria-label` or its visible label. A cell whose visible
+  label is shortened (`RESPONSIBLE`) carries the full name in `aria-label`.
+- **Colour comes from the surface.** Icons paint `currentColor` and inherit the call site's tint —
+  tint by passing a text utility (`class="text-orbit"`), never a per-call-site `fill`.
+  ⚠️ **Exactly two icons carry a baked fill** (`win-at` green, `falls-to` warm red). Do not add a
+  third. `AppIcon` renders **one fill per drawing**, so a two-colour mark (a brand logo) cannot live
+  in the registry at all — `usdc.svg` stays a two-tone vector rendered through `<img>` with
+  `image-rendering: auto`.
+- **A mark replaces the generic marker, it does not join it.** `ArcadeModal` drops its 6px amber
+  square when `titlebar-lead` is filled (`.dialog--has-lead`); `HomeSection` drops its `+ TITLE +`
+  pluses when given an `icon`. Two markers state the identity twice and the generic one is louder.
+  Marks read amber via `currentColor`; **Orbit is the named exception** and carries violet.
+- **Pixel art animates in steps.** `.app-icon--spin` is `steps(4)` — a continuous rotation puts pixel
+  edges at arbitrary angles and destroys the read `shape-rendering="crispEdges"` exists to give. It
+  freezes under `prefers-reduced-motion` and is **deliberately excluded** from the light-graphics
+  `animation: none` list (every phone runs light-graphics; a frozen loader looks hung).
+- ⚠️ **A PascalCase grep is not a call-site audit in this codebase.** `HomeOrbitCard` used
+  `<orbit-mark />` kebab-case and a `git grep OrbitMark` reported the import as unused. Search both
+  casings before declaring a component dead.
+
 <!-- TODO: confirm component folder conventions, state management (Vuex usage), toast/error
      handling patterns, and add examples. -->

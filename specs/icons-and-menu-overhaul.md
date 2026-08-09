@@ -1,8 +1,20 @@
 # Space Stroker — "Icons and Menu Overhaul" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged to `main` via `feature/icons-and-menu-overhaul` on **2026-08-09**
+> (`monkify-front` `16ce4a7`, `monkify-meta` `d9d42a8`). Refined via Trello card
 > [Icons and Menu overhaul](https://trello.com/c/1omDew5a) (2026-08-09).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **No backend change.**
+> Verified before merge: `yarn lint` clean, `yarn build` complete, browser QA at 0 console errors.
+> No unit or integration test changed — frontend-only, and `monkify-front` has no test suite.
+>
+> ⚠️ **This spec is the design archive, and §5's inventory, §7.7's pad and D6 / D11 / D12 / D14 /
+> D18 / D25 are STALE against what shipped.** The registry ships **24** icons (not 26 — both pixel
+> coins were deleted once `usdc.svg` took every money readout), the pad is **250px / 24px icons /
+> VT323 15px** (not 270 / 32 / PS2P), `wallet` is a **second** fine-grid drawing, and identity marks
+> reach the **pages and modals**, not only the menu cells. Every divergence is recorded in §15's
+> revision log; the distilled current truth is
+> [`../features/icons-and-menu-overhaul.md`](../features/icons-and-menu-overhaul.md), which **wins**
+> wherever the two disagree.
 >
 > **Design artifact (visual source of truth, revision 5, reviewed by the owner):**
 > <https://claude.ai/code/artifact/f081e67e-e469-4ed1-9624-49b3a89de691>

@@ -18,6 +18,11 @@ kept). The only new backend surface is one read: `GET /games/stats`.
   rendered only when **not embedded** (`useEmbed().isEmbedded`) — regulated iframes keep today's
   menu (no in-frame stats/fairness). Audio + wallet stay on the header bar. The menu shows wherever
   player preferences load (lobby, `/game`, history, stats).
+  ⚠️ **Superseded by #159:** the menu is no longer a list of rows. It is a **3-column icon pad** —
+  Home · Practice · Orbit · Stats · Fair · How to play · History · Responsible · Settings — and the
+  embed still renders **the same grid** with its two survivors (History + Settings), not an alternate
+  layout. What holds from this card is unchanged: Stats and Fair are menu destinations, both hidden
+  when embedded, both opening the same surfaces. See `features/icons-and-menu-overhaul.md`.
 - **Side panel is chat-only.** `GameSidePanel` keeps its arcade-cabinet chrome (collapse / dock-rail /
   maximize) but the CHAT/STATS/FAIR tab bar is gone — it renders only `GameChatPanel`. Chat identity,
   limits, and lifecycle are unchanged.
