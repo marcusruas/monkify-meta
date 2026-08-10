@@ -327,13 +327,24 @@
   **nothing else** — no forced cash-out, so no cool-off is owed, the word claim survives, deposits,
   cash-outs and notifications keep working, and resuming is instant. **Paused** stays the name of the
   *automatic* out-of-funds state (`isPausedForFunds`, client-derived), so no shipped copy moved.
-- **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it and
-  what is left goes home. The complement of the "cash out at" threshold, which only ever fires on a
-  **win** and so can never catch a balance losing its way down. Evaluated once the round **settles**,
-  never at placement — a stake leaves the balance immediately, so evaluating earlier could cash a
-  player out while the bet they had just made was still riding. Its own `OrbitCashOutSource.Floor`,
-  because a ledger that cannot tell "I won enough" from "I have lost enough" cannot explain to a
-  player why their money came back.
+- **Orbit cash-out floor** — `OrbitEnrollment.CashOutFloor`: the balance falls **to or below** it,
+  Orbit **stops betting**, and what is left goes home. The complement of the "cash out at" threshold,
+  which only ever fires on a **win** and so can never catch a balance losing its way down. Its own
+  `OrbitCashOutSource.Floor`, because a ledger that cannot tell "I won enough" from "I have lost
+  enough" cannot explain to a player why their money came back.
+  ⚠️ **It is two rules, not one** (2026-08-10,
+  [`specs/orbit-stop-loss-trigger.md`](specs/orbit-stop-loss-trigger.md)). It is evaluated once the
+  round **settles** — never at placement, since a stake leaves the balance immediately — **and** it
+  gates the planner, so a player at or below their floor is not dispatched into another round.
+  Settlement alone was not enough: the successor round opens and its stake is signed *before* the
+  previous round settles, so the floor could only ever fire with the next bet already committed —
+  paying the player one stake short and letting one more round run. Strictly **above** the floor is
+  still playing, and that comparison must read the same in both places.
+- **Orbit settled balance** — `IOrbitLedgerService.ResolveSettledBalance`: the ledger balance **plus**
+  the stakes of Orbit bets whose round is still in `Game.ActiveGamesStatus`, i.e. what the player
+  holds counting money still in play. Every Orbit stop rule **decides** on this; nothing **sizes**
+  money with it — cash-outs are still computed from the raw ledger, because a riding stake is not
+  available to send home.
 - **Orbit notification channel** — a private per-player SignalR group on `ActiveGamesHub`
   (`orbit/{playerId}`), joined with the Orbit session token and named **server-side** from it. Keyed
   on the `PlayerId` and never on the wallet: a wallet address is public on every bet list, so a

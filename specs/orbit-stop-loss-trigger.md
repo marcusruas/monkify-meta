@@ -1,7 +1,13 @@
 # SpaceStroker — "Orbit Stop Loss trigger" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-10** — merged to `main` via `feature/orbit-stop-loss-trigger` in
+> `monkify-backend` + `monkify-meta`. 931 unit + 116 integration tests green; no new integration test
+> (Level `Minor change`). Refined via Trello card
 > [Orbit Stop Loss trigger #154](https://trello.com/c/kCzYE9Bi) (re-refined 2026-08-10).
+>
+> ⚠️ **Read §3.2 before §3.1.** The design changed *during* implementation: live testing showed the
+> settled balance fixes only half the defect, so a planner gate was adopted — which §3.1 rejects in a
+> different form. Both sections are current and they are not contradicting each other.
 > Repos affected: `monkify-backend`, and this doc in `monkify-meta`. **No `monkify-front` change.**
 >
 > **Level: `Minor change`** — a bug fix to shipped Orbit behaviour. No new integration test and no

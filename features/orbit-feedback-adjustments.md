@@ -170,6 +170,14 @@ a cash-out floor was set. **Fix:** the two reads share a **REPEATABLE READ** sna
 correction runs outside it **guarded on the column still holding the value that was read** — a column
 that moved underneath is left alone instead of overwritten.
 
+> ⚠️ **Since 2026-08-10 the stop rules no longer call `ResolveBalance` at all**
+> ([`specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md)) — they call
+> **`ResolveSettledBalance`**, which wraps it and adds back the stakes of rounds still in play. The
+> snapshot and the guarded self-heal described above are untouched and still do the work; the settled
+> read reuses `ResolveBalance` precisely so that logic is not duplicated. The raw read the floor and
+> zero-out used was one stake short at settlement, because the successor round's stake is signed
+> before the previous round settles.
+
 ⚠️ **`ZeroOutNotifiedAt` writes with `ExecuteUpdateAsync`.** A load-and-save called `SaveChangesAsync`
 on a context holding a **tracked-but-stale** `OrbitBalance`, flushing it back over the debit — a second,
 distinct hazard. This is the repo-wide NoTracking/`ExecuteUpdate` trap, and it applies here.

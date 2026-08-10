@@ -37,6 +37,13 @@ are finally written.
   type, **not** self-excluded, and the pool balance covers `RequiredAmount`. A player who **already has
   a bet in the round** is excluded — Orbit gets no exemption from the one-bet-per-round rules, so
   dispatching them would produce a guaranteed refusal.
+  > ⚠️ **A reached stop loss is also an eligibility condition since 2026-08-10**
+  > ([orbit-stop-loss-trigger](../specs/orbit-stop-loss-trigger.md)): a player whose `CashOutFloor` is
+  > set and whose balance is **at or below it** is not a candidate. Strictly **above** the floor is
+  > still playing — the same comparison `EvaluateFloor` makes, and the two **must stay identical** or
+  > a player stops a round early or a round late. Without this the floor could only ever fire with the
+  > next stake already signed, so the player was cashed out one stake short and watched one more round
+  > play.
   > ⚠️ **`Stopped` added 2026-08-06** ([#150](orbit-feedback-adjustments.md)). It is a state **separate
   > from `Enabled`** and skips the planner and **nothing else** — the balance stays, the reserved word
   > stays claimed, deposits, cash-outs and notifications keep working, and resuming is instant. It
@@ -161,6 +168,15 @@ Every step after the transfer is money already gone, so the consumer is delibera
   stake leaves the balance the moment it is placed, so evaluating at placement could send a player's
   money home while the bet they had just made was still riding. See
   [`orbit-notifications.md`](orbit-notifications.md).
+  > ⚠️ **Settling was NOT sufficient, and that claim was false until 2026-08-10**
+  > ([orbit-stop-loss-trigger](../specs/orbit-stop-loss-trigger.md)). `RunGameConsumer` creates the
+  > successor round — so the planner claims, debits and **signs** its stake — *before* it publishes
+  > `RewardGameEvent`, so every settlement-time rule read a ledger already one stake short and acted on
+  > a bet that was still riding after all. Two changes make the sentence above true: all three rules
+  > now decide on **`IOrbitLedgerService.ResolveSettledBalance`** (ledger balance **+** stakes whose
+  > round is still in `ActiveGamesStatus`), and reaching the floor now stops the **dispatch** as well.
+  > The rules are **decision input only** — `OrbitCashOutReserver` still sizes every cash-out from the
+  > raw ledger.
 
 **Deposits and the enable toggle** (extends #121)
 

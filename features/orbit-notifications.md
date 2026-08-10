@@ -178,7 +178,27 @@ running stack could surface.
   | Setting | Fires when | Evaluated |
   | --- | --- | --- |
   | `CashOutAtThreshold` | a **win** lifts the balance to ≥ it | after each `WinCredit` |
-  | `CashOutFloor` | the balance falls to ≤ it | once the round **settles** |
+  | `CashOutFloor` | the balance falls to ≤ it | once the round **settles**, **and** at planning time (see below) |
+
+> ⚠️ **CORRECTED 2026-08-10** — [`specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md).
+> Everything below was the *intent*; it was not what ran, because settling this round is not enough on
+> its own. `RunGameConsumer` opens the successor round — and the Orbit planner **signs its stake** —
+> before it publishes `RewardGameEvent`, so the ledger read at settlement was already one stake short.
+> Live evidence: a player with 10 and a floor of 8 was cashed out for **7** and **watched one more
+> round play**. Three corrections, all shipped together:
+>
+> 1. All three stop rules decide on **`ResolveSettledBalance`** (ledger balance **+** stakes whose
+>    round is still in `Game.ActiveGamesStatus`), never the raw ledger. **Decision input only** —
+>    `OrbitCashOutReserver` keeps sizing cash-outs from the raw ledger.
+> 2. Reaching the floor stops the **dispatch**: `ResolveCandidates` drops a player at or below their
+>    floor, so nothing new is committed and the cash-out pays **the number they set**, not one stake
+>    under. `CashOutFloorStoppedPlayers` cashes out anyone the settlement pass can no longer reach —
+>    the gate alone would strand a balance that hit the floor with nothing left in flight.
+> 3. A round ending with **no winner** now evaluates the stop rules at all; it used to return first,
+>    skipping the total-loss round the floor exists for.
+>
+> ⚠️ The floor's comparison in `EvaluateFloor` and in the planner gate **must stay identical**
+> (strictly above = still playing) or a player stops a round early or a round late.
 
 - ⚠️ **Both act on a RESOLVED bet, never on a placed one.** The floor first shipped evaluating at
   placement and on save, which was wrong in a way only the running stack shows: a stake leaves the
