@@ -7,9 +7,17 @@
 >
 > **Purpose:** Bring the Orbit **panel** (`OrbitModal.vue`) back in line with the `/orbit` page after
 > the single-control merge: the panel's two-button transport pair becomes the shared
-> `OrbitControlBar` (RUN/PAUSE + CASH OUT), its stop-rule editors are replaced by two icon'd links
-> into `/orbit`'s tabs, `/orbit` learns a validated `?tab=` query so those links can land on a tab,
-> and the page's rule fields stop losing a value typed and never blurred.
+> `OrbitControlBar` (RUN/PAUSE + CASH OUT), the panel's way-out link names notifications and lands on
+> `/orbit`'s TELEGRAM tab via a new validated `?tab=` query, and the rule fields on **both** surfaces
+> stop losing a value typed and never blurred.
+>
+> ### ⚠️ REVISED DURING IMPLEMENTATION (2026-08-10) — read §17 before §3
+>
+> Change ③ as originally specified — **delete the panel's stop-rule editors, replace them with two
+> icon'd nav buttons (STOP RULES / NOTIFS)** — was built, reviewed on screen by the owner, and
+> **rejected**. It is NOT in the shipped branch. The editors stay in the panel exactly as they were.
+> Every §3 decision numbered 5-8, the §7.3 deletions, the `notify` icon, and acceptance criteria
+> 7-10 are superseded accordingly. §17 is the authoritative record of what shipped.
 
 ---
 
@@ -21,8 +29,9 @@ Four changes, all frontend, all in `monkify-front`.
 | --- | --- | --- | --- |
 | 1 | Panel controls | `RUN ORBIT` + `STOP ORBIT` transport pair, both always drawn, the one matching the current state disabled (`OrbitModal.vue:1399-1427`). **No cash-out at all.** | The shared `OrbitControlBar` in a **compact** size: ONE `RUN`/`RESUME`↔`PAUSE ORBIT` toggle + `CASH OUT`. |
 | 2 | Panel money-out | Money-out from a live round means leaving for `/orbit`. | `CASH OUT` in the panel — full balance, straight to the wallet signature, **never word-gated**. |
-| 3 | Panel position ③ | `AUTO CASHOUT (PAUSES ORBIT)` — two editable number fields + `rulesHint` + `ruleError`. | Two icon'd button-links, **STOP RULES** and **NOTIFS**, that close the panel and open `/orbit?tab=…`. `ADVANCED SETTINGS` stays below the control row. |
-| 4 | Rule auto-save | `OrbitStopRulesTab.vue` commits on `@blur` / `@keyup.enter` only — leaving the tab or the page with a field still focused **silently loses the typed value**. | Adds a **1.2 s debounce** and a **flush-on-unmount**, alongside the existing blur/Enter commit. |
+| 3 | Panel position ③ | `AUTO CASHOUT (PAUSES ORBIT)` — two editable number fields + `rulesHint` + `ruleError`. | ~~Two icon'd button-links, STOP RULES and NOTIFS~~ → **UNCHANGED. Rejected on review (§17.1).** The editors stay. |
+| 3b | Panel way out | `ADVANCED SETTINGS` → plain `/orbit`. | **"Set up notifications and more in Orbit settings"** → `/orbit?tab=telegram`, or "More in Orbit settings" → `/orbit` where no bot is configured (§17.2). |
+| 4 | Rule auto-save | `OrbitStopRulesTab.vue` **and** `OrbitModal.vue` both commit on `@blur` / `@keyup.enter` only — leaving the tab, the page, or **closing the panel** with a field still focused **silently loses the typed value**. | Both get a **1.2 s debounce** + a flush (on unmount for the tab, on **close** for the panel), alongside the existing blur/Enter commit (§17.3). |
 
 Two behaviour changes fall out of (1) deliberately, and are accepted:
 
@@ -32,13 +41,11 @@ Two behaviour changes fall out of (1) deliberately, and are accepted:
 - The panel's RUN **never said RESUME**. The bar says `RESUME` once Orbit has placed a bet
   (`hasRunBefore`).
 
-### ⚠️ This re-opens `orbit-ui-overhaul.md` §3.1, knowingly
+### ~~This re-opens `orbit-ui-overhaul.md` §3.1, knowingly~~ — WITHDRAWN
 
-That spec shipped the rules **read-only** in the panel, flagged it, and named *"both rule editors in
-this panel"* as the sanctioned fix if the split proved wrong. It did prove wrong, which is why they
-are editable there today. Removing them means **changing a floor mid-losing-run requires leaving the
-round again**. Owner's call, accepted, and mitigated by the STOP RULES button *stating* the two live
-values and carrying the missing-floor warning in red (§7.3).
+**It does not.** `orbit-ui-overhaul.md` §3.1 stays closed exactly as it was: both rule editors remain
+in the panel. The removal was built and rejected on review — see §17.1. Nothing downstream needs to
+correct §3.1, and `features/orbit-ui-overhaul.md` needs no change on that point.
 
 ---
 
@@ -507,12 +514,14 @@ flowchart LR
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/components/orbit/OrbitControlBar.vue` | Add optional `compact` prop → `.orbit-trio--compact` on the root; icon size 28 → 24 in compact. State table untouched. |
-| 2 | `src/assets/styles/arcade.css` | **De-scope** every `.orbit-page .orbit-trio*` rule to bare `.orbit-trio*` (declarations byte-identical); add the `.orbit-trio--compact` overrides; add `.orbit-trio__btn` to the reduced-motion block. |
-| 3 | `src/components/orbit/OrbitModal.vue` | Delete the transport pair + `.orbit-transport*` styles + `onRun`/`onStop`/`canRun`/`canStop`/`runBlocker`/`runSub`/`isRunning`/`isOutOfFunds`/`runTarget`. Delete the `AUTO CASHOUT` section + `commitRule`/`thresholdInput`/`floorInput`/`ruleError`/`syncRuleFields`/`asText` + `.rule-field*` styles. Add `onToggle`, `onCashOut` (with the `'hopped'` guard), the compact `OrbitControlBar` mount, and the two nav buttons at ③ with their scoped styles. Keep `floorAtRisk` / `rulesHint`. Import `toast`. |
-| 4 | `src/pages/OrbitPage.vue` | `requestedTab` computed + `applyInitialTab()`; wire into both existing branches of the initial-tab logic. Extend, don't replace, the TDZ comment. |
+> ⚠️ **This is the ORIGINAL plan. What actually shipped is §17.4** — five files, not six.
+
+| 1 | `src/components/orbit/OrbitControlBar.vue` | Add optional `compact` prop → `.orbit-trio--compact` on the root; icon size 28 → 24 in compact. **Plus `selfExcluded`** (§17.5). |
+| 2 | `src/assets/styles/arcade.css` | **De-scope** every `.orbit-page .orbit-trio*` rule to bare `.orbit-trio*` (declarations byte-identical); add the `.orbit-trio--compact` overrides; add `.orbit-trio__btn` to the reduced-motion block. **Also de-scope the two `:focus-visible` lists** (§17.6). |
+| 3 | `src/components/orbit/OrbitModal.vue` | Delete the transport pair + `.orbit-transport*` styles + `onRun`/`onStop`/`canRun`/`canStop`/`runBlocker`/`runSub`/`isRunning`/`isOutOfFunds`. **KEEP `runTarget` and `hasFundsForRound`** — the bar cannot compute them (§17.4). ~~Delete the `AUTO CASHOUT` section~~ — **not done, §17.1**. Add `onToggle`, `onCashOut` (with the `'hopped'` guard), the compact `OrbitControlBar` mount, the rule debounce (§17.3) and the new way-out copy/target (§17.2). Import `toast`. |
+| 4 | `src/pages/OrbitPage.vue` | `requestedTab` computed + `applyInitialTab()`; wire into both existing branches of the initial-tab logic. Extend, don't replace, the TDZ comment. **Plus the `self-excluded` binding** (§17.5). |
 | 5 | `src/components/orbit/tabs/OrbitStopRulesTab.vue` | 1.2 s per-field debounce armed from `@input`, cancelled by blur/Enter, flushed once on unmount. Existing `commitRule` body unchanged. |
-| 6 | `src/constants/icons.ts` | Add `notify` to the `IconName` union and an 8×8 `b` entry to `ICONS` — `currentColor`, **no `fill`**. |
+| ~~6~~ | ~~`src/constants/icons.ts`~~ | **NOT TOUCHED.** `notify` was added and then reverted with the NOTIFS button (§17.1). The registry is unchanged on this branch. |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -568,17 +577,19 @@ Copied 1:1 from the Trello checklist.
    a reload and **without starting a second ticker**.
 6. Given Orbit holds a balance but has no playable word, when the panel is open, then `ADD MONEY` is
    dimmed and dead while `CASH OUT` is live — **money-out is never behind the word gate**.
-7. Given the panel is open, when the player looks at position ③, then the `AUTO CASHOUT` number
-   inputs are gone and two icon'd button-links (`STOP RULES`, `NOTIFS`) stand in their place, with
-   `ADVANCED SETTINGS` still below the control row.
-8. Given both stop rules are set, when the panel is open, then the `STOP RULES` button's sub-line
-   states **both live values**; given no floor is set, then that sub-line instead reads the
-   missing-floor warning **in red**.
-9. Given a deployment with no Telegram bot configured (`telegramEnabled` false), when the panel is
-   open, then the `NOTIFS` button **does not render at all** and `STOP RULES` sits alone.
-10. Given the panel is open, when the player presses `NOTIFS`, then the panel closes and `/orbit`
-    opens with the **TELEGRAM** tab already active; pressing `STOP RULES` does the same for the
-    **STOP RULES** tab.
+7. **SUPERSEDED (§17.1).** ~~position ③ becomes two icon'd button-links~~ → **Given the panel is
+   open, when the player looks at position ③, then the `AUTO CASHOUT (PAUSES ORBIT)` block is
+   UNCHANGED** — both number fields, `rulesHint` and `ruleError`, still word-gated.
+8. **SUPERSEDED (§17.1).** ~~the STOP RULES button's sub-line states both live values~~ → the values
+   are readable in the fields themselves, and the missing-floor warning stays where it has always
+   been: `rulesHint`, in red, under the rule row.
+9. **SUPERSEDED (§17.1).** ~~NOTIFS does not render~~ → there is no NOTIFS button on any deployment.
+   The Telegram-configured case is now AC 9′ below.
+10. **SUPERSEDED (§17.2).** ~~pressing NOTIFS opens the TELEGRAM tab~~ → **AC 9′/10′:** given a
+    deployment WITH a bot, when the player presses the panel's way-out link, then it reads
+    *"Set up notifications and more in Orbit settings"*, the panel closes, and `/orbit` opens on the
+    **TELEGRAM** tab. Given NO bot, it reads *"More in Orbit settings"* and opens `/orbit` on its
+    normal default tab — never on an absent tab.
 11. Given a `?tab=` value that is unknown or names a tab hidden on this deployment, when `/orbit`
     loads, then it falls back to the **GAME** tab and never renders an absent tab.
 12. Given an unfunded player who would normally land on the MONEY tab, when they arrive at
@@ -673,3 +684,129 @@ Beyond the acceptance criteria, from the card's own edge-case list:
 | Date | Change |
 | --- | --- |
 | 2026-08-10 | Initial spec from refined card #163 (+ live code exploration: the `.orbit-page`-scoped trio CSS, the non-throwing `'hopped'` cash-out path, the resync/PATCH-loop hazard, and the missing `notify` glyph are all findings from the code, not from the card). |
+| 2026-08-10 | **Implementation revision.** Change ③ (delete the panel's rule editors, add STOP RULES + NOTIFS nav buttons) was built, shown to the owner and rejected. Reverted. Way-out link re-copied and pointed at the TELEGRAM tab instead; rule debounce extended to the panel; `selfExcluded` added to the shared bar. See §17. |
+
+---
+
+## 17. What actually shipped (authoritative)
+
+This section overrides §1, §3, §7.3, §10.2 and §12 wherever they disagree. Written after
+implementation, from the branch.
+
+### 17.1 Change ③ was built and REJECTED — the panel's rule editors stay
+
+Position ③ was rebuilt as two icon'd button-links (STOP RULES + NOTIFS) with a `notify` glyph, per
+§3 decisions 5-8. Shown on screen, the owner rejected it: *"I don't like how this feels like a grid
+of buttons"*, then, after a borderless second cut, *"honestly I don't like any of these. Let's
+revert back to the original stop loss rules IN THERE."*
+
+Reverted by restoring `OrbitModal.vue` and `icons.ts` from `HEAD` and re-applying only the control-bar
+work, so the `AUTO CASHOUT (PAUSES ORBIT)` block, `commitRule`, `thresholdInput`, `floorInput`,
+`ruleError`, `syncRuleFields`, `asText` and the `.rule-field*` styles are **byte-identical to `main`**.
+
+Consequences, all of them subtractions from the original plan:
+
+- **`orbit-ui-overhaul.md` §3.1 is NOT re-opened.** No downstream KB correction is needed for it.
+- **`features/orbit-single-control.md`'s description of the panel's editable rules stays TRUE.** Only
+  its account of the transport pair is now false (that part is genuinely superseded — see 17.4).
+- **`src/constants/icons.ts` is untouched.** No `notify` glyph; the registry still holds exactly two
+  baked fills.
+- The two nav buttons, `stopRulesSummary`, `goToOrbitTab` and `.orbit-nav*` do not exist.
+
+### 17.2 The way out carries the Telegram hook instead
+
+The card's fourth ask — *"a hook to TG (notifications) in the modal, redirecting to the /orbit page
+tab"* — is delivered by the panel's existing way-out link rather than by a dedicated button:
+
+| `telegramEnabled` | Label | Target |
+| --- | --- | --- |
+| true | `Set up notifications and more in Orbit settings` | `/orbit?tab=telegram` |
+| false | `More in Orbit settings` | `/orbit` (normal default tab) |
+
+Both halves flip together, deliberately: naming notifications on a deployment whose `/orbit` renders
+no TELEGRAM tab is a promise the page cannot keep. This is the same "no control that can only ever
+fail" rule that drops the tab in the first place, and it keeps `?tab=` (§7.4, shipped unchanged) with
+a real caller instead of dead code.
+
+`.orbit-advanced` moved from Press Start 2P `0.5rem` to **VT323 18px**: the label is a sentence now,
+and 46 characters of 8px pixel type wraps into a block in a compact dialog. This restores what the
+comment above that markup already claimed the treatment was — the CSS had drifted.
+
+### 17.3 The debounce landed on BOTH surfaces, not just the tab
+
+§3 decision 10 scoped the debounce to `OrbitStopRulesTab.vue` *"only (the panel no longer has rule
+fields)"*. Since 17.1 gives the panel its fields back, that premise is void and the original card's
+complaint applies there too — so `OrbitModal.commitRule` got the same treatment (owner's call).
+
+The panel's version differs in one load-bearing way:
+
+- ⚠️ **The flush hangs off `watch(() => props.open)` going false, NOT `onBeforeUnmount`.**
+  `OrbitModal` is `v-if`-ed on a feature flag rather than on `open`, so it stays mounted for the whole
+  session and its unmount hook effectively never runs — the same trap the file's wallet watcher
+  already documents for the word auto-save. `open` going false IS the close, and Esc / the backdrop /
+  the ✗ all reach it without ever firing blur.
+- A **wallet change cancels** both timers rather than flushing them: a pending floor belongs to the
+  wallet that typed it, and firing it after the switch would write one account's rule onto another's
+  Orbit. Same reasoning as the existing `cancelPendingWordSave()` on that watcher.
+- Everything else matches the tab: `RULE_AUTOSAVE_DELAY_MS = 1200`, one timer per field, armed from
+  `@input` (never a `watch`, or `syncRuleFields()` re-arms it into a PATCH loop), and `commitRule`
+  cancels its own field's timer as its first statement so exactly one PATCH is ever sent.
+
+### 17.4 `runTarget` and `hasFundsForRound` survive in the panel
+
+§7.3 listed both for deletion. They are kept: `hasFundsForRound` is what the bar is *told* as
+`hasFunds`, and `runTarget` (`activeGameType ?? currentGame`) is what it prices against — only the
+panel knows the round on screen is a legitimate target for a first, enrolling press. The bar cannot
+derive either. `:has-game="!!runTarget"` is the binding, not the §7.3 sketch's
+`!!orbit?.gameParametersId || !!currentGame` (same answer, one source).
+
+### 17.5 `OrbitControlBar` gained `selfExcluded` — a deviation, user-approved
+
+§7.1 said the state table was "otherwise untouched". It is not. The panel's `canRun` included
+`!orbit.selfExcluded`; the bar had no such input, so a straight swap would have dropped a
+responsible-gaming guard from the panel. An optional `selfExcluded` prop was added as the FIRST
+branch of `setupBlocker` (above the three setup steps, because no press clears it), with the sub-note
+`Auto-play unavailable`, and bound on **both** surfaces.
+
+⚠️ It gates only the RUN direction. The `status === 'running'` branch is untouched — **pausing must
+never have a precondition**, including for a self-excluded wallet whose Orbit is still running.
+
+This also closes the same hole on `/orbit`, where the toggle has always been live for a self-excluded
+wallet with only the server refusing.
+
+### 17.6 The CSS de-scope covers the focus lists too
+
+§7.2 named the block at `arcade.css` ~1691-1814. `.orbit-page .orbit-trio__btn:focus-visible` also
+appears in the two `:focus-visible` lists at ~1308 and ~1339 (the base outline, and Orbit's violet
+`outline-color` override). Both were de-scoped as well — left page-scoped, the panel's bar would focus
+with the browser default instead of the violet ring. `.orbit-page .orbit-tab` and
+`.orbit-page .orbit-autopick__box` are genuinely page-only and keep their prefix.
+
+A `@media (prefers-reduced-motion: reduce)` block for `.orbit-trio__btn` was added beside the
+de-scoped rules — `arcade.css` had none, so the PAGE instance had been missing the treatment that
+`OrbitModal`'s deleted `.orbit-transport` carried.
+
+### 17.7 Verification
+
+`monkify-front` has no test runner, so the bar is `yarn lint` + `yarn build` (both clean) plus manual
+QA by the owner on the local Docker stack with `VUE_APP_ORBIT_ENABLED=true` — done, and the branch was
+approved off the back of it. **No backend surface**, so no `SpaceStroker.Tests` run and no integration
+test (`AGENTS.md` rule 8 does not apply — frontend-only minor change).
+
+⚠️ Telegram is not configured on the local stack by default, so `telegramEnabled` was flipped for QA
+by supplying a placeholder bot token through the compose `--env-file` hook that
+`monkify-backend/docker-compose.yml` already documents, from a file at the **workspace root** (outside
+every repo). Nothing in `monkify-backend` was modified and no branch was created there.
+
+### 17.8 Downstream KB corrections for `monkify-ship-feature`
+
+Narrower than §10.3, because ③ was withdrawn:
+
+| File | Correction |
+| --- | --- |
+| `features/orbit-single-control.md` | Its account of the panel's **transport pair** is now false — the panel renders the shared `OrbitControlBar`. Its account of the panel's **editable stop rules** is still true and must be left alone. |
+| `features/orbit-ui-overhaul.md` | §3.1's residue is **still closed**. Do NOT "correct" it. The only true change is that the panel now has a CASH OUT, so money-out is reachable from the round screen. |
+| `features/orbit-notifications.md` | Note the new entry point: the panel's way-out link lands on `/orbit?tab=telegram` when a bot is configured. |
+| `features/orbit-ui-overhaul.md` or wherever the panel is described | The way-out link is no longer `ADVANCED SETTINGS`. |
+
+No new `features/<slug>.md` — this is a minor change to an existing feature line.
