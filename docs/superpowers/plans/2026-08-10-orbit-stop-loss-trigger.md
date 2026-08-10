@@ -848,6 +848,45 @@ git -C E:/Monkify/.worktrees/orbit-stop-loss-trigger/monkify-backend push origin
 
 ---
 
+---
+
+### Task 4: The stop-loss placement gate (added after live testing)
+
+**Why this exists:** Tasks 1-3 were built, deployed and tested on the local stack. The floor then
+tripped at the *correct* moment but the player was still cashed out for 7 on a floor of 8 and watched
+one more round play — because the successor round's stake is signed **before** the previous round
+settles, so a stop rule evaluated at settlement is always one bet behind. See spec §3.2 for the
+observed ledger. This task stops the **dispatch**, not just the money.
+
+**Files:**
+- Modify: `src/SpaceStroker.Infrastructure/Services/Orbit/OrbitBetPlacementService.cs`
+- Test: `src/SpaceStroker.Tests/UnitTests/Services/OrbitBetPlacementServiceTests.cs`
+
+**Interfaces:**
+- Consumes: `IOrbitBetSettlementService.EvaluateFloor` (unchanged from Task 2).
+- Produces: no new public surface. `ResolveCandidates` and `PlanPlacements` keep their signatures;
+  the constructor gains a sixth parameter, `IOrbitBetSettlementService settlement`.
+
+- [ ] **Step 1: Write the failing tests** — 7 cases, per spec §11. ⚠️ Assert eligibility through
+  `ResolveCandidates`, **not** `PlanPlacements`: both of `PlanPlacements`' exits that reach a dispatch
+  decision write the gate with `ExecuteUpdateAsync`, which the in-memory provider **throws** on. The
+  three cash-out cases do go through `PlanPlacements`, seeded to stop at the **viability guard**
+  (candidates ≥ 1, minimum 3, no humans) — the one exit that returns without writing.
+- [ ] **Step 2: Verify they fail** — `dotnet test --filter "FullyQualifiedName~OrbitBetPlacementServiceTests"`.
+  Expect exactly 3 red: both `NotACandidate_OnceTheBalanceHasReachedTheStopLoss` cases and
+  `CashesOutAPlayerWhoseStopLossHasBeenReached_EvenWithNothingLeftInFlight`. The other four assert
+  unchanged behaviour and must stay green.
+- [ ] **Step 3: Implement** — inject `IOrbitBetSettlementService`; carry `CashOutFloor` through both
+  `ResolveCandidates` projections and add `.Where(x => x.CashOutFloor == null || x.Amount > x.CashOutFloor)`;
+  add `CashOutFloorStoppedPlayers` and call it from `PlanPlacements` before `ResolveCandidates` and
+  regardless of candidate count. Full code in spec §6.7.
+- [ ] **Step 4: Verify they pass**, then run `scripts\run_tests.bat` and `scripts\run_integration_tests.bat`.
+- [ ] **Step 5: Update the spec, INDEX and the card** — §3.1 records a planner gate as *rejected*, so
+  it must be rewritten rather than appended to, and decision 4 narrows to the threshold.
+- [ ] **Step 6: Commit.**
+
+---
+
 ## Acceptance criteria coverage
 
 | AC | Covered by |

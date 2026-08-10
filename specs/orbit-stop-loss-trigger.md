@@ -73,6 +73,10 @@ winners/losers have been resolved, it should trigger an event to evaluate the st
 2. Read it in **all three** stop rules. It is **decision input only**; cash-out amounts keep coming
    from the raw ledger.
 3. Evaluate the stop rules on the **no-winners** exit of `RewardGameConsumer`.
+4. **Stop dispatching to a player who has reached their floor** (§3.2, added after live testing) —
+   `ResolveCandidates` excludes them, and `CashOutFloorStoppedPlayers` cashes out anyone the
+   settlement pass can no longer reach. Without this the floor still trips one bet late, because the
+   next stake is signed before the previous round settles.
 
 Nothing else changes: no entity, no EF mapping, no migration, no config key, no endpoint, no event,
 no frontend, and no change to when the successor round is created.
@@ -113,6 +117,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 6 | **Evaluate on the no-winners path** (`RewardGameConsumer.cs:57-62`). Both error paths keep today's behaviour: the line 130 path already evaluates, the line 81 blockhash-failure return does not. |
 | 7 | **A tripped floor does not write `OrbitEnrollment.Enabled`.** The cash-out empties the balance, so the planner's `balance >= RequiredAmount` check stops placement server-side and the frontend auto-park watcher parks the enrolment. |
 | 8 | **The 2026-08-07 design is discarded**; its branch is archived under `archive/orbit-stop-loss-trigger-v1` and deleted. See §0. |
+| 9 | **Reaching the floor also stops the DISPATCH** (added after live testing — §3.2). `ResolveCandidates` excludes a player at or below their `CashOutFloor`, so no stake is committed once they have stopped; `CashOutFloorStoppedPlayers` cashes out anyone the settlement pass can no longer reach. Removes the one-round tail and makes the floor pay out at the number the player set. ⚠️ Narrows decision 4: the one-stake shortfall now applies to the **threshold only**. |
 
 ### 3.1 Rejected alternatives — and why the rejections matter
 
@@ -146,7 +151,56 @@ stop *loss* to react to, and manual cash-out is unaffected throughout.
 
 **Rejected: gating the planner on the previous round having settled.**
 Deterministic and adds no inter-round latency, but it needs a fourth re-plan trigger and changes the
-start gate's timing — more moving parts than the defect warrants.
+start gate's timing — more moving parts than the defect warrants. **Still rejected**; the gate that
+was adopted (§3.2) is a different, cheaper thing: it keys off the player's own floor, not off whether
+the previous round has settled, so it adds no trigger and does not touch the start gate.
+
+### 3.2 Adopted after live testing — the stop-loss placement gate
+
+**Everything above shipped and was then tested on the local stack, which exposed a second half of the
+same defect that the settled balance alone does not fix.** Observed 2026-08-10 with a deposit of 10
+and a floor of 8 (stake 1):
+
+| Time | Event | Balance |
+| --- | --- | --- |
+| 20:02:29 | `BetDebit` → round A | 9 |
+| 20:02:50 | `BetDebit` → round B | **8** |
+| 20:03:29 | `BetDebit` → round C | **7** |
+| 20:03:29 | **CashOut −7, `Source = Floor`** | 0 |
+
+The floor tripped at the right moment — at 20:02:50 the raw balance was exactly 8 and the settled
+balance was 9, so the fix correctly declined to fire a round early. But **round C's stake had already
+been signed by the time the floor tripped**, so:
+
+1. **The player was cashed out for 7, not the 8 they set.** That 1 was committed to a live round and
+   was not available to send home.
+2. **Round C still played.** The player watched a round run after being told they had stopped.
+
+Both follow from the ordering that caused the original bug: the successor round opens, and Orbit
+signs its stake, *before* the previous round settles. **A stop rule that is only evaluated at
+settlement is therefore always one bet behind, no matter how correct its arithmetic is.** Reaching
+the floor has to stop the **dispatch**, not just fire the cash-out.
+
+**Adopted:** `ResolveCandidates` excludes a player whose `CashOutFloor` is set and whose balance is
+**at or below** it — `CashOutFloor == null || Amount > CashOutFloor`, the same strictly-above
+comparison `EvaluateFloor` makes, so the two rules cannot disagree about where the line is.
+
+With the gate, the same run ends: balance reaches 8 → the next round opens and commits **nothing** →
+the round the player is still in settles → the floor trips on a settled balance of 8 → cashed out for
+**8**, with **no tail round**.
+
+⚠️ **The gate alone would strand money, so it does not ship alone.** The settlement pass only
+evaluates players who bet in the round that just settled. A balance that is at or under the floor
+with *nothing left in flight* — a floor set above the current balance, or a deposit under it — would
+never be cashed out and would sit there silently. `CashOutFloorStoppedPlayers` runs at planning time
+and finishes the job. It is idempotent (`Amount > 0` drops a player once emptied) and decides nothing
+itself: `EvaluateFloor` still re-checks against the settled balance and declines anyone a riding
+stake has lifted back above their floor.
+
+**What this changes about decision 4.** The "a cash-out can pay one stake less than the number you
+set" consequence **no longer applies to the floor** — a gated player has no stake committed when it
+trips, so they are cashed out at their floor exactly. It still applies to the **threshold**, which
+has no equivalent gate (a take-profit is not a reason to stop betting).
 
 ---
 
@@ -318,7 +372,41 @@ this in the method comment.
 
 Update the doc-comment at lines 137-147 so it describes the settled balance rather than the raw one.
 
-### 6.7 What deliberately does not change
+### 6.7 `OrbitBetPlacementService` — the stop-loss placement gate
+
+`src/SpaceStroker.Infrastructure/Services/Orbit/OrbitBetPlacementService.cs`. Added after live
+testing; see §3.2 for the observed run that motivated it.
+
+1. **Constructor** gains `IOrbitBetSettlementService settlement`. No cycle:
+   `OrbitBetSettlementService` does not depend on the placement service.
+2. **`ResolveCandidates`** carries `enrollment.CashOutFloor` through both projections and adds one
+   predicate after the existing `Amount >= RequiredAmount` filter:
+
+   ```csharp
+   .Where(x => x.CashOutFloor == null || x.Amount > x.CashOutFloor)
+   ```
+
+   Strictly above the floor is still playing — the same comparison `EvaluateFloor` makes. Keep them
+   identical: if they ever disagree, a player stops either a round early or a round late.
+
+   The materialized column is read here, exactly as the surrounding planning read does and for the
+   same stated reason — this is a filter for "who is worth looking at", and the authoritative check
+   still happens elsewhere.
+
+3. **`CashOutFloorStoppedPlayers`**, called from `PlanPlacements` **before** `ResolveCandidates` and
+   **regardless of the candidate count**, evaluates the floor for every enabled player on this type
+   whose balance is `> 0` and `<= CashOutFloor`. Each call is wrapped in `try/catch` — a floor that
+   cannot be evaluated must never stop a round from being planned.
+
+   - `Amount > 0` is what makes it idempotent: once the cash-out empties the balance the player drops
+     out of the query, so re-planning the same round cannot reserve twice.
+   - It decides nothing on its own. `EvaluateFloor` re-checks against the **settled** balance, so a
+     player whose riding stake lifts them back above the floor is simply declined there.
+
+⚠️ Do **not** move this into `ResolveCandidates`. That method is a pure read called from more than
+one place; reserving money inside it would fire a cash-out from a query.
+
+### 6.8 What deliberately does not change
 
 `OrbitCashOutReserver` (sizing, limits, the word-claim release at lines 101-118), the placement
 planner, the start gate, `OrbitChoiceClaimService`, `RunGameConsumer` (the rollover stays exactly
@@ -371,8 +459,10 @@ sequenceDiagram
 - Writing `OrbitEnrollment.Enabled` on a floor trip; the manual STOP, the cool-off, and the daily
   cash-out limit.
 - `OrbitCashOutReserver` sizing, and any new player-facing copy, notification or `GET /orbit` field.
-- The archived design's provisional stop, staleness knob, planner gate, Hangfire sweep and
-  client-derived UI state.
+- The archived design's provisional stop, staleness knob, Hangfire sweep and client-derived UI state.
+  ⚠️ Its **planner gate** is *not* on this list any more: §3.2 adopts a gate, though a different one —
+  it keys off the player's own floor rather than off whether the previous round has settled, so it
+  adds no re-plan trigger and does not touch the start gate.
 
 ---
 
@@ -386,6 +476,8 @@ sequenceDiagram
 | 2 | `src/SpaceStroker.Infrastructure/Services/Orbit/OrbitLedgerService.cs` | Implement `ResolveSettledBalance` after `ResolveBalance` (§6.2). No constructor change. |
 | 3 | `src/SpaceStroker.Infrastructure/Services/Orbit/OrbitBetSettlementService.cs` | `EvaluateFloor` (line 340), `EvaluateZeroOut` (line 215) and `EvaluateThreshold` (line 172) read `ResolveSettledBalance`; correct the comments at 158-164, 183-197, 232-239 and 313-331 that justify the raw read. |
 | 4 | `src/SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Move the `IOrbitBetSettlementService` resolve above line 57; evaluate the stop rules on the no-winners return; update the doc-comment at 137-147. |
+| 4b | `src/SpaceStroker.Infrastructure/Services/Orbit/OrbitBetPlacementService.cs` | **§3.2/§6.7** — inject `IOrbitBetSettlementService`; carry `CashOutFloor` through `ResolveCandidates` and exclude players at or below it; add `CashOutFloorStoppedPlayers`, called from `PlanPlacements`. |
+| 4c | `src/SpaceStroker.Tests/UnitTests/Services/OrbitBetPlacementServiceTests.cs` | New `_settlement` mock + the 6th constructor argument; `cashOutFloor` on `SeedEnrolledPlayers`; 7 new cases (§11). |
 | 5 | `src/SpaceStroker.Tests/UnitTests/Services/OrbitLedgerServiceTests.cs` | New cases for `ResolveSettledBalance` (§11). |
 | 6 | `src/SpaceStroker.Tests/UnitTests/Services/OrbitBetSettlementServiceTests.cs` | New cases for the three rules reading the settled balance (§11). |
 | 7 | `src/SpaceStroker.Tests/UnitTests/Consumers/RewardGameConsumerTests.cs` | **New file** — the no-winners evaluation path (§11). |
@@ -429,6 +521,18 @@ Project: `monkify-backend/src/SpaceStroker.Tests`. Run with **`scripts/run_tests
 | `Consumers/RewardGameConsumerTests.cs` *(new)* | `NoWinners_StillEvaluatesTheOrbitStopRules` | Game with Orbit bets, none `NeedsRewarding` ⇒ status `RewardForWinnersCompleted` **and** `EvaluateFloor` + `EvaluateZeroOut` called once per distinct Orbit player. |
 | ″ | `NoWinners_WithNoOrbitBets_EvaluatesNothing` | Only wallet-funded bets ⇒ no calls on `IOrbitBetSettlementService`. |
 | ″ | `NoBets_EvaluatesNothing` | Empty `Bets` ⇒ early return, no calls. |
+| `Services/OrbitBetPlacementServiceTests.cs` | `NotACandidate_OnceTheBalanceHasReachedTheStopLoss` (Theory: 8, 5) | Balance at **and** under a floor of 8 ⇒ `ResolveCandidates` is empty. |
+| ″ | `StillACandidate_WhileStillAboveTheStopLoss` | Balance 9, floor 8 ⇒ still dispatched (strictly above). |
+| ″ | `StillACandidate_WithNoStopLossSet` | `CashOutFloor` null ⇒ untouched by the gate. |
+| ″ | `CashesOutAPlayerWhoseStopLossHasBeenReached_EvenWithNothingLeftInFlight` | Balance 5, floor 8, nothing riding ⇒ `EvaluateFloor` called once. |
+| ″ | `DoesNotReCashOutAnAlreadyEmptiedBalance` | Balance 0 ⇒ never called (idempotence). |
+| ″ | `DoesNotCashOutAPlayerStillAboveTheirStopLoss` | Balance 9, floor 8 ⇒ never called. |
+
+⚠️ **Assert eligibility through `ResolveCandidates`, not `PlanPlacements`.** Both of
+`PlanPlacements`' exits that reach a dispatch decision write the gate with `ExecuteUpdateAsync`,
+which the in-memory provider cannot translate — it **throws**, it does not no-op. The three
+cash-out cases go through `PlanPlacements` and are seeded to stop at the **viability guard**
+(candidates ≥ 1, minimum 3, no humans), the one exit that returns without writing.
 
 Follow the existing patterns: `OrbitBetSettlementServiceTests` mocks `IOrbitLedgerService` and
 `IOrbitCashOutReserver` with Moq over an in-memory `SpaceStrokerDbContext`; `PlaceOrbitBetConsumerTests`
@@ -460,6 +564,14 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist on card #154.
 13. Given `RewardGameEvent` is redelivered for a round whose stop rules already ran, when they re-run, then no second cash-out is reserved and no duplicate zero-out notification is sent.
 14. Given the change is complete, when `SpaceStroker.Tests` runs via `scripts/run_tests.bat`, then the whole suite is green with new coverage for the settled-balance resolution and the no-winners evaluation path, and the changed/added tests are reported.
 
+Added with §3.2 (the placement gate):
+
+15. Given an Orbit player whose balance has reached their `CashOutFloor`, when the next round is planned, then they are **not** a candidate and no stake is committed on their behalf.
+16. Given an Orbit player whose balance is still strictly **above** their `CashOutFloor`, when the next round is planned, then they are dispatched exactly as before; a player with no floor set is unaffected.
+17. Given an Orbit player whose stop loss trips, when they are cashed out, then the amount is their **full** balance at the floor — no stake is left committed to a live round — and **no further round plays** on their behalf.
+18. Given an Orbit player at or below their floor with **no bet left in flight** (a floor set above their balance, or a deposit under it), when any round of that type is planned, then their balance is cashed out rather than stranded.
+19. Given that player's balance has already been emptied by the floor cash-out, when the next round is planned, then no second cash-out is reserved.
+
 ---
 
 ## 13. Manual QA (local stack)
@@ -470,9 +582,10 @@ Orbit is dark in production behind `VUE_APP_ORBIT_ENABLED`, so verify locally wi
    `MinimumNumberOfPlayers` (Cosmic Sprint). Fund it with roughly 3 stakes.
 2. Set a **cash-out floor** just under the current balance — close enough that a single stake leaving
    would cross it.
-3. Let a round run to completion with the player losing. **Before the fix**, the floor fires while
-   the successor round's stake is already placed. **After**, the floor holds and the player keeps
-   playing until the balance genuinely reaches it.
+3. Let rounds run with the player losing. **Before the fix**, the floor fires while the successor
+   round's stake is already placed. **After**, the floor holds until the balance genuinely reaches
+   it, the player is cashed out for the **full** amount at the floor (not one stake less), and
+   **no further round plays** — verified on the local stack 2026-08-10 (§3.2).
 4. Watch the Consumers log for the floor/zero-out lines and confirm the balance they report is the
    settled one.
 5. For the second defect, use a **preset** type (Beast Mode): have the Orbit player back a beast that
@@ -499,3 +612,4 @@ Orbit is dark in production behind `VUE_APP_ORBIT_ENABLED`, so verify locally wi
 | Date | Change |
 | --- | --- |
 | 2026-08-10 | Initial spec from the re-refined card. Supersedes the discarded 2026-08-07 spec of the same name (archived under `archive/orbit-stop-loss-trigger-v1`). |
+| 2026-08-10 | **§3.2 added after live testing on the local stack.** The settled balance fixed *when* the floor trips but not that the next stake is already signed when it does, so the player was cashed out one stake short and watched one more round play. Adds the placement gate + `CashOutFloorStoppedPlayers` (§6.7), decision 9, ACs 15-19, and 7 unit tests. Narrows decision 4 to the threshold. Note this **adopts** a planner gate, which §3.1 rejects in a different form — read both. |
