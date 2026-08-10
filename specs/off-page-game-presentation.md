@@ -1,5 +1,14 @@
 # SpaceStroker — "Off-page game presentation gate" — Implementation Spec
 
+> **Status: SHIPPED 2026-08-10** — merged to `main` via `feature/off-page-game-presentation` in
+> `monkify-front` + `monkify-meta`. Distilled in
+> [`features/off-page-game-presentation.md`](../features/off-page-game-presentation.md).
+> Implementation landed **exactly as specified** — all three files in §8.1, no deviations.
+> ⚠️ **The §11 browser QA pass was waived by the owner**, so acceptance criteria 1–10 shipped verified
+> only by `yarn lint` + `yarn build` and code review, never driven against a running app. AC 7 (the
+> balance re-read and the embedded `bet-settled` / `game-ended` signals) is the one worth exercising
+> first — the change does not touch that code, but nobody watched it settle a round.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [When the user quits the game, the background/music still take effect as if he was still in the game.](https://trello.com/c/FwzvH8fm)
 > (#162, refined 2026-08-10).

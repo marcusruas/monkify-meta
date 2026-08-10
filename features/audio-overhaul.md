@@ -30,6 +30,13 @@ audio never affects bets, settlement, winners, or game state.
 - **Victory / lose — bettors only, once per game.** On `Status → Ended`: the local player hears
   `victory` iff they **bet and won**, `lose` iff they **bet and lost**; spectators (no own bet) hear
   neither. Selected from `useGame` `ownBetChoices` vs `winnerChoice`.
+  ⚠️ **Since #162 the sting also requires the player to be ON `/game/play`**
+  ([off-page-game-presentation](off-page-game-presentation.md)). `useGame` is a module singleton whose
+  socket outlives `GamePage`, so this one-shot used to fire on whatever page the player had wandered
+  to — over the lobby's `menu_lobby` track, or into a page with no music at all. It is now
+  **suppressed off-page and CONSUMED**: `endAudioFiredForGame` is stamped either way, so it can never
+  play late when the player walks back into an already-ended round. The bettors-only / once-per-game /
+  tab-active gates are unchanged and compose with it.
 - **SFX:** own bet arriving → `phone_beep` (in sync with the call animation, capped at 2); preset
   choice button → `button_press`; invalid lever → the retained `error1.wav`.
 - **Menu music:** the **games page** (`GameSelectPage`) loops `menu_lobby`. The **admin page is
@@ -77,8 +84,9 @@ audio never affects bets, settlement, winners, or game state.
 - `src/components/GameHeader.vue` — speaker mute + hover volume slider, `localStorage` persistence.
 - `src/components/game/GameMonkey.vue` (`phone_beep`), `src/components/game/GameConsole.vue`
   (`button_press`, keep `error1.wav`).
-- `src/hooks/useGame.ts` — victory/lose on `Ended` (bettors only, once) **and**
-  `disconnectAllPreviousConnections()` on game switch/rollover.
+- `src/hooks/useGame.ts` — victory/lose on `Ended` (bettors only, once, **and only on `/game/play`**
+  since #162 — the `inGame` module flag) **and** `disconnectAllPreviousConnections()` on game
+  switch/rollover.
 - `src/pages/GameSelectPage.vue` (mounts `LobbyAudio`), `src/pages/AdminPage.vue` (no lobby).
 - `src/routes.ts` — `/` → `/space-stroker/game` (**since superseded**: `/` is the starting page and the
   prefix is dropped — see `features/home-dashboard.md`). `src/App.vue` — preloads the new tracks.
