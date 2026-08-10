@@ -320,13 +320,17 @@ New group, **outside** the wallet `v-if / v-else` (F9), between the `IDENTITY` b
 `<div class="h-px bg-line">` that precedes `PROVABLY FAIR`:
 
 ```
-GRAPHICS                                             ← .dialog-eyebrow
-[x] Light graphics mode  (i)                         ← .dialog-check + ArcadeInfoTip
-    always on for small screens                      ← .dialog__footer-hint, only when isMobile
-Sky density                    45%                   ← .dialog-label + readout
-[========|--------------------]                      ← input[type=range] min 0 max 100 step 5
-    Light mode caps the sky at 8 elements.           ← .dialog__footer-hint, only when lightMode
+GRAPHICS                                                        ← .dialog-eyebrow
+[x] Light graphics mode (i)   Sky density [====|-----]   45%    ← one row, centre-aligned
+    always on for small screens                                 ← only when isMobile
+                              Light mode caps the sky at 8…     ← only when lightMode
 ```
+
+⚠️ **One row, not two stacked controls.** The label sits **before** the track and the two columns
+align on their **centres**: stacking `Sky density` over its slider made that column taller than the
+checkbox beside it and set the height of the whole group (~72px vs ~25px). The percentage readout
+takes a **fixed width** so the track does not resize as the number goes `5%` → `100%`, and the label
+is **`.dialog-copy`** — the same type as the checkbox label it is a peer of.
 
 - The two controls sit **side by side in one row** on desktop and **wrap on narrow phones**, using the
   seed row's proven `flex flex-wrap` + `basis-full sm:basis-0` pattern (and its `#135` warning: use
@@ -505,8 +509,46 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (24 items).
 
 ---
 
-## 14. Revision log
+## 14. Implementation notes (2026-08-09)
+
+Built on `feature/graphics-settings-controls` (`monkify-front` commit `e381bac`). `yarn lint` and
+`yarn build` both clean; verified in-browser against the local Docker stack at 1440 and 500.
+
+**Two deviations from §7, both deliberate:**
+
+1. **No element-count hint in the slider readout.** §7.8 offered it as optional. Showing it would mean
+   exporting `MAX_ELEMENTS` / `LIGHT_MAX_ELEMENTS` out of `GameBackground.vue` (or duplicating them),
+   and the KB pins those to that file as the `density = 1` reference point. The readout is the
+   percentage, and `aria-valuetext` carries the percentage alone. AC 21 is satisfied.
+2. **`GuidePlayerPreferences` drops from `columns="3"` to `columns="2"`.** The new fourth row would
+   otherwise orphan on its own line, and `GuideFactList`'s own rule reserves `3` for "a sequence of
+   exactly three beats" — these are an unordered set, which is what `2` is for.
+
+**One owner revision at the visual gate (2026-08-09):** the group first shipped with the slider
+stacked under its label, which made the graphics group ~72px tall — "taking too much vertical space".
+Rebuilt as the single centre-aligned row now drawn in §7.8 (~25px), with the label moved before the
+track and set in `.dialog-copy` to match the checkbox label beside it.
+
+**Verified in-browser** (all directly observed, not inferred): the group renders below the name and
+outside the wallet gate; the checkbox seeds from the auto-detected verdict; unticking clears
+`html.light-graphics` and mounts the torpedo layer; the stored override **beats detection across a
+reload**; `0%` leaves **zero rAF callbacks** with the backdrop tile, vignette and void colour still
+rendering; thrashing the 0% boundary twelve times leaves the frame rate **identical** (no duplicate
+loops) and spawning resumes; `/background` ignores a stored `5%` + explicit-OFF and renders the
+canonical defaults; garbage in `localStorage` boots clean with **no console error**; below 1024px the
+checkbox is ticked + disabled with its note while the slider **stays enabled**, and the saved desktop
+choice survives the round trip back above the breakpoint; `CANCEL` does not revert.
+
+**Not verifiable in this session — left for the manual pass:** AC 3's mid-round SignalR/audio check
+(toggled on the lobby, not during a live round), AC 15 (tab hidden across a round rollover), AC 20
+(embedded iframe), and the screen-reader half of AC 21 (the a11y tree exposes the right names,
+`aria-valuetext` and the disabled state, but no AT was driven).
+
+---
+
+## 15. Revision log
 
 | Date | Change |
 | --- | --- |
 | 2026-08-09 | Initial spec from the refined card + code exploration (findings F1–F10). |
+| 2026-08-09 | Implemented on `feature/graphics-settings-controls`; §14 records two deviations and what was verified. |
