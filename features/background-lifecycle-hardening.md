@@ -106,6 +106,13 @@ value now (see [graphics-settings-controls](graphics-settings-controls.md)).
   `/background` and the practice screens inherit the density automatically. **No per-route override
   exists, and none may be added** — the capture page exists precisely so the asset can never drift
   from the in-game look.
+  ⚠️ **#162 added a route gate to the same global layer — and it is NOT a density override**
+  ([off-page-game-presentation](off-page-game-presentation.md)). Because these layers are global while
+  `useGame`'s socket is tab-scoped and outlives `GamePage`, a round the player left kept ramping the
+  sky on every other route. Off `/game/play` both layers now receive `speedMultiplier = 1` and
+  `TorpedoSpawner` stops spawning. The **density** is still identical everywhere; what varies is
+  whether the layer mirrors a live round's **speed**. ⚠️ `typingSpeed` itself is never mutated — the
+  gate is at the consumer, so the return is instant.
   ⚠️ **#161 honoured that rule by inverting it:** `/background` is the one route that ignores the
   **player's** settings and renders the canonical defaults, so a per-browser slider cannot make the
   captured asset depend on whoever records it. That is still not a per-route *density*, it is the

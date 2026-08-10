@@ -912,6 +912,60 @@ const onVisibilityChange = () => {
 Used by: `useIdleDisconnect.ts`, `useTokenBalance.ts`, `useGame.ts` (`gradualSpeedReset`),
 `GameBackground.vue`, `TorpedoSpawner.vue`.
 
+## Global effects driven by a tab-scoped singleton need a ROUTE gate, at the consumer
+
+**Rule: when something mounted in `App.vue` reacts to `useGame` state, ask which routes it should be
+visible on — and gate it at the consumer, never by muting the shared state and never by detaching the
+socket.** `useGame`'s SignalR subscription is tab-scoped and **deliberately** outlives `GamePage`
+(`unified-websocket-connection`), so anything global that reads it keeps reacting to a round the
+player has left. That is how the starfield and torpedoes ended up animating an abandoned round on
+every other page ([off-page-game-presentation](../features/off-page-game-presentation.md)).
+
+The three wrong fixes, and why:
+
+- **Detaching from the hub on leaving the page** — the same `Status → Ended` drives the balance
+  re-read with win/refund attribution, the embedded `bet-settled` / `game-ended` signals and
+  `useOrbitRedirect`. Detaching breaks settlement feedback for the most ordinary case there is: bet,
+  wander off, round settles while away.
+- **Zeroing the shared state** (e.g. `typingSpeed = 1` on leave) — other consumers read the same ref,
+  so a returning player stares at a stalled round until the next server event.
+- **`v-if`-ing the component out of `App.vue`** — only safe if unmounting is harmless. It usually is
+  not: `TorpedoSpawner.onUnmounted` removes every tracked node and its template root **is** the
+  container, so a `v-if` deletes anything mid-animation. Guard the reactive path inside the component
+  instead, and let what is already running finish.
+
+The shape:
+
+```ts
+// useGame.ts — module scope, because handlers bound onto the tab's connection outlive the component
+// that bound them, so a computed in App.vue is unreachable from them.
+const inGame = ref(false);
+// …exposed as `inGame` + `setInGame` on the composable's return.
+```
+
+```js
+// App.vue — the SINGLE writer.
+watch(() => route.name === 'Game', (onGamePage) => setInGame(onGamePage), { immediate: true });
+```
+
+```html
+<game-background :speed-multiplier="inGame ? typingSpeed : 1" />
+```
+
+- **One writer, many readers.** `App.vue` owns the route→flag mapping; consumers only read. Same shape
+  as `useDisplaySettings.setCanonicalGraphics`.
+- **A pathname seed is only needed when `false` at first paint is WRONG.** `canonicalGraphics` needs
+  one (`route.meta` is unresolved at first paint and the stored density would paint for a few frames);
+  `inGame` does not, because an unresolved route yields the default speed, which is correct on a cold
+  load anyway. Ask which way your flag fails before copying the seed.
+- **Ordering matters around one-shots.** Put the gate **after** any one-shot flag the watcher
+  consumes, or the one-shot stays armed while gated and misfires later.
+- **Gate the effect, still consume the event.** The victory/lose sting is suppressed off-page but
+  `endAudioFiredForGame` is stamped either way — a suppressed one-shot must be *spent*, not *deferred*,
+  or it fires late and reads as a bug.
+
+Used by: `useGame.ts` (`inGame`), `App.vue`, `TorpedoSpawner.vue`.
+
 ## DaisyUI's base layer outranks bare element selectors
 
 `:root` is a **pseudo-class** (specificity 0,1,0); `html` is a **type selector** (0,0,1). DaisyUI's
