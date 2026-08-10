@@ -10,26 +10,37 @@
 When a player's browser is rasterizing on the CPU — Chrome with **hardware acceleration off**, or any
 software renderer — Space Stroker automatically drops into a **light graphics mode** that strips the
 expensive parts of the arcade skin (blurs, blend modes, glows, infinite animations) so the game stays
-playable instead of crawling. Phones always get light mode. The decision is entirely automatic:
-**there is no setting, no toggle and nothing persisted**. Separately and permanently, the drifting
+playable instead of crawling. Phones always get light mode. Separately and permanently, the drifting
 nebula layer was **deleted** for everyone — it was the single most expensive thing on the page.
+
+⚠️ **Since #161 the decision is no longer entirely automatic** — see
+[graphics-settings-controls](graphics-settings-controls.md). There **is** a checkbox in the SETTINGS
+modal, the choice **is** persisted in `localStorage`, and **a manual choice wins permanently**. The
+detection below is unchanged; it now only **seeds** the state on a browser that has never touched the
+control. Every statement of the form "there is no setting / nothing is persisted / nothing can be
+toggled" in this doc is superseded.
 
 ## Core rules
 
-- The visual mode is either **normal** or **light**. It is resolved on **every page load**; nothing is
-  written to or read from `localStorage`, and no UI anywhere exposes it.
+- The visual mode is either **normal** or **light**.
 - Resolution order:
   1. **Viewport below `lg` (1024px)** — light mode, unconditionally, regardless of the GPU. Covers
-     portrait and landscape phones (the same breakpoint the mobile layout uses).
-  2. **WebGL unmasked renderer string** — `swiftshader`, `llvmpipe`, `software`,
+     portrait and landscape phones (the same breakpoint the mobile layout uses). **Not overridable**
+     (#161): too many shipped rules depend on every viewport below 1024px being permanently light.
+  2. **A stored manual choice** (#161) — it wins, in **both** directions. An explicit OFF survives a
+     weak-renderer verdict, and detection never overrides it on a later load.
+  3. **WebGL unmasked renderer string** — `swiftshader`, `llvmpipe`, `software`,
      `softwarerasterizer`, `microsoft basic render` or `angle (software` means acceleration is off ⇒
      light mode. A recognized GPU string ⇒ normal mode, and no further probing.
-  3. **~2 s `requestAnimationFrame` sample** (first 250 ms discarded) — only when the renderer string
+  4. **~2 s `requestAnimationFrame` sample** (first 250 ms discarded) — only when the renderer string
      is unavailable, blocked or unrecognized. Sustained **< 25 FPS** ⇒ light mode.
-  4. **Still inconclusive ⇒ normal mode.** Good hardware is never punished for a masked renderer.
+  5. **Still inconclusive ⇒ normal mode.** Good hardware is never punished for a masked renderer.
 - Detection **runs once per load** and never re-runs, so light mode improving the frame rate can never
   flip the verdict back. The mobile branch stays **reactive**: rotating a phone or resizing a desktop
-  window across 1024px re-evaluates the mode live.
+  window across 1024px re-evaluates the mode live — and **the saved desktop choice survives that round
+  trip**, because the mobile lock is a term in the computed, never a write.
+- ⚠️ **`/background` ignores the stored override** and renders the un-overridden detection verdict at
+  the default density, so the capture asset cannot drift with a player-local setting (#161).
 - The verdict is published as a **`light-graphics` class on `<html>`**; all visual downgrades are
   plain CSS keyed off `html.light-graphics …`.
 - A weak-renderer verdict must never break boot: every WebGL call is wrapped, and a throwing or
@@ -60,23 +71,28 @@ nebula layer was **deleted** for everyone — it was the single most expensive t
   ⚠️ **Superseded in part by #149:** normal mode is no longer "unchanged" — the starfield's baseline
   cost was lowered for *everyone*, not just weak renderers. See the next bullet.
 - ⚠️ **Since #149 ([background-lifecycle-hardening](background-lifecycle-hardening.md)), light mode is
-  a FLOOR over a global density value, not a competing knob.** The element cap and spawn rate are now
-  scaled by a single exported `BG_DENSITY` (0..1, currently `0.45`) in
-  `src/constants/background.ts`, and light mode composes as
-  `Math.min(LIGHT_MAX_ELEMENTS, round(MAX_ELEMENTS × BG_DENSITY))`. Consequences for anyone touching
-  this area:
-  - **Light mode can only ever get cheaper.** At `BG_DENSITY = 1` it still gets 8; at `0.05` it gets
+  a FLOOR over a global density value, not a competing knob.** The element cap and spawn rate are
+  scaled by a single density (0..1, default `0.45`) — **since #161 the player's own, from the SETTINGS
+  slider**, defaulting to `BG_DENSITY_DEFAULT` in `src/constants/background.ts` — and light mode
+  composes as `Math.min(LIGHT_MAX_ELEMENTS, round(MAX_ELEMENTS × density))`. Consequences for anyone
+  touching this area:
+  - **Light mode can only ever get cheaper.** At density `1` it still gets 8; at `0.05` it gets
     3. Nothing done to the density can make light mode heavier than it is today — that `Math.min` is
     the load-bearing part, and it must stay a `min`.
-  - **Normal mode is now 29 elements per layer, not 64** (`round(64 × 0.45)`) — ~33 sprites on screen
-    across the two layers instead of up to 128. `MAX_ELEMENTS = 64` remains only as the
-    `BG_DENSITY = 1` reference point; **do not lower it** to reduce density, lower `BG_DENSITY`.
+  - **At the default, normal mode is 29 elements per layer, not 64** (`round(64 × 0.45)`) — ~33 sprites
+    on screen across the two layers instead of up to 128. `MAX_ELEMENTS = 64` remains only as the
+    density-`1` reference point; **do not lower it** to reduce density, lower the density.
+  - ⚠️ **Since #161 the player can move that number**, so it is a default, not a constant: at the
+    slider's `100%` normal mode is back to 64/layer, and at `0%` the starfield is off entirely (idle
+    rAF loop, frozen backdrop drift). Light mode's `8` binds from **15%** up on the 5% step grid.
   - `spawnDelay` **divides** by the density and is floored at `SPAWN_DELAY_FLOOR_MS = 150` (the
     secondary layer used to reach ~37ms at speed 3). The floor is applied **after**
     `LIGHT_SPAWN_FACTOR`, so it can never make light mode spawn faster.
   - Torpedoes now also carry a concurrent cap (`round(12 × BG_DENSITY)`), on top of the `v-if`
     that already disables them entirely in light mode.
-  - `usePerfMode.ts` is **not** density-aware and must not become so — it publishes the `lightMode`
+  - `usePerfMode.ts` is **not** density-aware and must not become so (#161 taught it the manual
+    **override**, which is a light-mode concern, not a density one — that distinction is the rule) —
+    it publishes the `lightMode`
     verdict only; the floor composition lives in `GameBackground.vue`.
 - `.section-vignette` is kept in both modes: one static linear gradient with no blur, blend or
   animation, and with the nebula gone it is the only thing framing the screen edges.

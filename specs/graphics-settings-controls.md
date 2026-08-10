@@ -1,6 +1,12 @@
 # SpaceStroker — "Graphics settings controls" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/graphics-settings-controls` on **2026-08-09**
+> (`monkify-front` + `monkify-meta`). Distilled in
+> [`../features/graphics-settings-controls.md`](../features/graphics-settings-controls.md), which is
+> the doc to read first; this spec stays the deep design archive. See §14 for what changed at
+> implementation time.
+>
+> Refined via Trello card
 > [Add in settings menu, the light mode UI switch and max elements bg slider](https://trello.com/c/FX5TpF6l)
 > (2026-08-09).
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **No `monkify-backend` branch.**

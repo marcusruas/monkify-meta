@@ -17,7 +17,8 @@ rather than a resume, and every deadline is a wall-clock timestamp with a `visib
 
 Two unrelated display bugs shipped alongside it (the terminal's horizontal scroll and a root-element
 colour seam), plus one QOL addition: the starfield's baseline cost is now **lower for every player**,
-behind a single `BG_DENSITY` constant a future slider can drive.
+behind a single density constant a slider can drive — which #161 then built, so the player owns that
+value now (see [graphics-settings-controls](graphics-settings-controls.md)).
 
 ## Core rules
 
@@ -75,10 +76,18 @@ behind a single `BG_DENSITY` constant a future slider can drive.
 
 ### `BG_DENSITY` — one knob for how busy the sky is
 
-- **`src/constants/background.ts` exports a single `BG_DENSITY` (0..1), currently `0.45`.** It scales
-  the per-layer element cap, the spawn cadence **and** the torpedo cap together. A future user-facing
-  slider must need to write **only this value** — the slider itself and any persistence are **out of
-  scope** and not built.
+> ⚠️ **Since #161 ([graphics-settings-controls](graphics-settings-controls.md)) the slider EXISTS and
+> the player owns this value.** The constant was renamed **`BG_DENSITY_DEFAULT`** and is now only the
+> default (and the value `/background` renders); the live value lives in
+> `src/hooks/useDisplaySettings.ts`, backed by `localStorage`. The design below held — the slider
+> writes one value and everything follows — so read every "`BG_DENSITY`" here as "the current density",
+> and the "not built" note as spent. What #161 added on top: **`0%` is genuinely off** (no sprites, no
+> spawn interval, **no rAF loop**, and the backdrop drift freezes with it), which needed a zero
+> carve-out in both degenerate-value guards.
+
+- **`src/constants/background.ts` exports a single density (0..1), defaulting to `0.45`.** It scales
+  the per-layer element cap, the spawn cadence **and** the torpedo cap together — the slider writes
+  **only this value** and all three follow.
 - `maxElements = lightMode ? min(LIGHT_MAX_ELEMENTS, scaled) : scaled`, where
   `scaled = max(1, round(MAX_ELEMENTS × BG_DENSITY))`. Today that is **29 per layer** against the
   pre-#149 64, i.e. ~33 sprites on screen across both layers versus **up to 128** before.
@@ -93,10 +102,15 @@ behind a single `BG_DENSITY` constant a future slider can drive.
   `SPAWN_DELAY_FLOOR_MS = 150`, because the secondary layer used to reach **~37ms** at speed 3
   (`1000 / 27`). The floor is applied **after** the light-mode factor, so it can never make light mode
   faster.
-- **Same density everywhere.** `BG_DENSITY` is a module constant read by the component, and both
-  `GameBackground` layers live globally in `App.vue`, so `/space-stroker/background` and the practice
-  screens inherit it automatically. **No per-route override exists, and none may be added** — the
-  capture page exists precisely so the asset can never drift from the in-game look.
+- **Same density everywhere.** Both `GameBackground` layers live globally in `App.vue`, so
+  `/background` and the practice screens inherit the density automatically. **No per-route override
+  exists, and none may be added** — the capture page exists precisely so the asset can never drift
+  from the in-game look.
+  ⚠️ **#161 honoured that rule by inverting it:** `/background` is the one route that ignores the
+  **player's** settings and renders the canonical defaults, so a per-browser slider cannot make the
+  captured asset depend on whoever records it. That is still not a per-route *density*, it is the
+  absence of the player override — and the flag is seeded synchronously from
+  `window.location.pathname`, because `route.meta` is not resolved at first paint.
 
 ### Terminal & backdrop display
 
@@ -135,7 +149,8 @@ behind a single `BG_DENSITY` constant a future slider can drive.
   taller than the screen**, showing through the `opacity-95` starfield. **Do not "fix" a recurrence by
   giving `<body>` a `min-height`** — that papers over the symptom and leaves the root still wrong.
 - `usePerfMode.ts` is **not** density-aware and must not become so: it publishes the `lightMode`
-  verdict only, and the floor composition lives at the consumer (`GameBackground.vue`).
+  verdict only, and the floor composition lives at the consumer (`GameBackground.vue`). #161 taught it
+  the manual light-mode **override** and nothing else — that is the line.
 - `monkify-front` has **no test runner** (`.spec` / `.test` files do not exist), so the automated bar
   for changes in this area is `yarn lint` + `yarn build`. Lint needs **uniform CRLF** line endings.
 
@@ -143,7 +158,9 @@ behind a single `BG_DENSITY` constant a future slider can drive.
 
 `monkify-front`:
 
-- `src/constants/background.ts` — **the** `BG_DENSITY` constant. New with this feature.
+- `src/constants/background.ts` — **the** density constant. New with this feature; renamed
+  `BG_DENSITY` → `BG_DENSITY_DEFAULT` by #161, which moved the live value into
+  `src/hooks/useDisplaySettings.ts`.
 - `src/components/background/GameBackground.vue` — `handleVisibilityChange` (the resync),
   `restartSpawning` / `spawnElement` reading `document.hidden`, `maxElements` (density × light-mode
   floor), `spawnDelay` (density division + `SPAWN_DELAY_FLOOR_MS`), `tileWidthVw` + the `matchMedia`

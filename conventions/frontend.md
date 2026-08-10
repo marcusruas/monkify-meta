@@ -824,6 +824,54 @@ deploy tool serializes that whole block verbatim, so no C# change is needed), an
 `monkify-backend/scripts/setup_local_environment.bat` if the local Docker stack needs it —
 `.env.production.local` is Vue CLI's highest-priority env file and overrides `.env.local`.
 
+## Player settings that belong to the DEVICE — a `localStorage` singleton, never the backend
+
+**Rule: a setting about the machine the player is sitting at — display, graphics, anything the
+hardware decides — is stored in `localStorage` and never routed through the API.** Two shipped
+examples: the provably-fair **client seed** (`useClientSeed.ts`) and the **graphics controls**
+(`useDisplaySettings.ts`, #161). Both live in `PlayerCustomizationModal.vue` beside the display name,
+which *is* server-backed — and the split is deliberate.
+
+**The deciding test is not "is it small?", it is "does it need an identity?"** The modal's `SAVE`
+button only renders when a wallet is connected (`v-if="!needsWalletToCustomize"`) and pressing it
+prompts an **ed25519 wallet signature**. Route a device setting through it and a wallet-less player
+cannot save it at all, and dragging a slider would prompt for a signature. So:
+
+- **Apply instantly, persist on change, and do NOT revert on `CANCEL`.** Consistency matters more than
+  the modal metaphor here: SET / ROTATE / the graphics controls all behave the same way, and `CANCEL`
+  only ever discards the *name* edit.
+- **Render the control OUTSIDE the wallet `v-if / v-else`.** With no wallet the `IDENTITY` block is a
+  connect gate rather than a name field, so anything placed "under the name" disappears exactly when
+  the player has no identity — which is precisely when a device setting must still work.
+
+**Shape it as a module-scope singleton, hydrated once on first import** — refs at module level, read
+in an IIFE-ish initializer, `computed` for anything derived, setters that write through to storage.
+`useClientSeed.ts` is the reference.
+
+```ts
+const storedDensity = ref<number>(readDensity());   // hydrate ONCE, at import
+const density = computed(() => canonical.value ? DEFAULT : storedDensity.value);
+```
+
+**Every read and every write is wrapped, and a bad stored value falls back rather than throwing.**
+Private mode and blocked storage make `localStorage` itself throw, and a hand-edited value is a normal
+thing to find. Clamp numbers into range; treat anything that is not exactly a recognized literal as
+absent. ⚠️ **Distinguish "stored `false`" from "never set"** — a tri-state (`boolean | null`) is
+usually what you want, because "the player explicitly turned this off" and "the player has never
+touched it" must resolve differently. Collapsing them is how an explicit OFF gets silently re-enabled
+by auto-detection on the next load.
+
+**Watch the import direction.** A settings module is a *leaf*: things import it, it imports nothing
+that imports it back. `usePerfMode` imports `useDisplaySettings`, never the reverse — and `usePerfMode`
+runs its detection at import time, so a cycle would not merely be untidy.
+
+**When a route must ignore the player's settings, seed the exception from the pathname, not
+`route.meta`.** `/background` renders canonical defaults so the captured asset cannot drift with
+whoever records it — but the backdrop lives globally in `App.vue`, and `App.vue` mounts before the
+initial navigation has necessarily populated `route.meta`, so a watcher alone paints the first frames
+with the player's values. Seed synchronously from `window.location.pathname` and keep the watcher only
+for in-SPA navigation.
+
 ## Deadlines, not timers — anything that must survive a hidden tab
 
 **Rule: if a delay must still be correct after the player switches tabs, express it as a wall-clock

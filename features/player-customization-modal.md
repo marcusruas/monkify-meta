@@ -17,6 +17,15 @@ A **menu entry** in the game header opens a modal where the player sets their **
 Display names render wherever players are identified — the own `YOU` label, recent-bets rows and
 winners — falling back to a truncated wallet address when unset.
 
+The modal now holds **three** things, and only the first is server-backed: the **display name**
+(signature-gated `PATCH`), the **provably-fair client seed**, and — since #161 — the **graphics
+controls** (light graphics mode + sky density, see
+[graphics-settings-controls](graphics-settings-controls.md)). The latter two are **`localStorage`
+only**: they apply instantly, are **not** reverted by `CANCEL`, and never prompt a signature.
+⚠️ **The graphics group renders OUTSIDE the wallet `v-if / v-else`** — with no wallet connected the
+`IDENTITY` block is a connect gate rather than the name field, and a device display setting must not
+sit behind an identity the player does not have.
+
 ## Core rules
 
 - **Entry point:** the header menu button in `GameHeader.vue` (rendered once in `App.vue`, so it is
