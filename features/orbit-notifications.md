@@ -306,6 +306,12 @@ running stack could surface.
   server's own error message.
 - `src/components/orbit/OrbitModal.vue` — the Telegram section, the paused row, the cash-out floor
   field beside the renamed "cash out on a win at", readable native `<option>`s.
+  ⚠️ **Since #163 the panel is also the ENTRY POINT to Telegram setup** — its way-out link reads
+  *"Set up notifications and more in Orbit settings"* and lands directly on `/orbit`'s **TELEGRAM
+  tab** via the new validated `?tab=` query. It is gated on `telegramEnabled`: where no bot is
+  configured the link drops the notifications clause and pushes plain `/orbit`, because `OrbitPage`
+  drops the TELEGRAM tab entirely on that deployment and the copy must not promise a tab the page
+  will not render. Telegram **linking itself is still page-only** — the panel only points at it.
 - `src/components/GameHeader.vue` — mounts the notifications hook and the upsell modal beside
   `OrbitModal` / `QuickTourModal`. `src/hooks/useGame.ts` — `ownBetWasPaid` + the trigger.
 - `src/types/orbit.ts`, `src/services/orbitService.ts`.

@@ -41,12 +41,23 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
 - **Cash out is promoted out of the footer utility strip whenever the balance is above zero**, into
   its own row with the amount on the button — money-out is never harder to find than money-in. It is
   an **outline** control, not amber: cashing out is available, not urged.
+  ⚠️ **Since #163 the PANEL has a CASH OUT too**, so money-out is reachable from the round screen
+  without leaving it — full balance, straight to the wallet signature, no inline confirm, and
+  deliberately **outside** the word gate that ADD MONEY keeps. That is this same rule applied one
+  surface further in.
 - The **seam row** in the panel is labelled `ORBIT SETTINGS ▸` and states **both live stop-rule
   values**; the whole row, values included, is the tap target to `/orbit`.
   ⚠️ **The cash-out floor stays readable but not editable mid-round.** This is a knowingly accepted
   residue, re-examined and kept — see `orbit-ui-overhaul.md` §3.1 and the restructure's §3.1. If it
   proves wrong in the wild, the sanctioned fix is putting both rule editors in the panel, **not** more
   seam design.
+  ⚠️ **RESOLVED, AND IT STAYS RESOLVED.** It did prove wrong, the sanctioned fix was taken, and both
+  rule editors are editable in the panel today. **#163 (2026-08-10) tried to undo that** — replacing
+  them with links out to `/orbit` — **and the removal was rejected on review**, so §3.1's residue is
+  **closed**, not re-opened. Do not "correct" this section toward a read-only panel.
+  ⚠️ **The way out is no longer labelled `ADVANCED SETTINGS`** (#163): it reads *"Set up notifications
+  and more in Orbit settings"* and lands on `/orbit?tab=telegram` where a Telegram bot is configured,
+  or *"More in Orbit settings"* → `/orbit` where none is.
 
 ### Colour and material
 

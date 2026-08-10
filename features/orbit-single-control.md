@@ -80,6 +80,16 @@ rolling manual cash-out gap.
 
 ### The modal is the small `/orbit` page (post-deploy owner review, same day)
 
+> ⚠️ **Superseded in part by #163 (2026-08-10), `features/orbit-modal-improvements.md`.** This merge
+> collapsed the **page** to one toggle + CASH OUT but left the **panel** on the older transport pair
+> (`RUN ORBIT` + `STOP ORBIT`, both drawn, the matching one disabled) with no cash-out at all. The
+> panel now renders the **same `OrbitControlBar`** the page does, in a `compact` variant, and has its
+> own CASH OUT. Wherever this doc describes the panel's transport pair, read #163 instead.
+> Everything below about the switch guard, the game picker and **the word gate on ADD MONEY and the
+> stop rules is still current** — the panel's rule editors stayed (their removal was built and
+> rejected). The one amendment: **CASH OUT is outside the word gate**, because money-out must never
+> be harder to reach than money-in.
+
 - **Switch guard:** opened beside a round that is NOT the game Orbit is pointed at — running or
   parked — the panel body is replaced by a guard naming both games. Running: "pause first, then set
   it up" (one PATCH does both). Parked: the press just switches. The switch also **clears a saved
