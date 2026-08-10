@@ -170,6 +170,12 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
   `OrbitFirstWinModal.vue` (reskinned, `variant="black"`), `OrbitStepRow.vue`, `OrbitStatusBanner.vue`,
   `OrbitStatusTag.vue`, `OrbitAmountField.vue`, `OrbitLauncher.vue`, `OrbitBetLock.vue`,
   `OrbitRedirectToast.vue`, `OrbitMark.vue`, `OrbitGlyph.vue`.
+  ⚠️ **`OrbitMark.vue` and `OrbitGlyph.vue` were deleted by #159** — their drawings moved **unchanged**
+  into the shared registry (`src/constants/icons.ts`) and every call site now renders `<AppIcon>`
+  (`orbit`, `deposit`, `cash-out`, `win-at`, `falls-to`, `run`, `stop`). Zero visual change; the
+  off-ladder sizes here (11/13/14/18/20/26/28/30/52px) are deliberately preserved. That also **retires
+  the #124 D7 / AC16 rule** those files carried ("NOT the seed of an app-wide icon system") — Orbit's
+  technique is now the app-wide one. See `features/icons-and-menu-overhaul.md`.
   ⚠️ `src/components/OrbitBalance.vue` was **deleted** — the header row now renders from the shared state.
 - Game screen — `src/components/game/GameConsole.vue` (both branches), `src/components/GameHeader.vue`.
 - Styles — `src/assets/styles/colors.css` (`--color-orbit`, `--color-orbit-deep`),

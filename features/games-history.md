@@ -74,6 +74,10 @@ covers the current round). See `features/provably-fair-final.md`.
   click and closes on an item click or an outside click (no hover). (`fair-stats-menu` later added
   **Stats** and **Fair** rows to this same menu — order **Settings · Stats · Fair · History** — both
   hidden when embedded; see `features/fair-stats-menu.md`.)
+  ⚠️ **#159 replaced the rows with a 3-column icon pad** (nine cells, 24px pixel marks over VT323
+  labels) and gave the ☰ trigger a pixel glyph. The dismissal contract above is unchanged, History
+  still has a cell, and the **dev Admin shortcut is long gone** from this menu. See
+  `features/icons-and-menu-overhaul.md`.
 - **Empty state.** A type with zero completed rounds shows "No rounds yet".
 
 ## Key code touchpoints
