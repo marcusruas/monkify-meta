@@ -78,6 +78,10 @@ travel rules information provided"**, naming the missing params — no transacti
 | `beneficiaryFinancialInstitution` | `WALLET_TYPE_EXCHANGE` sends only. |
 | `transferPurpose` | Optional free text. |
 
+The plan table prints the **exact `travel_rule_data` the send will carry** (`travel rule :` line),
+built through the same code path as the request — Coinbase's rejections name only the missing param,
+never what it received, so this is how you check the payload without spending anything.
+
 How much is required depends on where the **sending** account is domiciled: US/Canada self-hosted
 sends need only `beneficiaryWalletType`, while GB/EU/Bermuda/Singapore/Hong Kong/Philippines also
 require `isSelf`, `beneficiaryName` and `beneficiaryCountry`. Configuring more than your jurisdiction

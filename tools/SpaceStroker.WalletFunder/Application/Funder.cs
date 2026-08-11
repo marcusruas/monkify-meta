@@ -66,7 +66,7 @@ public sealed class Funder(SecretsFile secrets, FunderOptions options)
 
         var window = TimeSpan.FromMinutes(options.SpreadMinutes ?? secrets.Funding.SpreadMinutes);
         ConsoleReport.PrintPlan(plan, receipts, account.Balance, secrets.Funding.NetworkFeeHeadroomSol,
-            window, options.Execute);
+            window, options.Execute, secrets.TravelRule);
 
         if (!options.Execute)
         {

@@ -1,5 +1,7 @@
+using System.Text.Json;
 using SpaceStroker.WalletFunder.Domain;
 using SpaceStroker.WalletFunder.Infrastructure;
+using SpaceStroker.WalletFunder.Infrastructure.Coinbase;
 namespace SpaceStroker.WalletFunder.Application;
 
 public static class ConsoleReport
@@ -8,8 +10,23 @@ public static class ConsoleReport
     public static string ShortAddress(string address)
         => address.Length <= 14 ? address : $"{address[..6]}…{address[^5..]}";
 
+    /// <summary>
+    /// The literal travel_rule_data the send will carry, built through <see cref="CoinbaseSendBody"/>
+    /// so it cannot drift from the real request. Coinbase's travel-rule rejections name only the
+    /// missing param, never what it received — without this you are debugging blind against live money.
+    /// </summary>
+    public static string DescribeTravelRule(TravelRuleSection? travelRule)
+    {
+        var body = CoinbaseSendBody.Build("address", 0m, Guid.Empty, travelRule);
+
+        return body.TryGetValue("travel_rule_data", out var data)
+            ? JsonSerializer.Serialize(data)
+            : "none — travel_rule_data will NOT be sent";
+    }
+
     public static void PrintPlan(
-        FundingPlan plan, ReceiptsStore receipts, decimal availableSol, decimal feeHeadroomSol, TimeSpan window, bool live)
+        FundingPlan plan, ReceiptsStore receipts, decimal availableSol, decimal feeHeadroomSol, TimeSpan window,
+        bool live, TravelRuleSection? travelRule = null)
     {
         Console.WriteLine();
         Console.WriteLine(live ? "FUNDING PLAN (LIVE)" : "FUNDING PLAN (dry run — nothing will be sent)");
@@ -33,6 +50,7 @@ public static class ConsoleReport
         Console.WriteLine($"coinbase bal.  : {WalletPool.FormatSol(availableSol)} SOL");
         Console.WriteLine($"spread window  : {(window == TimeSpan.Zero ? "none (back to back)" : $"{window.TotalMinutes:0} min")}");
         Console.WriteLine($"plan hash      : {plan.PlanHash[..16]}…");
+        Console.WriteLine($"travel rule    : {DescribeTravelRule(travelRule)}");
         Console.WriteLine($"receipts       : {receipts.Path}");
         Console.WriteLine();
     }
