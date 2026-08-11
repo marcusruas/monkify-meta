@@ -374,3 +374,18 @@
 - **Release train** — a `release/<name>` branch that several cards merge into, landing on `main` only
   once the whole set is coherent. Used for Orbit. A card on a train stays in **Implemented**, because
   its code is genuinely not on `main`.
+- **Ghost wallet pool** — the set of wallets we control that hold the team's own token position, listed
+  once in the git-ignored `tools/secrets.json` and shared by both console tools: `spacestroker-fund-wallets`
+  fills them with SOL (`features/coinbase-wallet-funding.md`), `spacestroker-snipe-token` spends it
+  (`features/ghost-wallet-snipe.md`). Each entry's **`alias`** is its identity and its execution order;
+  the sniper is the only tool that ever binds a wallet's private key. Nothing about this pool touches
+  the game, the ledger or any player-facing path.
+- **Bonding curve (pump.fun)** — the launch venue our token trades on before it graduates: a
+  constant-product market held in one on-chain account per mint, priced over **virtual** reserves, with
+  the platform and creator fees taken on top of each trade. Its rates live in the program's `global`
+  account (95 + 5 basis points on 2026-08-11) and are read at runtime, never hardcoded. A curve is not
+  necessarily quoted in SOL — see `features/ghost-wallet-snipe.md`.
+- **Graduation** — the moment a bonding curve fills and liquidity migrates to an AMM. The curve account
+  is marked `complete` and its sellable reserves go to zero, so **buys against it stop working**.
+  `spacestroker-snipe-token` refuses to start against a graduated token and stops cleanly if graduation
+  happens mid-run; it deliberately has no AMM path.

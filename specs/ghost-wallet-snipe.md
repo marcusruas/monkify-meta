@@ -1,7 +1,19 @@
 # SpaceStroker — "Ghost wallet snipe app" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/ghost-wallet-snipe` on **2026-08-11** (`monkify-meta`
+> only). Refined + specced from Trello card
 > [Create ghost wallet snipe app #63](https://trello.com/c/nokWHm7z) (2026-08-11).
+> Distilled in [`features/ghost-wallet-snipe.md`](../features/ghost-wallet-snipe.md).
+>
+> **Post-ship note — §6.2 and §6.4 were rewritten during implementation**, because the protocol facts
+> read off mainnet contradicted what this spec had assumed in five ways (curve field names, a third
+> `buy` argument, 18 live accounts vs the IDL's 16, a per-mint token program, and fee rates that are
+> `global`-account config). §12 finding 4 also resolved against us: Solnet.Programs 6.1.0 has **no**
+> `ComputeBudgetProgram`. See the revision log.
+>
+> **Not executed at ship time:** a live `--execute` buy remains an **operator** step (§14), so the
+> submit/confirm path, the ATA-creation branch, the slippage revert and the mid-run graduation stop
+> have never run against real money.
 > Repos affected: **`monkify-meta` only** (a second project in the existing `tools/` solution). No
 > `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
 >
