@@ -10,7 +10,7 @@ using SpaceStroker.WalletFunder.Infrastructure.Coinbase;
 // Options:
 //   --secrets <path>       secrets file (default: tools/secrets.json)
 //   --pool <path>          load the wallet array from a standalone JSON file instead of secrets.wallets
-//   --receipts <path>      receipts file (default: tools/receipts.json)
+//   --receipts <path>      receipts file (default: tools/Receipts/receipts.json)
 //   --execute              actually send. Without it, `fund` is a dry run.
 //   --spread-minutes <n>   override funding.spreadMinutes for this run
 //   --force-plan-change    resume against receipts whose plan hash differs (DANGEROUS — can double-fund)
@@ -23,6 +23,17 @@ try
         CliOptions.PrintUsage();
         return 0;
     }
+
+    // ⚠️ Card #167 moved the default receipts path into tools/Receipts/. A pre-refactor file the tool
+    // cannot see reads as "no prior run", and this tool's Coinbase idem is derived from the plan — so
+    // starting fresh here would issue REAL second transfers. Refuse rather than risk it.
+    var legacyReceiptsPath = Path.Combine(
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..")), "receipts.json");
+    var legacyReceipts = LegacyReceipts.Describe(
+        File.Exists(opts.ReceiptsPath), File.Exists(legacyReceiptsPath), opts.ReceiptsPath, legacyReceiptsPath);
+
+    if (legacyReceipts is not null)
+        throw new FunderException(legacyReceipts);
 
     var secrets = SecretsFile.Load(opts.SecretsPath);
     var funder = new Funder(secrets, new FunderOptions(

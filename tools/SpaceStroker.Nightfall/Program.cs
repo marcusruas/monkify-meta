@@ -26,6 +26,16 @@ try
         return 0;
     }
 
+    // Card #167 moved the default receipts path into tools/Receipts/. Unlike the funder this is only
+    // an audit-trail note, not a money risk: Nightfall has no resume gate at all — on-chain state IS
+    // the resume state, and the receipts file is an audit trail.
+    var legacyNightfallReceipts = Path.Combine(
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..")), "nightfall-receipts.json");
+    if (!File.Exists(options.ReceiptsPath) && File.Exists(legacyNightfallReceipts))
+        Console.WriteLine($"note: a pre-refactor receipts file is still at {legacyNightfallReceipts}; " +
+                          $"this run writes to {options.ReceiptsPath}. On-chain state is the resume truth, " +
+                          $"so this is an audit-trail note, not a money risk.");
+
     var secrets = SecretsFile.Load(options.SecretsPath);
 
     if (secrets.Pool.Count == 0)

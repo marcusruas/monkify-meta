@@ -18,6 +18,16 @@ try
         return 0;
     }
 
+    // Card #167 moved the default receipts path into tools/Receipts/. Unlike the funder this is only
+    // an audit-trail note, not a money risk: this tool recomputes the shortfall from live on-chain
+    // balances, so on-chain state — not the receipts file — is the resume truth.
+    var legacySnipeReceipts = Path.Combine(
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..")), "snipe-receipts.json");
+    if (!File.Exists(options.ReceiptsPath) && File.Exists(legacySnipeReceipts))
+        Console.WriteLine($"note: a pre-refactor receipts file is still at {legacySnipeReceipts}; " +
+                          $"this run writes to {options.ReceiptsPath}. On-chain state is the resume truth, " +
+                          $"so this is an audit-trail note, not a money risk.");
+
     var secrets = SecretsFile.Load(options.SecretsPath);
 
     var sniper = new Sniper(secrets, new SniperOptions(
