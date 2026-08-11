@@ -1,9 +1,13 @@
-# Local secrets — the operator's source of truth. NEVER commit (only the template is tracked).
+# Local secrets — the operator's source of truth. NEVER commit (only the templates are tracked).
 secrets*.json
 !secrets.example.json
+# Nightfall's template is caught by secrets*.json above and needs its own negation.
+!secrets.nightfall.example.json
 
-# Run state / receipts — contains addresses, amounts and Coinbase transaction ids.
+# Run state / receipts — contains addresses, amounts and transaction ids/signatures.
 receipts*.json
+# Nightfall's receipts file does not START with "receipts", so the anchored rule above misses it.
+*receipts*.json
 
 # .NET build output for the console apps
 **/bin/
