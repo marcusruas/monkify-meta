@@ -1,10 +1,23 @@
 # SpaceStroker — "Nightfall dashboard" — Implementation Spec
 
-> **Status: Ready for implementation** — refined + specced from Trello card
+> **Status: Shipped** — merged via `feature/nightfall-dashboard` on **2026-08-11**
+> (`monkify-meta` only). Refined + specced from Trello card
 > [Nightfall dashboard #166](https://trello.com/c/mUDhAdBu) (2026-08-11).
 > Repos affected: **`monkify-meta` only** (a new project in the existing `tools/` solution + the
 > knowledge base). No `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
-> Branch `feature/nightfall-dashboard`, worktree `.worktrees/nightfall-dashboard/monkify-meta`.
+> Distilled in [`features/nightfall-dashboard.md`](../features/nightfall-dashboard.md).
+>
+> **Post-ship notes — what shipped differs from this spec in one significant way**, recorded in §15:
+> **§6.4 step 7 and §12 finding 1's primary path did not survive contact with Solnet 6.1.0.** The
+> swap is **not** assembled locally from Jupiter's instructions — that version has no versioned
+> transaction or address-lookup-table support at all. Jupiter's `/swap` supplies the ready v0 wire
+> transaction and `TransactionSigner` signs it without parsing, while `/swap-instructions` is still
+> fetched purely to feed `SwapInstructionsGuard`. The "assert what we sign" property of decision #6
+> is preserved; the assembly step is not. Three implementation-time bugs (a no-op keypair check, a
+> batch cancelled by the request token, a semaphore disposed mid-batch) are also logged in §15.
+>
+> ⚠️ **Seven acceptance criteria have never run against a wallet holding tokens** — AC07, AC14, AC15,
+> AC19, AC23, AC24, AC26 each need a real mainnet sale, which is an **operator** step (§14).
 >
 > **Purpose:** the ghost-wallet pool has a **buy** side ([#63](https://trello.com/c/nokWHm7z)) and a
 > **funding** side ([#165](https://trello.com/c/9OoHAuEa), shipped) but **no exit**. Today, seeing
