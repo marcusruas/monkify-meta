@@ -11,7 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+    <!--
+      Ed25519 for the CDP bearer token: .NET 8 has no EdDSA in the BCL, so we sign with BouncyCastle.
+      This is DELIBERATELY Portable.BouncyCastle 1.9.0 and not the newer BouncyCastle.Cryptography:
+      Solnet.Wallet already drags 1.9.0 in transitively, and having both on the graph makes every
+      Ed25519* type ambiguous (CS0433). Declaring the one Solnet uses keeps a single BouncyCastle.
+    -->
+    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="Solnet.Rpc" Version="6.1.0" />
     <PackageReference Include="Solnet.Wallet" Version="6.1.0" />
   </ItemGroup>
