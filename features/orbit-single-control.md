@@ -98,6 +98,13 @@ rolling manual cash-out gap.
 - **Game picker:** the old "Open Orbit settings" hand-off is a picker + confirm; confirming saves
   the game (creates the enrolment) and rides the **still-open** panel to that game's page. A fresh
   Orbit opened beside a round is silently **auto-pointed** at it (preference-only PATCH).
+  ⚠️ **Amended by #164 (2026-08-10), `features/orbit-modal-improvements.md`.** This card rendered the
+  picker only **away from a round** (`!gameParametersId && !currentGame`) and ran the auto-point from
+  `refresh()` only — so a new player, who reaches the panel through `onSignIn()` instead, got neither
+  and had no control that could set the pointer everything else is gated on. The picker now renders on
+  **`!gameParametersId` alone**, the auto-point runs on **both** read paths, and confirming a pick that
+  is the game already on screen **does not navigate**. "Rides the panel to that game's page" is
+  therefore true only when the pick is a *different* game.
 - **The word gates the money:** ADD MONEY and the stop rules render dimmed + dead until
   `hasPlayableChoice`. Preset types show **only** the picker + auto-pick checkbox (the letter
   cells were rendering alongside — a missing `v-else`), and preset validity is **membership**, not

@@ -10,6 +10,10 @@ handler, consumer, migration, endpoint or SignalR contract. Every value rendered
 > §3.** The spec's change ③ was built and rejected on review; §17 is the authoritative record of what
 > actually shipped, and §1/§3/§7.3/§10.2/§12 are marked superseded in place.
 
+> ⚠️ **This doc also carries #164 (shipped 2026-08-10),** the panel's *game picker* bug fix — same
+> file, same surface, one card later. See **"The panel can always set the game it needs"** below and
+> [`specs/orbit-modal-game-type.md`](../specs/orbit-modal-game-type.md).
+
 ## Why
 
 The single-control merge (`orbit-single-control.md`, 2026-08-07) collapsed the **`/orbit` page** to
@@ -45,6 +49,67 @@ steps — no press clears it), sub-note `Auto-play unavailable`, bound on **both
 only the RUN direction: ⚠️ **pausing must never have a precondition**, including for a self-excluded
 wallet whose Orbit is still running. This also closed the same hole on `/orbit`, where the toggle had
 always been live for such a wallet with only the server refusing.
+
+### The panel can always set the game it needs (#164)
+
+**No reachable panel state gates every control on a pointer that nothing can set.** That is the rule;
+everything below is how it is held.
+
+`gameParametersId` is the pointer the word field, `ADD MONEY` ("Pick a game first — Orbit needs to
+know what it would play.") and `RUN ORBIT` are all gated on. Until #164 a **new player** — anyone with
+no stored Orbit session, i.e. every first panel open — reached the signed-in body with that pointer
+`null` **and no picker**, because the picker was suppressed on exactly the page they were standing on.
+The only escape was closing and reopening the panel, or leaving for `/orbit`. Two independent defects
+stacked into it, and **both are fixed**:
+
+- **One shared post-load sequence.** `resumePendingDeposit` → `autoPointAtCurrentGame` →
+  `preselectCurrentGame` live in **`afterLoad()`**, and **both** read paths end in it: `refresh()`
+  (after its `loadIfSignedIn` guard) and `onSignIn()` (inside its `try`, after `load()`).
+  ⚠️ **The two paths drifting *was* the bug** — `refresh()` ran the steps and `onSignIn()` did not, so
+  the auto-point never fired on the one path every new player takes. Never re-inline these steps into
+  a single caller.
+  ⚠️ **`afterLoad()` goes inside `onSignIn`'s `try`, never a `finally`:** `load()` throws, and the
+  post-load steps must only run on a read that landed. `allowHop: true` stays on the `load()` call
+  **alone** — nothing in `afterLoad` mints a session, so "opening the panel must not prompt a wallet
+  signature" still holds.
+  This deliberately picks up the **deposit replay** on the sign-in path too: a returning player whose
+  session expired with money in the stash gets the idempotent credit replayed when they sign in, not
+  only on their next panel open.
+- **The picker renders on `!orbit?.gameParametersId` alone.** The old condition was
+  `!gameParametersId && !currentGame`. ⚠️ **Never restore the `&& !currentGame` half** — it hid the
+  picker precisely where the pointer matters most.
+
+Both halves ship together on purpose: `autoPointAtCurrentGame` is **best-effort and silent by design**
+(its `catch` calls `clearError()`), so a refused or offline PATCH rebuilds the identical dead end with
+only the sign-in path fixed. **The silence stays** — the now-visible picker *is* the consequence; a
+toast about a write nobody asked for would still be wrong.
+
+The picker is **contextual** when there is a round on screen:
+
+| State | Copy | Preselect | On confirm |
+| --- | --- | --- | --- |
+| `currentGame` present | `Orbit needs a game. Confirm to set it up for <name>.` | that game | PATCH, **no navigation** |
+| no `currentGame` | `Pick the game Orbit plays — confirming takes you there to finish setting up.` | none | PATCH, then `router.push` to that game |
+
+⚠️ **"Already there" is compared against `route.query.type`, not `currentGame`** — the honest question
+is *am I on that page?*. Pushing the route you are standing on is a remount of the live round for
+nothing, and the contextual copy promises no trip. **Save first, navigate second** is unchanged: the
+save creates the enrolment row, and a refused save must leave the player in the panel with the reason.
+`preselectCurrentGame()` also runs from the `currentGame` watcher, so navigating between rounds with
+the panel open re-points the default instead of leaving a stale one; the `open` watcher still clears
+`gamePick` per open.
+
+⚠️ **A self-excluded wallet is the ONE wallet that always meets this picker** —
+`autoPointAtCurrentGame` skips it, so its pointer stays `null` forever. Its dropdown and button render
+**disabled** with *"Auto-play is unavailable on this wallet."* **repeated inside the picker block**,
+and `onConfirmGamePick` returns on `selfExcluded` so no PATCH is ever sent. The identical sentence in
+the `v-else` body **stays where it is** — the picker branch never reaches it, and that branch still
+needs it. Same "a control that explains itself is not a dead button" rule `ADD MONEY` follows.
+
+Unchanged by this card: a wallet that already has a pointer (the picker never renders, the auto-point
+never re-points, the switch guard still fires on a mismatch), the `/orbit` GAME tab's own picker (that
+surface was never blocked), and the first-win modal's hand-off — the handoff was correct; what it
+opened into was not.
 
 ### Money-out from the round screen
 
@@ -154,6 +219,11 @@ at it.
   debounce + close-flush, the new way-out copy and target. `runTarget` and `hasFundsForRound` are
   **kept** (the bar cannot derive them — only the panel knows the round on screen is a valid target
   for a first, enrolling press).
+  **#164, same file:** `afterLoad()` (deposit replay → auto-point → `preselectCurrentGame()`) called
+  by `refresh()` **and** `onSignIn()`; `preselectCurrentGame()` also called from the `currentGame`
+  watcher; the picker's `v-if` reduced to `!orbit?.gameParametersId`; contextual copy + preselect; the
+  `router.push` skipped in `onConfirmGamePick` when the pick equals `route.query.type`; the
+  self-excluded disabled state, its repeated note, and the `selfExcluded` early return.
 - `src/pages/OrbitPage.vue` — `requestedTab` + `applyInitialTab()`, and the `self-excluded` binding.
 - `src/components/orbit/tabs/OrbitStopRulesTab.vue` — the debounce and unmount flush.
 - **Not changed:** `src/types/orbit.ts`, `src/services/*`, `src/hooks/useOrbit.ts` (no new export, no
@@ -162,9 +232,11 @@ at it.
 
 ## Verification
 
-**No tests.** `monkify-front` has no test runner (no `.spec`/`.test` files anywhere), and with **zero
-backend surface** `AGENTS.md` rule 8's mandatory happy-path integration test has nothing to exercise —
-this is a frontend-only minor change. The bar was `yarn lint` + `yarn build` clean, plus owner QA on
+**No tests** — for this card **and** for #164 below it. `monkify-front` has no test runner (no
+`.spec`/`.test` files anywhere), and with **zero backend surface** `AGENTS.md` rule 8's mandatory
+happy-path integration test has nothing to exercise — #163 is a frontend-only minor change and #164 is
+a frontend-only **bug fix**, which rule 8 does not scope to at all. Recorded as a decision in
+`specs/orbit-modal-game-type.md` §11, not a silent skip. The bar was `yarn lint` + `yarn build` clean, plus owner QA on
 the local Docker stack with `VUE_APP_ORBIT_ENABLED=true`, re-run after merging `origin/main` forward
 (card #162 shipped mid-flight).
 

@@ -1,6 +1,10 @@
 # SpaceStroker — "Orbit modal not loading the game type" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-08-10** via `feature/orbit-modal-game-type`
+> (`monkify-front` `63f497f`, `monkify-meta`). Distilled in
+> [`features/orbit-modal-improvements.md`](../features/orbit-modal-improvements.md) → "The panel can
+> always set the game it needs"; this spec stays the deep design archive.
+> Refined via Trello card
 > [Orbit modal not loading the game type](https://trello.com/c/R8RHJgeY) (#164, 2026-08-10).
 > Repos affected: **`monkify-front`** and this doc in **`monkify-meta`**.
 > **`monkify-backend` is NOT affected** — no entity, enum, handler, consumer, EF mapping, migration,
@@ -495,3 +499,4 @@ Local Docker stack, `VUE_APP_ORBIT_ENABLED=true` in the front's `.env.local`.
 | Date | Change |
 | --- | --- |
 | 2026-08-10 | Initial spec from refined card #164 (root cause + decisions from the 2026-08-10 refinement comment), with line-level touchpoints confirmed against `OrbitModal.vue` and `useOrbit.ts` on `main` (`c6a0138`). |
+| 2026-08-10 | **Shipped.** Implemented at `63f497f` in `monkify-front` (one file, +86/−22) exactly as specified — no deviation from §7. `yarn lint` + `yarn build` clean, owner QA'd the running build. Confirmed in code that `activeGameType` is null without a pointer, so `switchGuardActive` is false and the switch guard cannot preempt the picker (AC 3 and AC 9 both hold). KB distilled into `features/orbit-modal-improvements.md`; the picker accounts in `features/orbit-single-control.md` and `features/orbit-ui-overhaul.md` amended in place. |

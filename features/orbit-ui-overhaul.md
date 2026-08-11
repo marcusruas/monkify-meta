@@ -33,6 +33,12 @@ Everything here is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed
 - **The panel is the short version of the page, not a second copy.** It holds exactly two blocks —
   *turn Orbit on for the game you are already in* (no game `<select>`; the type comes from the route)
   and *add money* — plus a status strip and the seam row.
+  ⚠️ **The "no game `<select>`" half is dead** — [orbit-single-control](orbit-single-control.md) gave
+  the panel a picker on 2026-08-07, and **#164** (2026-08-10,
+  [orbit-modal-improvements](orbit-modal-improvements.md)) made it render on **`!gameParametersId`
+  alone**, including on a game page, preselected to the round on screen. Taking the type from the route
+  is now the *auto-point*'s job, not an absence of a control: when that silent write does not land, the
+  picker is what keeps the panel from being a dead end. Everything else in this rule stands.
 - The page is a **four-step collapse-to-dashboard list**: `Game → Money → Stop rules → Telegram`.
   **Exactly one step is open at a time**; a satisfied step shrinks to one line carrying its answer in
   plain ink. **Sign-in is a precondition, not a step** — it disappears once satisfied.
