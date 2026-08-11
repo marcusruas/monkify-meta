@@ -12,3 +12,9 @@ receipts*.json
 # .NET build output for the console apps
 **/bin/
 **/obj/
+
+# Run reports - contain wallet addresses, holdings and signatures.
+/reports/
+
+# The sniper run state (does NOT match the anchored receipts*.json glob above).
+/snipe-receipts*.json

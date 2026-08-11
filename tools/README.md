@@ -7,6 +7,7 @@ purpose — they move real money.
 | Project | Binary | What it does |
 | --- | --- | --- |
 | `SpaceStroker.WalletFunder` | `spacestroker-fund-wallets` | Funds a pool of Solana wallets with **SOL** out of a Coinbase account. |
+| `SpaceStroker.TokenSniper` | `spacestroker-snipe-token` | Drives that pool to a configured share of our own pump.fun token's supply, one buy per wallet across a window. |
 | `SpaceStroker.Nightfall` | `spacestroker-nightfall` | Local dashboard over the same pool: see each wallet's SOL and token position, and **sell** one or many concurrently. |
 
 > Sibling of `monkify-meta/deploy/` (the GCP deploy stack) and deliberately **not** part of it: a
@@ -247,3 +248,106 @@ dotnet test SpaceStroker.Tools.sln
 guard, retryable-vs-terminal classification, the realized-SOL parse, the receipt state machine,
 config loading, the quote cache, and transaction signing. There is deliberately **no fake Jupiter and
 no fake RPC** — the live path is verified by running in `SIMULATE` against the real endpoints.
+
+---
+
+## spacestroker-snipe-token
+
+Spec: [`specs/ghost-wallet-snipe.md`](../specs/ghost-wallet-snipe.md) ·
+Trello [#63](https://trello.com/c/nokWHm7z)
+
+The **buy** half of the pair whose funding half is above: it drives the same wallet pool to a
+configured share of **our own pump.fun token's** supply — one buy per wallet, in **ascending `alias`
+order**, at randomized offsets across a window (default 60 minutes) — then writes an HTML and a JSON
+report of achieved-vs-target.
+
+### ⚠️ Read this before your first run
+
+- **This tool spends real SOL and a landed buy cannot be undone.** Dry-run first, every time.
+- **The resume authority is the on-chain token balance, not the receipts file.** Solana has no
+  server-side idempotency token, so a receipts-driven resume could re-buy a wallet whose transaction
+  confirmed just before a crash. Re-running simply tops each wallet up to its target; a wallet already
+  at target is skipped.
+- **`SupplyPercentage` is a percent number of TOTAL supply.** `0.4504` means **0.4504%**, not 45.04%.
+- **Bonding curve only.** A token that has already graduated is refused at preflight; graduation
+  part-way through a run stops the remaining wallets and says where it stopped.
+- **Use a keyed RPC.** `api.mainnet-beta.solana.com` rate-limits (it 429'd while this tool's own
+  protocol research was running) and silently drops sends.
+
+### Configure
+
+The sniper reads the **same `tools/secrets.json`** the funder does — one pool, two tools. It binds
+`alias`, `PublicKey`, `PrivateKey` and `SupplyPercentage`; the funder's `Label`/`SOLAmount` are ignored
+here, exactly as these fields are ignored there.
+
+| Field | Meaning |
+| --- | --- |
+| `solana.rpcUrl` | Keyed RPC endpoint. Masked in all output. |
+| `snipe.mint` | The token's contract address (CA). |
+| `snipe.spreadMinutes` | Buy window; `0` ⇒ back to back. |
+| `snipe.slippageTolerance` | Added to each quote to form the on-chain `maxSolCost` (0.25 ⇒ +25%). |
+| `snipe.priorityFeeMicroLamports` / `computeUnitLimit` | Compute-budget instructions on every buy. |
+| `snipe.reserveLamports` | Withheld per wallet so it can still pay its own fee and ATA rent. |
+| `snipe.trackVolume` | `null` ⇒ omit the IDL's third `buy` arg (default), `false` ⇒ `0x00`, `true` ⇒ `0x01 0x01`. |
+| `snipe.extraAccounts` | Optional trailing accounts — see the protocol note below. |
+| `wallets[].alias` | **Required and unique.** The execution order key. Zero-pad it (`W02`, not `W2`). |
+
+### Run
+
+```bash
+# 1. Read-only. Structurally cannot submit. Start here.
+dotnet run --project SpaceStroker.TokenSniper -- status
+
+# 2. Dry run — ladder table + full preflight, submits nothing.
+dotnet run --project SpaceStroker.TokenSniper -- snipe
+
+# 3. Live. Requires --execute AND typing the exact quoted total when prompted.
+dotnet run --project SpaceStroker.TokenSniper -- snipe --execute
+```
+
+Useful options: `--pool <path>`, `--wallet <alias>` (repeatable, limits the run), `--spread-minutes <n>`,
+`--secrets <path>`, `--receipts <path>`, `--reports <dir>`.
+
+### What a run does
+
+1. **Read** — mint supply + its token program, the bonding curve, and the fee rates from the program's
+   `global` account (95 bps platform + 5 bps creator today; read at runtime, never hardcoded).
+2. **Plan** — target = `SupplyPercentage`% of supply; shortfall = target − what the wallet already
+   holds; quote each shortfall against the curve **sequentially**, so later wallets are priced against
+   the reserves their predecessors left behind.
+3. **Preflight** — aliases, addresses, keypairs, percentages, curve state. Every problem at once, before
+   buy #1.
+4. **Confirm** — dry run stops here; `--execute` requires the typed total.
+5. **Buy** — one transaction per wallet, alias order, jittered offsets, each carrying `maxSolCost`.
+6. **Settle** — a buy counts only on an observed **token-balance increase**, never on the signature alone.
+7. **Report** — `tools/reports/<timestamp>/snipe-report.{json,html}`, plus `snipe-receipts.json` written
+   after every state change.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Every targeted wallet reached its target · a dry run · an empty pool. |
+| `1` | Anything short, failed or unresolved, or a fatal error. |
+| `2` | Usage error. |
+
+### ⚠️ Protocol notes (verified against mainnet on 2026-08-11 — re-verify before a launch)
+
+The account list and instruction layout were read from the program's **own on-chain Anchor IDL**
+(`AYgC53tU5BbP2NAnv5nConJxAdpQZctvmZK88pu69xRs`) and from decoded live buys, then pinned in
+`PumpFunProgramTests`. If pump.fun redeploys, **that test is what tells you** — re-derive from a fresh
+transaction rather than patching from documentation.
+
+- The IDL declares **16 accounts** for `buy`; **live buys carry 18**. The two extras are unnamed
+  trailing accounts (one owned by the fee program, one not yet created). We send the 16 the IDL
+  declares; `snipe.extraAccounts` exists if a future deployment starts requiring them. The failure mode
+  is a **reverted transaction — the SOL does not move**.
+- `buy` takes a **third arg** (`track_volume`). Live traffic carries all three encodings — omitted
+  (24-byte data, the commonest), `0x00`, and `0x01 0x01` — and all land.
+- **The token program varies per mint:** live pump.fun mints use both SPL Token and Token-2022, and the
+  ATA derivation depends on which. Solnet's `DeriveAssociatedTokenAccount` hardcodes SPL Token, so this
+  tool derives the ATA itself.
+- **A curve is not necessarily SOL-quoted.** `BondingCurve.quote_mint` is the default pubkey for SOL;
+  anything else is refused rather than mispriced.
+- **Solnet.Programs 6.1.0 has no `ComputeBudgetProgram`** — the priority-fee instructions are hand-built
+  (`[2, u32]` limit, `[3, u64]` price).
