@@ -5,20 +5,32 @@ using SpaceStroker.Nightfall.Domain;
 namespace SpaceStroker.Nightfall.Infrastructure;
 
 /// <summary>
-/// The unversioned local tools/secrets.nightfall.json — the single source of truth for a session.
-/// Mirrors SpaceStroker.WalletFunder/Infrastructure/SecretsFile.cs, including its fail-fast
-/// placeholder check.
+/// The unversioned local tools/secrets.json — SHARED with spacestroker-fund-wallets and
+/// spacestroker-snipe-token. This tool reads the top-level `solana` section, its own `nightfall`
+/// section (token / jupiter / sell) and the shared `wallets` pool; the other tools' sections are
+/// ignored here, exactly as this tool's are ignored there. Mirrors
+/// SpaceStroker.WalletFunder/Infrastructure/SecretsFile.cs, including its fail-fast placeholder check.
 ///
-/// ⚠️ Deliberately its OWN file rather than sharing tools/secrets.json: that one holds live Coinbase
-/// withdrawal credentials, and mixing them with spend keys puts two very different blast radii in
-/// one place.
+/// ⚠️ This file holds LIVE WALLET PRIVATE KEYS and live Coinbase withdrawal credentials. It is
+/// git-ignored (tools/.gitignore) and nothing from it beyond public addresses may reach console
+/// output, receipts or a report.
+///
+/// Note: card #166 originally kept these settings in their own secrets.nightfall.json, reasoning that
+/// tools/secrets.json held withdrawal credentials — "a different blast radius". Card #167 merged them
+/// because that had already stopped being true: card #63's sniper binds wallet PrivateKeys out of this
+/// same file, so spend keys and withdrawal credentials were already co-located.
 /// </summary>
 public sealed class SecretsFile
 {
     [JsonPropertyName("solana")] public SolanaSection Solana { get; set; } = new();
-    [JsonPropertyName("token")] public TokenSection Token { get; set; } = new();
-    [JsonPropertyName("jupiter")] public JupiterSection Jupiter { get; set; } = new();
-    [JsonPropertyName("sell")] public SellSection Sell { get; set; } = new();
+
+    /// <summary>
+    /// Nullable with NO initializer on purpose: that is what makes "the section is absent" (an
+    /// operator who has not hand-merged yet) distinguishable from "present but empty". Load assigns
+    /// it before returning, so every call site can use it without a null check.
+    /// </summary>
+    [JsonPropertyName("nightfall")] public NightfallSection? Nightfall { get; set; }
+
     [JsonPropertyName("wallets")] public List<RawPoolEntry> Wallets { get; set; } = [];
 
     [JsonIgnore] public IReadOnlyList<PoolEntry> Pool { get; private set; } = [];
@@ -27,7 +39,7 @@ public sealed class SecretsFile
     {
         if (!File.Exists(path))
             throw new NightfallException(
-                $"Secrets file not found: {path}. Copy tools/secrets.nightfall.example.json and fill it in.");
+                $"Secrets file not found: {path}. Copy tools/secrets.example.json and fill it in.");
 
         SecretsFile parsed;
         try
@@ -43,20 +55,28 @@ public sealed class SecretsFile
         if (IsPlaceholder(parsed.Solana.RpcUrl))
             throw new NightfallException($"{path}: solana.rpcUrl is still a placeholder — fill in the real RPC endpoint.");
 
-        if (IsPlaceholder(parsed.Token.Mint))
-            throw new NightfallException($"{path}: token.mint is still a placeholder — fill in the Token CA.");
+        if (parsed.Nightfall is null)
+            throw new NightfallException(
+                $"{path}: the 'nightfall' section is missing. This tool now shares tools/secrets.json " +
+                $"with spacestroker-fund-wallets and spacestroker-snipe-token — copy the 'nightfall' " +
+                $"block from tools/secrets.example.json and fill it in.");
 
-        WalletPool.ValidateAddress(parsed.Token.Mint.Trim(), "token.mint");
-        parsed.Token.Mint = parsed.Token.Mint.Trim();
+        var nightfall = parsed.Nightfall;
 
-        if (parsed.Jupiter.SlippageBps is < 0 or > 10_000)
-            throw new NightfallException($"{path}: jupiter.slippageBps must be between 0 and 10000.");
+        if (IsPlaceholder(nightfall.Token.Mint))
+            throw new NightfallException($"{path}: nightfall.token.mint is still a placeholder — fill in the Token CA.");
 
-        if (parsed.Jupiter.MaxPriceImpactPercent is < 0m or > 100m)
-            throw new NightfallException($"{path}: jupiter.maxPriceImpactPercent must be between 0 and 100.");
+        WalletPool.ValidateAddress(nightfall.Token.Mint.Trim(), "nightfall.token.mint");
+        nightfall.Token.Mint = nightfall.Token.Mint.Trim();
 
-        if (parsed.Sell.MaxConcurrentSells < 1)
-            throw new NightfallException($"{path}: sell.maxConcurrentSells must be at least 1.");
+        if (nightfall.Jupiter.SlippageBps is < 0 or > 10_000)
+            throw new NightfallException($"{path}: nightfall.jupiter.slippageBps must be between 0 and 10000.");
+
+        if (nightfall.Jupiter.MaxPriceImpactPercent is < 0m or > 100m)
+            throw new NightfallException($"{path}: nightfall.jupiter.maxPriceImpactPercent must be between 0 and 100.");
+
+        if (nightfall.Sell.MaxConcurrentSells < 1)
+            throw new NightfallException($"{path}: nightfall.sell.maxConcurrentSells must be at least 1.");
 
         // An EMPTY pool is not an error here — Program reports it and exits 0, matching the funder.
         parsed.Pool = WalletPool.FromEntries(parsed.Wallets);
@@ -92,6 +112,17 @@ public sealed class SolanaSection
     /// ⚠️ Carries the API key in its query string — mask it to host-only wherever it is logged.
     /// </summary>
     [JsonPropertyName("rpcUrl")] public string RpcUrl { get; set; } = "";
+}
+
+/// <summary>
+/// spacestroker-nightfall's own slice of the shared secrets file. The `solana` and `wallets` keys
+/// live at the TOP level because every tool reads them; everything in here is Nightfall's alone.
+/// </summary>
+public sealed class NightfallSection
+{
+    [JsonPropertyName("token")] public TokenSection Token { get; set; } = new();
+    [JsonPropertyName("jupiter")] public JupiterSection Jupiter { get; set; } = new();
+    [JsonPropertyName("sell")] public SellSection Sell { get; set; } = new();
 }
 
 public sealed class TokenSection

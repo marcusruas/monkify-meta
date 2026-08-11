@@ -49,7 +49,7 @@ public sealed class SellRunner(
         {
             // Disposed only after every wallet has finished — disposing it when RunAsync returns
             // would pull the semaphore out from under the batch still using it.
-            using var gate = new SemaphoreSlim(secrets.Sell.MaxConcurrentSells);
+            using var gate = new SemaphoreSlim(secrets.Nightfall.Sell.MaxConcurrentSells);
 
             var work = wallets.Select(async publicKey =>
             {
@@ -121,7 +121,7 @@ public sealed class SellRunner(
         var tokenRaw = await reader.GetTokenBalanceAsync(wallet.PublicKey, ct);
         var solLamports = state.BalanceOf(wallet.PublicKey).SolLamports;
 
-        var exclusion = SellPreflight.Check(tokenRaw, solLamports, secrets.Sell.MinSolForFeeSol);
+        var exclusion = SellPreflight.Check(tokenRaw, solLamports, secrets.Nightfall.Sell.MinSolForFeeSol);
         if (exclusion != SellExclusion.None)
         {
             Fail(receipt, SellPreflight.Describe(exclusion));
@@ -133,18 +133,18 @@ public sealed class SellRunner(
         receipt.TokenAmount = TokenAmount.ToUi(amount, state.Mint.Decimals);
 
         // 2. Quote.
-        var quote = await jupiter.QuoteAsync(secrets.Token.Mint, amount, ct);
+        var quote = await jupiter.QuoteAsync(secrets.Nightfall.Token.Mint, amount, ct);
         receipt.MoveTo(SellStatus.Quoted);
         receipt.QuotedSol = quote.OutSol;
         Save(receipt);
         Publish(receipt, "Quoted");
 
         // 3. Price impact — the abort happens BEFORE anything is built or broadcast.
-        var impact = SellPreflight.CheckPriceImpact(quote.PriceImpactPercent, secrets.Jupiter.MaxPriceImpactPercent);
+        var impact = SellPreflight.CheckPriceImpact(quote.PriceImpactPercent, secrets.Nightfall.Jupiter.MaxPriceImpactPercent);
         if (impact != SellExclusion.None)
         {
             Fail(receipt, $"{SellPreflight.Describe(impact)} (impact {TokenAmount.Format(quote.PriceImpactPercent)}%, " +
-                          $"max {TokenAmount.Format(secrets.Jupiter.MaxPriceImpactPercent)}%)");
+                          $"max {TokenAmount.Format(secrets.Nightfall.Jupiter.MaxPriceImpactPercent)}%)");
             return;
         }
 
@@ -162,7 +162,7 @@ public sealed class SellRunner(
         // 5. Vet the swap before a signature exists.
         var instructions = await jupiter.SwapInstructionsAsync(quote, wallet.PublicKey, ct);
         SwapInstructionsGuard.Assert(
-            instructions, wallet.PublicKey, secrets.Token.Mint,
+            instructions, wallet.PublicKey, secrets.Nightfall.Token.Mint,
             quote.InputMint, quote.OutputMint, amount, quote.InAmount);
 
         // 6. Sign locally. The key never leaves this process.
@@ -178,7 +178,7 @@ public sealed class SellRunner(
 
         try
         {
-            await sender.WaitForConfirmationAsync(signature, TimeSpan.FromSeconds(secrets.Sell.ConfirmTimeoutSeconds), ct);
+            await sender.WaitForConfirmationAsync(signature, TimeSpan.FromSeconds(secrets.Nightfall.Sell.ConfirmTimeoutSeconds), ct);
         }
         catch (NightfallException ex) when (SellError.Classify(null, ex.Message, false) == SellErrorClass.Retryable)
         {
@@ -201,7 +201,7 @@ public sealed class SellRunner(
         // 9. Reclaim the rent — separate transaction, and a failure here never touches the sale.
         var soldEverything = percent is null || percent == 100m;
 
-        if (soldEverything && secrets.Sell.CloseEmptiedTokenAccounts)
+        if (soldEverything && secrets.Nightfall.Sell.CloseEmptiedTokenAccounts)
         {
             receipt.CloseSignature = await closer.TryCloseAsync(wallet, ct);
             Save(receipt);

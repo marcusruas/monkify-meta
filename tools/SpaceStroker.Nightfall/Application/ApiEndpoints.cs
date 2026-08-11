@@ -47,8 +47,8 @@ public static class ApiEndpoints
                 // Keyed on the AMOUNT, not the wallet: two wallets holding the same position share
                 // one quote, which matters when a hover sweeps across the pool.
                 var quote = await quotes.GetOrAddAsync(
-                    $"{secrets.Token.Mint}:{amount}:{secrets.Jupiter.SlippageBps}",
-                    () => jupiter.QuoteAsync(secrets.Token.Mint, amount, ct));
+                    $"{secrets.Nightfall.Token.Mint}:{amount}:{secrets.Nightfall.Jupiter.SlippageBps}",
+                    () => jupiter.QuoteAsync(secrets.Nightfall.Token.Mint, amount, ct));
 
                 return Results.Json(new QuoteView(
                     TokenAmount.ToUi(amount, state.Mint.Decimals),

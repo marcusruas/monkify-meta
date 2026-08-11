@@ -17,7 +17,7 @@ public sealed class CliOptions
 
         // Default the config paths to the tools folder: bin/<cfg>/net8.0 sits four levels below it.
         var toolsRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        o.SecretsPath = Path.Combine(toolsRoot, "secrets.nightfall.json");
+        o.SecretsPath = Path.Combine(toolsRoot, "secrets.json");
         o.ReceiptsPath = Path.Combine(toolsRoot, "nightfall-receipts.json");
 
         if (args.Length > 0 && args[0] is "-h" or "--help" or "help")
@@ -68,7 +68,7 @@ public sealed class CliOptions
         never receives one. It starts in SIMULATE mode — nothing is broadcast until you switch to LIVE.
 
         Options:
-          --secrets <path>    secrets file (default: tools/secrets.nightfall.json)
+          --secrets <path>    secrets file (default: tools/secrets.json, 'nightfall' section)
           --receipts <path>   receipts file (default: tools/nightfall-receipts.json)
           --port <n>          localhost port (default: 5177)
           --no-open           do not launch the browser on start

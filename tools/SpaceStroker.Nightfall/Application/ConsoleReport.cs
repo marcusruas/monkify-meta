@@ -15,14 +15,14 @@ public static class ConsoleReport
         Console.WriteLine("  spacestroker-nightfall");
         Console.WriteLine("  ─────────────────────────────────────────────────────────────");
         Console.WriteLine($"  dashboard : {url}");
-        Console.WriteLine($"  token     : {secrets.Token.Mint}");
+        Console.WriteLine($"  token     : {secrets.Nightfall.Token.Mint}");
         Console.WriteLine($"  supply    : {TokenAmount.Format(TokenAmount.ToUi(mint.Supply, mint.Decimals))} ({mint.Decimals} decimals)");
         Console.WriteLine($"  wallets   : {secrets.Pool.Count}");
         Console.WriteLine($"  rpc       : {RpcUrlMask.HostOnly(secrets.Solana.RpcUrl)}");
-        Console.WriteLine($"  jupiter   : {secrets.Jupiter.ApiBaseUrl}");
-        Console.WriteLine($"  slippage  : {TokenAmount.Format(secrets.Jupiter.SlippageBps / 100m)}%  ·  " +
-                          $"max impact {TokenAmount.Format(secrets.Jupiter.MaxPriceImpactPercent)}%  ·  " +
-                          $"concurrency {secrets.Sell.MaxConcurrentSells}");
+        Console.WriteLine($"  jupiter   : {secrets.Nightfall.Jupiter.ApiBaseUrl}");
+        Console.WriteLine($"  slippage  : {TokenAmount.Format(secrets.Nightfall.Jupiter.SlippageBps / 100m)}%  ·  " +
+                          $"max impact {TokenAmount.Format(secrets.Nightfall.Jupiter.MaxPriceImpactPercent)}%  ·  " +
+                          $"concurrency {secrets.Nightfall.Sell.MaxConcurrentSells}");
         Console.WriteLine($"  receipts  : {receiptsPath}");
         Console.WriteLine();
         Console.WriteLine("  MODE: SIMULATE — nothing will be broadcast until you switch to LIVE in the dashboard.");

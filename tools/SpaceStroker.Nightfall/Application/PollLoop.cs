@@ -52,7 +52,7 @@ public sealed class PollLoop(
 
         try
         {
-            var quote = await jupiter.QuoteAsync(secrets.Token.Mint, reference, ct);
+            var quote = await jupiter.QuoteAsync(secrets.Nightfall.Token.Mint, reference, ct);
             var referenceTokens = TokenAmount.ToUi(reference, state.Mint.Decimals);
 
             state.UnitPriceSol = referenceTokens == 0m ? 0m : quote.OutSol / referenceTokens;
@@ -67,7 +67,7 @@ public sealed class PollLoop(
 
     public async Task RunAsync(CancellationToken ct)
     {
-        var interval = TimeSpan.FromSeconds(Math.Max(3, secrets.Sell.RefreshIntervalSeconds));
+        var interval = TimeSpan.FromSeconds(Math.Max(3, secrets.Nightfall.Sell.RefreshIntervalSeconds));
 
         while (!ct.IsCancellationRequested)
         {

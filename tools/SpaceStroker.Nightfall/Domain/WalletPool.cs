@@ -16,7 +16,7 @@ namespace SpaceStroker.Nightfall.Domain;
 /// </remarks>
 public sealed record PoolEntry(string Alias, string PublicKey, string PrivateKey);
 
-/// <summary>JSON binding shape. Shared by secrets.nightfall.json's "wallets" array.</summary>
+/// <summary>JSON binding shape. Shared by tools/secrets.json's top-level "wallets" array.</summary>
 public sealed class RawPoolEntry
 {
     [JsonPropertyName("Alias")] public string? Alias { get; set; }

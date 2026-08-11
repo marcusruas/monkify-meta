@@ -37,27 +37,27 @@ try
     }
 
     var rpc = ClientFactory.GetClient(secrets.Solana.RpcUrl);
-    var reader = new SolanaReader(rpc, secrets.Token.Mint);
+    var reader = new SolanaReader(rpc, secrets.Nightfall.Token.Mint);
 
     // Read the mint once. Every percentage on screen depends on it, so a failure here is fatal
     // rather than a dashboard full of zeroes.
     var mint = await reader.GetMintAsync(CancellationToken.None);
 
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-    var jupiter = new JupiterClient(http, secrets.Jupiter);
-    var quotes = new QuoteCache(TimeSpan.FromSeconds(Math.Max(1, secrets.Jupiter.QuoteCacheSeconds)));
+    var jupiter = new JupiterClient(http, secrets.Nightfall.Jupiter);
+    var quotes = new QuoteCache(TimeSpan.FromSeconds(Math.Max(1, secrets.Nightfall.Jupiter.QuoteCacheSeconds)));
 
     var state = new NightfallState(secrets.Pool, new SecretsView(
-        secrets.Token.Mint,
-        secrets.Sell.MinSolForFeeSol,
-        secrets.Jupiter.SlippageBps,
-        secrets.Jupiter.MaxPriceImpactPercent,
-        secrets.Sell.MaxConcurrentSells))
+        secrets.Nightfall.Token.Mint,
+        secrets.Nightfall.Sell.MinSolForFeeSol,
+        secrets.Nightfall.Jupiter.SlippageBps,
+        secrets.Nightfall.Jupiter.MaxPriceImpactPercent,
+        secrets.Nightfall.Sell.MaxConcurrentSells))
     {
         Mint = mint,
     };
 
-    var receipts = ReceiptsStore.LoadOrCreate(options.ReceiptsPath, secrets.Token.Mint);
+    var receipts = ReceiptsStore.LoadOrCreate(options.ReceiptsPath, secrets.Nightfall.Token.Mint);
     var events = new EventStream();
     var poll = new PollLoop(state, secrets, reader, jupiter, ConsoleReport.Log);
 
