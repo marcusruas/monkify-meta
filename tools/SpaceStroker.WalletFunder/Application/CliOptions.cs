@@ -23,7 +23,7 @@ public sealed class CliOptions
         // Default the config paths to the tools folder: bin/<cfg>/net8.0 sits four levels below it.
         var toolsRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         o.SecretsPath = Path.Combine(toolsRoot, "secrets.json");
-        o.ReceiptsPath = Path.Combine(toolsRoot, "receipts.json");
+        o.ReceiptsPath = Path.Combine(toolsRoot, "Receipts", "receipts.json");
 
         if (args.Length > 0 && args[0] is "-h" or "--help" or "help")
         {
@@ -89,7 +89,7 @@ public sealed class CliOptions
         Options:
           --secrets <path>       secrets file (default: tools/secrets.json)
           --pool <path>          wallet array from a standalone JSON file instead of secrets.wallets
-          --receipts <path>      receipts file (default: tools/receipts.json)
+          --receipts <path>      receipts file (default: tools/Receipts/receipts.json)
           --execute              actually send (also requires typing the batch total to confirm)
           --spread-minutes <n>   override funding.spreadMinutes for this run
           --force-plan-change    resume against drifted receipts (DANGEROUS — can double-fund)

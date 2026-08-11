@@ -24,8 +24,8 @@ public sealed class CliOptions
         // Default the config paths to the tools folder: bin/<cfg>/net8.0 sits four levels below it.
         var toolsRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         options.SecretsPath = Path.Combine(toolsRoot, "secrets.json");
-        options.ReceiptsPath = Path.Combine(toolsRoot, "snipe-receipts.json");
-        options.ReportsRootPath = Path.Combine(toolsRoot, "reports");
+        options.ReceiptsPath = Path.Combine(toolsRoot, "Receipts", "snipe-receipts.json");
+        options.ReportsRootPath = Path.Combine(toolsRoot, "Receipts", "reports");
 
         if (args.Length > 0 && args[0] is "-h" or "--help" or "help")
         {
@@ -102,8 +102,8 @@ public sealed class CliOptions
             Options:
               --secrets <path>       secrets file (default: tools/secrets.json)
               --pool <path>          load the wallet array from a standalone JSON file instead of secrets.wallets
-              --receipts <path>      receipts file (default: tools/snipe-receipts.json)
-              --reports <dir>        report output root (default: tools/reports)
+              --receipts <path>      receipts file (default: tools/Receipts/snipe-receipts.json)
+              --reports <dir>        report output root (default: tools/Receipts/reports)
               --execute              actually submit buys. Without it, `snipe` is a dry run.
               --spread-minutes <n>   override snipe.spreadMinutes for this run
               --wallet <alias>       limit the run to this wallet (repeatable)

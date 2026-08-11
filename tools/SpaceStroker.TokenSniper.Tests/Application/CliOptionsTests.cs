@@ -20,6 +20,18 @@ public class CliOptionsTests
     }
 
     [Fact]
+    public void Run_state_and_reports_default_into_the_Receipts_folder()
+    {
+        // One git-ignored folder for every tool's run state, instead of four loose files in tools/.
+        // Asserted on the full tail, not just the filename: ShouldEndWith("snipe-receipts.json")
+        // passes for both the old and the new path and would not have caught this move.
+        var options = CliOptions.Parse([]);
+
+        options.ReceiptsPath.Replace('\\', '/').ShouldEndWith("/Receipts/snipe-receipts.json");
+        options.ReportsRootPath.Replace('\\', '/').ShouldEndWith("/Receipts/reports");
+    }
+
+    [Fact]
     public void Parse_ReadsEveryOption()
     {
         var options = CliOptions.Parse([
