@@ -1,9 +1,23 @@
 # SpaceStroker — "Coinbase wallet funding" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/coinbase-wallet-funding` on **2026-08-11**
+> (`monkify-meta` only). Refined + specced from Trello card
 > [Create coinbase integration for filling wallets #165](https://trello.com/c/9OoHAuEa) (2026-08-11).
 > Repos affected: **`monkify-meta` only** (new `tools/` solution + knowledge base). No
 > `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
+> Distilled in [`features/coinbase-wallet-funding.md`](../features/coinbase-wallet-funding.md).
+>
+> **Post-ship notes — what shipped differs from this spec in three ways, all recorded in §12:**
+> 1. **Location and structure.** The app lives at `monkify-meta/tools/` (`SpaceStroker.Tools.sln`), not
+>    the `token-ops/` folder this spec originally named, and it is split
+>    **Domain / Infrastructure / Application** — now a standing rule in
+>    [`conventions/backend.md`](../conventions/backend.md).
+> 2. **`Portable.BouncyCastle` 1.9.0**, not `BouncyCastle.Cryptography` 2.4.0 (§12 finding 7).
+> 3. **Usage errors exit 2** via a dedicated `UsageException`, matching §5.
+>
+> **Not executed at ship time:** the live Coinbase round-trip in §14 remains an **operator step**.
+> AC1, AC10, AC11, AC13 and AC14 have never run against a real CDP key; the other 15 are covered by the
+> 60-test suite.
 >
 > **Purpose:** a standalone console app that funds a pool of Solana wallets with SOL out of a
 > Coinbase account, so the ghost-wallet pool that card
