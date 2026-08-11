@@ -30,7 +30,7 @@ public sealed class Funder(SecretsFile secrets, FunderOptions options)
         var plan = FundingPlan.Build(pool);
         var receipts = ReceiptsStore.LoadOrCreate(options.ReceiptsPath, plan, options.ForcePlanChange);
 
-        using var coinbase = new CoinbaseClient(secrets.Coinbase);
+        using var coinbase = new CoinbaseClient(secrets.Coinbase, secrets.TravelRule);
         var confirmer = new SolanaConfirmer(secrets.Solana);
 
         var account = await coinbase.ResolveSolAccountAsync(secrets.Coinbase.AccountId, ct);

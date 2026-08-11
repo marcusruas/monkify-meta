@@ -66,6 +66,15 @@ A run is **dry by default**, **double-send-proof**, **resumable**, **confirmed o
 - Transport errors, `429` and `5xx` retry with exponential backoff + jitter. Retrying the **send POST
   is safe** precisely because it carries its deterministic `idem`; any other `4xx` is terminal.
 
+- **Travel Rule data is attached to every send** when `travelRule.beneficiaryWalletType` is set:
+  `travel_rule_data` rides at the **top level** of the send body, with the country **nested** as
+  `beneficiary_address.country` (Coinbase names the missing param `BENEFICIARY_COUNTRY`, but a
+  top-level field of that name does not exist). Blank optional fields are **omitted**, never sent as
+  empty strings, and an all-blank address object is dropped entirely. Leaving the wallet type blank
+  disables the block — the pre-Travel-Rule behavior, still correct for accounts that don't need it.
+  `beneficiaryWalletType` and `isSelf` are enums validated **at load**, so a typo fails before the run
+  instead of costing a live `400` mid-batch.
+
 **Scope and safety**
 - **SOL on Solana mainnet only.** `currency`/`network` are hard-coded so a wrong config line cannot
   send the wrong asset to the right address.
@@ -86,7 +95,9 @@ A run is **dry by default**, **double-send-proof**, **resumable**, **confirmed o
 
 `tools/secrets.json` (**git-ignored**; `tools/secrets.example.json` is the tracked placeholder-only
 template). Sections: `coinbase` (`apiKeyId`, `apiKeySecret`, `keyAlgorithm` = `ed25519`\|`ecdsa`,
-optional `accountId`, `apiHost`, `apiVersion`), `solana.rpcUrl`, `funding`
+optional `accountId`, `apiHost`, `apiVersion`), `travelRule` (`beneficiaryWalletType`, `isSelf`,
+`beneficiaryName`, `beneficiaryCountry`, optional address lines, `beneficiaryFinancialInstitution`,
+`transferPurpose`), `solana.rpcUrl`, `funding`
 (`spreadMinutes`, `networkFeeHeadroomSol`, `minAmountSol`, `sendPollTimeoutSeconds`,
 `chainConfirmTimeoutSeconds`), and `wallets[]`.
 
@@ -106,9 +117,10 @@ All on `main` in **`monkify-meta`** — there is no backend or frontend surface.
   a `decimal`), `SendSchedule` (randomized order + jittered offsets, injectable `Random`),
   `ReceiptEntry` (`ReceiptsDocument` + resume/never-re-send/plan-drift rules), `FunderException`.
 - `tools/SpaceStroker.WalletFunder/Infrastructure/` — `SecretsFile`, `ReceiptsStore`,
-  `Coinbase/CoinbaseJwt`, `Coinbase/CoinbaseClient`, `Solana/SolanaConfirmer`.
+  `Coinbase/CoinbaseJwt`, `Coinbase/CoinbaseClient`, `Coinbase/CoinbaseSendBody` (pure send-body
+  builder, incl. `travel_rule_data`), `Solana/SolanaConfirmer`.
 - `tools/SpaceStroker.WalletFunder/Application/` — `Funder` (the run), `CliOptions`, `ConsoleReport`.
-- `tools/SpaceStroker.WalletFunder.Tests/` — 60 tests mirroring the same folders.
+- `tools/SpaceStroker.WalletFunder.Tests/` — 76 tests mirroring the same folders.
 - `tools/README.md` — operator preconditions and the dry-run-first workflow.
 
 ## Gotchas worth knowing
@@ -125,18 +137,31 @@ All on `main` in **`monkify-meta`** — there is no backend or frontend surface.
   a truncated address is the irreversible failure.
 - **The `amount` string must be invariant-formatted.** A `pt-BR` machine would otherwise emit `"2,54"`.
 - **The .NET 10 SDK writes `.slnx`** — `dotnet new sln` needs `--format sln` for the classic format.
+- **Coinbase enforces the Travel Rule on sends.** Without `travel_rule_data` the API answers `400
+  invalid_request` — *"Incomplete travel rules information provided"* — listing the union of params
+  (`BENEFICIARY_WALLET_TYPE`, `BENEFICIARY_FINANCIAL_INSTITUTION`, `BENEFICIARY_NAME`,
+  `BENEFICIARY_COUNTRY`, `IS_SELF`) because without a wallet type it cannot tell which jurisdiction
+  rule set applies. **Nothing is sent and no `idem` is consumed**, so a fixed re-run resumes safely.
+  Separately, **EU self-hosted sends above ~€1000 need a Satoshi Test** proving address ownership —
+  a one-time per-address verification in the Coinbase app that no API field substitutes for.
 
 ## Verification status
 
-The 60-test suite covers the **pure** logic end to end: plan/idem derivation, preflight, receipts and
-resume, the spread schedule, config loading and JWT construction (including an Ed25519 signature
-round-trip). There is **no fake Coinbase sender** by decision, so the live path is verified by
-dry-running against a real key.
+The 76-test suite covers the **pure** logic end to end: plan/idem derivation, preflight, receipts and
+resume, the spread schedule, config loading, JWT construction (including an Ed25519 signature
+round-trip) and the exact send-body JSON. There is **no fake Coinbase sender** by decision, so the
+live path is verified by dry-running against a real key.
 
-⚠️ **As of shipping, five acceptance criteria have never been exercised against a live CDP key** —
-AC1 (dry-run plan table), AC10/AC11 (on-chain confirmation and the unconfirmed case), AC13 (partial
-failure) and AC14 (missing scope / allowlist). The spec's Manual QA section holds the live sequence:
-single-wallet dust test → idempotency re-run → lost-receipts test → drift test → full pool.
+**Exercised live (2026-08-11, 3-wallet 0.6 SOL batch):** JWT auth against the real CDP key, SOL
+account resolution, the balance preflight, the plan table and the typed-total confirmation all worked.
+The batch stopped at the first send on the Travel Rule `400` — which is what prompted the
+`travel_rule_data` support above. **No SOL moved and no `idem` was consumed.**
+
+⚠️ **Still never exercised against a live key:** AC10/AC11 (on-chain confirmation and the unconfirmed
+case), AC13 (partial failure) and AC14 (missing scope / allowlist) — and the travel-rule send body
+itself has not yet been **accepted** by Coinbase, only built to spec. The spec's Manual QA section
+holds the live sequence: single-wallet dust test → idempotency re-run → lost-receipts test → drift
+test → full pool.
 
 The mandatory happy-path integration test in `SpaceStroker.Tests.Integration` was **explicitly waived**
 for this card — the tool has zero backend surface, so there is no backend code path for such a test to

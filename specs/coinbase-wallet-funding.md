@@ -15,9 +15,19 @@
 > 2. **`Portable.BouncyCastle` 1.9.0**, not `BouncyCastle.Cryptography` 2.4.0 (§12 finding 7).
 > 3. **Usage errors exit 2** via a dedicated `UsageException`, matching §5.
 >
+> **Follow-up (2026-08-11, `feature/coinbase-travel-rule`) — Travel Rule.** The first live batch
+> reached Coinbase and was rejected at the compliance layer: `400 invalid_request`, *"Incomplete travel
+> rules information provided"*. The send body now carries a top-level **`travel_rule_data`** object
+> built from a new **`travelRule`** secrets section (`beneficiaryWalletType`, `isSelf`,
+> `beneficiaryName`, `beneficiaryCountry` nested as `beneficiary_address.country`, optional address
+> lines, `beneficiaryFinancialInstitution`, `transferPurpose`). Blank wallet type ⇒ nothing attached;
+> the enums are validated at load. Nothing in this spec's money-safety design changes — the `400`
+> created no transaction and consumed no `idem`.
+>
 > **Not executed at ship time:** the live Coinbase round-trip in §14 remains an **operator step**.
-> AC1, AC10, AC11, AC13 and AC14 have never run against a real CDP key; the other 15 are covered by the
-> 60-test suite.
+> AC1 has since been exercised live (plan table, preflight, typed confirmation). AC10, AC11, AC13 and
+> AC14 have still never run against a real CDP key, and no send has yet been **accepted**; the other
+> criteria are covered by the 76-test suite.
 >
 > **Purpose:** a standalone console app that funds a pool of Solana wallets with SOL out of a
 > Coinbase account, so the ghost-wallet pool that card

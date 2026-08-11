@@ -26,11 +26,13 @@ public sealed class CoinbaseClient : IDisposable
     ];
 
     private readonly CoinbaseSection _coinbase;
+    private readonly TravelRuleSection? _travelRule;
     private readonly HttpClient _http;
 
-    public CoinbaseClient(CoinbaseSection coinbase)
+    public CoinbaseClient(CoinbaseSection coinbase, TravelRuleSection? travelRule = null)
     {
         _coinbase = coinbase;
+        _travelRule = travelRule;
         _http = new HttpClient
         {
             BaseAddress = new Uri($"https://{coinbase.ApiHost}"),
@@ -83,15 +85,7 @@ public sealed class CoinbaseClient : IDisposable
     public async Task<SendResult> SendAsync(
         string accountId, string toAddress, decimal sol, Guid idem, CancellationToken ct)
     {
-        var body = new Dictionary<string, string>
-        {
-            ["type"] = "send",
-            ["to"] = toAddress,
-            ["amount"] = WalletPool.FormatSol(sol),      // invariant — never "2,54"
-            ["currency"] = "SOL",
-            ["network"] = "solana",
-            ["idem"] = idem.ToString("D"),
-        };
+        var body = CoinbaseSendBody.Build(toAddress, sol, idem, _travelRule);
 
         using var doc = await SendJsonAsync(HttpMethod.Post, $"/v2/accounts/{accountId}/transactions", body, ct);
         var data = doc.RootElement.GetProperty("data");

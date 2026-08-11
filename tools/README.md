@@ -39,6 +39,8 @@ Trello [#165](https://trello.com/c/9OoHAuEa)
 2. If your Coinbase account has **address allowlisting** enabled, allowlist the destination wallets
    first — otherwise the first send fails and the run stops.
 3. Make sure the account already holds enough SOL. This tool never buys.
+4. Fill in the **`travelRule`** block (below). Coinbase applies the Travel Rule to outbound sends and
+   rejects the transaction outright without it.
 
 ### Configure
 
@@ -52,11 +54,39 @@ cp secrets.example.json secrets.json    # secrets.json is git-ignored; the templ
 | `coinbase.keyAlgorithm` | `ed25519` (default) or `ecdsa`. |
 | `coinbase.accountId` | Optional. Empty ⇒ the SOL account is resolved by currency. |
 | `coinbase.apiVersion` | Sent as the `CB-VERSION` header, which the v2 API requires. |
+| `travelRule.*` | Travel Rule data attached to every send — see below. Blank `beneficiaryWalletType` ⇒ nothing is attached. |
 | `solana.rpcUrl` | Balance reads only. A keyed endpoint can be pasted in. |
 | `funding.spreadMinutes` | Send window; `0` ⇒ back to back. |
 | `funding.networkFeeHeadroomSol` | Added to the batch total in the balance check. |
 | `funding.minAmountSol` | Floor per transfer; rejects fat-finger dust. |
 | `wallets[]` | `PublicKey` + `SOLAmount`, optional `Label`. **Unknown fields are ignored**, so card #63's ghost-wallet pool file can be pasted in verbatim — this tool never binds a `PrivateKey`. |
+
+### Travel Rule
+
+Coinbase attaches Travel Rule data to outbound crypto sends. Send without it where the sending
+account's jurisdiction requires it and the API answers **HTTP 400 `invalid_request`, "Incomplete
+travel rules information provided"**, naming the missing params — no transaction is created, the
+`idem` is not consumed, and a re-run resumes safely once the config is fixed.
+
+| Field | Meaning |
+| --- | --- |
+| `beneficiaryWalletType` | `WALLET_TYPE_SELF_HOSTED` (a wallet you hold the keys to) or `WALLET_TYPE_EXCHANGE`. **Blank disables the whole block.** |
+| `isSelf` | `IS_SELF_TRUE` when you own the destination, else `IS_SELF_FALSE`. |
+| `beneficiaryName` | The recipient's name — for a self-send, the Coinbase account holder. |
+| `beneficiaryCountry` | ISO 3166-1 alpha-2. Sent nested as `beneficiary_address.country`. |
+| `beneficiaryAddress1` / `City` / `State` / `PostalCode` | Optional street address. Blank fields are **omitted**, never sent empty. |
+| `beneficiaryFinancialInstitution` | `WALLET_TYPE_EXCHANGE` sends only. |
+| `transferPurpose` | Optional free text. |
+
+How much is required depends on where the **sending** account is domiciled: US/Canada self-hosted
+sends need only `beneficiaryWalletType`, while GB/EU/Bermuda/Singapore/Hong Kong/Philippines also
+require `isSelf`, `beneficiaryName` and `beneficiaryCountry`. Configuring more than your jurisdiction
+needs is harmless. `beneficiaryWalletType` and `isSelf` are validated **at load**, so a typo fails
+before the run rather than mid-batch.
+
+> ⚠️ **EU self-hosted sends above ~€1000** additionally need a **Satoshi Test** proving you control
+> the destination address. That is a one-time verification per address in the Coinbase app — the API
+> cannot supply it, and no config here substitutes for it.
 
 ### Run
 
@@ -105,5 +135,5 @@ dotnet test SpaceStroker.Tools.sln
 ```
 
 The suite covers the **pure** logic — plan/idem derivation, preflight, receipts/resume, the spread
-schedule, config loading and JWT construction. There is deliberately **no fake Coinbase sender**: the
+schedule, config loading, JWT construction and the exact send-body JSON (including `travel_rule_data`). There is deliberately **no fake Coinbase sender**: the
 live path is verified by dry-running against the real key (see the spec's Manual QA section).

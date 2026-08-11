@@ -74,4 +74,91 @@ public class SecretsFileTests : IDisposable
 
         Should.Throw<FunderException>(() => SecretsFile.Load(_path)).Message.ShouldContain("keyAlgorithm");
     }
+
+    private void WriteWithTravelRule(string travelRule)
+        => File.WriteAllText(_path, $$"""
+        {
+          "coinbase": { "apiKeyId": "o/k", "apiKeySecret": "s", "keyAlgorithm": "ed25519" },
+          "travelRule": {{travelRule}},
+          "wallets": []
+        }
+        """);
+
+    [Fact]
+    public void Loads_the_travel_rule_section()
+    {
+        WriteWithTravelRule("""
+        { "beneficiaryWalletType": "WALLET_TYPE_SELF_HOSTED", "isSelf": "IS_SELF_TRUE",
+          "beneficiaryName": "Satoshi Nakamoto", "beneficiaryCountry": "BR" }
+        """);
+
+        var travelRule = SecretsFile.Load(_path).TravelRule;
+
+        travelRule.BeneficiaryWalletType.ShouldBe("WALLET_TYPE_SELF_HOSTED");
+        travelRule.IsSelf.ShouldBe("IS_SELF_TRUE");
+        travelRule.BeneficiaryName.ShouldBe("Satoshi Nakamoto");
+        travelRule.BeneficiaryCountry.ShouldBe("BR");
+    }
+
+    [Fact]
+    public void Defaults_the_travel_rule_section_to_unconfigured_when_absent()
+    {
+        WriteFile();
+
+        // Absent ⇒ no travel_rule_data is sent, which is exactly the pre-travel-rule behavior.
+        SecretsFile.Load(_path).TravelRule.BeneficiaryWalletType.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("WALLET_TYPE_SELF_HOSTED")]
+    [InlineData("WALLET_TYPE_EXCHANGE")]
+    public void Accepts_both_wallet_types(string walletType)
+    {
+        WriteWithTravelRule($$"""{ "beneficiaryWalletType": "{{walletType}}" }""");
+
+        SecretsFile.Load(_path).TravelRule.BeneficiaryWalletType.ShouldBe(walletType);
+    }
+
+    [Fact]
+    public void Rejects_an_unknown_beneficiary_wallet_type()
+    {
+        // Caught at load, not at send — a typo must never cost a live 400 mid-batch.
+        WriteWithTravelRule("""{ "beneficiaryWalletType": "SELF_HOSTED" }""");
+
+        Should.Throw<FunderException>(() => SecretsFile.Load(_path))
+            .Message.ShouldContain("beneficiaryWalletType");
+    }
+
+    [Fact]
+    public void Rejects_an_unknown_is_self_value()
+    {
+        WriteWithTravelRule("""
+        { "beneficiaryWalletType": "WALLET_TYPE_SELF_HOSTED", "isSelf": "true" }
+        """);
+
+        Should.Throw<FunderException>(() => SecretsFile.Load(_path)).Message.ShouldContain("isSelf");
+    }
+
+    [Fact]
+    public void Rejects_a_placeholder_beneficiary_name()
+    {
+        WriteWithTravelRule("""
+        { "beneficiaryWalletType": "WALLET_TYPE_SELF_HOSTED", "beneficiaryName": "REPLACE_ME_ACCOUNT_HOLDER_NAME" }
+        """);
+
+        Should.Throw<FunderException>(() => SecretsFile.Load(_path)).Message.ShouldContain("placeholder");
+    }
+
+    [Fact]
+    public void Rejects_a_placeholder_beneficiary_country()
+    {
+        // secrets.example.json ships REPLACE_ME here; an unedited copy must not reach Coinbase.
+        WriteWithTravelRule("""
+        { "beneficiaryWalletType": "WALLET_TYPE_SELF_HOSTED",
+          "beneficiaryCountry": "REPLACE_ME_ISO_3166_ALPHA_2" }
+        """);
+
+        Should.Throw<FunderException>(() => SecretsFile.Load(_path))
+            .Message.ShouldContain("beneficiaryCountry");
+    }
 }
