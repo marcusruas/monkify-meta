@@ -1,22 +1,60 @@
-# tools — SpaceStroker token/treasury operations
+# tools — SpaceStroker operator console apps
 
-Standalone console tools for token-launch and treasury work. They are **not** part of the deployed
-application: nothing here runs in Cloud Run or in the local Docker stack. Built and run by hand, on
-purpose — they move real money.
+Standalone console tools for token-launch, treasury and database work. They are **not** part of the
+deployed application: **nothing here is built into a container image, deployed to Cloud Run, or run by
+the local Docker stack.** Built and run by hand, on purpose — three of the four move real money.
 
 | Project | Binary | What it does |
 | --- | --- | --- |
 | `SpaceStroker.WalletFunder` | `spacestroker-fund-wallets` | Funds a pool of Solana wallets with **SOL** out of a Coinbase account. |
 | `SpaceStroker.TokenSniper` | `spacestroker-snipe-token` | Drives that pool to a configured share of our own pump.fun token's supply, one buy per wallet across a window. |
 | `SpaceStroker.Nightfall` | `spacestroker-nightfall` | Local dashboard over the same pool: see each wallet's SOL and token position, and **sell** one or many concurrently. |
+| `SpaceStroker.DbConsole` | `spacestroker-db` | Read-write REPL over the deployed Postgres databases, through the Cloud SQL Auth Proxy. |
 
-> Sibling of `monkify-meta/deploy/` (the GCP deploy stack) and deliberately **not** part of it: a
-> real-money withdrawal CLI does not belong in the deploy solution or in a repo built into container
-> images. Card [#63 "Create ghost wallet snipe app"](https://trello.com/c/nokWHm7z) will add its
-> project to this same solution.
+> Sibling of `monkify-meta/deploy/`, which now holds **only** the GCP deploy/teardown app
+> (`SpaceStroker.Deploy.sln`) next to the Terraform stack. A real-money withdrawal CLI does not belong
+> in the deploy solution or in a repo built into container images.
 
-The three tools are one lifecycle: **#165 funds** the pool with SOL, **#63 buys** the supply, and
-**Nightfall sells** it.
+The first three tools are one lifecycle: **#165 funds** the pool with SOL, **#63 buys** the supply, and
+**Nightfall sells** it. `SpaceStroker.DbConsole` is unrelated — it moved here from `deploy/tools/` in
+card [#167](https://trello.com/c/Co35YRGt) because it is a general operator tool, not a deploy step.
+
+## Configuration — one shared `secrets.json`
+
+Every project in `SpaceStroker.Tools.sln` reads **one** git-ignored `tools/secrets.json`. Shared keys
+sit at the **top level**; each tool gets its own **named section**:
+
+| Key | Read by |
+| --- | --- |
+| `solana.rpcUrl` | **all three** money tools |
+| `wallets[]` | **all three** — one shared pool; every tool **ignores unknown fields**, which is what lets one array serve them all |
+| `coinbase` · `travelRule` · `funding` | `spacestroker-fund-wallets` |
+| `snipe` | `spacestroker-snipe-token` |
+| `nightfall` (`token` · `jupiter` · `sell`) | `spacestroker-nightfall` |
+
+```bash
+cp secrets.example.json secrets.json    # secrets.json is git-ignored; the template is not
+```
+
+> ⚠️ **`snipe.mint` and `nightfall.token.mint` are separate keys on purpose.** They are the same CA in
+> practice, but the sniper refuses a graduated bonding curve while Nightfall requires a tradable
+> route — one key would let a single edit silently retarget both the buy and the sell side.
+
+> **`SpaceStroker.DbConsole` is the one exception.** It reads `deploy/secrets.<env>.json`, because
+> Cloud SQL connection strings are environment-scoped and owned by the deploy tool. Duplicating them
+> here would create drift and a second place to leak from.
+
+## Receipts
+
+Every tool writes its run state and reports into **`tools/Receipts/`**, which is git-ignored. Override
+per run with `--receipts <path>` (and `--reports <path>` for the sniper).
+
+> ⚠️ Run state that predates card #167 may still be loose in `tools/`.
+> `spacestroker-fund-wallets` **refuses to start** if it finds `tools/receipts.json` with nothing at
+> `tools/Receipts/receipts.json` — its Coinbase idempotency tokens are derived from the plan, so a
+> receipts file it cannot see reads as "no prior run" and a re-run would issue **real second
+> transfers**. Move the file, or pass `--receipts`. The sniper and Nightfall only print a note: both
+> recompute from live on-chain state, so a missed receipts file cannot double-spend there.
 
 ---
 
@@ -124,7 +162,7 @@ Useful options: `--pool <path>` (use a standalone wallet file, e.g. #63's pool),
    alive for the window; being killed is safe (see resume).
 5. **Settle** — polls Coinbase to `completed`, then requires an **on-chain balance increase** at the
    destination before marking the wallet `Confirmed`.
-6. **Record** — `receipts.json` is written after every state change and **is** the resume state.
+6. **Record** — `Receipts/receipts.json` is written after every state change and **is** the resume state.
 
 A wallet's failure never stops the batch; the run exits non-zero and a re-run targets only the
 unfunded wallets. A wallet that already holds a Coinbase transaction id is **polled, never re-sent**.
@@ -169,24 +207,32 @@ Trello [#166](https://trello.com/c/mUDhAdBu)
 
 ### Configure
 
+Nightfall reads the **shared** `tools/secrets.json` (see "Configuration" at the top): `solana` and
+`wallets[]` from the top level, everything else from its own **`nightfall`** section.
+
 ```bash
-cp secrets.nightfall.example.json secrets.nightfall.json    # git-ignored; the template is not
+cp secrets.example.json secrets.json    # git-ignored; the template is not
 ```
+
+> Before card #167 these settings lived in a separate `secrets.nightfall.json`, on the reasoning that
+> `tools/secrets.json` held Coinbase withdrawal credentials — "a different blast radius". That had
+> already stopped being true: the sniper binds wallet `PrivateKey`s out of the same file, so spend keys
+> and withdrawal credentials were already co-located. Merging them created no new exposure.
 
 | Field | Meaning |
 | --- | --- |
-| `solana.rpcUrl` | The keyed endpoint. Used for **every** read and every broadcast. Masked to host-only wherever logged. |
-| `token.mint` | The Token CA. Config-only — the browser never supplies it. |
-| `jupiter.apiBaseUrl` | Base for `/quote`, `/swap-instructions` and `/swap`. ⚠️ Jupiter moved off `quote-api.jup.ag/v6`; confirm the current base against their docs. |
-| `jupiter.slippageBps` | Applied to every sell. `300` = 3%. |
-| `jupiter.maxPriceImpactPercent` | A quote worse than this **aborts that wallet before broadcasting**. |
-| `jupiter.prioritizationFeeLamports` | Priority fee passed to the swap; `0` disables. |
-| `jupiter.quoteCacheSeconds` | TTL of the hover-quote cache. |
-| `sell.maxConcurrentSells` | Max sells in flight at once (default 4). |
-| `sell.minSolForFeeSol` | Below this a wallet is flagged and excluded — top it up with `spacestroker-fund-wallets`. |
-| `sell.refreshIntervalSeconds` | Auto-poll interval. |
-| `sell.confirmTimeoutSeconds` | How long to wait for a transaction to reach `confirmed`. |
-| `sell.closeEmptiedTokenAccounts` | Whether a 100% sell reclaims the token-account rent afterwards. |
+| `solana.rpcUrl` | **Top level, shared.** The keyed endpoint. Used for **every** read and every broadcast. Masked to host-only wherever logged. |
+| `nightfall.token.mint` | The Token CA. Config-only — the browser never supplies it. |
+| `nightfall.jupiter.apiBaseUrl` | Base for `/quote`, `/swap-instructions` and `/swap`. ⚠️ Jupiter moved off `quote-api.jup.ag/v6`; confirm the current base against their docs. |
+| `nightfall.jupiter.slippageBps` | Applied to every sell. `300` = 3%. |
+| `nightfall.jupiter.maxPriceImpactPercent` | A quote worse than this **aborts that wallet before broadcasting**. |
+| `nightfall.jupiter.prioritizationFeeLamports` | Priority fee passed to the swap; `0` disables. |
+| `nightfall.jupiter.quoteCacheSeconds` | TTL of the hover-quote cache. |
+| `nightfall.sell.maxConcurrentSells` | Max sells in flight at once (default 4). |
+| `nightfall.sell.minSolForFeeSol` | Below this a wallet is flagged and excluded — top it up with `spacestroker-fund-wallets`. |
+| `nightfall.sell.refreshIntervalSeconds` | Auto-poll interval. |
+| `nightfall.sell.confirmTimeoutSeconds` | How long to wait for a transaction to reach `confirmed`. |
+| `nightfall.sell.closeEmptiedTokenAccounts` | Whether a 100% sell reclaims the token-account rent afterwards. |
 | `wallets[]` | `Alias` + `PublicKey` + `PrivateKey`. **Unknown fields are ignored**, so card #63's pool file pastes in verbatim. |
 
 Each `PrivateKey` is checked **at load** by deriving its public key and comparing it to the stated
@@ -226,7 +272,7 @@ Sells run concurrently up to `maxConcurrentSells`. One wallet's failure never ca
 429s, transport errors and expired blockhashes retry with backoff, while slippage, no-route and
 insufficient-balance are reported and leave the wallet re-selectable.
 
-`nightfall-receipts.json` is rewritten after **every** state change — token amount sold, quoted vs
+`Receipts/nightfall-receipts.json` is rewritten after **every** state change — token amount sold, quoted vs
 realized SOL, signature, status, timestamp. It is the audit trail; it is git-ignored, and it never
 contains a private key.
 
@@ -320,8 +366,8 @@ Useful options: `--pool <path>`, `--wallet <alias>` (repeatable, limits the run)
 4. **Confirm** — dry run stops here; `--execute` requires the typed total.
 5. **Buy** — one transaction per wallet, alias order, jittered offsets, each carrying `maxSolCost`.
 6. **Settle** — a buy counts only on an observed **token-balance increase**, never on the signature alone.
-7. **Report** — `tools/reports/<timestamp>/snipe-report.{json,html}`, plus `snipe-receipts.json` written
-   after every state change.
+7. **Report** — `tools/Receipts/reports/<timestamp>/snipe-report.{json,html}`, plus
+   `Receipts/snipe-receipts.json` written after every state change.
 
 ### Exit codes
 
