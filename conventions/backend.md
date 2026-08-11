@@ -344,6 +344,41 @@ app.UseMiddleware<AdminTokenValidationMiddleware>();
   new catch-all fails the build instead of a player quietly losing money. A rule whose `Endpoint` has
   no `:` (e.g. `api/*`) matches **nothing** — the first segment is parsed as the *hostname*.
 
+## Meta-repo console tools (`monkify-meta/tools`, `monkify-meta/deploy`)
+
+Neither solution is part of the deployed application. **Nothing here is built into a container image,
+deployed to Cloud Run, or run by the local Docker stack.** They are built and run by hand, on purpose —
+three of them move real money.
+
+| Solution | Holds | Binaries |
+| --- | --- | --- |
+| `tools/SpaceStroker.Tools.sln` | `SpaceStroker.WalletFunder` · `SpaceStroker.TokenSniper` · `SpaceStroker.Nightfall` · `SpaceStroker.DbConsole` | `spacestroker-fund-wallets` · `spacestroker-snipe-token` · `spacestroker-nightfall` · `spacestroker-db` |
+| `deploy/SpaceStroker.Deploy.sln` | `SpaceStroker.Deploy` + its tests, next to the Terraform stack | `spacestroker-deploy` |
+
+- **One shared, git-ignored `tools/secrets.json` for the whole tools solution.** Shared keys
+  (`solana.rpcUrl`, the `wallets[]` pool) sit at the **top level**; each tool gets one **named
+  section** (`coinbase`/`travelRule`/`funding`, `snipe`, `nightfall`). Every tool **ignores unknown
+  fields** in a pool entry — that is what lets one array serve all three. The only tracked config is
+  the placeholder-only `secrets.example.json`.
+- **Documented exception: `SpaceStroker.DbConsole` reads `deploy/secrets.<env>.json`,** not the shared
+  file. Cloud SQL connection strings are environment-scoped and owned by the deploy tool; copying
+  production credentials into a second untracked file would create drift and a second place to leak
+  from. It finds that file by walking up from `AppContext.BaseDirectory` for
+  `<dir>/monkify-meta/deploy/secrets.<env>.json`, so the lookup is independent of where the project
+  itself sits.
+- **All run state, receipts and reports go to the git-ignored `tools/Receipts/`.** Never write run
+  state to the solution root. ⚠️ **Changing a receipts default path is a money-safety change for
+  `spacestroker-fund-wallets`:** its Coinbase idempotency tokens are derived from the plan, so a
+  receipts file the tool cannot see reads as "no prior run" and a re-run issues genuinely new
+  transfers. It refuses to start when a pre-refactor file is about to be missed
+  (`Domain/LegacyReceipts.cs`). The sniper and Nightfall only warn — both recompute from live
+  on-chain state, which is their real resume truth.
+- **The Domain / Infrastructure / Application split applies here too** — see "The folder tree must
+  show the architecture" above. `Domain/` stays IO-free, which is precisely what makes the
+  money-safety rules unit-testable without a fake sender or a filesystem.
+- **Secrets never reach output.** Nothing beyond public addresses may appear in console output,
+  receipts or a report; a keyed RPC URL is masked to host-only wherever it is logged.
+
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, and add
      concrete examples. -->
 

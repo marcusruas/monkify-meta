@@ -210,7 +210,13 @@ local Docker stack for the user to test before the card advances.
   `SpaceStroker.Domain`, `SpaceStroker.Infrastructure`, `SpaceStroker.Common`. Tests: `SpaceStroker.Tests`.
 - **monkify-front** — Vue 3 + TypeScript SPA (composables in `src/hooks`, services in
   `src/services`, types in `src/types`).
-- **monkify-meta** — the knowledge base (this guidance's source of truth).
+- **monkify-meta** — the knowledge base (this guidance's source of truth). It also holds two
+  **standalone .NET console solutions that are never deployed**: `tools/SpaceStroker.Tools.sln`
+  (wallet funder, token sniper, Nightfall, DB console — one shared git-ignored `tools/secrets.json`,
+  all run state in `tools/Receipts/`) and `deploy/SpaceStroker.Deploy.sln` (the GCP deploy/teardown
+  app, next to the Terraform stack, driven by `deploy/secrets.<env>.json`). See
+  `conventions/backend.md` → "Meta-repo console tools". Three of these tools move real money — never
+  run one with `--execute`.
 
 ## Other constraints (see `constraints.md` for the full list)
 
