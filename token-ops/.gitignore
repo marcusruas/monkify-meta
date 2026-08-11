@@ -1,0 +1,10 @@
+# Local secrets — the operator's source of truth. NEVER commit (only the template is tracked).
+secrets*.json
+!secrets.example.json
+
+# Run state / receipts — contains addresses, amounts and Coinbase transaction ids.
+receipts*.json
+
+# .NET build output for the console apps
+**/bin/
+**/obj/
