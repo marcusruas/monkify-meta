@@ -283,11 +283,16 @@ Append:
 
 ```gitignore
 # Run reports — contain wallet addresses, holdings and signatures.
-reports/
+/reports/
 
 # The sniper's run state (does not match the receipts*.json glob above).
-snipe-receipts*.json
+/snipe-receipts*.json
 ```
+
+⚠️ **Both rules must carry the leading `/`.** Shipped as unanchored `reports/` first, which matches a
+directory of that name **at any depth** — it silently swallowed the tool's own
+`Infrastructure/Reports/` source folder (and its tests), so `git add -A` skipped four real source
+files and the omission only surfaced as a build break when the branch was merged.
 
 ---
 

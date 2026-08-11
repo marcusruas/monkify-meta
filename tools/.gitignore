@@ -10,7 +10,7 @@ receipts*.json
 **/obj/
 
 # Run reports - contain wallet addresses, holdings and signatures.
-reports/
+/reports/
 
 # The sniper run state (does NOT match the anchored receipts*.json glob above).
-snipe-receipts*.json
+/snipe-receipts*.json

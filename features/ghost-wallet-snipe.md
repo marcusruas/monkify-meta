@@ -76,9 +76,15 @@ per transaction**, and **spread over time**.
   `PrivateKey`, `SupplyPercentage`; the funder's `Label`/`SOLAmount` ride along ignored, and vice
   versa. **The sniper is the only tool in the solution that ever binds a `PrivateKey`.**
 - Reports land in `tools/reports/<timestamp>/` and carry **public addresses only** — no private key,
-  no keyed RPC URL. ⚠️ `tools/.gitignore` needed **two new rules** for this: `reports/` and
-  `snipe-receipts*.json` (the pre-existing `receipts*.json` glob is anchored at the filename start and
-  does **not** match).
+  no keyed RPC URL. ⚠️ `tools/.gitignore` needed **two new rules** for this: **`/reports/`** and
+  **`/snipe-receipts*.json`** (the pre-existing `receipts*.json` glob is anchored at the filename start
+  and does **not** match `snipe-receipts.json`).
+- ⚠️ **Both new rules must be root-anchored with a leading `/`.** An unanchored `reports/` matches a
+  directory of that name **at any depth**, which silently swallowed this tool's own
+  `Infrastructure/Reports/` source folder — `git add -A` skipped `JsonReportWriter.cs`,
+  `HtmlReportWriter.cs` and their tests, and the branch still compiled locally only because the files
+  were sitting there untracked. It surfaced at merge time as a build break on a tree that had never
+  contained them.
 
 ## ⚠️ Protocol facts (verified against mainnet 2026-08-11 — re-verify before a launch)
 
@@ -162,6 +168,9 @@ for this card — the tool has zero backend surface, so there is no code path fo
 
 - [`coinbase-wallet-funding.md`](coinbase-wallet-funding.md) — the funding half: fills the same pool
   with SOL out of Coinbase before this tool spends it.
+- [`nightfall-dashboard.md`](nightfall-dashboard.md) — the **exit** side, shipped separately the same
+  day (#166). The sell path this card explicitly excluded lives there, over the same pool file, so the
+  three tools are one lifecycle: **fund → buy → sell**.
 - [`../specs/ghost-wallet-snipe.md`](../specs/ghost-wallet-snipe.md) — authoritative design.
 - [`../conventions/backend.md`](../conventions/backend.md) → "The folder tree must show the
   architecture" — the Domain/Infrastructure/Application rule this project follows.
