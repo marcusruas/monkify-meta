@@ -4,7 +4,7 @@
 
 **Goal:** Build `spacestroker-fund-wallets`, a standalone .NET 8 console app that funds a pool of Solana wallets with SOL out of a Coinbase account — dry-run by default, double-send-proof, resumable, on-chain-confirmed and time-spread.
 
-**Architecture:** A new `monkify-meta/token-ops/` solution (sibling of `deploy/`) holding one console project and one xunit test project. The design splits **pure logic** (pool parsing, plan + idem derivation, preflight, receipts/resume, spread schedule) from **I/O** (Coinbase HTTP, Solana RPC, console). All money-safety rules live in the pure half so they are unit-testable **without any fake Coinbase sender** — which the card explicitly rules out. The key move: `Preflight` accepts the account balance as a **decimal value**, not a client, so the balance-shortfall rule is a pure function.
+**Architecture:** A new `monkify-meta/tools/` solution (sibling of `deploy/`) holding one console project and one xunit test project. The design splits **pure logic** (pool parsing, plan + idem derivation, preflight, receipts/resume, spread schedule) from **I/O** (Coinbase HTTP, Solana RPC, console). All money-safety rules live in the pure half so they are unit-testable **without any fake Coinbase sender** — which the card explicitly rules out. The key move: `Preflight` accepts the account balance as a **decimal value**, not a client, so the balance-shortfall rule is a pure function.
 
 **Tech Stack:** .NET 8 (`net8.0`), System.Text.Json, `BouncyCastle.Cryptography` 2.4.0 (Ed25519 — absent from the .NET 8 BCL), `Solnet.Rpc` + `Solnet.Wallet` 6.1.0 (address validation + balance reads, matching `monkify-backend`), xunit 2.4.2 + Shouldly 4.2.1 (matching `deploy/tools/SpaceStroker.Deploy.Tests`).
 
@@ -15,7 +15,7 @@
 - **Target framework `net8.0`** on both projects. `ImplicitUsings enable`, `Nullable enable`, `InvariantGlobalization true` on the console project.
 - **Console project:** `RootNamespace SpaceStroker.WalletFunder`, `AssemblyName spacestroker-fund-wallets`, `OutputType Exe`.
 - **Package versions are exact:** `BouncyCastle.Cryptography` 2.4.0, `Solnet.Rpc` 6.1.0, `Solnet.Wallet` 6.1.0, `Microsoft.NET.Test.Sdk` 17.6.0, `Shouldly` 4.2.1, `xunit` 2.4.2, `xunit.runner.visualstudio` 2.4.5.
-- **`token-ops/.gitignore` is mandatory and must land in Task 1.** The repo-root `.gitignore` ignores only `sales/pdf/`; without the nested file a live Coinbase withdrawal credential becomes committable.
+- **`tools/.gitignore` is mandatory and must land in Task 1.** The repo-root `.gitignore` ignores only `sales/pdf/`; without the nested file a live Coinbase withdrawal credential becomes committable.
 - **Committed config carries placeholders only** (`REPLACE_ME…`). Never write a real credential into a tracked file.
 - **The CDP API secret and the minted JWT are never printed, logged, or written to receipts.**
 - **All decimal→string formatting uses `CultureInfo.InvariantCulture`.** A `pt-BR` machine would otherwise emit `"2,54"` in the outbound `amount`.
@@ -28,13 +28,13 @@
 ### Task 1: Solution scaffold, gitignore, config template
 
 **Files:**
-- Create: `token-ops/SpaceStroker.TokenOps.sln`
-- Create: `token-ops/.gitignore`
-- Create: `token-ops/secrets.example.json`
-- Create: `token-ops/SpaceStroker.WalletFunder/SpaceStroker.WalletFunder.csproj`
-- Create: `token-ops/SpaceStroker.WalletFunder/FunderException.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/SpaceStroker.WalletFunder.Tests.csproj`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs` (deleted in Task 2 once real tests exist)
+- Create: `tools/SpaceStroker.Tools.sln`
+- Create: `tools/.gitignore`
+- Create: `tools/secrets.example.json`
+- Create: `tools/SpaceStroker.WalletFunder/SpaceStroker.WalletFunder.csproj`
+- Create: `tools/SpaceStroker.WalletFunder/FunderException.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/SpaceStroker.WalletFunder.Tests.csproj`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs` (deleted in Task 2 once real tests exist)
 
 **Interfaces:**
 - Consumes: nothing.
@@ -42,7 +42,7 @@
 
 - [ ] **Step 1: Create the gitignore FIRST (before any secrets file exists)**
 
-`token-ops/.gitignore`:
+`tools/.gitignore`:
 
 ```gitignore
 # Local secrets — the operator's source of truth. NEVER commit (only the template is tracked).
@@ -62,11 +62,11 @@ receipts*.json
 Run:
 ```bash
 cd <workspace-root>/.worktrees/coinbase-wallet-funding/monkify-meta
-echo '{}' > token-ops/secrets.json
-git check-ignore -v token-ops/secrets.json
-rm token-ops/secrets.json
+echo '{}' > tools/secrets.json
+git check-ignore -v tools/secrets.json
+rm tools/secrets.json
 ```
-Expected: prints `token-ops/.gitignore:2:secrets*.json	token-ops/secrets.json`. If it prints nothing, the ignore is not in effect — **stop and fix before continuing**.
+Expected: prints `tools/.gitignore:2:secrets*.json	tools/secrets.json`. If it prints nothing, the ignore is not in effect — **stop and fix before continuing**.
 
 - [ ] **Step 3: Create the console csproj**
 
@@ -143,15 +143,15 @@ public class ScaffoldTests
 - [ ] **Step 7: Create the solution and add both projects**
 
 ```bash
-cd <workspace-root>/.worktrees/coinbase-wallet-funding/monkify-meta/token-ops
-dotnet new sln -n SpaceStroker.TokenOps --force
+cd <workspace-root>/.worktrees/coinbase-wallet-funding/monkify-meta/tools
+dotnet new sln -n SpaceStroker.Tools --force
 dotnet sln add SpaceStroker.WalletFunder/SpaceStroker.WalletFunder.csproj
 dotnet sln add SpaceStroker.WalletFunder.Tests/SpaceStroker.WalletFunder.Tests.csproj
 ```
 
 - [ ] **Step 8: Restore, build and test — proves the exact package versions resolve**
 
-Run: `dotnet test SpaceStroker.TokenOps.sln`
+Run: `dotnet test SpaceStroker.Tools.sln`
 Expected: restore succeeds for BouncyCastle 2.4.0 + Solnet 6.1.0, build succeeds, 1 test passes. A restore failure here is a **blocker** — resolve the version before writing any logic.
 
 - [ ] **Step 9: Create `secrets.example.json` (placeholders only)**
@@ -185,8 +185,8 @@ Expected: restore succeeds for BouncyCastle 2.4.0 + Solnet 6.1.0, build succeeds
 - [ ] **Step 10: Commit**
 
 ```bash
-git add token-ops/
-git commit -m "Scaffold token-ops solution for the Coinbase wallet funder."
+git add tools/
+git commit -m "Scaffold tools solution for the Coinbase wallet funder."
 ```
 
 ---
@@ -194,9 +194,9 @@ git commit -m "Scaffold token-ops solution for the Coinbase wallet funder."
 ### Task 2: Wallet pool parsing
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/WalletPool.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/WalletPoolTests.cs`
-- Delete: `token-ops/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/WalletPool.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/WalletPoolTests.cs`
+- Delete: `tools/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs`
 
 **Interfaces:**
 - Consumes: `FunderException`.
@@ -283,7 +283,7 @@ public class WalletPoolTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter WalletPoolTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter WalletPoolTests`
 Expected: FAIL — `WalletPool` / `PoolEntry` do not exist.
 
 - [ ] **Step 3: Implement `WalletPool.cs`**
@@ -363,14 +363,14 @@ public static class WalletPool
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter WalletPoolTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter WalletPoolTests`
 Expected: PASS (7 tests).
 
 - [ ] **Step 5: Delete the scaffold test and commit**
 
 ```bash
-rm token-ops/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs
-git add -A token-ops/
+rm tools/SpaceStroker.WalletFunder.Tests/ScaffoldTests.cs
+git add -A tools/
 git commit -m "Add wallet pool parsing that ignores unknown fields."
 ```
 
@@ -379,8 +379,8 @@ git commit -m "Add wallet pool parsing that ignores unknown fields."
 ### Task 3: Funding plan — plan hash and deterministic idem
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/FundingPlan.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/FundingPlanTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/FundingPlan.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/FundingPlanTests.cs`
 
 **Interfaces:**
 - Consumes: `PoolEntry`, `WalletPool.ToLamports`.
@@ -468,7 +468,7 @@ public class FundingPlanTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter FundingPlanTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter FundingPlanTests`
 Expected: FAIL — `FundingPlan` does not exist.
 
 - [ ] **Step 3: Implement `FundingPlan.cs`**
@@ -534,13 +534,13 @@ public sealed class FundingPlan
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter FundingPlanTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter FundingPlanTests`
 Expected: PASS (8 tests). If the UUID-shape test fails, print `idem.ToByteArray()` and re-check which index carries the version nibble before adjusting — do not weaken the assertion.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add funding plan with deterministic plan hash and idem derivation."
 ```
 
@@ -549,8 +549,8 @@ git commit -m "Add funding plan with deterministic plan hash and idem derivation
 ### Task 4: Preflight validation
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/Preflight.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/PreflightTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/Preflight.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/PreflightTests.cs`
 
 **Interfaces:**
 - Consumes: `PoolEntry`, `FundingPlan`, `WalletPool.FormatSol`.
@@ -640,7 +640,7 @@ public class PreflightTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter PreflightTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter PreflightTests`
 Expected: FAIL — `Preflight` does not exist.
 
 - [ ] **Step 3: Implement `Preflight.cs`**
@@ -711,13 +711,13 @@ public static class Preflight
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter PreflightTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter PreflightTests`
 Expected: PASS. If `PublicKey.IsValid` accepts the one-char-short address, the 32-byte assertion is what catches it — confirm that test still passes and keep both checks.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add preflight validation with explicit Solana address checking."
 ```
 
@@ -726,8 +726,8 @@ git commit -m "Add preflight validation with explicit Solana address checking."
 ### Task 5: Receipts, resume and the plan-drift guard
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/Receipts.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/ReceiptsTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/Receipts.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/ReceiptsTests.cs`
 
 **Interfaces:**
 - Consumes: `FundingPlan`, `PlannedTransfer`, `FunderException`.
@@ -857,7 +857,7 @@ public class ReceiptsTests : IDisposable
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter ReceiptsTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter ReceiptsTests`
 Expected: FAIL — `Receipts` does not exist.
 
 - [ ] **Step 3: Implement `Receipts.cs`**
@@ -1004,13 +1004,13 @@ public sealed class Receipts
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter ReceiptsTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter ReceiptsTests`
 Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add receipts with resume filtering and a plan-drift guard."
 ```
 
@@ -1019,8 +1019,8 @@ git commit -m "Add receipts with resume filtering and a plan-drift guard."
 ### Task 6: Spread schedule
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/SendSchedule.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/SendScheduleTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/SendSchedule.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/SendScheduleTests.cs`
 
 **Interfaces:**
 - Consumes: `PlannedTransfer`.
@@ -1102,7 +1102,7 @@ public class SendScheduleTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter SendScheduleTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter SendScheduleTests`
 Expected: FAIL — `SendSchedule` does not exist.
 
 - [ ] **Step 3: Implement `SendSchedule.cs`**
@@ -1149,13 +1149,13 @@ public static class SendSchedule
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter SendScheduleTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter SendScheduleTests`
 Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add the randomized spread schedule."
 ```
 
@@ -1164,8 +1164,8 @@ git commit -m "Add the randomized spread schedule."
 ### Task 7: Configuration loading
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/SecretsFile.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/SecretsFileTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/SecretsFile.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/SecretsFileTests.cs`
 
 **Interfaces:**
 - Consumes: `RawPoolEntry`, `FunderException`.
@@ -1252,7 +1252,7 @@ public class SecretsFileTests : IDisposable
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter SecretsFileTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter SecretsFileTests`
 Expected: FAIL — `SecretsFile` does not exist.
 
 - [ ] **Step 3: Implement `SecretsFile.cs`** (mirrors `deploy/tools/SpaceStroker.Deploy/SecretsFile.cs`)
@@ -1263,7 +1263,7 @@ using System.Text.Json.Serialization;
 
 namespace SpaceStroker.WalletFunder;
 
-/// <summary>The unversioned local token-ops/secrets.json — the single source of truth for a funding run.</summary>
+/// <summary>The unversioned local tools/secrets.json — the single source of truth for a funding run.</summary>
 public sealed class SecretsFile
 {
     [JsonPropertyName("coinbase")] public CoinbaseSection Coinbase { get; set; } = new();
@@ -1274,7 +1274,7 @@ public sealed class SecretsFile
     public static SecretsFile Load(string path)
     {
         if (!File.Exists(path))
-            throw new FunderException($"Secrets file not found: {path}. Copy token-ops/secrets.example.json and fill it in.");
+            throw new FunderException($"Secrets file not found: {path}. Copy tools/secrets.example.json and fill it in.");
 
         SecretsFile parsed;
         try
@@ -1328,13 +1328,13 @@ public sealed class FundingSection
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter SecretsFileTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter SecretsFileTests`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add secrets loading with placeholder rejection."
 ```
 
@@ -1343,8 +1343,8 @@ git commit -m "Add secrets loading with placeholder rejection."
 ### Task 8: Coinbase authentication (JWT)
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/CoinbaseJwt.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/CoinbaseJwtTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/CoinbaseJwt.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/CoinbaseJwtTests.cs`
 
 **Interfaces:**
 - Consumes: `CoinbaseSection`, `FunderException`.
@@ -1493,7 +1493,7 @@ public class CoinbaseJwtTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter CoinbaseJwtTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter CoinbaseJwtTests`
 Expected: FAIL — `CoinbaseJwt` does not exist.
 
 - [ ] **Step 3: Implement `CoinbaseJwt.cs`**
@@ -1583,13 +1583,13 @@ public static class CoinbaseJwt
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter CoinbaseJwtTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter CoinbaseJwtTests`
 Expected: PASS (6 tests). The round-trip signature test is the one that proves the seed-slicing is right.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add CDP bearer-token construction for ed25519 and ES256 keys."
 ```
 
@@ -1598,8 +1598,8 @@ git commit -m "Add CDP bearer-token construction for ed25519 and ES256 keys."
 ### Task 9: Coinbase HTTP client and Solana confirmation
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/CoinbaseClient.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder/SolanaConfirmer.cs`
+- Create: `tools/SpaceStroker.WalletFunder/CoinbaseClient.cs`
+- Create: `tools/SpaceStroker.WalletFunder/SolanaConfirmer.cs`
 
 **Interfaces:**
 - Consumes: `CoinbaseJwt`, `CoinbaseSection`, `SolanaSection`, `WalletPool.FormatSol`, `FunderException`.
@@ -1841,13 +1841,13 @@ public sealed class SolanaConfirmer(SolanaSection solana)
 
 - [ ] **Step 3: Build and run the whole suite (no new tests — I/O layer)**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln`
+Run: `dotnet test tools/SpaceStroker.Tools.sln`
 Expected: build succeeds, all existing tests still pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add the Coinbase HTTP client and on-chain confirmation."
 ```
 
@@ -1856,10 +1856,10 @@ git commit -m "Add the Coinbase HTTP client and on-chain confirmation."
 ### Task 10: Console report, orchestrator and CLI
 
 **Files:**
-- Create: `token-ops/SpaceStroker.WalletFunder/ConsoleReport.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder/Funder.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder/Program.cs`
-- Create: `token-ops/SpaceStroker.WalletFunder.Tests/ConsoleReportTests.cs`
+- Create: `tools/SpaceStroker.WalletFunder/ConsoleReport.cs`
+- Create: `tools/SpaceStroker.WalletFunder/Funder.cs`
+- Create: `tools/SpaceStroker.WalletFunder/Program.cs`
+- Create: `tools/SpaceStroker.WalletFunder.Tests/ConsoleReportTests.cs`
 
 **Interfaces:**
 - Consumes: everything above.
@@ -1907,7 +1907,7 @@ public class ConsoleReportTests
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter ConsoleReportTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter ConsoleReportTests`
 Expected: FAIL — `ConsoleReport` does not exist.
 
 - [ ] **Step 3: Implement `ConsoleReport.cs`**
@@ -1982,7 +1982,7 @@ public static class ConsoleReport
 
 - [ ] **Step 4: Run the console tests to verify they pass**
 
-Run: `dotnet test token-ops/SpaceStroker.TokenOps.sln --filter ConsoleReportTests`
+Run: `dotnet test tools/SpaceStroker.Tools.sln --filter ConsoleReportTests`
 Expected: PASS (7 tests).
 
 - [ ] **Step 5: Implement `Funder.cs` (the orchestrator)**
@@ -2172,9 +2172,9 @@ using SpaceStroker.WalletFunder;
 //   spacestroker-fund-wallets fund              build the plan; with --execute, fund the pool
 //   spacestroker-fund-wallets status            read-only: poll pending sends + re-check on-chain. Never sends.
 // Options:
-//   --secrets <path>       secrets file (default: token-ops/secrets.json next to the executable's repo path)
+//   --secrets <path>       secrets file (default: tools/secrets.json next to the executable's repo path)
 //   --pool <path>          load the wallet array from a standalone JSON file instead of secrets.wallets
-//   --receipts <path>      receipts file (default: token-ops/receipts.json)
+//   --receipts <path>      receipts file (default: tools/receipts.json)
 //   --execute              actually send. Without it, `fund` is a dry run.
 //   --spread-minutes <n>   override funding.spreadMinutes for this run
 //   --force-plan-change    resume against receipts whose plan hash differs (DANGEROUS — can double-fund)
@@ -2227,12 +2227,12 @@ file sealed class CliOptions
     {
         var o = new CliOptions();
 
-        // Default the config paths to token-ops/ when running from the repo (bin/<cfg>/net8.0 → up 4).
-        var repoTokenOps = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        if (Directory.Exists(repoTokenOps))
+        // Default the config paths to tools/ when running from the repo (bin/<cfg>/net8.0 → up 4).
+        var toolsRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        if (Directory.Exists(toolsRoot))
         {
-            o.SecretsPath = Path.Combine(repoTokenOps, "secrets.json");
-            o.ReceiptsPath = Path.Combine(repoTokenOps, "receipts.json");
+            o.SecretsPath = Path.Combine(toolsRoot, "secrets.json");
+            o.ReceiptsPath = Path.Combine(toolsRoot, "receipts.json");
         }
 
         if (args.Length > 0 && args[0] is "-h" or "--help" or "help")
@@ -2287,9 +2287,9 @@ file sealed class CliOptions
           status   read-only: poll pending transactions + re-check on-chain confirmation. Never sends.
 
         Options:
-          --secrets <path>       secrets file (default: token-ops/secrets.json)
+          --secrets <path>       secrets file (default: tools/secrets.json)
           --pool <path>          wallet array from a standalone JSON file instead of secrets.wallets
-          --receipts <path>      receipts file (default: token-ops/receipts.json)
+          --receipts <path>      receipts file (default: tools/receipts.json)
           --execute              actually send (also requires typing the batch total to confirm)
           --spread-minutes <n>   override funding.spreadMinutes for this run
           --force-plan-change    resume against drifted receipts (DANGEROUS — can double-fund)
@@ -2302,17 +2302,17 @@ file sealed class CliOptions
 - [ ] **Step 7: Build, run the full suite, and exercise the CLI**
 
 ```bash
-dotnet test token-ops/SpaceStroker.TokenOps.sln
-dotnet run --project token-ops/SpaceStroker.WalletFunder -- --help
-dotnet run --project token-ops/SpaceStroker.WalletFunder -- fund
+dotnet test tools/SpaceStroker.Tools.sln
+dotnet run --project tools/SpaceStroker.WalletFunder -- --help
+dotnet run --project tools/SpaceStroker.WalletFunder -- fund
 ```
 Expected: all tests pass; `--help` prints usage and exits 0; `fund` with no `secrets.json` exits 1 with
-`error: Secrets file not found: …. Copy token-ops/secrets.example.json and fill it in.`
+`error: Secrets file not found: …. Copy tools/secrets.example.json and fill it in.`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Add the funding orchestrator, console report and CLI."
 ```
 
@@ -2321,9 +2321,9 @@ git commit -m "Add the funding orchestrator, console report and CLI."
 ### Task 11: README and final verification
 
 **Files:**
-- Create: `token-ops/README.md`
+- Create: `tools/README.md`
 
-- [ ] **Step 1: Write `token-ops/README.md`**
+- [ ] **Step 1: Write `tools/README.md`**
 
 Cover, in this order: what the tool is; the **operator preconditions** (CDP key with
 `wallet:transactions:send`; destinations allowlisted if Coinbase address allowlisting is on; the
@@ -2336,25 +2336,25 @@ codes; and the relationship to card #63.
 
 ```bash
 cd <workspace-root>/.worktrees/coinbase-wallet-funding/monkify-meta
-printf '{"coinbase":{"apiKeySecret":"REAL"}}' > token-ops/secrets.json
-git status --porcelain token-ops/          # must NOT list secrets.json
-git check-ignore -v token-ops/secrets.json # must print the rule
-rm token-ops/secrets.json
+printf '{"coinbase":{"apiKeySecret":"REAL"}}' > tools/secrets.json
+git status --porcelain tools/          # must NOT list secrets.json
+git check-ignore -v tools/secrets.json # must print the rule
+rm tools/secrets.json
 ```
 Expected: `git status` shows nothing for `secrets.json`; `check-ignore` prints the matching rule.
 
 - [ ] **Step 3: Full green run**
 
 ```bash
-dotnet build token-ops/SpaceStroker.TokenOps.sln
-dotnet test token-ops/SpaceStroker.TokenOps.sln
+dotnet build tools/SpaceStroker.Tools.sln
+dotnet test tools/SpaceStroker.Tools.sln
 ```
 Expected: build clean (no warnings-as-errors), every test passes.
 
 - [ ] **Step 4: Commit and push**
 
 ```bash
-git add token-ops/
+git add tools/
 git commit -m "Document the wallet funder."
 git push origin feature/coinbase-wallet-funding
 ```

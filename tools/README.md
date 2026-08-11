@@ -1,4 +1,4 @@
-# token-ops — SpaceStroker token/treasury operations
+# tools — SpaceStroker token/treasury operations
 
 Standalone console tools for token-launch and treasury work. They are **not** part of the deployed
 application: nothing here runs in Cloud Run or in the local Docker stack. Built and run by hand, on
@@ -101,7 +101,7 @@ unfunded wallets. A wallet that already holds a Coinbase transaction id is **pol
 ### Tests
 
 ```bash
-dotnet test SpaceStroker.TokenOps.sln
+dotnet test SpaceStroker.Tools.sln
 ```
 
 The suite covers the **pure** logic — plan/idem derivation, preflight, receipts/resume, the spread

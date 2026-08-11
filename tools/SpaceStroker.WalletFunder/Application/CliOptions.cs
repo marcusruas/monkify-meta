@@ -1,55 +1,9 @@
-using SpaceStroker.WalletFunder;
+using SpaceStroker.WalletFunder.Domain;
 
-// spacestroker-fund-wallets — funds a pool of Solana wallets with SOL from a Coinbase account.
-// Usage:
-//   spacestroker-fund-wallets fund              build the plan; with --execute, fund the pool
-//   spacestroker-fund-wallets status            read-only: poll pending sends + re-check on-chain. Never sends.
-// Options:
-//   --secrets <path>       secrets file (default: token-ops/secrets.json)
-//   --pool <path>          load the wallet array from a standalone JSON file instead of secrets.wallets
-//   --receipts <path>      receipts file (default: token-ops/receipts.json)
-//   --execute              actually send. Without it, `fund` is a dry run.
-//   --spread-minutes <n>   override funding.spreadMinutes for this run
-//   --force-plan-change    resume against receipts whose plan hash differs (DANGEROUS — can double-fund)
+namespace SpaceStroker.WalletFunder.Application;
 
-try
-{
-    var opts = CliOptions.Parse(args);
-    if (opts.ShowHelp)
-    {
-        CliOptions.PrintUsage();
-        return 0;
-    }
-
-    var secrets = SecretsFile.Load(opts.SecretsPath);
-    var funder = new Funder(secrets, new FunderOptions(
-        ReceiptsPath: opts.ReceiptsPath,
-        PoolPath: opts.PoolPath,
-        Execute: opts.Execute,
-        StatusOnly: opts.Command == "status",
-        ForcePlanChange: opts.ForcePlanChange,
-        SpreadMinutes: opts.SpreadMinutes));
-
-    return await funder.RunAsync(CancellationToken.None);
-}
-catch (CoinbaseAuthException ex)
-{
-    Console.Error.WriteLine($"error: {ex.Message}");
-    return 1;
-}
-catch (FunderException ex)
-{
-    Console.Error.WriteLine($"error: {ex.Message}");
-    return 1;
-}
-catch (UsageException ex)
-{
-    Console.Error.WriteLine($"error: {ex.Message}");
-    CliOptions.PrintUsage();
-    return 2;
-}
-
-file sealed class CliOptions
+/// <summary>Hand-rolled argument parsing, matching deploy/tools/SpaceStroker.Deploy/Program.cs.</summary>
+public sealed class CliOptions
 {
     private static readonly string[] Commands = ["fund", "status"];
 
@@ -66,10 +20,10 @@ file sealed class CliOptions
     {
         var o = new CliOptions();
 
-        // Default the config paths to the token-ops folder: bin/<cfg>/net8.0 sits four levels below it.
-        var tokenOps = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        o.SecretsPath = Path.Combine(tokenOps, "secrets.json");
-        o.ReceiptsPath = Path.Combine(tokenOps, "receipts.json");
+        // Default the config paths to the tools folder: bin/<cfg>/net8.0 sits four levels below it.
+        var toolsRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        o.SecretsPath = Path.Combine(toolsRoot, "secrets.json");
+        o.ReceiptsPath = Path.Combine(toolsRoot, "receipts.json");
 
         if (args.Length > 0 && args[0] is "-h" or "--help" or "help")
         {
@@ -133,9 +87,9 @@ file sealed class CliOptions
           status   read-only: poll pending transactions + re-check on-chain confirmation. Never sends.
 
         Options:
-          --secrets <path>       secrets file (default: token-ops/secrets.json)
+          --secrets <path>       secrets file (default: tools/secrets.json)
           --pool <path>          wallet array from a standalone JSON file instead of secrets.wallets
-          --receipts <path>      receipts file (default: token-ops/receipts.json)
+          --receipts <path>      receipts file (default: tools/receipts.json)
           --execute              actually send (also requires typing the batch total to confirm)
           --spread-minutes <n>   override funding.spreadMinutes for this run
           --force-plan-change    resume against drifted receipts (DANGEROUS — can double-fund)

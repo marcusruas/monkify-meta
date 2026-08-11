@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Domain;
 
 /// <summary>
 /// One funding target. Deliberately carries NO private-key member: card #63's ghost-wallet pool

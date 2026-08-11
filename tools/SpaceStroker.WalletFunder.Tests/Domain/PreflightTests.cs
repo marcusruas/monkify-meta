@@ -1,7 +1,8 @@
 using Shouldly;
 using Xunit;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder.Tests;
+namespace SpaceStroker.WalletFunder.Tests.Domain;
 
 public class PreflightTests
 {

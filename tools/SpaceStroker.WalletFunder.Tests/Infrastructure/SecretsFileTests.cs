@@ -1,7 +1,9 @@
 using Shouldly;
 using Xunit;
+using SpaceStroker.WalletFunder.Domain;
+using SpaceStroker.WalletFunder.Infrastructure;
 
-namespace SpaceStroker.WalletFunder.Tests;
+namespace SpaceStroker.WalletFunder.Tests.Infrastructure;
 
 public class SecretsFileTests : IDisposable
 {

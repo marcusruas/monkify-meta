@@ -1,6 +1,6 @@
 using Solnet.Wallet;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Domain;
 
 public sealed record PreflightResult(bool IsEmpty, IReadOnlyList<string> Errors)
 {

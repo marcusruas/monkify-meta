@@ -6,8 +6,11 @@ using Org.BouncyCastle.Crypto.Signers;
 using Org.BouncyCastle.Security;
 using Shouldly;
 using Xunit;
+using SpaceStroker.WalletFunder.Domain;
+using SpaceStroker.WalletFunder.Infrastructure;
+using SpaceStroker.WalletFunder.Infrastructure.Coinbase;
 
-namespace SpaceStroker.WalletFunder.Tests;
+namespace SpaceStroker.WalletFunder.Tests.Infrastructure;
 
 public class CoinbaseJwtTests
 {

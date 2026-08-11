@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Domain;
 
 public sealed record PlannedTransfer(string Label, string Address, decimal SolAmount, long Lamports, Guid Idem);
 

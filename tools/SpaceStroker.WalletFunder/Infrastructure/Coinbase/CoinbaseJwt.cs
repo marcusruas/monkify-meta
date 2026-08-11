@@ -3,8 +3,9 @@ using System.Text;
 using System.Text.Json;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Infrastructure.Coinbase;
 
 /// <summary>
 /// Builds the short-lived CDP bearer token. The JWS is hand-rolled because .NET 8 has NO Ed25519 in the

@@ -1,4 +1,4 @@
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Domain;
 
 public sealed record ScheduledTransfer(PlannedTransfer Transfer, TimeSpan Offset);
 

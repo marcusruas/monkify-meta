@@ -3,8 +3,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Infrastructure.Coinbase;
 
 public sealed record CoinbaseAccount(string Id, string Currency, decimal Balance);
 

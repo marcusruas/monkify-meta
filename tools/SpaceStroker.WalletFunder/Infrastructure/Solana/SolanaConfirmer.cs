@@ -1,7 +1,8 @@
 using Solnet.Rpc;
 using Solnet.Rpc.Types;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Infrastructure.Solana;
 
 /// <summary>
 /// Independent proof the SOL actually landed. Coinbase reporting `completed` is Coinbase's view of a

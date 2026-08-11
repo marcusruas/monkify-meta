@@ -2,7 +2,7 @@
 
 > **Status: Ready for implementation** — refined via Trello card
 > [Create coinbase integration for filling wallets #165](https://trello.com/c/9OoHAuEa) (2026-08-11).
-> Repos affected: **`monkify-meta` only** (new `token-ops/` solution + knowledge base). No
+> Repos affected: **`monkify-meta` only** (new `tools/` solution + knowledge base). No
 > `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
 >
 > **Purpose:** a standalone console app that funds a pool of Solana wallets with SOL out of a
@@ -20,12 +20,12 @@
 
 ## 1. Summary
 
-One new console app, `spacestroker-fund-wallets`, in a **new `monkify-meta/token-ops/` solution**
+One new console app, `spacestroker-fund-wallets`, in a **new `monkify-meta/tools/` solution**
 (sibling of `deploy/`; card #63 will later add its own project to the same solution).
 
 | Stage | What happens |
 | --- | --- |
-| **Load** | Read the git-ignored `token-ops/secrets.json` — Coinbase CDP key + Solana RPC + funding options + the wallet pool (`PublicKey` + `SOLAmount`). Unknown JSON fields (e.g. #63's `PrivateKey`) are **ignored**. |
+| **Load** | Read the git-ignored `tools/secrets.json` — Coinbase CDP key + Solana RPC + funding options + the wallet pool (`PublicKey` + `SOLAmount`). Unknown JSON fields (e.g. #63's `PrivateKey`) are **ignored**. |
 | **Plan** | Build an ordered `PlannedTransfer[]`, compute a **plan hash**, derive each wallet's **deterministic `idem` UUID** from it. |
 | **Preflight** | Validate addresses/amounts/duplicates, resolve the Coinbase SOL account, snapshot each destination's on-chain balance, check `balance ≥ Σ amounts + fee headroom`. **Any failure aborts before send #1.** |
 | **Confirm** | Dry-run prints the plan and stops. `--execute` additionally requires a **typed confirmation** echoing the batch total. |
@@ -54,9 +54,9 @@ From `monkify-meta/constraints.md` (full list there):
 - **Worktree-per-repo:** work lives in `.worktrees/coinbase-wallet-funding/monkify-meta`; the
   `monkify-meta` hub stays clean on `main`. Branch `feature/coinbase-wallet-funding` is pushed to
   `origin` (§2 Git).
-- **Secrets — mock only in committed files.** `token-ops/secrets.example.json` carries placeholders
-  only. `token-ops/secrets.json` and `token-ops/receipts*.json` are git-ignored by a **new
-  `token-ops/.gitignore`** (see §4.4 — the `monkify-meta` root `.gitignore` does **not** cover them).
+- **Secrets — mock only in committed files.** `tools/secrets.example.json` carries placeholders
+  only. `tools/secrets.json` and `tools/receipts*.json` are git-ignored by a **new
+  `tools/.gitignore`** (see §4.4 — the `monkify-meta` root `.gitignore` does **not** cover them).
   The CDP API secret and the generated JWT must never be printed, logged, or written to receipts.
 - **No production queries / no live external API calls during implementation.** Real Coinbase sends
   are an **operator step** the user performs (`constraints.md` §5). This card delivers code + docs.
@@ -67,7 +67,7 @@ From `monkify-meta/constraints.md` (full list there):
   still required** at ship time.
 - **Unit tests are required** for the pure, Coinbase-free logic — plan/idem derivation, preflight,
   receipts/resume, spread schedule (§11). There is **no fake Coinbase sender** (card decision).
-- **Knowledge base stays current:** `token-ops/README.md`, `INDEX.md`, and a new
+- **Knowledge base stays current:** `tools/README.md`, `INDEX.md`, and a new
   `features/coinbase-wallet-funding.md` at ship time.
 - **Feature-specific:** the tool must never be able to send without `--execute` **and** the typed
   confirmation; and it must never re-send for a wallet that already has a recorded Coinbase
@@ -85,7 +85,7 @@ while exploring the code; they are called out as such.
 | 1 | **Coinbase surface:** CDP **Secret API Key** (server-to-server) against the Coinbase App v2 API, `POST /v2/accounts/{account_id}/transactions` with `type: "send"`. Not OAuth2 — that endpoint requires **2FA per send** under OAuth2, which kills unattended batch funding. Not Prime/Exchange — the SOL is in the retail Coinbase app. |
 | 2 | Required key scope: **`wallet:transactions:send`**. Coinbase returns `status: "pending"`; the docs direct you to **poll the status field** for `completed`. |
 | 3 | The SOL account id is **resolved** from `GET /v2/accounts` by `currency.code == "SOL"`, with an optional explicit `coinbase.accountId` override. Missing or ambiguous ⇒ fail fast. |
-| 4 | **Location:** new **`monkify-meta/token-ops/`** solution (`SpaceStroker.TokenOps.sln`), sibling of `deploy/`. Card #63 will add its project to the same solution. A real-money withdrawal CLI does not belong in the GCP deploy stack nor in a repo built into Cloud Run images. |
+| 4 | **Location:** new **`monkify-meta/tools/`** solution (`SpaceStroker.Tools.sln`), sibling of `deploy/`. Card #63 will add its project to the same solution. A real-money withdrawal CLI does not belong in the GCP deploy stack nor in a repo built into Cloud Run images. |
 | 5 | **Wallet input:** the tool reads **only `PublicKey` + `SOLAmount`** (plus an **optional `Label`** used purely for display/receipts, per AC17 — see §6.2) and **ignores unknown JSON fields**, so #63's ghost-wallet pool file pastes in verbatim while this tool never loads, holds or logs a spend key. |
 | 6 | **Re-run safety:** each wallet's `idem` UUID is **derived deterministically from the plan** (plan hash + address + lamports) **and** a receipts JSON is written after every state change. A repeat run reuses the same token, so **Coinbase dedupes server-side even if the receipts file is lost**. |
 | 7 | ⚠️ **Corollary:** editing the pool between runs **changes the derived idem**, so a resend would be a **new** transaction. The tool stores the plan hash in the receipts file and **refuses to resume a drifted plan** without `--force-plan-change`. |
@@ -96,7 +96,7 @@ while exploring the code; they are called out as such.
 | 12 | **"Funded"** = Coinbase `completed` **and** an observed on-chain balance increase at the destination. #63 cannot snipe with SOL that has not landed. |
 | 13 | **Failure policy:** one wallet's failure does not stop the batch. Remaining wallets are funded, the failure + error is recorded, the process **exits non-zero**, and a re-run targets only the unfunded. |
 | 14 | **Output:** receipts JSON (doubles as resume state) + a console summary table. **No HTML report** — that is #63's artifact. |
-| 15 | **Config:** unversioned `token-ops/secrets.json` (CDP key + pool + options), committed `token-ops/secrets.example.json` with placeholders only. Not env vars (they leak into shell history, process listings and crash dumps). |
+| 15 | **Config:** unversioned `tools/secrets.json` (CDP key + pool + options), committed `tools/secrets.example.json` with placeholders only. Not env vars (they leak into shell history, process listings and crash dumps). |
 | 16 | **Asset:** **SOL on Solana mainnet only**, hard-coded `currency`/`network`. A configurable asset would let one wrong config line send the wrong asset to the right address. |
 | 17 | **Testing:** no fake Coinbase sender and no `--fake` mode; the live path is verified by dry-running against the real key. Unit tests **are** required for the pure logic. |
 | 18 | **Level: `Feature`** — `features/coinbase-wallet-funding.md` required at ship time; backend integration test **waived** (no backend surface). |
@@ -111,35 +111,58 @@ while exploring the code; they are called out as such.
 There is **no application data model change** — no entity, no EF mapping, no migration. This section
 replaces §4 of the template with the file layout and config model.
 
-### 4.1 New solution — `monkify-meta/token-ops/`
+### 4.1 New solution — `monkify-meta/tools/`
+
+The project is split **Domain / Infrastructure / Application** per `conventions/backend.md` → "The
+folder tree must show the architecture", using the same layer vocabulary as the backend's own projects.
+The split is not cosmetic: **`Domain/` is IO-free**, which is exactly what lets the money-safety rules be
+unit-tested with no fake Coinbase sender (there isn't one — card decision #17).
 
 ```
-token-ops/
-├── SpaceStroker.TokenOps.sln              # new solution; #63 joins it later
-├── .gitignore                             # MANDATORY — see §4.4
-├── README.md                              # how to configure + run (mirrors deploy/README.md)
-├── secrets.example.json                   # tracked; placeholders only
+tools/
+├── SpaceStroker.Tools.sln                     # new solution; #63 joins it later
+├── .gitignore                                 # MANDATORY — see §4.4
+├── README.md                                  # how to configure + run (mirrors deploy/README.md)
+├── secrets.example.json                       # tracked; placeholders only
 ├── SpaceStroker.WalletFunder/
 │   ├── SpaceStroker.WalletFunder.csproj
-│   ├── Program.cs                         # top-level statements + `file sealed class CliOptions`
-│   ├── SecretsFile.cs                     # config model + Load() with placeholder detection
-│   ├── WalletPool.cs                      # pool parsing (unknown fields ignored), --pool override
-│   ├── FundingPlan.cs                     # PlannedTransfer[], plan hash, deterministic idem
-│   ├── Preflight.cs                       # validation + account resolution + balance check
-│   ├── SendSchedule.cs                    # randomized order + jittered offsets across the window
-│   ├── Receipts.cs                        # receipts model, load/save, resume + plan-drift guard
-│   ├── CoinbaseJwt.cs                     # Ed25519 / ECDSA bearer-token construction
-│   ├── CoinbaseClient.cs                  # accounts, send, transaction status, retry policy
-│   ├── SolanaConfirmer.cs                 # on-chain balance snapshot + delta confirmation
-│   ├── ConsoleReport.cs                   # plan table + summary table + masking helpers
-│   └── FunderException.cs                 # fatal, user-facing error type
-└── SpaceStroker.WalletFunder.Tests/
+│   ├── Program.cs                             # entry point only: parse → load → run → map exit code
+│   ├── Domain/                                # pure; no IO, no HTTP, no filesystem
+│   │   ├── WalletPool.cs                      # PoolEntry, parsing (unknown fields ignored), lamports
+│   │   ├── FundingPlan.cs                     # PlannedTransfer[], plan hash, deterministic idem
+│   │   ├── Preflight.cs                       # validation + balance rule (balance passed as a value)
+│   │   ├── SendSchedule.cs                    # randomized order + jittered offsets across the window
+│   │   ├── ReceiptEntry.cs                    # ReceiptEntry/ReceiptsDocument + resume & drift rules
+│   │   └── FunderException.cs                 # FunderException + UsageException
+│   ├── Infrastructure/                        # everything that touches the outside world
+│   │   ├── SecretsFile.cs                     # config model + Load() with placeholder detection
+│   │   ├── ReceiptsStore.cs                   # receipts persistence (save after every change)
+│   │   ├── Coinbase/
+│   │   │   ├── CoinbaseJwt.cs                 # Ed25519 / ES256 bearer-token construction
+│   │   │   └── CoinbaseClient.cs              # accounts, send, status, retry policy, key masking
+│   │   └── Solana/
+│   │       └── SolanaConfirmer.cs             # on-chain balance snapshot + delta confirmation
+│   └── Application/                           # orchestration + presentation
+│       ├── Funder.cs                          # the run: preflight → confirm → send → settle
+│       ├── CliOptions.cs                      # argument parsing + usage banner
+│       └── ConsoleReport.cs                   # plan table, typed confirmation, summary table
+└── SpaceStroker.WalletFunder.Tests/           # mirrors the same folders
     ├── SpaceStroker.WalletFunder.Tests.csproj
-    ├── FundingPlanTests.cs
-    ├── PreflightTests.cs
-    ├── ReceiptsTests.cs
-    └── SendScheduleTests.cs
+    ├── Domain/
+    │   ├── WalletPoolTests.cs
+    │   ├── FundingPlanTests.cs
+    │   ├── PreflightTests.cs
+    │   └── SendScheduleTests.cs
+    ├── Infrastructure/
+    │   ├── ReceiptsStoreTests.cs
+    │   ├── SecretsFileTests.cs
+    │   └── CoinbaseJwtTests.cs
+    └── Application/
+        └── ConsoleReportTests.cs
 ```
+
+Namespaces follow the folders exactly: `SpaceStroker.WalletFunder.Domain`,
+`…​.Infrastructure`, `…​.Infrastructure.Coinbase`, `…​.Infrastructure.Solana`, `…​.Application`.
 
 ### 4.2 Project files — mirror the `deploy/tools` conventions
 
@@ -158,7 +181,8 @@ token-ops/
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+    <!-- Portable.BouncyCastle, NOT BouncyCastle.Cryptography — see §12 finding 7 (CS0433 with Solnet). -->
+    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="Solnet.Rpc" Version="6.1.0" />
     <PackageReference Include="Solnet.Wallet" Version="6.1.0" />
   </ItemGroup>
@@ -221,11 +245,11 @@ reject any value still equal to a `REPLACE_ME*` sentinel).
 | `funding.minAmountSol` | Floor for a single transfer; rejects fat-finger dust. |
 | `wallets[]` | `PublicKey` + `SOLAmount`. **Unknown fields are ignored** (see §6.2). |
 
-### 4.4 `token-ops/.gitignore` — MANDATORY, and not covered by the repo root
+### 4.4 `tools/.gitignore` — MANDATORY, and not covered by the repo root
 
 **Code-exploration finding.** `monkify-meta/.gitignore` ignores exactly one thing (`sales/pdf/`).
 The reason `deploy/secrets.development.json` is safe today is a **nested** `deploy/.gitignore`.
-Without an equivalent file, `token-ops/secrets.json` — holding a live withdrawal credential — would
+Without an equivalent file, `tools/secrets.json` — holding a live withdrawal credential — would
 be committable, and `git add .` would take it. Create it in the same shape:
 
 ```gitignore
@@ -254,9 +278,9 @@ Commands:
   status      read-only: poll pending transactions + re-check on-chain confirmation. Never sends.
 
 Options:
-  --secrets <path>       secrets file (default: token-ops/secrets.json)
+  --secrets <path>       secrets file (default: tools/secrets.json)
   --pool <path>          load the wallet array from a standalone JSON file instead of secrets.wallets
-  --receipts <path>      receipts file (default: token-ops/receipts.json)
+  --receipts <path>      receipts file (default: tools/receipts.json)
   --execute              actually send. Without it, `fund` is a dry run.
   --spread-minutes <n>   override funding.spreadMinutes for this run
   --force-plan-change    allow resuming against receipts whose plan hash differs (DANGEROUS — §6.6)
@@ -296,8 +320,8 @@ The `uri` claim format is `"{METHOD} {HOST}{PATH}"`, e.g.
 1. **.NET 8 has no Ed25519 in the BCL.** `System.Security.Cryptography` offers no EdDSA, and
    `Microsoft.IdentityModel.*` will not sign `EdDSA` without a custom crypto provider. Build the
    JWS by hand — `base64url(header) + "." + base64url(payload)`, signed with BouncyCastle's
-   `Ed25519Signer` — and append `"." + base64url(signature)`. Hence the `BouncyCastle.Cryptography`
-   reference in §4.2. Base64url is **unpadded, `+`→`-`, `/`→`_`**.
+   `Ed25519Signer` — and append `"." + base64url(signature)`. Hence the `Portable.BouncyCastle`
+   reference in §4.2 (see §12 finding 7 for why not the newer package). Base64url is **unpadded, `+`→`-`, `/`→`_`**.
 2. **The CDP Ed25519 secret is 64 bytes** (32-byte seed ‖ 32-byte public key) once base64-decoded.
    `Ed25519PrivateKeyParameters` wants **the first 32 bytes only**. Passing all 64 throws; passing
    the wrong 32 produces a well-formed token that Coinbase rejects.
@@ -512,7 +536,7 @@ sequenceDiagram
 - Sweeping SOL back out of the wallets.
 - Buying SOL on Coinbase — the account must already hold enough.
 - Coinbase account setup: creating the CDP key, granting `wallet:transactions:send`, address
-  allowlisting. **Operator preconditions**, documented in `token-ops/README.md`.
+  allowlisting. **Operator preconditions**, documented in `tools/README.md`.
 - Any asset other than SOL; any network other than Solana mainnet.
 - Any change to `monkify-backend`, `monkify-front` or `monkify-lp`.
 - **Executing a live funding run** — an operator step (`constraints.md` §5).
@@ -535,37 +559,40 @@ sequenceDiagram
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `token-ops/SpaceStroker.TokenOps.sln` | **New** — solution holding the funder + its tests (#63 joins later). |
-| 2 | `token-ops/.gitignore` | **New** — `secrets*.json` + `!secrets.example.json`, `receipts*.json`, `bin/obj`. **Mandatory** (§4.4). |
-| 3 | `token-ops/README.md` | **New** — configure, operator preconditions (key scope, allowlisting, funded account), dry-run-first workflow, resume, exit codes. |
-| 4 | `token-ops/secrets.example.json` | **New** — tracked template, placeholders only. |
+| 1 | `tools/SpaceStroker.Tools.sln` | **New** — solution holding the funder + its tests (#63 joins later). |
+| 2 | `tools/.gitignore` | **New** — `secrets*.json` + `!secrets.example.json`, `receipts*.json`, `bin/obj`. **Mandatory** (§4.4). |
+| 3 | `tools/README.md` | **New** — configure, operator preconditions (key scope, allowlisting, funded account), dry-run-first workflow, resume, exit codes. |
+| 4 | `tools/secrets.example.json` | **New** — tracked template, placeholders only. |
 | 5 | `…/SpaceStroker.WalletFunder.csproj` | **New** — net8.0 exe, `AssemblyName spacestroker-fund-wallets`, BouncyCastle + Solnet. |
-| 6 | `…/Program.cs` | **New** — usage banner, `CliOptions` parsing, command dispatch, `catch (FunderException)` ⇒ `error: …` + exit 1. |
-| 7 | `…/SecretsFile.cs` | **New** — config model + `Load()` with `REPLACE_ME` placeholder rejection. |
-| 8 | `…/WalletPool.cs` | **New** — pool parsing, unknown fields ignored, `--pool` override, decimal→lamports. |
-| 9 | `…/FundingPlan.cs` | **New** — `PlannedTransfer`, plan hash, deterministic UUIDv4-shaped idem. |
-| 10 | `…/Preflight.cs` | **New** — the 7 checks of §6.3 + destination balance snapshots. |
-| 11 | `…/SendSchedule.cs` | **New** — randomized order + jittered offsets, injectable `Random`. |
-| 12 | `…/Receipts.cs` | **New** — receipts model, incremental save, resume filtering, plan-drift guard. |
-| 13 | `…/CoinbaseJwt.cs` | **New** — Ed25519 (BouncyCastle) / ES256 bearer tokens; the three §6.1 traps. |
-| 14 | `…/CoinbaseClient.cs` | **New** — accounts, send, transaction status, retry policy, secret masking. |
-| 15 | `…/SolanaConfirmer.cs` | **New** — Solnet `IRpcClient` balance snapshot + delta confirmation. |
-| 16 | `…/ConsoleReport.cs` | **New** — plan table, typed confirmation prompt, summary table. |
-| 17 | `…/FunderException.cs` | **New** — fatal user-facing error (mirrors `DeployException`). |
-| 18 | `…/SpaceStroker.WalletFunder.Tests.csproj` | **New** — xunit + Shouldly, copied from `SpaceStroker.Deploy.Tests`. |
-| 19 | `…Tests/FundingPlanTests.cs` | **New** — §11. |
-| 20 | `…Tests/PreflightTests.cs` | **New** — §11. |
-| 21 | `…Tests/ReceiptsTests.cs` | **New** — §11. |
-| 22 | `…Tests/SendScheduleTests.cs` | **New** — §11. |
-| 23 | `INDEX.md` | Map row for this spec + "Feature currently in flight". |
-| 24 | `features/coinbase-wallet-funding.md` | **At ship time** (`/monkify-ship-feature`) — Level is `Feature`. |
+| 6 | `…/Program.cs` | **New** — entry point only: parse → load → run, and map `FunderException` ⇒ 1 / `UsageException` ⇒ 2. |
+| 7 | `…/Domain/WalletPool.cs` | **New** — `PoolEntry`, parsing with unknown fields ignored, decimal→lamports, invariant formatting. |
+| 8 | `…/Domain/FundingPlan.cs` | **New** — `PlannedTransfer`, plan hash, deterministic UUIDv4-shaped idem. |
+| 9 | `…/Domain/Preflight.cs` | **New** — the validation rules of §6.3; balance arrives as a value, keeping it pure. |
+| 10 | `…/Domain/SendSchedule.cs` | **New** — randomized order + jittered offsets, injectable `Random`. |
+| 11 | `…/Domain/ReceiptEntry.cs` | **New** — `ReceiptEntry`/`ReceiptsDocument` + resume, never-re-send and plan-drift rules. |
+| 12 | `…/Domain/FunderException.cs` | **New** — `FunderException` (exit 1) + `UsageException` (exit 2). |
+| 13 | `…/Infrastructure/SecretsFile.cs` | **New** — config model + `Load()` with `REPLACE_ME` placeholder rejection. |
+| 14 | `…/Infrastructure/ReceiptsStore.cs` | **New** — receipts persistence; saves after every state change. |
+| 15 | `…/Infrastructure/Coinbase/CoinbaseJwt.cs` | **New** — Ed25519 (BouncyCastle) / ES256 bearer tokens; the three §6.1 traps. |
+| 16 | `…/Infrastructure/Coinbase/CoinbaseClient.cs` | **New** — accounts, send, status, retry policy, `CoinbaseAuthException`, key masking. |
+| 17 | `…/Infrastructure/Solana/SolanaConfirmer.cs` | **New** — Solnet `IRpcClient` balance snapshot + delta confirmation. |
+| 18 | `…/Application/Funder.cs` | **New** — the run: preflight → confirm → scheduled send → settle → summary. |
+| 19 | `…/Application/CliOptions.cs` | **New** — argument parsing + usage banner. |
+| 20 | `…/Application/ConsoleReport.cs` | **New** — plan table, typed confirmation prompt, summary table. |
+| 21 | `…/SpaceStroker.WalletFunder.Tests.csproj` | **New** — xunit + Shouldly, copied from `SpaceStroker.Deploy.Tests`. |
+| 22 | `…Tests/Domain/{WalletPool,FundingPlan,Preflight,SendSchedule}Tests.cs` | **New** — §11. |
+| 23 | `…Tests/Infrastructure/{ReceiptsStore,SecretsFile,CoinbaseJwt}Tests.cs` | **New** — §11. |
+| 24 | `…Tests/Application/ConsoleReportTests.cs` | **New** — §11. |
+| 25 | `INDEX.md` | Map row for this spec + "Feature currently in flight". |
+| 26 | `features/coinbase-wallet-funding.md` | **At ship time** (`/monkify-ship-feature`) — Level is `Feature`. |
 
 ---
 
 ## 11. Unit tests
 
-Project: `monkify-meta/token-ops/SpaceStroker.WalletFunder.Tests` (xunit + Shouldly, mirroring
-`deploy/tools/SpaceStroker.Deploy.Tests`). **No Coinbase call in any test** — there is no fake
+Project: `monkify-meta/tools/SpaceStroker.WalletFunder.Tests` (xunit + Shouldly, mirroring
+`deploy/tools/SpaceStroker.Deploy.Tests`), with `Domain/`, `Infrastructure/` and `Application/` folders
+mirroring the project under test. **No Coinbase call in any test** — there is no fake
 sender by decision #17; every case below exercises pure logic.
 
 | Test file | Test cases | Expected |
@@ -602,7 +629,7 @@ sender by decision #17; every case below exercises pure logic.
 Documented so the implementer does not rediscover them:
 
 1. **`monkify-meta/.gitignore` ignores only `sales/pdf/`.** Secrets safety in `deploy/` comes from a
-   **nested** `deploy/.gitignore` (`secrets*.json` + `!secrets.example.json`). `token-ops/.gitignore`
+   **nested** `deploy/.gitignore` (`secrets*.json` + `!secrets.example.json`). `tools/.gitignore`
    is therefore mandatory, not decorative (§4.4).
 2. **.NET 8 has no Ed25519**; the CDP secret's first 32 of 64 decoded bytes are the seed; ECDSA JWS
    needs P1363 (`r‖s`), not DER (§6.1).
@@ -616,6 +643,17 @@ Documented so the implementer does not rediscover them:
    and the leftovers are **out of scope** to clean here.
 6. **Version pinning:** Solnet `6.1.0` matches `monkify-backend`; the test stack (`xunit` 2.4.2,
    `Shouldly` 4.2.1, `Microsoft.NET.Test.Sdk` 17.6.0) matches `SpaceStroker.Deploy.Tests`.
+7. ⚠️ **`BouncyCastle.Cryptography` 2.4.0 cannot coexist with Solnet.** `Solnet.Wallet` pulls in
+   `Portable.BouncyCastle` **1.9.0** transitively, and with both on the graph every `Ed25519*` type is
+   ambiguous (`CS0433`). **Declare `Portable.BouncyCastle` 1.9.0 explicitly and do not reference
+   `BouncyCastle.Cryptography`** — the 1.9.0 API (`Ed25519Signer`, `Ed25519PrivateKeyParameters`) is
+   identical for this use. Found at build time, after the spec had named 2.4.0.
+8. **The .NET 10 SDK creates `.slnx`, not `.sln`.** `dotnet new sln` needs **`--format sln`** to produce
+   the classic solution the workspace uses (`SpaceStroker.DeployTools.sln`).
+9. **Project structure is now a convention, not a preference.** `conventions/backend.md` →
+   "The folder tree must show the architecture" requires the Domain/Infrastructure/Application split
+   (with matching namespaces, mirrored in the test project) for every .NET project including these
+   console tools. §4.1 is the worked example.
 
 ---
 
@@ -668,7 +706,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (AC1–AC20).
     values only and no real key material, and the real `secrets.json` is gitignored.
 19. Given any run (dry or live), when console output and the receipts file are inspected, then the
     CDP API secret never appears in either.
-20. Given the new token-ops solution, when its test project runs, then preflight validation,
+20. Given the new tools solution, when its test project runs, then preflight validation,
     deterministic idem derivation, receipts/resume filtering and the spread schedule are each covered
     by unit tests that make no Coinbase call.
 
@@ -682,7 +720,7 @@ Implementation verification is `dotnet build` + `dotnet test` + a dry run. The s
 1. Create a CDP Secret API Key with **`wallet:transactions:send`**; if the Coinbase account has
    **address allowlisting** enabled, allowlist the destination wallets first.
 2. Copy `secrets.example.json` → `secrets.json`, fill the key + pool. Confirm
-   `git status` shows **nothing** to commit from `token-ops/` (proves §4.4).
+   `git status` shows **nothing** to commit from `tools/` (proves §4.4).
 3. `spacestroker-fund-wallets fund` (no `--execute`) — plan table renders, balances read, preflight
    passes, nothing sent.
 4. **Single-wallet live test:** a one-entry pool with a dust amount, `fund --execute`. Confirm the
@@ -702,7 +740,7 @@ Implementation verification is `dotnet build` + `dotnet test` + a dry run. The s
   — list **Specs created**; the **Implementation** section on the card carries the branch, worktree,
   spec path and Level.
 - **Sibling card:** [#63 Create ghost wallet snipe app](https://trello.com/c/nokWHm7z) — consumes the
-  funded pool and will join `SpaceStroker.TokenOps.sln`.
+  funded pool and will join `SpaceStroker.Tools.sln`.
 - **Next:** `/monkify-implement-feature Create coinbase integration for filling wallets` (integration
   test **waived**; unit tests required), then `/monkify-ship-feature` (which must create
   `features/coinbase-wallet-funding.md` — Level is `Feature`).

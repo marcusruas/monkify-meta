@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder;
+namespace SpaceStroker.WalletFunder.Infrastructure;
 
 /// <summary>
-/// The unversioned local token-ops/secrets.json — the single source of truth for a funding run.
+/// The unversioned local tools/secrets.json — the single source of truth for a funding run.
 /// Mirrors deploy/tools/SpaceStroker.Deploy/SecretsFile.cs, including its fail-fast placeholder check.
 /// </summary>
 public sealed class SecretsFile
@@ -18,7 +19,7 @@ public sealed class SecretsFile
     {
         if (!File.Exists(path))
             throw new FunderException(
-                $"Secrets file not found: {path}. Copy token-ops/secrets.example.json and fill it in.");
+                $"Secrets file not found: {path}. Copy tools/secrets.example.json and fill it in.");
 
         SecretsFile parsed;
         try

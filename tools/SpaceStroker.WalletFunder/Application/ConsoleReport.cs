@@ -1,4 +1,6 @@
-namespace SpaceStroker.WalletFunder;
+using SpaceStroker.WalletFunder.Domain;
+using SpaceStroker.WalletFunder.Infrastructure;
+namespace SpaceStroker.WalletFunder.Application;
 
 public static class ConsoleReport
 {
@@ -7,7 +9,7 @@ public static class ConsoleReport
         => address.Length <= 14 ? address : $"{address[..6]}…{address[^5..]}";
 
     public static void PrintPlan(
-        FundingPlan plan, Receipts receipts, decimal availableSol, decimal feeHeadroomSol, TimeSpan window, bool live)
+        FundingPlan plan, ReceiptsStore receipts, decimal availableSol, decimal feeHeadroomSol, TimeSpan window, bool live)
     {
         Console.WriteLine();
         Console.WriteLine(live ? "FUNDING PLAN (LIVE)" : "FUNDING PLAN (dry run — nothing will be sent)");
@@ -50,7 +52,7 @@ public static class ConsoleReport
         return string.Equals(typed, expected, StringComparison.Ordinal);
     }
 
-    public static void PrintSummary(Receipts receipts)
+    public static void PrintSummary(ReceiptsStore receipts)
     {
         Console.WriteLine();
         Console.WriteLine("SUMMARY");

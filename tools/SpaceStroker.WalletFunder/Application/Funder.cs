@@ -1,4 +1,8 @@
-namespace SpaceStroker.WalletFunder;
+using SpaceStroker.WalletFunder.Domain;
+using SpaceStroker.WalletFunder.Infrastructure;
+using SpaceStroker.WalletFunder.Infrastructure.Coinbase;
+using SpaceStroker.WalletFunder.Infrastructure.Solana;
+namespace SpaceStroker.WalletFunder.Application;
 
 public sealed record FunderOptions(
     string ReceiptsPath,
@@ -24,7 +28,7 @@ public sealed class Funder(SecretsFile secrets, FunderOptions options)
         }
 
         var plan = FundingPlan.Build(pool);
-        var receipts = Receipts.LoadOrCreate(options.ReceiptsPath, plan, options.ForcePlanChange);
+        var receipts = ReceiptsStore.LoadOrCreate(options.ReceiptsPath, plan, options.ForcePlanChange);
 
         using var coinbase = new CoinbaseClient(secrets.Coinbase);
         var confirmer = new SolanaConfirmer(secrets.Solana);
@@ -86,7 +90,7 @@ public sealed class Funder(SecretsFile secrets, FunderOptions options)
 
             var entry = receipts.For(scheduled.Transfer);
 
-            if (Receipts.NeedsSend(entry))
+            if (ReceiptsDocument.NeedsSend(entry))
             {
                 try
                 {
@@ -133,7 +137,7 @@ public sealed class Funder(SecretsFile secrets, FunderOptions options)
     /// <summary>Poll Coinbase to a terminal status, then require an on-chain credit before "Confirmed".</summary>
     private async Task SettleAsync(
         CoinbaseClient coinbase, SolanaConfirmer confirmer, CoinbaseAccount account, PlannedTransfer transfer,
-        ReceiptEntry entry, Receipts receipts, long snapshotLamports, CancellationToken ct)
+        ReceiptEntry entry, ReceiptsStore receipts, long snapshotLamports, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(entry.CoinbaseTransactionId)) return;
 

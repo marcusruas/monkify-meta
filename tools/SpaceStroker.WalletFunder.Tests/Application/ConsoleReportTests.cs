@@ -1,7 +1,9 @@
 using Shouldly;
 using Xunit;
+using SpaceStroker.WalletFunder.Application;
+using SpaceStroker.WalletFunder.Domain;
 
-namespace SpaceStroker.WalletFunder.Tests;
+namespace SpaceStroker.WalletFunder.Tests.Application;
 
 public class ConsoleReportTests
 {
