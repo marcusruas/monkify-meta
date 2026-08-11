@@ -333,16 +333,24 @@ arithmetic lives in `Domain` and is unit-tested with no network.
 
 ```csharp
 public sealed record CurveState(
-    ulong VirtualTokenReserves, ulong VirtualSolReserves,
-    ulong RealTokenReserves,    ulong RealSolReserves,
+    ulong VirtualTokenReserves, ulong VirtualQuoteReserves,
+    ulong RealTokenReserves,    ulong RealQuoteReserves,
     ulong TokenTotalSupply,     bool  Complete,
-    string? Creator);
+    string Creator,             bool  IsMayhemMode,
+    bool  IsCashbackCoin,       string QuoteMint);
 ```
 
-- **Layout:** 8-byte Anchor discriminator, then the `u64` fields in the order above, then the
-  `complete` bool; newer deployments append the `creator` pubkey. ⚠️ **Verify the field order and
-  presence against a live account before trusting the decode** — the same rule as §6.4. Decoding
-  reserves in the wrong order silently produces a plausible but wrong price.
+- **Layout (VERIFIED 2026-08-11 against the program's own on-chain IDL and a real account dump; this
+  replaces the pre-implementation guess of `…_sol_reserves` + optional creator):** 8-byte discriminator
+  `[23,183,248,55,96,216,172,96]`, then `virtual_token_reserves`, `virtual_quote_reserves`,
+  `real_token_reserves`, `real_quote_reserves`, `token_total_supply` (all `u64`), `complete` (bool),
+  `creator` (pubkey), `is_mayhem_mode` (bool), `is_cashback_coin` (bool), `quote_mint` (pubkey).
+- ⚠️ **A curve is not necessarily SOL-quoted.** `quote_mint == 11111111111111111111111111111111` (the
+  default pubkey) means SOL; anything else is priced in another token and is **refused** at preflight
+  rather than mispriced as lamports.
+- ⚠️ **Fees are program config, not constants.** `fee_basis_points` (**95**) and
+  `creator_fee_basis_points` (**5**) are read from the `global` PDA at runtime — they have changed
+  before, and a stale constant misquotes every wallet.
 - **Price for a buy of `t` tokens** (constant product over the *virtual* reserves):
 
   ```
@@ -391,21 +399,28 @@ spendableLamports  = max( 0, walletSolBalance − reserveLamports − ataRentIfM
 
 ### 6.4 The buy instruction — `Infrastructure/Solana/PumpFunProgram.cs`
 
-⚠️ **This is the one part of the spec that must be re-derived, not trusted.** Before writing this
-file: pull a **recent successful buy** for any pump.fun token from the RPC
-(`getSignaturesForAddress` on the curve → `getTransaction`), and read off the program id, the account
-list **in order**, the writable/signer flags and the instruction data layout. Match it exactly. The
-account list has changed at least once (the creator-vault account was added after launch), and every
-list published in a blog post is a snapshot of some past deployment.
+⚠️ **This was the one part of the spec that had to be re-derived rather than trusted — and doing so
+changed it.** ✅ **RESOLVED at implementation time (2026-08-11)** from the program's **own on-chain
+Anchor IDL** (`AYgC53tU5BbP2NAnv5nConJxAdpQZctvmZK88pu69xRs`) plus decoded live buys. Every derivation
+below is pinned in `PumpFunProgramTests` against a real mainnet transaction; if pump.fun redeploys,
+that test fails and the fix is to re-derive from a fresh transaction, never to patch from documentation.
 
-What the implementation is expected to look like once verified:
-
-| Element | Value / derivation |
+| Element | Verified value |
 | --- | --- |
-| Program id | The pump.fun bonding-curve program (read it off the live transaction) |
-| Discriminator | **Computed** as `SHA256("global:buy")[0..8]` (decision 15) — never a pasted hex constant |
-| Data | discriminator ‖ `amount: u64` (tokens out, base units) ‖ `maxSolCost: u64` (lamports) |
-| Accounts | global config PDA · fee recipient (from the global account) · mint · bonding curve PDA `["bonding-curve", mint]` · the curve's associated token account · the buyer's ATA · the buyer (signer, writable) · system program · token program · creator vault PDA `["creator-vault", creator]` · event authority PDA `["__event_authority"]` · the program itself |
+| Program id | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P` · fee program `pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ` |
+| Discriminator | **Computed** as `SHA256("global:buy")[0..8]` = `66063d1201daebea` (decision 15) |
+| Data | discriminator ‖ `amount: u64` ‖ `max_sol_cost: u64` ‖ **`track_volume: OptionBool`** — ⚠️ a **third arg the pre-implementation spec did not know about**. Live traffic carries all three encodings and all land: omitted (24 bytes, the commonest — our default), `0x00`, `0x01 0x01`. |
+| Accounts (16, IDL order) | `global` PDA`["global"]` · `fee_recipient` (w, from the global account) · `mint` · `bonding_curve` PDA`["bonding-curve", mint]` (w) · `associated_bonding_curve` (w) · `associated_user` (w) · `user` (signer, w) · `system_program` · `token_program` · `creator_vault` PDA`["creator-vault", curve.creator]` (w) · `event_authority` PDA`["__event_authority"]` · `program` · `global_volume_accumulator` PDA`["global_volume_accumulator"]` · `user_volume_accumulator` PDA`["user_volume_accumulator", user]` (w) · `fee_config` PDA`["fee_config", <program>]` **under the fee program** · `fee_program` |
+
+⚠️ **Live buys carry 18 accounts, not 16.** The two extras are trailing remaining-accounts the IDL does
+not declare (one owned by the fee program, one not yet created). We send the 16 the IDL declares and
+expose `snipe.extraAccounts` for forward-compatibility; if a future deployment *requires* them, the
+failure mode is a **reverted transaction — no SOL moves**.
+
+⚠️ **The token program varies per mint.** Live pump.fun mints use both SPL Token and Token-2022, and
+both the buyer's and the curve's ATA derivations depend on which. Solnet's
+`AssociatedTokenAccountProgram.DeriveAssociatedTokenAccount` hardcodes SPL Token, so the tool derives
+ATAs itself from `[owner, tokenProgram, mint]`.
 
 Transaction assembly, following `SolanaService.TransferTokens` in `monkify-backend`
 (`TransactionBuilder` → `SetRecentBlockHash` → `SetFeePayer` → `AddInstruction` → `Build(accounts)`):
@@ -619,10 +634,10 @@ Project: `monkify-meta/tools/SpaceStroker.TokenSniper.Tests` (xUnit + Shouldly, 
 3. **The funder's pool tolerance is already in place** — `WalletPool.JsonOpts` deliberately leaves
    `UnmappedMemberHandling` at the default *with a comment naming card #63*, so the shared file
    (AC18) works today without touching the funder.
-4. ⚠️ **`ComputeBudgetProgram` in Solnet 6.1.0 is unverified.** `monkify-backend` never sets a
-   priority fee, so there is no precedent in this workspace. If the type is absent, hand-build both
-   instructions against program id `ComputeBudget111111111111111111111111111111` rather than shipping
-   without a priority fee — an unprioritised buy in a busy launch window may simply never land.
+4. ✅ **RESOLVED — `ComputeBudgetProgram` does NOT exist in Solnet.Programs 6.1.0.** Verified against
+   the package; `monkify-backend` never sets a priority fee, so there was no helper to borrow. Both
+   instructions are hand-built against `ComputeBudget111111111111111111111111111111`:
+   `[2, u32 units]` = SetComputeUnitLimit, `[3, u64 microLamports]` = SetComputeUnitPrice.
 5. **Transaction assembly precedent:** `SolanaService.TransferTokens`
    (`monkify-backend/src/SpaceStroker.Infrastructure/Services/Solana/SolanaService.cs:386-424`) is the
    in-house pattern — `TransactionBuilder` + `SetRecentBlockHash` + `SetFeePayer` + `Build(accounts)`,
@@ -751,3 +766,4 @@ The agent stops at step 3. Steps 4+ spend real SOL and are the operator's.
 | Date | Change |
 | --- | --- |
 | 2026-08-11 | Initial spec from the refined card (#63), after a from-scratch re-refinement. |
+| 2026-08-11 | **Implemented** on `feature/ghost-wallet-snipe`. §6.2 and §6.4 rewritten with the protocol facts read off mainnet (the IDL + live buys) — the pre-implementation guesses they replace were wrong in five ways: the curve's quote-side fields are `*_quote_reserves` (not `*_sol_reserves`) and it now also carries `is_mayhem_mode`, `is_cashback_coin` and a **`quote_mint` that need not be SOL**; `buy` takes a **third arg** (`track_volume`); live buys carry **18 accounts against the IDL's 16**; the **token program varies per mint** (SPL Token *and* Token-2022 are both live), so ATAs must be derived by hand; and the **fee rates are `global`-account config** (95 + 5 bps), not constants. §12 finding 4 resolved: Solnet.Programs 6.1.0 has **no** `ComputeBudgetProgram`, so the priority-fee instructions are hand-built. 118 unit tests, the funder's 79 untouched and still green. |
