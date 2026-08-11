@@ -61,17 +61,6 @@ try
     var events = new EventStream();
     var poll = new PollLoop(state, secrets, reader, jupiter, ConsoleReport.Log);
 
-    var runner = new SellRunner(
-        state, secrets, jupiter, reader,
-        new SolanaSender(rpc),
-        new TokenAccountCloser(rpc, reader),
-        receipts,
-        sellEvent =>
-        {
-            ConsoleReport.Event(sellEvent);
-            events.Publish("sell", sellEvent);
-        });
-
     var builder = WebApplication.CreateBuilder();
 
     // 127.0.0.1 ONLY. There is no authentication, and none is needed *because* of this bind —
@@ -83,6 +72,21 @@ try
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
+    var lifetime = app.Lifetime.ApplicationStopping;
+
+    // The runner takes the APPLICATION's token, never a request's — see SellRunner.RunAsync.
+    var runner = new SellRunner(
+        state, secrets, jupiter, reader,
+        new SolanaSender(rpc),
+        new TokenAccountCloser(rpc, reader),
+        receipts,
+        sellEvent =>
+        {
+            ConsoleReport.Event(sellEvent);
+            events.Publish("sell", sellEvent);
+        },
+        lifetime);
+
     ApiEndpoints.Map(app, state, secrets, jupiter, quotes, runner, poll, events);
 
     var url = $"http://127.0.0.1:{options.Port}";
@@ -90,7 +94,6 @@ try
 
     await poll.RefreshAsync(CancellationToken.None);
 
-    var lifetime = app.Lifetime.ApplicationStopping;
     _ = Task.Run(() => poll.RunAsync(lifetime), lifetime);
 
     if (options.OpenBrowser)

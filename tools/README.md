@@ -7,11 +7,15 @@ purpose — they move real money.
 | Project | Binary | What it does |
 | --- | --- | --- |
 | `SpaceStroker.WalletFunder` | `spacestroker-fund-wallets` | Funds a pool of Solana wallets with **SOL** out of a Coinbase account. |
+| `SpaceStroker.Nightfall` | `spacestroker-nightfall` | Local dashboard over the same pool: see each wallet's SOL and token position, and **sell** one or many concurrently. |
 
 > Sibling of `monkify-meta/deploy/` (the GCP deploy stack) and deliberately **not** part of it: a
 > real-money withdrawal CLI does not belong in the deploy solution or in a repo built into container
 > images. Card [#63 "Create ghost wallet snipe app"](https://trello.com/c/nokWHm7z) will add its
 > project to this same solution.
+
+The three tools are one lifecycle: **#165 funds** the pool with SOL, **#63 buys** the supply, and
+**Nightfall sells** it.
 
 ---
 
@@ -141,3 +145,105 @@ dotnet test SpaceStroker.Tools.sln
 The suite covers the **pure** logic — plan/idem derivation, preflight, receipts/resume, the spread
 schedule, config loading, JWT construction and the exact send-body JSON (including `travel_rule_data`). There is deliberately **no fake Coinbase sender**: the
 live path is verified by dry-running against the real key (see the spec's Manual QA section).
+
+---
+
+## spacestroker-nightfall
+
+Spec: [`specs/nightfall-dashboard.md`](../specs/nightfall-dashboard.md) ·
+Trello [#166](https://trello.com/c/mUDhAdBu)
+
+### ⚠️ Read this before your first run
+
+- **This tool sells real holdings and a sale cannot be undone.** Every guardrail below exists because
+  there is no recovery from a bad batch. Do not script around them.
+- **It starts in `SIMULATE` on every launch.** The mode is never persisted, and the check is
+  server-side — a browser cannot post its way past a simulating host. Rehearse a drag-select before
+  you arm it.
+- **A click selects; it never sells.** Selling is always the explicit `SELL SELECTED` button plus a
+  confirmation. That is deliberate: click would otherwise mean two different things depending on
+  whether the mouse moved.
+- **The host binds `127.0.0.1` only.** There is no authentication and none is needed *because* of
+  that bind. Do not widen it — the process holds the pool's spend keys.
+
+### Configure
+
+```bash
+cp secrets.nightfall.example.json secrets.nightfall.json    # git-ignored; the template is not
+```
+
+| Field | Meaning |
+| --- | --- |
+| `solana.rpcUrl` | The keyed endpoint. Used for **every** read and every broadcast. Masked to host-only wherever logged. |
+| `token.mint` | The Token CA. Config-only — the browser never supplies it. |
+| `jupiter.apiBaseUrl` | Base for `/quote`, `/swap-instructions` and `/swap`. ⚠️ Jupiter moved off `quote-api.jup.ag/v6`; confirm the current base against their docs. |
+| `jupiter.slippageBps` | Applied to every sell. `300` = 3%. |
+| `jupiter.maxPriceImpactPercent` | A quote worse than this **aborts that wallet before broadcasting**. |
+| `jupiter.prioritizationFeeLamports` | Priority fee passed to the swap; `0` disables. |
+| `jupiter.quoteCacheSeconds` | TTL of the hover-quote cache. |
+| `sell.maxConcurrentSells` | Max sells in flight at once (default 4). |
+| `sell.minSolForFeeSol` | Below this a wallet is flagged and excluded — top it up with `spacestroker-fund-wallets`. |
+| `sell.refreshIntervalSeconds` | Auto-poll interval. |
+| `sell.confirmTimeoutSeconds` | How long to wait for a transaction to reach `confirmed`. |
+| `sell.closeEmptiedTokenAccounts` | Whether a 100% sell reclaims the token-account rent afterwards. |
+| `wallets[]` | `Alias` + `PublicKey` + `PrivateKey`. **Unknown fields are ignored**, so card #63's pool file pastes in verbatim. |
+
+Each `PrivateKey` is checked **at load** by deriving its public key and comparing it to the stated
+address — a mismatch is otherwise only discovered as an opaque on-chain signature failure, mid-batch,
+after a quote has already been paid for.
+
+### Run
+
+```bash
+# Opens http://127.0.0.1:5177 in your browser. Starts in SIMULATE.
+dotnet run --project SpaceStroker.Nightfall
+
+# Options: --secrets <path>  --receipts <path>  --port <n>  --no-open
+```
+
+Work in `SIMULATE` first: hover a few wallets to see live quotes, rehearse the drag-select, and run a
+confirmation through to the end — it builds the real transaction and broadcasts nothing. Only then
+switch to `LIVE`.
+
+### What a sell does
+
+1. **Fresh balance read** — never the polled figure, so "100%" is 100% of what is there right now.
+2. **Gates** — zero balance, SOL below `minSolForFeeSol`, or a percentage that rounds to zero tokens
+   all exclude the wallet with the reason named.
+3. **Quote** from Jupiter → expected SOL out and price impact.
+4. **Price-impact abort** — over `maxPriceImpactPercent` the wallet stops here, before anything is
+   signed. The rest of the batch continues.
+5. **Guard** — the instruction list is checked against a program allowlist, and the quote's mints and
+   amount against the plan, *before* a signature exists.
+6. **Sign locally, broadcast through your own RPC.** The key never leaves the process.
+7. **Settle** — realized SOL is read from the confirmed transaction's balance deltas, so you see what
+   you actually got next to what you were quoted.
+8. **Close** — a 100% sell reclaims the emptied token account's rent in a **separate** transaction; a
+   failure there costs the rent, never the sale.
+
+Sells run concurrently up to `maxConcurrentSells`. One wallet's failure never cancels another's:
+429s, transport errors and expired blockhashes retry with backoff, while slippage, no-route and
+insufficient-balance are reported and leave the wallet re-selectable.
+
+`nightfall-receipts.json` is rewritten after **every** state change — token amount sold, quoted vs
+realized SOL, signature, status, timestamp. It is the audit trail; it is git-ignored, and it never
+contains a private key.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Clean shutdown, `--help`, or an empty pool. |
+| `1` | Fatal — unreadable secrets, an invalid pool, or the token mint could not be read. |
+| `2` | Usage error (unknown option, missing value). |
+
+### Tests
+
+```bash
+dotnet test SpaceStroker.Tools.sln
+```
+
+112 tests cover the **pure** logic: the sell-percentage maths, the exclusion gates, the instruction
+guard, retryable-vs-terminal classification, the realized-SOL parse, the receipt state machine,
+config loading, the quote cache, and transaction signing. There is deliberately **no fake Jupiter and
+no fake RPC** — the live path is verified by running in `SIMULATE` against the real endpoints.

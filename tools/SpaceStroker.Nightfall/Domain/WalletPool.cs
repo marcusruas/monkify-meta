@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Org.BouncyCastle.Crypto.Parameters;
 using Solnet.Wallet;
 using Solnet.Wallet.Utilities;
 
@@ -95,36 +96,49 @@ public static class WalletPool
     /// Proves the configured private key actually controls the configured address. A mismatch here is
     /// otherwise only discovered as an opaque on-chain signature failure, mid-batch, after a quote.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ The public key is DERIVED from the secret, not read from it. Two tempting shortcuts are
+    /// both wrong: `new Account(privateKey, publicKey)` simply stores whatever address you hand it
+    /// (it never derives, so comparing against it always passes — a unit test caught exactly that),
+    /// and the trailing 32 bytes of the keypair are only the address the file *claims*. Deriving
+    /// from the seed is the one check a mistyped or mismatched file cannot satisfy.
+    /// </remarks>
     public static void ValidateKeyPair(PoolEntry entry)
     {
         if (string.IsNullOrWhiteSpace(entry.PrivateKey))
             throw new NightfallException($"Wallet '{entry.Alias}' has no PrivateKey.");
 
-        Account account;
+        byte[] secret;
         try
         {
-            var secret = Encoders.Base58.DecodeData(entry.PrivateKey);
-
-            // A Solana keypair export is 64 bytes (32-byte seed then 32-byte public key). Solnet's
-            // Account(privateKey, publicKey) wants them as base58 strings, so hand it what we decoded.
-            if (secret.Length != 64)
-                throw new NightfallException(
-                    $"Wallet '{entry.Alias}' has a PrivateKey of {secret.Length} bytes; a Solana keypair is 64.");
-
-            account = new Account(entry.PrivateKey, entry.PublicKey);
+            secret = Encoders.Base58.DecodeData(entry.PrivateKey);
         }
-        catch (NightfallException)
+        catch (Exception)
         {
-            throw;
+            throw new NightfallException($"Wallet '{entry.Alias}' has a PrivateKey that is not valid base58.");
+        }
+
+        // A Solana keypair export is 64 bytes: 32-byte seed followed by the 32-byte public key.
+        if (secret.Length != 64)
+            throw new NightfallException(
+                $"Wallet '{entry.Alias}' has a PrivateKey of {secret.Length} bytes; a Solana keypair is 64.");
+
+        string derived;
+        try
+        {
+            // Ed25519PrivateKeyParameters wants the SEED — the first 32 bytes only, not all 64.
+            // (The same 32-of-64 lesson #165 recorded for the Coinbase CDP key.)
+            var seed = new Ed25519PrivateKeyParameters(secret, 0);
+            derived = Encoders.Base58.EncodeData(seed.GeneratePublicKey().GetEncoded());
         }
         catch (Exception ex)
         {
             throw new NightfallException($"Wallet '{entry.Alias}' has an unreadable PrivateKey: {ex.Message}");
         }
 
-        if (account.PublicKey.Key != entry.PublicKey)
+        if (derived != entry.PublicKey)
             throw new NightfallException(
-                $"Wallet '{entry.Alias}': the PrivateKey belongs to a different address than the PublicKey it is " +
-                "configured with. Signing would produce an opaque on-chain failure at spend time.");
+                $"Wallet '{entry.Alias}': the PrivateKey belongs to a different address ({derived}) than the " +
+                "PublicKey it is configured with. Signing would produce an opaque on-chain failure at spend time.");
     }
 }

@@ -21,31 +21,53 @@ public sealed class SellRunner(
     SolanaSender sender,
     TokenAccountCloser closer,
     ReceiptsStore receipts,
-    Action<SellEvent> publish)
+    Action<SellEvent> publish,
+    CancellationToken applicationStopping)
 {
-    public async Task<string> RunAsync(IReadOnlyList<string> wallets, decimal? percent, CancellationToken ct)
+    /// <summary>
+    /// Starts the batch and returns its id immediately; the browser follows progress over SSE rather
+    /// than holding a request open for the length of a sale.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ The batch deliberately does NOT run under the request's CancellationToken. That token is
+    /// <c>HttpContext.RequestAborted</c>, which fires the moment this response completes — so a
+    /// fire-and-forget batch started with it is cancelled instantly and silently. (A live smoke test
+    /// caught exactly that: the endpoint returned a batch id and nothing ever happened.) The batch
+    /// belongs to the application's lifetime, not to the HTTP call that asked for it.
+    /// </remarks>
+    public Task<string> RunAsync(IReadOnlyList<string> wallets, decimal? percent, CancellationToken requestAborted)
     {
         var batchId = Guid.NewGuid().ToString("N")[..8];
-        using var gate = new SemaphoreSlim(secrets.Sell.MaxConcurrentSells);
 
-        var work = wallets.Select(async publicKey =>
+        // Named and then deliberately unused, so the next reader sees the choice rather than an
+        // omission. See the remarks above.
+        _ = requestAborted;
+
+        var ct = applicationStopping;
+
+        _ = Task.Run(async () =>
         {
-            await gate.WaitAsync(ct);
-            try
-            {
-                await SellOneAsync(publicKey, percent, batchId, ct);
-            }
-            finally
-            {
-                gate.Release();
-            }
-        });
+            // Disposed only after every wallet has finished — disposing it when RunAsync returns
+            // would pull the semaphore out from under the batch still using it.
+            using var gate = new SemaphoreSlim(secrets.Sell.MaxConcurrentSells);
 
-        // Fire and forget: the browser follows progress over SSE rather than holding a request open
-        // for the length of a batch.
-        _ = Task.Run(async () => await Task.WhenAll(work), ct);
+            var work = wallets.Select(async publicKey =>
+            {
+                await gate.WaitAsync(ct);
+                try
+                {
+                    await SellOneAsync(publicKey, percent, batchId, ct);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            });
 
-        return batchId;
+            await Task.WhenAll(work);
+        }, ct);
+
+        return Task.FromResult(batchId);
     }
 
     private async Task SellOneAsync(string publicKey, decimal? percent, string batchId, CancellationToken ct)

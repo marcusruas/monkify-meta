@@ -1,4 +1,6 @@
 using Shouldly;
+using Solnet.Wallet;
+using Solnet.Wallet.Bip39;
 using SpaceStroker.Nightfall.Domain;
 using Xunit;
 
@@ -64,6 +66,30 @@ public class WalletPoolTests
     public void Accepts_a_well_formed_address()
     {
         Should.NotThrow(() => WalletPool.ValidateAddress(ValidAddress, "W01"));
+    }
+
+    [Fact]
+    public void Accepts_a_genuine_keypair()
+    {
+        // Proves the config-load check agrees with what Solnet actually produces — otherwise
+        // ValidateKeyPair would reject every real wallet and nothing could ever load.
+        var wallet = new Wallet(new Mnemonic(WordList.English, WordCount.Twelve));
+        var entry = new PoolEntry("Real", wallet.Account.PublicKey.Key, wallet.Account.PrivateKey.Key);
+
+        Should.NotThrow(() => WalletPool.ValidateKeyPair(entry));
+    }
+
+    [Fact]
+    public void Rejects_a_key_that_belongs_to_a_different_address()
+    {
+        // The failure this catches is otherwise an opaque on-chain signature error, mid-batch,
+        // after a quote has already been paid for.
+        var mine = new Wallet(new Mnemonic(WordList.English, WordCount.Twelve));
+        var theirs = new Wallet(new Mnemonic(WordList.English, WordCount.Twelve));
+        var mismatched = new PoolEntry("Mismatched", theirs.Account.PublicKey.Key, mine.Account.PrivateKey.Key);
+
+        Should.Throw<NightfallException>(() => WalletPool.ValidateKeyPair(mismatched))
+            .Message.ShouldContain("different address");
     }
 }
 

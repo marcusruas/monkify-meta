@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nightfall</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <!-- Arcade cabinet skin (mockup 1b, approved 2026-08-11). Behaviour is fixed by the spec; only
+         this skin was a design choice. -->
+    <header class="bar">
+      <div class="logo"><span>NIGHT</span><i>FALL</i></div>
+
+      <div class="meta" id="meta"></div>
+
+      <!-- The mode switch. LIVE is visually unmistakable on purpose: it is the only control on the
+           page that turns a rehearsal into real money. -->
+      <div class="mode" id="mode" role="group" aria-label="Broadcast mode">
+        <button type="button" class="mode-opt on" data-live="false">SIMULATE</button>
+        <button type="button" class="mode-opt" data-live="true">LIVE</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="toolbar">
+        <button type="button" class="chip" id="select-all">SELECT ALL</button>
+        <button type="button" class="chip" id="clear">CLEAR</button>
+        <button type="button" class="chip" id="refresh">REFRESH</button>
+        <span class="stamp" id="stamp"></span>
+      </div>
+
+      <!-- The marquee is drawn over this grid; a wallet card never triggers a sale on click. -->
+      <section class="grid" id="grid" aria-label="Wallet pool"></section>
+
+      <p class="empty" id="empty" hidden>No wallets in the pool.</p>
+    </main>
+
+    <!-- Hover detail: the live quote for the CURRENT sell %, and after a sale the realized SOL. -->
+    <aside class="hover" id="hover" hidden></aside>
+
+    <footer class="foot">
+      <label class="lbl" for="percent">SELL %</label>
+      <input
+        id="percent"
+        class="inp"
+        type="text"
+        inputmode="decimal"
+        placeholder="100"
+        autocomplete="off"
+        aria-describedby="percent-hint"
+      />
+      <span class="lbl hint" id="percent-hint">BLANK = 100% OF EACH WALLET'S OWN BALANCE</span>
+      <span class="lbl count" id="count">0 SELECTED</span>
+      <button type="button" class="go" id="sell" disabled>SELL SELECTED</button>
+    </footer>
+
+    <!-- Confirmation. Nothing is broadcast until this is accepted. -->
+    <div class="veil" id="veil" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <h2 class="dialog-title" id="dialog-title">CONFIRM SELL</h2>
+        <div class="dialog-body" id="dialog-body"></div>
+        <div class="dialog-foot">
+          <button type="button" class="btn ghost" id="cancel">CANCEL</button>
+          <button type="button" class="btn danger" id="confirm">YES, SELL</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="marquee" id="marquee" hidden></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
