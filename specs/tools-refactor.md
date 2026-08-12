@@ -1,10 +1,30 @@
 # SpaceStroker — "Tools refactor" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [#167 Tools refactor](https://trello.com/c/Co35YRGt/167-tools-refactor) (2026-08-11).
-> Repos affected: **`monkify-meta` only** — `monkify-backend` and `monkify-front` are **not**
-> touched (no entity, handler, consumer, EF mapping, migration, endpoint, SignalR contract,
-> composable or component).
+> **Status: SHIPPED 2026-08-11** — merged to `main` via `feature/tools-refactor` in **`monkify-meta`
+> only**. Refined + specced from Trello card
+> [#167 Tools refactor](https://trello.com/c/Co35YRGt/167-tools-refactor).
+> `monkify-backend` and `monkify-front` are **not** touched (no entity, handler, consumer, EF mapping,
+> migration, endpoint, SignalR contract, composable or component) — no branch was ever created in
+> either. **405 unit tests green** (322 across `tools/SpaceStroker.Tools.sln`, up from 191; 83 in the
+> new `deploy/SpaceStroker.Deploy.sln`). `Minor change` ⇒ **no integration test and no dedicated
+> `features/tools-refactor.md`**.
+>
+> **What the sweep actually achieved:** `features/` 65 files → **15** (690 → 180 KB), `specs/` 118 →
+> **80** (4,460 → 3,273 KB), `INDEX.md` 517 → **415 KB**, and **zero dead links repo-wide** (61 were
+> broken mid-sweep and all were repaired).
+>
+> ⚠️ **Two deviations from this spec, both deliberate and user-approved:**
+> 1. **AC15 ("the in-flight section is byte-identical") was NOT met, by decision.** It conflicted with
+>    AC14 (zero dead links): that 207 KB section contained **30 links to docs the sweep deleted or
+>    merged**. The user chose to repoint them. **Only link targets changed — every word of prose is
+>    preserved** (verified programmatically: the section is identical once link targets are ignored,
+>    207 KB → 206 KB). §9.4 step 4 and decision 3 should be read with that correction.
+> 2. **`deploy/secrets.seeder.json` was NOT deleted** (§6.3 / §10.3 item 18). It is untracked and
+>    therefore unrecoverable, and it is a secrets file the agent is forbidden to read — so deleting it
+>    was left to the operator. The `bin`/`obj` residue *was* removed.
+>
+> Two follow-ups for the operator: that file, and the **one-time hand-merge** of
+> `secrets.nightfall.json` into `tools/secrets.json` under a `nightfall` key (§5.1).
 >
 > **Purpose:** two pieces of housekeeping in `monkify-meta`. (1) Make the `tools/` console apps
 > consistent — one shared `secrets.json`, one git-ignored `Receipts/` folder, `SpaceStroker.DbConsole`
