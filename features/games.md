@@ -1,8 +1,12 @@
-# Feature — Games (types, play flow, typer, rewards)
+# Domain — Games (types, play flow, typer, rewards)
 
 > The core game loop. A **game** is one round of a game type; players bet on a character
 > sequence, a simulated "monkey" types random characters until a bet's sequence appears, and the
 > matching bets win the pot.
+>
+> **§11 onward** covers the rules layered on that loop: choice exclusivity, free-bet mode, the pot
+> display, the house seed bet, lottery scheduling and jackpot stacking, typer pacing, and the
+> near-miss reveal. Deep design for each is in `../specs/` — linked per section.
 >
 > Primary code:
 >
@@ -56,7 +60,7 @@ The fields on `GameParameters` define how a type behaves:
 > Choices are **trimmed** (`Bet.Choice` setter) but **case-preserved** — the alphabets above are
 > lowercase-only, so a choice containing uppercase (or any out-of-alphabet character) is **rejected**
 > as `InvalidCharacters`, not silently lowercased. The pool is lowercase because non-lowercase input
-> is refused at validation. See `specs/bet-choice-casing.md`.
+> is refused at validation. See §11.
 
 ---
 
@@ -423,3 +427,170 @@ stateDiagram-v2
 
 
 
+
+---
+
+## 11. Choice exclusivity (free-text types)
+
+Spec: [`../specs/choice-exclusivity.md`](../specs/choice-exclusivity.md).
+
+In **free-text** games (no `PresetChoices` — e.g. *Cosmic Sprint*) each typed sequence is **exclusive
+to the first player who bets it** in a round: a different player betting the same sequence is rejected
+and **auto-refunded** if they already paid on-chain. **Preset** games (e.g. *Beast Mode*) are
+unchanged — many players may share a preset choice. Because a free-text winning sequence maps to
+exactly one bet, free-text rounds are effectively **winner-takes-all**.
+
+- **First persisted bet reserves the choice**, per round; choices free up on the next `Game`.
+- `Bet.Choice` is **trimmed, case-preserved**. ⚠️ Casing is **not folded** — uppercase is rejected as
+  `InvalidCharacters` *before* reservation (the alphabets are lowercase-only), so a reserved choice is
+  always lowercase.
+- ⚠️ **A second, CROSS-round reservation exists.** An Orbit player may set a fixed word, and on a
+  free-text type that word becomes a **standing claim on the game type** (an `OrbitChoiceClaim` row,
+  unique on `(GameParametersId, Choice)`) that blocks everyone else in **every** round — including
+  rounds Orbit does not bet in. Unlike the per-round reservation it does **not** free on the next
+  `Game`; it is released when the word is changed, cleared, or Orbit is disabled. **Preset types are
+  never claimed.** A blocked human sees `ChoiceAlreadyTaken` and the same refund path,
+  **byte-identical** to a same-round collision — deliberately, so Orbit stays invisible to other
+  players. See [`orbit.md`](orbit.md).
+
+## 12. Free-bet mode (dev/QA)
+
+Spec: [`../specs/free-bet-mode.md`](../specs/free-bet-mode.md).
+
+Places bets **without** a wallet or on-chain payment while exercising the full lifecycle. Production
+must reject free bets at the API and hide the toggle.
+
+- ⚠️ **Dual guard:** backend `GeneralSettings.Games.AllowFreeBets` (default `false` in production
+  deploy config) **and** frontend `allowFreeBets`, **and** the game type's `AllowFreeBet`.
+- **Detection is runtime, not a field:** `amount == 0` **and** empty/missing `paymentSignature`. Mixed
+  signals (amount 0 *with* a signature, or amount > 0 with none) are **invalid**, not free.
+- **Wallet is optional** for free bets; anonymous free bets keep `Bet.PlayerId` NULL.
+- **Pot:** free bets are excluded from the pot sum. Mixed rounds: paid bets fund the pot, free bets
+  still participate in the typer.
+- **Rewards:** free winners are marked `Rewarded` with an info log only — no transfer. The blockhash
+  pre-check runs only when at least one **paid** winner exists.
+- **Frontend flag `allowFreeBets` is enabled by default** — set `VUE_APP_ALLOW_FREE_BETS=false` in
+  production builds.
+
+## 13. The pot display
+
+Spec: [`../specs/game-pot-display.md`](../specs/game-pot-display.md). **Frontend-only** — derived
+client-side from data the client already has; no backend, DB, SignalR or settlement change.
+
+- Shown for **all three modes**. Races: sum of placed bet amounts. Lottery: base pot
+  `+ game.carriedExtra + Σ bets`.
+- ⚠️ **The lottery base comes from `ActiveGameDto.LotteryPot` on the game instance**, not the
+  separately-fetched game-type parameters — so it cannot be silently dropped when the two fetches are
+  out of sync.
+- **Realtime** via the `{gameId}/Bets` stream, for every game type. (That stream moved onto the single
+  `Games` hub; event name and payload unchanged — see [`infra.md`](infra.md).)
+- **Free bets contribute nothing**, so a dev free-bet race pot reads `0` while a lottery still shows
+  its base.
+- **Always visible** — pre-run, running and ended, so the final total stays on screen.
+
+## 14. The house seed bet
+
+Spec: [`../specs/house-seed-bet.md`](../specs/house-seed-bet.md). **Production only.**
+
+Every newly created round opens with **one paid bet already on it**, from a dedicated house wallet, on
+all three game types. A round never reads as a dead game, and — because the seeded bet counts as a
+distinct player — **a single real player is enough to start a round**.
+
+⚠️ **The seeded bet is an ORDINARY bet, and that is the defining property.** No marker column, no DTO
+field, no flag, no migration, no payment-validation bypass, no payout redirect, **no branch anywhere**.
+It is indistinguishable from any player's bet in the database and in every payload. That works because
+the house wallet is **both the transfer's sender and the bet's own `Wallet`**, so
+`SolanaService.ValidateBetPayment` resolves both lookups and the shipped validator passes untouched.
+
+⚠️ **`Bet.FundedByOrbit` is never set for a seeded bet, and must not be.** That flag exists solely
+because Orbit's *custody account* signs on behalf of a **different** player's wallet. Setting it here
+would discard a validation that genuinely passes **and** route a win into the player-custody account.
+
+*(It replaced `SpaceStroker.Seeder`, a console app polling every 6 hours that covered only two types
+and stopped whenever that machine was off. The app is deleted.)*
+
+## 15. Lottery draw time
+
+Spec: [`../specs/lottery-draw-time.md`](../specs/lottery-draw-time.md).
+
+A lottery type can pin its draw to a **fixed UTC time of day** instead of drawing one period after
+whenever the previous round happened to be created. **Space Jackpot** draws daily at **22:00 UTC** and
+does not drift.
+
+⚠️ **The bug that exposed this:** Space Jackpot was configured `"LotteryFrequency": "24:00:00"`, and
+.NET's `TimeSpan` parser reads a leading component **above 23** as **days** — so the "daily" jackpot
+was drawing every **24 days** while the lobby, the terminal and the landing page all advertised a daily
+draw.
+
+- **`LotteryParameters.DrawTimeUtc`** is a nullable UTC time of day. **Null = the legacy rolling
+  schedule**, so every pre-existing lottery behaves exactly as before.
+- **Anchor and period are both kept.** Draw slots are the fixed grid
+  `{ epoch + DrawTimeUtc + k·Frequency }` where the epoch is **`DateTime.MinValue`, not "today"** — so
+  the grid is identical across restarts, hosts and rollovers.
+- A round draws at the **earliest slot at least `MinimumLotteryDrawLeadSeconds` away** (default 600),
+  so it never opens with a uselessly short betting window.
+- ⚠️ **That lead must sit strictly between `MinimumWaitPeriodForBets` and the lottery's `Frequency`.**
+  Below the wait period, `BetPlacedConsumer` returns before the under-subscribed refund branch — and
+  because a lottery gets no other `BetPlacedEvent`, the round is **stuck forever holding real money**.
+
+## 16. Lottery pot stacking
+
+Spec: [`../specs/lottery-pot-stacking.md`](../specs/lottery-pot-stacking.md).
+
+Un-won lottery money **stacks** into the next round instead of vanishing, so the pot grows until
+someone wins.
+
+- **The jackpot lives on the game:** `Game.CarriedExtra` (`numeric(18,9)`, default `0`), on top of the
+  config base `LotteryParameters.LotteryPot`. Effective pot = `Σ bets + LotteryPot + CarriedExtra`.
+  It is `0` for every non-lottery game, a fresh lottery, and the round after a paid win.
+- **A lottery pays no one in two ways:** (a) a **preset** lottery draws a winning choice **nobody bet
+  on** (the typer registers every preset with count 0, so the draw can land on an un-backed preset);
+  (b) **under-subscription** — fewer than `MinimumNumberOfPlayers` by draw time, so the draw never runs
+  and paid stakes are refunded. A **free-type** lottery always has a winner when it draws.
+- **Carry rule — single source of truth `LotteryPotCarry.NextCarriedExtra(Game)`**, applied once when
+  the successor is created: a preset no-winner draw carries `prev + Σ predecessor stakes` (**the losing
+  stakes are not refunded — they join the jackpot**); under-subscription or abrupt close carries the
+  base unchanged; a paid win resets to the config base.
+- **Admin deactivation transfers** an un-won pot to an eligible active lottery (same method/token) or
+  **blocks** — it is never destroyed.
+
+## 17. Typer pacing
+
+Spec: [`../specs/typer-pacing-scalability.md`](../specs/typer-pacing-scalability.md).
+
+⚠️ **Pacing-only: the same seed + bets produce the same character stream and the same winner.** Only
+wall-clock timing changes.
+
+- **Targets:** race mean **8–18 s**, p95 ≤ 30 s; lottery draw run mean **10–30 s**, p95 ≤ 45 s. **No
+  minimum duration** — instant natural wins are allowed.
+- **Time-budget pacing:** ms-per-character is scheduled from the mode target and a search-space horizon
+  (`min(expectedCharsToWin, MaxTyperCharacters)`). A `Stopwatch` drives delays — ⚠️ **sleep only when
+  ahead of schedule (≥ 4 ms surplus), never slow further when behind**, which is what makes it hardware-
+  and load-stable.
+- **The `DisplaySpeed` ramp (1→2→3)** is tied to elapsed fractions of the target mean (⅓, ⅔), not
+  character counts. Visual only.
+- **Fallback winner:** at `CharactersTypedCount == _maxCharacters` with no natural match, the winner is
+  picked over ordinally-sorted choices. The trigger is a **fixed character count**, so the same seed +
+  bets give the same stream **and** the same winner on any host. Exposed as `WinnerDecidedByFallback` —
+  see [`provably-fair.md`](provably-fair.md) for how it is derived rather than replayed.
+
+## 18. The near-miss reveal
+
+Spec: [`../specs/characters-away.md`](../specs/characters-away.md). ⚠️ The spec body describes the
+original 3/2/1 pinned-milestone design; **the shipped behaviour is the bottom-docked climbing row
+below.**
+
+For each word **the current player bet this round**, the terminal shows how close the monkey has come,
+as a live `> N AWAY!` row docked at the bottom next to the `> POT:` line. Display-only, every game type.
+
+- **Scope = the player's own committed choices** — one row each. Other players' and un-bet preset
+  choices are never shown.
+- ⚠️ **Distance is tail-prefix progression (KMP), not window Hamming.** For a choice of length `L`,
+  `away = L − k` where `k` is the longest suffix of the stream so far that is a **prefix** of the
+  choice. A natural win is exactly `k == L`, mirroring `SpaceStrokerTyper.CheckForWinners`. Matched
+  characters render as the first `k` characters of the choice; the rest as neutral underscores.
+- **Closest-approach, climbing, 2 s loop.** Each row shows the best `k` of the current attempt; if it
+  does not improve for 2 s it resets and climbs again. The number never regresses mid-attempt.
+- **Win reveal:** when the round ends, the winning word — **if the player bet it** — types out to
+  `away = 0` at ~80 ms/char and holds. Non-winning rows freeze.
+- **Always visible** in a sticky, **opaque** bottom dock, so the auto-scrolling stream never hides it.
