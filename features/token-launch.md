@@ -67,9 +67,20 @@ knowingly-accepted cost is that the most prominent section on the page says "the
 ## 4. What the copy is allowed to claim
 
 - ⚠️ **Both named mechanics are FUTURE TENSE, always.** The copy promises that the house **will** buy and
-  burn from the existing 1% cut, and that the jackpot **will** carry a token-seeded bonus. **Neither
-  exists in code.** Present tense fails an on-chain check on day one. Each mechanic is its own follow-up
-  card.
+  burn from the existing 1% cut, and that Space Jackpot winners **will be rewarded** with the token from
+  the treasury. **Neither exists in code.** Present tense fails an on-chain check on day one. Each
+  mechanic is its own follow-up card.
+- **The jackpot mechanic's wording (owner, 2026-08-12).** The heading is **`Space Jackpot earns you
+  $STROKE`** and the body **`Every winner of Space Jackpot will be rewarded with $STROKE from the
+  Treasury Wallet.`** It replaced *"Bigger jackpots"* / *"The daily Space Jackpot will carry a $STROKE
+  bonus on top of the USDC pot"* — the heading names the mode **and** the payout, so the body says who
+  gets it and where it comes from instead of repeating the mode name.
+  ⚠️ **That pair is verbatim in TWO files and they move together:** `monkify-lp` →
+  `TokenSection.vue` and `monkify-front` → `HomeTokenCard.vue`. Changing one ships two different
+  promises. ⚠️ **The GUIDE's jackpot row is deliberately NOT synced to it** — `GuideToken.vue` keeps
+  *"No fixed size, no schedule: it is a bonus, not a payout rule"*, which is the owner's call that the
+  manual must not put a figure or a schedule on a discretionary bonus. The two are compatible (every
+  winner gets some; the amount is never promised); do not "fix" the difference.
 - ⚠️ **Nothing may state or imply the token can be used to place bets.** This is why
   `SpaceRoadmap.vue` phase 5 no longer reads *"the token stays your stake in all of it"* — vague future
   talk before launch, a checkable lie once a real contract address sits two sections above it. (Phase 1's
@@ -125,13 +136,49 @@ Moving a section without rebalancing those puts two similar backdrops next to ea
 
 ## 6. ⚠️ The app manual says MORE than the LP, on purpose
 
-`/how-to-play`'s token section carries the **1,000,000,000 total**, every slice in **tokens as well as
-percent**, the mint address, the treasury address and the **1% cut by name**. The LP carries none of the
-first three.
+`/how-to-play`'s token section carries the **1,000,000,000 total**, the mint address, the treasury
+address, the **1% cut by name** and the **team release ladder**. The LP carries none of those.
 
 This is the agreed split (owner, 2026-08-12), not drift: the manual is the surface that states real
 figures, and every claim in it lands on a number or an address a reader can paste into an explorer. **Do
 not "harmonise" the two by deleting from the guide.**
+
+### ⚠️ Percentages only — no token counts anywhere in the copy
+
+Owner, 2026-08-12: *"don't talk in token units, only in percentages."* This **reverses** the rule that
+"real figures" meant resolved counts. Every share on every surface is a **percentage of supply**:
+
+| Was | Is |
+| --- | --- |
+| `250,000,000 IS SET ASIDE FOR PLAYERS` | `25% OF THE SUPPLY IS SET ASIDE FOR PLAYERS` |
+| legend note opening `250,000,000 $STROKE — …` | the note alone (the `dt` above it already carries `25%`) |
+| team eyebrow `THE TEAM'S 100,000,000` | `THE TEAM'S 10%` |
+| *"We take it 10,000,000 at a time"* | *"We take it 1% at a time"* |
+| stepper gains `+10M` / `all 100M` | `+1%` / `all 10%` |
+
+**Why:** a count is only as good as `TOTAL_SUPPLY`, which is an assumption about the launchpad, and the
+percentages themselves are still `TODO(launch)` at their source. A share survives both of those moving;
+a hard count silently becomes a false statement.
+
+⚠️ **`tokensForPercent` and `UNLOCK_STEP_TOKENS` were DELETED from
+`monkify-front/src/constants/token.ts`**, not left unused — re-adding a count is now a visible change to
+that file rather than a one-line slip in a template.
+
+⚠️ **THE ONE EXCEPTION is the `1,000,000,000` total** (the guide's lede and its supply eyebrow). It is
+the denominator every percentage is read against, it cannot be restated as a percentage, and it is the
+app-only disclosure this whole section exists to protect. `formatTokens` survives for exactly that.
+
+### ⚠️ No em dashes in the guide's token copy
+
+Owner, 2026-08-12: *"remove em dashes from the how-to-play#token (ai giveaway)."* Every `—` in the
+**rendered** text of `GuideToken.vue` is now a comma, a colon or a full stop; the ones left in the file
+are all inside code comments. It is a **punctuation** rule, not a rewrite licence — the sentences are the
+owner's own and were only re-punctuated. ⚠️ `–` and ` - ` are **not** substitutes; same tell, different
+glyph.
+
+> ⚠️ **Scoped to `/how-to-play#token`.** The LP's own token section (including its `STRAIGHT TALK`
+> pre-launch branch, which is marked final copy) still uses em dashes and was **not** swept. Widening
+> this to the rest of either site is a separate decision.
 
 ⚠️ **The consequence: `TREASURY_SLICES` now exists in BOTH repos** (`monkify-lp/src/constants.ts` and
 `monkify-front/src/constants/token.ts`). **A percentage change is a two-repo change.** The underlying

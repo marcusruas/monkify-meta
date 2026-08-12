@@ -635,11 +635,11 @@ authority) → **the contract bar** → four fact rows → **the supply block** 
 | What it states | Source | ⚠️ |
 | --- | --- | --- |
 | Total supply `1,000,000,000` | `TOTAL_SUPPLY` (const) | A property of the **launchpad** — every pump.fun mint is 1B / 6 decimals / no mint authority — not a number we chose, which is why it is safe as a constant and not read on-chain. **If the launch is ever not a pump.fun mint, this and every count derived from it is wrong.** |
-| Each slice in **tokens** and percent | `tokensForPercent(slice.percent)` | Derived from `TREASURY_SLICES`, so the bar, the legend and the prose cannot drift. `en-US` grouping is **pinned** — an unlocalised `toLocaleString()` renders `250.000.000` on a German browser next to `250,000,000` written into prose. |
+| ~~Each slice in **tokens** and percent~~ **SUPERSEDED — percent only** | `slice.percent` | ⚠️ Shipped as `tokensForPercent(slice.percent)`; **reversed 2026-08-12** (owner: *"don't talk in token units, only in percentages"*) and `tokensForPercent` was **deleted**. See [`features/token-launch.md`](../features/token-launch.md) → "Percentages only". `formatTokens` survives for the 1B total alone, where `en-US` grouping is still **pinned** — an unlocalised `toLocaleString()` renders `1.000.000.000` on a German browser. |
 | The **mint address** | `TOKEN_MINT` (env) | In the **first screenful**, not with the CTAs: it is the first thing anyone verifying us looks for. No `v-if` — the section itself is gated on `tokenLive`. |
 | The **treasury address** | `TREASURY_WALLET` (env, **new**) | `v-if` **is** required here: it is a separate fail-closed value, so a build may legitimately have a live mint and no wallet. Unset drops the bar only; the split still renders. |
 | The **1% house cut**, by name | literal | ⚠️ **Reverses the "no number in the manual" rule**, and `GuideWhatYouWin` was changed in the **same commit** — the two sections move together or the manual contradicts itself. Both still send the player to the STATS panel for their mode's live `ActiveGame.commissionPercentage`. Phrased as **"1% of what you win above your own stake"**: the base is `max(0, winnerReward − ownStake − houseFundedShare)`, so a shorter phrasing overstates what we take. |
-| The team release ladder | `UNLOCK_STEP_TOKENS`, `TEAM_PERCENT` | Stepper gains are in **tokens** (`+10M`), not `+1%` — see below. |
+| The team release ladder | `UNLOCK_STEP_PERCENT`, `TEAM_PERCENT` | ⚠️ Shipped with gains in **tokens** (`+10M`) on the argument below; **reversed 2026-08-12** to `+1%` / `all 10%`, and `UNLOCK_STEP_TOKENS` was **deleted**. Note `cap` is **dollars of market cap** and `gain` is **share of supply** — two units one column apart, which is why the gain never carries a `$`. |
 
 **⚠️ The team's 10% is NOT LOCKED, and the copy must never imply it is.** Owner, 2026-08-12: *"this
 thing is not LITERALLY locked btw, it's our suggestion of what we wanna do. it's not like literally
@@ -647,8 +647,9 @@ vested tokens from a serious project."* There is **no vesting account and no tim
 that shipped before this — *"None of it is liquid on day one. It releases 1% at a time"* — reads as an
 enforced schedule, and anyone can check for a vesting contract in under a minute and find nothing.
 
-- **The caveat is one line, and it carries two halves.** *"No vesting contract, no lock — just a rule
-  we set and a wallet you can watch."* The **denial** and the **proof** are both required: the denial
+- **The caveat is one line, and it carries two halves.** *"No vesting contract and no lock, just a rule
+  we set and a wallet you can watch."* (Re-punctuated 2026-08-12 by the no-em-dash rule; the two halves
+  are untouched.) The **denial** and the **proof** are both required: the denial
   alone is an apology, the proof alone is the claim that got struck. ⚠️ **But it does not grow back
   into a paragraph.** The four-line version that first satisfied this rule was cut by the owner the
   same day — *"less of a tone of disclaimer, more fun — disclaimer should be one liners"* — because it
@@ -667,7 +668,7 @@ each of these is a repetition the build actually shipped before it was cut:
 
 | Where | Said the same thing | Now |
 | --- | --- | --- |
-| Team block | *"10% of the supply"* + *"1% — 10,000,000 — at a time"* + *"Ten steps, ten percent"*, under a heading already reading **THE TEAM'S 100,000,000** and a legend row already reading **10%** | Heading carries the total, the paragraph carries the rule, the stepper carries the ladder. **Nothing states any of them twice.** |
+| Team block | *"10% of the supply"* + *"1% — 10,000,000 — at a time"* + *"Ten steps, ten percent"*, under a heading already reading **THE TEAM'S 100,000,000** and a legend row already reading **10%** | Heading carries the total, the paragraph carries the rule, the stepper carries the ladder. **Nothing states any of them twice.** ⚠️ The token counts here were later dropped for percentages (2026-08-12): the heading is **THE TEAM'S 10%** and the paragraph *"we take it 1% at a time"*. The no-repetition rule is unchanged. |
 | Treasury line | Restated the treasury total, then explained what a block explorer is | *"Every move out of it is a public transaction with a timestamp on it. Watch it."* |
 | Supply lede + float legend | *"No presale…"* in both | Lede only |
 | Closer | Opened *"And Space Stroker works with or without it"*, then said the same thing better with *"the game runs on USDC and always will"* — conceding twice | Two sentences |
