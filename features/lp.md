@@ -5,38 +5,65 @@
 > DB or game surface here, and the repo has **no test suite** — DoD is `npm run build` clean + browser QA.
 >
 > Three passes built the current page: the token-free relaunch, the arcade-cabinet visual redesign, and
-> the pre-launch polish. Deep design:
+> the pre-launch polish. A fourth added the token surface. Deep design:
 > [`../specs/lp-space-stroker-relaunch.md`](../specs/lp-space-stroker-relaunch.md) ·
 > [`../specs/lp-redesign.md`](../specs/lp-redesign.md) ·
-> [`../specs/lp-final-adjustments.md`](../specs/lp-final-adjustments.md).
+> [`../specs/lp-final-adjustments.md`](../specs/lp-final-adjustments.md) ·
+> [`../specs/token-launch-ui.md`](../specs/token-launch-ui.md).
 
 ## Positioning
 
-Space Stroker is presented as a **token-free launch**: players bet **real USDC** on what Edson the space
-chimp types next — provably fair, instant on-chain (Solana) payouts, auto-refunds — with **no house coin
-to buy**. Audience: pre-launch degen/arcade players.
+Players bet **real USDC** on what Edson the space chimp types next — provably fair, instant on-chain
+(Solana) payouts, auto-refunds. Audience: pre-launch degen/arcade players.
+
+⚠️ **"Token-free" is now a BUILD STATE, not the product's positioning.** The page has a full pump.fun
+token surface behind `PUBLIC_TOKEN_MINT`; with that key empty it renders exactly the token-free page
+described below. **The coin is never a stake** — rounds still settle in USDC and every token claim on
+the page is information only. See [`token-launch.md`](token-launch.md).
 
 - **Brand:** every user-visible surface reads **Space Stroker** — wordmark **SPACE·STROKER** ("OUT" in
   primary orange `#ffa214`). The built site contains **no user-visible `Monkify` / `$MONKIFY`**.
-- **USDC is the stake** wherever money is named; no token is offered as currency.
-- **No token to buy.** The old Tokenomics section is gone, replaced by a two-column **"No token. Yet."**
-  card (`#token`): nothing to buy now, a token *may* come later (⚠️ **never** a ticker or contract
-  address), plus an anti-scam line — a "$SPACESTROKER" for sale today is not us.
+- **USDC is the stake** wherever money is named; **the coin is never offered as currency**, in either
+  build state.
+- **Pre-launch (`PUBLIC_TOKEN_MINT` empty): no token to buy.** The old Tokenomics section is gone,
+  replaced by a two-column **"No token. Yet."** card: nothing to buy now, a token *may* come later
+  (⚠️ **never** a ticker or contract address), plus an anti-scam line — a "$SPACESTROKER" for sale today
+  is not us. It now lives in `TokenSection.vue` rather than inline in `index.astro`.
+- **Post-launch (mint configured): the live token section replaces that card in the same slot.** Coin,
+  ticker, copyable contract bar, two CTAs (Buy on pump.fun · Chart), two **future-tense** mechanic cards
+  and the treasury block. ⚠️ **No total supply, decimals, mint authority or LP status** — that split is
+  deliberate; the app's manual carries those figures instead. Rules in
+  [`token-launch.md`](token-launch.md).
 - **Trust points**, all stated: provably-fair per-round seed, instant on-chain Solana payouts,
   auto-refund of bad bets.
 - **Roadmap** perks are future/earned-by-playing — no holder gating, no "$MONKIFY live". The HI-SCORE
   banner and phases read as **labelled goals** ("HI-SCORE WE'RE CHASING"), never live metrics.
+  ⚠️ **Phase 5 must never claim the token is a stake** — it used to read *"the token stays your stake in
+  all of it"* and was rewritten for exactly that reason.
 - ⚠️ **The house commission is stated by hand on the Terms page** (`src/pages/terms.astro`) and **must be
   updated with any rate change** — see [`money.md`](money.md). It was once found stating 0.5% after the
   rate moved to 1%.
 
 ## Page structure
 
-Section order: hero → `#about` (how-it-works) → `#modes` → `#story` → `#token` → `#roadmap` →
-`#community`.
+Section order: hero → **`#token`** → `#about` (how-it-works) → `#modes` → `#story` → `#roadmap` →
+`#community`. ⚠️ **`#token` was 6th and is now 2nd**, in **both** build states.
+
+⚠️ **`ContentSection`'s backdrop props are POSITIONAL.** `hue` / `neb` / `pattern` / `nebOpacity` carry
+the one-way blue→red journey down the page and **stay with the slot**; only `art` travels with its
+section. Moving a section without rebalancing them puts two similar backdrops next to each other — the
+`#token` promotion had to rebalance all six.
 
 - **Hero is two-column:** copy + CTAs + a cosmetic **LIVE typing pill** on the left; a glowing Edson coin
-  + mascot chimp (`edson.png`) + a drifting comet on the right. Stacks to one column on mobile.
+  + mascot chimp (`edson.png`) + a drifting comet on the right. Stacks to one column on mobile. The
+  secondary CTA is `Join the gang` pre-launch and `Buy $TICKER` once the mint is set.
+- **The hero's arcade-cabinet HUD is TWO blocks, not one.** The decorative strings (`1P · READY`, plus
+  `HI-SCORE` / `INSERT COIN` pre-launch only) stay inline in `index.astro`, `aria-hidden` and
+  click-through. The three corners that hold **real controls** — pump.fun status, socials, contract bar —
+  live in `HeroHud.vue`, which is ⚠️ **deliberately not `aria-hidden`** (a focusable control inside an
+  aria-hidden subtree is Tab-reachable but invisible to a screen reader) and is ⚠️ **mounted after the
+  hero copy** so a keyboard user reaches "Play now" before "copy the contract". Both blocks hide below
+  `sm`, so nothing there may be the only route to its destination.
 - ⚠️ **The LIVE typing pill is purely cosmetic** — locally-generated random characters on a timer. It
   makes **no win/pot/money claim and issues no network request**; `prefers-reduced-motion` freezes it to
   a static string.
@@ -46,8 +73,10 @@ Section order: hero → `#about` (how-it-works) → `#modes` → `#story` → `#
   deliberately **not** a tabbed one-at-a-time layout.
 - **Story** keeps the EDSON.LOG CRT terminal (typed caption, `CH n/6`, PREV/NEXT + dots) wrapping Bolso's
   painted `part1–6` slides — restyled, not rebuilt.
-- **Header:** coin + wordmark, nav **Modes / Story / Roadmap / Troop**, **PLAY NOW** button. There is **no
-  "Buy" button** anywhere. **Footer:** the **"BET ON THE MONKEY"** tagline beside the wordmark.
+- **Header:** coin + wordmark, nav **Modes / Story / Roadmap / Troop**, **PLAY NOW** button. Once the
+  mint is set, **`Token` is prepended as the first nav item** (desktop + mobile both iterate one array,
+  so gating it there covers both) and nothing else is renamed. **Footer:** the **"BET ON THE MONKEY"**
+  tagline beside the wordmark.
 - **Per-section space art:** slowly-drifting sprites (planets / black hole / satellites / asteroids /
   comets) behind every section, with distinct nebula tints in a one-way blue→red journey and depth-based
   scroll parallax. ⚠️ **No wins/pot ticker or fabricated live-activity numbers appears anywhere.**
@@ -77,8 +106,13 @@ bottom-anchored. All three share one uniform square frame.
   in `src/constants.ts` and it is the **bare origin** — no `/space-stroker/game` path. Since the home
   dashboard dropped the route prefix, the origin resolves to the app's **starting page** rather than the
   bare lobby.
-- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/spacestroker`. **Discord was
-  removed** (the grid is 2-up). Nav label stays **"Community"**; "gang" appears in CTAs as flavour.
+- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/spacestroker`, YouTube
+  `https://www.youtube.com/@EdsonStroker`. **Discord was removed**; the grid is **3-up at `lg`** and
+  stacked below it (three columns inside that panel below ~1024px wrap the "TELEGRAM" label). Nav label
+  stays **"Community"**; "gang" appears in CTAs as flavour. ⚠️ **`SOCIALS` in `src/constants.ts` is THE
+  list** — the hero HUD and the community slots both iterate it, each mark is **one path on a 24×24 box**
+  so each consumer builds its own `<svg>`, and the array's **order and length** drive the community
+  grid's column count.
 - **LP self-domain** `https://spacestroker.com` is the Astro `site` (canonical/sitemap).
 - **No `/placeholder.png` fallback ever renders** — the `SpaceBackground.vue` spawn pool is always
   populated, so the `el.src || '/placeholder.png'` branch is unreachable.
@@ -87,10 +121,12 @@ bottom-anchored. All three share one uniform square frame.
 
 | File | Role |
 | --- | --- |
-| `src/pages/index.astro` | Hero, `#about` + FAIR PLAY bar, `#modes`, `#token` card, socials array, per-section art wiring |
+| `src/pages/index.astro` | Hero + decorative HUD, `#token` slot, `#about` + FAIR PLAY bar, `#modes`, per-section art wiring |
 | `src/pages/terms.astro` | ⚠️ The hand-written commission rate |
-| `src/constants.ts` | `GAME_URL` (bare origin) |
-| `src/components/Header.vue` · `Footer.vue` | Coin + wordmark + PLAY NOW · "BET ON THE MONKEY" |
+| `src/constants.ts` | `GAME_URL` (bare origin), `SOCIALS`, and the whole token block — see [`token-launch.md`](token-launch.md) |
+| `src/components/TokenSection.vue` · `HeroHud.vue` | The `#token` section (both states) · the interactive hero corners |
+| `src/components/PixelText.vue` · `PumpMark.vue` · `PixelIcon.vue` · `src/icons.ts` | ⚠️ Press Start 2P's `$`/`!` are drawn wrong and glyphs like `●` fall outside the self-hosted subset — display copy goes through `PixelText`, marks are drawn geometry, never a bare character |
+| `src/components/Header.vue` · `Footer.vue` | Coin + wordmark + PLAY NOW + gated `Token` nav item · "BET ON THE MONKEY" |
 | `src/components/HeroTypingPill.vue` | The cosmetic local LIVE pill |
 | `src/components/GameModes.vue` | The three-card `modes` array, GIF + poster imports, `cover`/`object-top`, reduced-motion swap |
 | `src/components/StoryCarousel.vue` | EDSON.LOG terminal (painted slides kept) |

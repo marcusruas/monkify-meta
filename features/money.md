@@ -4,6 +4,11 @@
 > winners, and how money that got stuck comes back to the player. Everything here settles in the one
 > configured token on-chain — there is no off-chain money path any more.
 >
+> ⚠️ **The project's pump.fun coin is NOT this token and never appears in this document.** It is
+> marketing information on a page, gated by its own env key, and it touches no stake, payout, refund or
+> ledger row. See [`token-launch.md`](token-launch.md) — conflating the two mints is the mistake that
+> doc exists to prevent.
+>
 > Deep design: [`../specs/crypto-commission.md`](../specs/crypto-commission.md) (the cut),
 > [`../specs/commission-rate-1-percent.md`](../specs/commission-rate-1-percent.md) (the current rate),
 > [`../specs/refund-safeguards.md`](../specs/refund-safeguards.md) (the refund lifecycle) and
@@ -73,12 +78,21 @@ netReward  = winnerReward − commission
   `GameStatsPage.vue` (`/game/stats`) interpolate `ActiveGame.commissionPercentage` /
   `GlobalStats.commissionPercentage`, so they read `"1% HOUSE CUT"` today and `"0% HOUSE CUT"` at a zero
   rate. **A rate change is zero frontend work.**
-- The how-to-play guide (`GuideWhatYouWin.vue`) deliberately names **no number** for that reason. No
-  terminal line, no lobby-card change.
-- ⚠️ **`monkify-lp/src/pages/terms.astro` is the one hand-written number.** It states *"currently 1%"*,
-  leads with the rule, and points at the in-app STATS panel as the live figure. **It must be updated
-  with any rate change** — it is a legal document, and it was once found stating 0.5% for exactly this
-  reason.
+- ⚠️ **There are now FOUR hand-written "1%"s, and a rate change must move ALL of them.** The badges above
+  are free; these are not. None of them is generated from config:
+
+  | Where | File | Note |
+  | --- | --- | --- |
+  | Terms page (LP) | `monkify-lp/src/pages/terms.astro` | A **legal document**. It was once found stating 0.5% after the rate moved to 1% |
+  | The manual, payout section | `monkify-front/.../GuideWhatYouWin.vue` | Since **2026-08-12** — it used to name no number |
+  | The manual, token section | `monkify-front/.../GuideToken.vue` | The buyback mechanic is funded "from the 1% house cut" |
+  | The LP token section + home card | `monkify-lp/.../TokenSection.vue`, `monkify-front/.../HomeTokenCard.vue` | Same mechanic sentence |
+
+  The guide's two both keep a hedge — the number is named **and** the reader is pointed at the STATS
+  panel for their mode's live rate. ⚠️ **The token copy does not and cannot**: a buyback funded by "a
+  small cut" is not a claim anyone can check. That is the cost of naming the mechanic. See
+  [`token-launch.md`](token-launch.md).
+- **No terminal line, no lobby-card change.**
 
 ### The multi-winner division fix (shipped alongside)
 

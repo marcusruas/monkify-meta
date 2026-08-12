@@ -63,6 +63,24 @@ labels, with a pixel glyph on the trigger. **The embed renders the same grid** w
 dismissal contract (opens on click, closes on item click or outside click, **no hover**) is unchanged,
 and the dev Admin shortcut is long gone.
 
+⚠️ **The pad has TWO full-width strips around that grid, and a tenth cell is not an option.** The audio
+slider sits above it; the token row (when a mint is configured) sits at its foot. Both are the same
+device, mirrored — keep them in step. A tenth *cell* would start a fourth row the grid can never fill,
+and the token row is the only destination in the pad that **leaves the app**, which a cell would
+misrepresent as a page. See [`token-launch.md`](token-launch.md).
+
+⚠️ **The header BAR carries no promotional control.** It is the funding/round strip — wallet, balance,
+audio — and a token pill shipped there for one build before being pulled: an always-on outbound CTA
+competed with the in-game primary actions on every screen, mid-round included.
+
+⚠️ **Press Start 2P draws `$` and `!` wrong, and coarse marks like `●` fall outside the self-hosted
+subset** (they silently fall back to a system font with that font's baseline). Display-face copy carrying
+them goes through **`ui/PixelText.vue`**, and marks are drawn geometry, never a bare character. Its
+wrapper `<span>` is load-bearing: inside `.btn-arcade` (an `inline-flex` with a `gap`) a fragment makes
+every piece its own flex item and renders `BUY $ S T ROKE`. ⚠️ **VT323's `$` is correct and must not be
+patched** — `MoneyValue.vue`'s prefix is only safe through `PixelText` because all four of its call sites
+render in the title face.
+
 ## 3. Mobile
 
 Mobile engages **below `lg` (1024px)** — reusing the `GameMonkey hidden lg:block` boundary, so landscape

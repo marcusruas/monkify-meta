@@ -146,8 +146,15 @@ visitor rather than to "referral / www.spacestroker.com".
   and re-prompt forever.
 - **Measured:** pageviews / referrer / `utm_*` / coarse geo / device automatically, plus
   `cta_play_click` (LP, with which CTA), `wallet_connect_attempt` / `_success` / `_failure` (with
-  `wallet_name` and `connect_path`; failures carry the error **name** only) and `bet_placed` (a count:
-  `game_type`, `payment_method`, `is_free`).
+  `wallet_name` and `connect_path`; failures carry the error **name** only), `bet_placed` (a count:
+  `game_type`, `payment_method`, `is_free`) and `token_click` (a **`source`** label and nothing else —
+  no wallet, no amount, no mint).
+- ⚠️ **`token_click` is deliberately separate from `home_link_click`.** The latter answers *"which
+  surface do players reach for from the front door"*; the former answers *"how many people want to know
+  about the coin"*, wherever it is shown. Its five sources (`home_buy`, `home_read_more`, `menu`,
+  `guide_buy`, `guide_supply`) read as a funnel — front-door card → guide → chart — so folding them would
+  make the front-door card look like it converts at a rate it does not. See
+  [`token-launch.md`](token-launch.md).
 - ⚠️ **No money and no player identity is ever sent** — `bet_placed` is a count, never an amount or a
   wallet.
 

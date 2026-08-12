@@ -130,6 +130,13 @@
   with a key stored in the same config bought nothing once no user could type a private key into the
   admin portal (`ISecretProtector`/`AesSecretProtector` are deleted). Deployed environments inject it
   via Secret Manager; the committed file carries a placeholder.
+- **The launch token** — the project's **pump.fun** coin (ticker `$STROKE`, a stand-in until launch).
+  ⚠️ **NOT the configured token above, and never a stake** — rounds settle in USDC and this coin has no
+  backend surface at all: no endpoint, entity, migration or settlement path. It exists only as copy on
+  four frontend surfaces, gated by `VUE_APP_TOKEN_MINT` / `PUBLIC_TOKEN_MINT` (fail-closed, build-time).
+  Its mint address and the **treasury wallet** (`VUE_APP_TREASURY_WALLET` / `PUBLIC_TREASURY_WALLET`, a
+  public address holding ~50% of supply) are the only two values that come from env. See
+  [`features/token-launch.md`](features/token-launch.md).
 - **TransactionLog** — **THE ledger**: one row per money movement, and the only one
   (`CryptoTransactionLog` was merged in and dropped, as `RefundLog` had been before it). Columns:
   **nullable `BetId`**, `Type` (`Credit | Debit | Refund`), token-native `Amount`, `Signature` (this

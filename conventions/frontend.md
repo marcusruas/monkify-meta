@@ -818,6 +818,16 @@ victory audio and the embedded `bet-settled` post — gating that `if` would hav
 grepping `dist/` for the feature's strings finds them all and proves nothing. Verify a flag by
 running the app in both states and watching the network tab.
 
+**A gate whose env var carries a VALUE lives with that value, not in `featureFlags.ts`.** `#160`'s
+token surfaces are gated on `VUE_APP_TOKEN_MINT`, which is an address the UI also *renders*; splitting
+"is it on" from "what is it" across two files would let them disagree. The whole block —
+the derived `tokenLive`, the ticker, the URLs built from the mint — lives in **`src/constants/token.ts`**,
+and `featureFlags.ts` stays what it says it is: booleans.
+
+⚠️ **Fail-closed means a real test, not a truthiness check.** An address gate validates shape —
+`/^[1-9A-HJ-NP-Za-km-z]{32,44}$/` for base58 — so a half-typed or whitespace value is treated as unset
+rather than rendered. A `Boolean(process.env.X)` gate would happily ship a Buy button pointing at `" "`.
+
 **Document every new flag in `.env.example`** with its production value and its fail direction; add
 it to `monkify-meta/deploy/secrets.example.json` → `frontBuild` if it must reach a deploy (the
 deploy tool serializes that whole block verbatim, so no C# change is needed), and to

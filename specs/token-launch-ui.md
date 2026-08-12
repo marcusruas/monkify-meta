@@ -1,6 +1,15 @@
 # SpaceStroker — "Prepare UI for token launch" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped — 2026-08-12**, via `feature/token-launch-ui` merged to `master` (`monkify-lp`) and
+> `main` (`monkify-front`, `monkify-meta`). The distilled, current-truth summary now lives in
+> [`../features/token-launch.md`](../features/token-launch.md); this spec stays as the deep design
+> archive. ⚠️ **What shipped diverges from this document in five owner calls made during
+> implementation** — the header bar button became a row at the foot of the ☰ pad, the home card sits
+> second rather than under the hero, the treasury became a block rather than a line, the app manual
+> gained a token section carrying supply/mint figures the LP omits, and `READ MORE` routes to
+> `/how-to-play#token` instead of the landing page. **Read the feature doc for what runs.**
+>
+> Refined via Trello card
 > [Prepare UI for token launch (#160)](https://trello.com/c/vDAP4YCE) (2026-08-09), spec written 2026-08-10.
 > Repos affected: `monkify-lp` (branch `master`), `monkify-front` (branch `main`), and this doc in
 > `monkify-meta`. **`monkify-backend` is NOT affected** — see §2.1.

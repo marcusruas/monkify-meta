@@ -28,19 +28,38 @@ first-time player has no reason to open.
 ⚠️ **The `/space-stroker` URL prefix is gone** (the app is hosted at `app.spacestroker.com`). That is
 why the LP's play CTA targets the **bare origin** and not a route — see [`lp.md`](lp.md).
 
+**Section order:** hero → the mode picker → **the token card** → how-it-works → feature cards → the
+player's own record → everyone's numbers. ⚠️ **The mode cards come first** because they are the only
+thing on the page a visitor can act on, and ⚠️ **the token card is second, not under the hero** — it was
+under the hero for one build and the owner reversed it, because a billboard must not push the actionable
+thing below the fold. It renders nothing at all unless a mint is configured. See
+[`token-launch.md`](token-launch.md).
+
 ## 2. `/how-to-play`
 
-One readable, linkable page explaining the game, in six deep-linkable sections: the game itself
-(premise + getting in + the round), the payout, the live modes, provable fairness, refunds, and the
-optional preferences.
+One readable, linkable page explaining the game, in deep-linkable sections: the game itself (premise +
+getting in + the round), the payout, the live modes, provable fairness, refunds, **the project's coin**
+and the optional preferences.
+
+⚠️ **The token section is CONDITIONAL** — it enters `GUIDE_SECTIONS` only on a build with a mint
+configured, so both the nav and the body lose it together and the page is otherwise unchanged.
+`#token` still resolves safely without it (the page matches the hash against that same array). It sits
+**second-to-last**, after refunds: everything about the game comes first, and ⚠️ **a manual that explains
+a tradeable asset before it has finished explaining the game is a prospectus**. It is also the surface
+that carries the **real supply and treasury figures** the LP deliberately omits.
 
 It **replaced the Quick Tour**, which auto-opened once behind seven guards and was then gone forever.
 ⚠️ **Nothing auto-opens any more, on any route, for any player.** The Quick Tour is **deleted from the
 product** — `QuickTourModal.vue`, `useQuickTour.ts`, `constants/quickTours.ts`, the seven guards and
 the version keys are all gone.
 
-⚠️ The guide deliberately **names no commission number** — the rate is rendered live from the backend
-elsewhere, and a hardcoded number here would rot. See [`money.md`](money.md).
+⚠️ **The guide NOW NAMES THE RATE — 1% (owner, 2026-08-12).** It used to name no number, on the grounds
+that the rate is configurable and a hardcoded figure would rot; what changed is that the LP and the token
+card have always said *"the 1% house cut"*, which left the manual as the only surface refusing to. The
+hedge survives as the sentence after it: the number is named **and** the player is still sent to the
+STATS panel for their mode's live rate. ⚠️ **Two sections carry the figure** (`GuideWhatYouWin` and
+`GuideToken`) — if a deployment ever runs a rate that is not 1%, **both are wrong and both move**. See
+[`money.md`](money.md).
 
 The same card converted **Responsible Gaming** from a ☰ modal into its own page at
 `/responsible-gaming`. See [`legal.md`](legal.md).
@@ -62,7 +81,13 @@ change with it.** Later work added a guided tutorial and an always-win outcome.
 ## Key code touchpoints (`monkify-front`)
 
 `src/pages/HomePage.vue`, `src/pages/HowToPlayPage.vue`, `src/pages/ResponsibleGamingPage.vue`,
-`src/pages/PracticePage.vue`, the guide section components (`GuideWhatYouWin.vue` and siblings),
+`src/pages/PracticePage.vue`, the guide section components (`GuideWhatYouWin.vue` and siblings) +
+`src/constants/guideSections.ts` (the registry both the nav and the body derive from),
 `src/routes.ts` (prefix-free routes), and the home hero/sprite components.
+
+⚠️ **`HomeSection.vue`'s `title` prop is optional ONLY because of its `header` slot.** A section taking
+the default header still must pass one — an untitled panel is a bug, not a variant. The slot exists for
+the single panel whose heading *is* a piece of type (the token card's ticker), it replaces the whole head
+block, and nothing supplies a fallback `<h2>`.
 
 **No backend surface** beyond what the home dashboard reads from the existing stats endpoints.
