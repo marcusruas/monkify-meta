@@ -118,7 +118,9 @@ public static class PumpFunProgram
         ulong amount,
         ulong maxSolCost,
         bool? trackVolume = null,
-        IEnumerable<PublicKey>? extraAccounts = null)
+        IEnumerable<PublicKey>? extraAccounts = null,
+        PublicKey? bondingCurveV2 = null,
+        PublicKey? buybackFeeRecipient = null)
     {
         var keys = new List<AccountMeta>
         {
@@ -139,6 +141,19 @@ public static class PumpFunProgram
             AccountMeta.ReadOnly(DeriveFeeConfig(), false),
             AccountMeta.ReadOnly(FeeProgramId, false),
         };
+
+        // ⚠️ The two accounts the DEPLOYED program reads past the IDL's 16. Positional: supplying one
+        // without the other would shift the recipient into the curve's slot, so both or neither.
+        if (bondingCurveV2 is null != buybackFeeRecipient is null)
+            throw new SniperException(
+                "bondingCurveV2 and buybackFeeRecipient must be passed together — they are positional " +
+                "trailing accounts and one without the other builds a buy the program misreads.");
+
+        if (bondingCurveV2 is not null && buybackFeeRecipient is not null)
+        {
+            keys.Add(AccountMeta.ReadOnly(bondingCurveV2, false));
+            keys.Add(AccountMeta.Writable(buybackFeeRecipient, false));   // the program moves SOL into it
+        }
 
         foreach (var extra in extraAccounts ?? Enumerable.Empty<PublicKey>())
             keys.Add(AccountMeta.ReadOnly(extra, false));

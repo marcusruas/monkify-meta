@@ -384,10 +384,21 @@ The account list and instruction layout were read from the program's **own on-ch
 `PumpFunProgramTests`. If pump.fun redeploys, **that test is what tells you** — re-derive from a fresh
 transaction rather than patching from documentation.
 
-- The IDL declares **16 accounts** for `buy`; **live buys carry 18**. The two extras are unnamed
-  trailing accounts (one owned by the fee program, one not yet created). We send the 16 the IDL
-  declares; `snipe.extraAccounts` exists if a future deployment starts requiring them. The failure mode
-  is a **reverted transaction — the SOL does not move**.
+- The IDL declares **16 accounts** for `buy`; the **deployed program reads 18**, and both extras are now
+  **mandatory** — this stopped being optional between the first version of this tool and 2026-08-12.
+  A 16-account buy is rejected with `BuybackFeeRecipientMissing` (6062, thrown at `sell.rs:145`).
+  - **`[16] bonding_curve_v2`** — read-only, per-mint, and usually not yet created on chain. Its PDA
+    seeds are **not published**: every const seed in the on-chain IDL was tried against four live buys
+    and none reproduces it. The tool therefore **reads it off a buy the chain already accepted**
+    (`BuyTrace` + `SolanaGateway.FindBondingCurveV2Async`), scanning the mint's bonding-curve
+    signatures newest-first. Every pump.fun token has at least one such buy — the creator's launch buy.
+    Supplying the wrong account here fails with `InvalidBondingCurveV2` (6074, `sell.rs:133`).
+  - **`[17]` a buyback fee recipient** — must be **WRITABLE** (the program moves SOL into it; read-only
+    fails with `PrivilegeEscalation`). Any of the **8** in `global.buyback_fee_recipients` is accepted —
+    verified across live buys on one mint — so the run rotates through them rather than contending on
+    one. They live at **offset 741** of Global, past every field this tool used to read.
+- `snipe.extraAccounts` still exists for a *future* deployment's extras and is appended **after** those
+  two. It cannot substitute for them: it marks everything read-only.
 - `buy` takes a **third arg** (`track_volume`). Live traffic carries all three encodings — omitted
   (24-byte data, the commonest), `0x00`, and `0x01 0x01` — and all land.
 - **The token program varies per mint:** live pump.fun mints use both SPL Token and Token-2022, and both

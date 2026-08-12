@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Solnet.Rpc;
 using Solnet.Rpc.Builders;
 using Solnet.Rpc.Models;
 using Solnet.Rpc.Types;
 using Solnet.Wallet;
+using Solnet.Wallet.Utilities;
 using SpaceStroker.TokenSniper.Domain;
 
 namespace SpaceStroker.TokenSniper.Infrastructure.Solana;
@@ -22,12 +24,16 @@ public sealed class SolanaGateway
 {
     private readonly IRpcClient _client;
 
+    private static readonly HttpClient Http = new();
+    private readonly string _rpcUrl;
+
     public SolanaGateway(string rpcUrl)
     {
         if (string.IsNullOrWhiteSpace(rpcUrl))
             throw new SniperException("solana.rpcUrl is empty — a keyed RPC endpoint is required.");
 
         _client = ClientFactory.GetClient(rpcUrl);
+        _rpcUrl = rpcUrl;
         MaskedEndpoint = MaskRpcUrl(rpcUrl);
     }
 
@@ -146,6 +152,102 @@ public sealed class SolanaGateway
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Finds <c>bonding_curve_v2</c> for a mint by reading it off a buy the chain already accepted —
+    /// see <see cref="BuyTrace"/> for why it is read rather than derived. Scans the mint's bonding-curve
+    /// signatures newest-first, so the value reflects the deployment currently in force. Null when no
+    /// buy carrying it exists yet.
+    /// </summary>
+    public async Task<PublicKey?> FindBondingCurveV2Async(PublicKey mint, int maxTransactions = 20)
+    {
+        var curve = PumpFunProgram.DeriveBondingCurve(mint);
+        var signatures = await _client.GetSignaturesForAddressAsync(curve.Key, 100, commitment: Commitment.Confirmed);
+
+        if (!signatures.WasSuccessful || signatures.Result is null)
+            throw new SniperException($"Could not list transactions for the bonding curve {curve.Key}: {signatures.Reason}");
+
+        var examined = 0;
+        foreach (var signature in signatures.Result)
+        {
+            if (examined++ >= maxTransactions) break;
+
+            var found = await FindBondingCurveV2InTransactionAsync(signature.Signature);
+            if (found is not null) return found;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// ⚠️ Raw JSON-RPC on purpose. Solnet 6.1.0's <c>GetTransactionAsync</c> sends no
+    /// <c>maxSupportedTransactionVersion</c> and the node then refuses every versioned (v0)
+    /// transaction — which is most pump.fun traffic, routers included. Verified against the endpoint:
+    /// "Transaction version (0) is not supported by the requesting client."
+    /// </summary>
+    private async Task<PublicKey?> FindBondingCurveV2InTransactionAsync(string signature)
+    {
+        var payload = $$"""
+            {"jsonrpc":"2.0","id":1,"method":"getTransaction","params":["{{signature}}",
+             {"encoding":"json","maxSupportedTransactionVersion":0,"commitment":"confirmed"}]}
+            """;
+
+        using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+        using var response = await Http.PostAsync(_rpcUrl, content);
+        if (!response.IsSuccessStatusCode) return null;
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        if (!json.RootElement.TryGetProperty("result", out var result) || result.ValueKind is JsonValueKind.Null)
+            return null;
+
+        if (!result.TryGetProperty("meta", out var meta)) return null;
+
+        // A failed transaction proves nothing about the accounts the program accepts.
+        if (meta.TryGetProperty("err", out var error) && error.ValueKind is not JsonValueKind.Null) return null;
+
+        var message = result.GetProperty("transaction").GetProperty("message");
+        var keys = message.GetProperty("accountKeys").EnumerateArray().Select(k => k.GetString()!).ToList();
+
+        // Versioned transactions resolve the tail of their account list from lookup tables.
+        if (meta.TryGetProperty("loadedAddresses", out var loaded) && loaded.ValueKind is JsonValueKind.Object)
+        {
+            keys.AddRange(loaded.GetProperty("writable").EnumerateArray().Select(k => k.GetString()!));
+            keys.AddRange(loaded.GetProperty("readonly").EnumerateArray().Select(k => k.GetString()!));
+        }
+
+        var raw = message.GetProperty("instructions").EnumerateArray().ToList();
+
+        // Most live buys arrive as a CPI from a router, so the top-level instruction is not the buy.
+        if (meta.TryGetProperty("innerInstructions", out var inner) && inner.ValueKind is JsonValueKind.Array)
+            foreach (var group in inner.EnumerateArray())
+                raw.AddRange(group.GetProperty("instructions").EnumerateArray());
+
+        var decoder = new Base58Encoder();
+        var instructions = new List<TraceInstruction>(raw.Count);
+
+        foreach (var instruction in raw)
+        {
+            if (!instruction.TryGetProperty("accounts", out var accounts)) continue;
+            if (!instruction.TryGetProperty("data", out var data)) continue;
+
+            byte[] bytes;
+            try
+            {
+                bytes = decoder.DecodeData(data.GetString() ?? "");
+            }
+            catch
+            {
+                continue;
+            }
+
+            instructions.Add(new TraceInstruction(
+                instruction.GetProperty("programIdIndex").GetInt32(),
+                accounts.EnumerateArray().Select(a => a.GetInt32()).ToList(),
+                bytes));
+        }
+
+        return BuyTrace.FindBondingCurveV2(keys, instructions);
     }
 
     private async Task<byte[]?> GetAccountDataAsync(PublicKey address)

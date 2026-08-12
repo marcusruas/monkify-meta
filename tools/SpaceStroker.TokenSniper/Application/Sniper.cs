@@ -27,6 +27,9 @@ public sealed class Sniper
     private readonly SolanaGateway _gateway;
     private readonly Random _rng;
 
+    /// <summary>Read once per run from an accepted buy; the same value for every wallet on this mint.</summary>
+    private PublicKey? _bondingCurveV2;
+
     public Sniper(SecretsFile secrets, SniperOptions options, SolanaGateway? gateway = null, Random? rng = null)
     {
         _secrets = secrets;
@@ -54,9 +57,30 @@ public sealed class Sniper
                           $"({mintInfo.Decimals} decimals, {ShortProgram(mintInfo.TokenProgram)})");
         Console.WriteLine($"fees     : {global.Fees.FeeBasisPoints} bps platform + {global.Fees.CreatorFeeBasisPoints} bps creator");
 
+        // The two accounts the deployed program reads past the IDL's 16. See BuyTrace: the first is not
+        // derivable from published seeds, so it is read off a buy the chain already accepted.
+        _bondingCurveV2 = await _gateway.FindBondingCurveV2Async(mint);
+        Console.WriteLine($"curve v2 : {_bondingCurveV2?.Key ?? "not found on any accepted buy"}");
+        Console.WriteLine($"buyback  : {global.BuybackFeeRecipients.Count} fee recipients in global");
+
         var preflight = SnipePreflight.Check(pool, curve, mintInfo.TotalSupplyBaseUnits);
 
+        // Blockers for BUYING specifically. status is read-only and structurally cannot submit, so it
+        // reports these rather than aborting — unlike preflight's errors, which invalidate the plan itself.
+        var buyBlockers = new List<string>();
+
+        if (_bondingCurveV2 is null)
+            buyBlockers.Add("No accepted buy on this mint carries the bonding_curve_v2 account, so it cannot be " +
+                            "read and the program would reject every buy with BuybackFeeRecipientMissing. Wait " +
+                            "for the creator's launch buy to confirm, then re-run.");
+
+        if (global.BuybackFeeRecipients.Count == 0)
+            buyBlockers.Add("The global account carries no buyback fee recipients — the pump.fun program layout " +
+                            "changed. Re-read Global's field order from the on-chain IDL before buying.");
+
         foreach (var warning in preflight.Warnings) Console.WriteLine($"warning  : {warning}");
+        if (_options.StatusOnly)
+            foreach (var blocker in buyBlockers) Console.WriteLine($"warning  : {blocker}");
 
         if (preflight.IsEmpty)
         {
@@ -64,11 +88,13 @@ public sealed class Sniper
             return 0;
         }
 
-        if (preflight.Errors.Count > 0)
+        var errors = _options.StatusOnly ? preflight.Errors : [.. preflight.Errors, .. buyBlockers];
+
+        if (errors.Count > 0)
         {
             Console.Error.WriteLine();
             Console.Error.WriteLine("Preflight failed — nothing was submitted:");
-            foreach (var error in preflight.Errors) Console.Error.WriteLine($"  - {error}");
+            foreach (var error in errors) Console.Error.WriteLine($"  - {error}");
             return 1;
         }
 
@@ -138,6 +164,7 @@ public sealed class Sniper
     {
         var started = DateTimeOffset.UtcNow;
         var curveAddress = PumpFunProgram.DeriveBondingCurve(mint);
+        var walletIndex = 0;
 
         foreach (var scheduled in schedule)
         {
@@ -181,7 +208,12 @@ public sealed class Sniper
                 return;
             }
 
-            await BuyOneAsync(scheduled, live, mint, mintInfo, global, outcome, cancellationToken);
+            // Any of global's 8 buyback recipients is accepted; rotating spreads the writes across them
+            // instead of every wallet in the run contending on the same account.
+            var recipient = new PublicKey(
+                global.BuybackFeeRecipients[walletIndex++ % global.BuybackFeeRecipients.Count]);
+
+            await BuyOneAsync(scheduled, live, mint, mintInfo, global, recipient, outcome, cancellationToken);
             receipts.Save();
         }
     }
@@ -192,6 +224,7 @@ public sealed class Sniper
         PublicKey mint,
         MintInfo mintInfo,
         GlobalConfig global,
+        PublicKey buybackFeeRecipient,
         WalletOutcome outcome,
         CancellationToken cancellationToken)
     {
@@ -258,7 +291,9 @@ public sealed class Sniper
             repriced.TokensToBuy,
             repriced.MaxSolCostLamports,
             _secrets.Snipe.TrackVolume,
-            _secrets.Snipe.ExtraAccounts.Select(a => new PublicKey(a))));
+            _secrets.Snipe.ExtraAccounts.Select(a => new PublicKey(a)),
+            _bondingCurveV2,
+            buybackFeeRecipient));
 
         Console.WriteLine($"  {target.Alias}: buying {SnipePool.FormatTokens(repriced.TokensToBuy, mintInfo.Decimals)} " +
                           $"for up to {SnipePool.FormatSol(repriced.MaxSolCostLamports)} SOL...");

@@ -82,7 +82,38 @@ public static class AccountLayouts
             offset += 32;
         }
 
-        return new GlobalConfig(feeRecipient.Key, new CurveFees(feeBasisPoints, creatorFeeBasisPoints), recipients);
+        return new GlobalConfig(
+            feeRecipient.Key, new CurveFees(feeBasisPoints, creatorFeeBasisPoints), recipients,
+            ReadBuybackFeeRecipients(data));
+    }
+
+    /// <summary>Absolute offset of <c>buyback_fee_recipients</c> in Global, per the on-chain IDL.</summary>
+    public const int BuybackFeeRecipientsOffset = 741;
+
+    public const int BuybackFeeRecipientCount = 8;
+
+    /// <summary>
+    /// The 8 accounts the deployed program will accept as a buy's trailing fee recipient. Read at an
+    /// ABSOLUTE offset rather than by walking the fields: everything between creator_fee_basis_points
+    /// and here (whitelist_pda, reserved_fee_recipients, the mayhem and cashback flags…) is config this
+    /// tool never reads, and walking it would make every one of those fields a chance to drift.
+    ///
+    /// An account too short to contain them decodes to an empty list — a pre-buyback deployment. The
+    /// caller turns that into an explicit preflight error rather than submitting a buy that cannot land.
+    /// </summary>
+    private static IReadOnlyList<string> ReadBuybackFeeRecipients(ReadOnlySpan<byte> data)
+    {
+        var end = BuybackFeeRecipientsOffset + BuybackFeeRecipientCount * 32;
+        if (data.Length < end) return [];
+
+        var recipients = new List<string>(BuybackFeeRecipientCount);
+        for (var i = 0; i < BuybackFeeRecipientCount; i++)
+        {
+            var offset = BuybackFeeRecipientsOffset + i * 32;
+            recipients.Add(new PublicKey(data.Slice(offset, 32).ToArray()).Key);
+        }
+
+        return recipients;
     }
 
     private static ulong ReadU64(ReadOnlySpan<byte> data, ref int offset)
@@ -93,4 +124,8 @@ public static class AccountLayouts
     }
 }
 
-public sealed record GlobalConfig(string FeeRecipient, CurveFees Fees, IReadOnlyList<string> FeeRecipients);
+public sealed record GlobalConfig(
+    string FeeRecipient,
+    CurveFees Fees,
+    IReadOnlyList<string> FeeRecipients,
+    IReadOnlyList<string> BuybackFeeRecipients);

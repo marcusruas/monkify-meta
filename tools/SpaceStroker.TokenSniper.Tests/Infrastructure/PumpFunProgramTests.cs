@@ -1,5 +1,6 @@
 using Shouldly;
 using Solnet.Wallet;
+using SpaceStroker.TokenSniper.Domain;
 using SpaceStroker.TokenSniper.Infrastructure.Solana;
 using Xunit;
 
@@ -30,6 +31,10 @@ public class PumpFunProgramTests
     private const string Token2022Program = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
     private const string User = "7Q6RcQKsmpaRsaK17nuVyxDEWMRcPJUhboHvsqNRgTsR";
+
+    /// <summary>The two trailing accounts, read off a live buy (mainnet, 2026-08-12).</summary>
+    private const string BondingCurveV2 = "4Twez7HGGNc9ef4HpddGWNE3GWk9w8eygtvkpmU1gVCU";
+    private const string BuybackRecipient = "GXPFM2caqTtQYC2cJ5yJRi9VDkpsYZXzYdwYpGnLmtDL";
     private const string Creator = "69uK17vg5VqGQ7xVRRRhGgGeddhvXiTKREmbnXRDaZLV";
     private const string FeeRecipient = "CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM";
 
@@ -126,6 +131,62 @@ public class PumpFunProgramTests
 
         instruction.Keys.Count.ShouldBe(17);
         instruction.Keys[16].PublicKey.ShouldBe(extra.Key);
+    }
+
+    /// <summary>
+    /// The deployed program reads two accounts past the IDL's 16. Without them it aborts with
+    /// BuybackFeeRecipientMissing (6062); with the recipient marked read-only it aborts with
+    /// PrivilegeEscalation — the program moves SOL into it. Both were observed in live simulation.
+    /// </summary>
+    [Fact]
+    public void BuildBuyInstruction_AppendsBondingCurveV2ThenAWritableBuybackFeeRecipient()
+    {
+        var curveV2 = new PublicKey(BondingCurveV2);
+        var recipient = new PublicKey(BuybackRecipient);
+
+        var instruction = PumpFunProgram.BuildBuyInstruction(
+            BuyAccounts(), 1, 2, bondingCurveV2: curveV2, buybackFeeRecipient: recipient);
+
+        instruction.Keys.Count.ShouldBe(18);
+
+        instruction.Keys[16].PublicKey.ShouldBe(curveV2.Key);
+        instruction.Keys[16].IsWritable.ShouldBeFalse();
+        instruction.Keys[16].IsSigner.ShouldBeFalse();
+
+        instruction.Keys[17].PublicKey.ShouldBe(recipient.Key);
+        instruction.Keys[17].IsWritable.ShouldBeTrue();
+        instruction.Keys[17].IsSigner.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ConfiguredExtraAccounts_ComeAfterTheTwoTrailingAccounts()
+    {
+        var extra = new PublicKey("So11111111111111111111111111111111111111112");
+
+        var instruction = PumpFunProgram.BuildBuyInstruction(
+            BuyAccounts(), 1, 2, null, [extra],
+            new PublicKey(BondingCurveV2), new PublicKey(BuybackRecipient));
+
+        instruction.Keys.Count.ShouldBe(19);
+        instruction.Keys[16].PublicKey.ShouldBe(BondingCurveV2);
+        instruction.Keys[17].PublicKey.ShouldBe(BuybackRecipient);
+        instruction.Keys[18].PublicKey.ShouldBe(extra.Key);
+    }
+
+    /// <summary>
+    /// Positional accounts: supplying one without the other silently shifts the recipient into the
+    /// curve's slot, which the program would read as a wrong-but-present account.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void BuildBuyInstruction_RejectsOnlyOneOfTheTwoTrailingAccounts(bool withCurve, bool withRecipient)
+    {
+        Should.Throw<SniperException>(() => PumpFunProgram.BuildBuyInstruction(
+                BuyAccounts(), 1, 2, null, null,
+                withCurve ? new PublicKey(BondingCurveV2) : null,
+                withRecipient ? new PublicKey(BuybackRecipient) : null))
+            .Message.ShouldContain("together");
     }
 
     /// <summary>
