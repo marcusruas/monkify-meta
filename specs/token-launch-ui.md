@@ -22,7 +22,7 @@ surface renders. Empty, whitespace, absent or implausible ⇒ the pre-launch sta
 | --- | --- | --- |
 | **LP section 2** | today's **"No token. Yet."** panel, moved from position 6 to position 2 | the live token section: coin + ticker + contract bar + 2 CTAs, then 2 mechanic cards + the treasury line |
 | **LP nav** | no `Token` item (desktop or mobile) | `Token` is the **first** nav item, desktop + mobile |
-| **App home** | nothing renders where the token card would be | the token card, **directly under the hero, above the mode cards** |
+| **App home** | nothing renders where the token card would be | the token card, **directly after the mode cards** (⚠️ amended — see §7.3.0) |
 | **App header** | no token button | a dedicated brand-orange slot (`$TICKER ↗`), on **every** screen including mid-round |
 | **Backend / bets** | unchanged | **unchanged** — rounds settle in USDC, `VUE_APP_GAME_TOKEN_ADDRESS` is untouched |
 
@@ -30,9 +30,11 @@ Two things this deliberately costs, both accepted at refinement:
 
 1. **Pre-launch, the loudest section on the LP says "there's nothing to buy."** That is the point —
    it keeps the anti-scam warning visible during exactly the window when fake tokens appear.
-2. **The app's mode cards drop below the fold.** `HomePage.vue` argues at length that the actionable
-   thing comes first; this card takes that slot, so **that comment must be rewritten in the same
-   commit** (§7.3.4) rather than left contradicting the code.
+2. ~~**The app's mode cards drop below the fold.**~~ ⚠️ **NO LONGER PAID — the owner reversed this on
+   2026-08-11, after seeing the card rendered (§7.3.0).** The card now sits *after* the picker, so the
+   mode cards keep the first slot and this cost is not incurred. `HomePage.vue`'s SECTION ORDER
+   comment is still rewritten in the same commit — it now records the reversal and why, so a future
+   reader does not re-promote the card on the argument that was already heard and lost.
 
 **The design mockup is the visual authority for anything this spec does not pin down:**
 <https://claude.ai/code/artifact/4e2bcba0-5d73-46f3-9867-22fff0575220> (rejected directions:
@@ -103,8 +105,8 @@ card** — the copy merely describes it. Building either mechanic is a separate 
 | D10 | **The treasury (~50%) is disclosed and framed as the game treasury** — one line plus an on-chain link, **not a panel**. DexScreener / Bubblemaps / RugCheck surface a position that size within minutes; silence reads as concealment, and framing it as the fuel for the two mechanics is what turns the number from a red flag into the point of the section. | card |
 | D11 | **`SpaceRoadmap.vue:133` is fixed in this card.** Phase 1's "The token drops on Solana" is left alone. | card |
 | D12 | **App = one home card, no `/token` route.** Two surfaces restating supply and treasury is two places that can contradict each other; the card links out to the LP for depth. | card |
-| D13 | **App card layout:** big coin on the **left** with the contract bar **directly beneath it**; heading, one short paragraph and the CTAs on the **right**. | card (owner) |
-| D14 | **App card placement = directly under the hero, above the mode cards** — and `HomePage.vue`'s section-order rationale comment is updated in the same commit. | card |
+| D13 | ~~**App card layout:** big coin on the **left** with the contract bar **directly beneath it**; heading, one short paragraph and the CTAs on the **right**.~~ ⚠️ **SUPERSEDED during implementation — see §7.3.0.** | card (owner) |
+| D14 | ~~**App card placement = directly under the hero, above the mode cards.**~~ ⚠️ **REVERSED 2026-08-11 (§7.3.0): the card sits directly AFTER the picker.** `HomePage.vue`'s section-order rationale comment is still updated in the same commit. | card (owner) |
 | D15 | **App header = a dedicated button, not a `≡` menu cell.** Its own permanent slot (brand orange, coin icon, `$TICKER ↗`), alongside audio / menu / wallet. Opens the LP `#token` section in a **new tab** so a player mid-round never loses the game or the SignalR connection. | card |
 
 ### 3.1 Decisions this spec resolves (they were open, or the card contradicted itself)
@@ -115,7 +117,7 @@ card** — the copy merely describes it. Building either mechanic is a separate 
 | S2 | **Do the token surfaces render in an embedded (iframe) session?** The card lists it as an open edge case. | **No — both hide when embedded.** Three concrete reasons: (a) `main.ts:101` already puts `Home` in `EMBED_REDIRECT_ROUTES`, so a framed `/` never mounts `HomePage` — the card is unreachable in a frame anyway, and an explicit `!isEmbedded` guard is the same defence-in-depth `HomeOrbitCard` and `HomeFeatureCards` already keep; (b) the header button is the **only** element in the header that leaves the app, and firing a new-tab marketing link out of a partner casino's iframe is a different judgement from firing it out of our own tab; (c) `useAnalytics` is **disabled** when embedded (`useAnalytics.ts:21`), so **AC 14** ("no CTA navigates without reporting") is structurally unsatisfiable in a frame — rendering the CTAs there would ship a knowingly untracked control. |
 | S3 | **What does the `CHART` CTA point at?** | `https://dexscreener.com/solana/<mint>`. D8 cut the *Jupiter and Solscan* buttons as boilerplate; a chart is neither, and AC 3 requires exactly two CTAs of which one is Chart. |
 | S4 | **What is the LP anchor URL the app links to?** The card says `https://www.spacestroker.com/#token`; `astro.config.mjs` sets `site: 'https://spacestroker.com'` and `features/lp-final-adjustments.md` records the LP domain as the **apex** (no `www`). | Spec the **apex**: `https://spacestroker.com/#token`, matching the configured `site`. ⚠️ **Confirm before the live build** (§12, open input 4) — if `www` is canonical, one constant changes. |
-| S5 | **Does the `↗` external cue need an icon?** `features/icons-and-menu-overhaul.md` says no text character may stand in for a glyph. | Use the **text character `↗`**, no new glyph. Precedent already in the app: `MobileWalletModal.vue:24` uses `↗` as a *directional cue* ("opens in the wallet app") beside `›` ("stays in place"). The icons rule bans text characters *substituting for icons* (`✓ ✗ ▶ ▼`, the VT323 `X`); a directional cue inside a label is typography. |
+| S5 | **Does the `↗` external cue need an icon?** `features/icons-and-menu-overhaul.md` says no text character may stand in for a glyph. | Use the **text character `↗`**, no new glyph. Precedent already in the app: `MobileWalletModal.vue:24` uses `↗` as a *directional cue* ("opens in the wallet app") beside `›` ("stays in place"). The icons rule bans text characters *substituting for icons* (`✓ ✗ ▶ ▼`, the VT323 `X`); a directional cue inside a label is typography. ⚠️ **Scope narrowed by §7.3.0 A4:** this now covers the header button and `TREASURY ↗` only. The home card's `READ MORE` carries **no cue** — owner's call, taken knowingly against the reasoning above. |
 | S6 | **Which GA event do the CTAs fire?** The card says "a `home_link_click`-style event" for both the card CTAs and the header button. | A **new** `token_click` event with a `source` param (§7.3.5). The header button fires from **every** screen, so folding it into `home_link_click` — whose documented meaning is "which surface players reach for **from the front door**" (`useAnalytics.ts:148`) — would poison that series. |
 
 ---
@@ -129,7 +131,11 @@ from the database. See §2.1.
 
 ## 5. Configuration
 
-### 5.1 The one env key, in both prefixes
+### 5.1 Two env values, each in both prefixes
+
+> ⚠️ **This section read "The one env key" until 2026-08-12.** A8 added the **treasury wallet** to the
+> app, so there are now two — and `frontBuild` is a plain `Dictionary<string, string>` in the deploy
+> tool (`SecretsFile.cs`), so adding a key needs **no deploy-tool code change**.
 
 Each toolchain only exposes its own prefix (Vue CLI: `VUE_APP_*`; Astro/Vite: `PUBLIC_*`), and the
 deploy tool writes the **same** `frontBuild` block into **both** repo builds — exactly the pattern
@@ -138,9 +144,17 @@ deploy tool writes the **same** `frontBuild` block into **both** repo builds —
 | Key | Repo | Meaning |
 | --- | --- | --- |
 | `PUBLIC_TOKEN_MINT` | `monkify-lp` | The SPL mint address of the launched token. Empty ⇒ pre-launch state. |
-| `VUE_APP_TOKEN_MINT` | `monkify-front` | Same value, same meaning. |
+| `VUE_APP_TOKEN_MINT` | `monkify-front` | Same value, same meaning. Also gates the guide's `token` section. |
+| `PUBLIC_TREASURY_WALLET` | `monkify-lp` | The **public** address holding the game treasury. Empty ⇒ that address bar is not rendered. |
+| `VUE_APP_TREASURY_WALLET` | `monkify-front` | Same value, same meaning (**new**, A8 — §7.3.6). |
 
-⚠️ **Not `VUE_APP_GAME_TOKEN_ADDRESS`.** That is the settlement mint and stays untouched (AC 19).
+- ⚠️ **The two treasury keys must hold the SAME address.** Two sites publishing two different
+  treasuries is worse than neither publishing one.
+- ⚠️ **The treasury is independent of the mint**, deliberately: a build may have a live mint and no
+  wallet configured, and each fails closed on its own.
+- ⚠️ **A PUBLIC ADDRESS, NEVER KEY MATERIAL.** The treasury's private key must not appear in any
+  config file, committed or otherwise.
+- ⚠️ **Not `VUE_APP_GAME_TOKEN_ADDRESS`.** That is the settlement mint and stays untouched (AC 19).
 
 ### 5.2 Committed config (mock/empty only)
 
@@ -455,7 +469,29 @@ fires before it navigates.
 
 ### 7.3 `monkify-front` — the surfaces
 
+#### 7.3.0 ⚠️ AMENDMENTS — read this before §7.3.1
+
+Three owner calls landed **during** implementation, each after seeing the card rendered. They
+supersede the matching lines below; §7.3.1 is kept as written so the reasoning that was replaced is
+still legible, but **the code is the amended version, not §7.3.1.**
+
+| # | Date | What changed | Why |
+| --- | --- | --- | --- |
+| A1 | 2026-08-09 | **Layout: D13 is out.** No `title`/`eyebrow` and no `#actions` slot; the card opens `HomeSection`'s new `header` slot and supplies its own hero — coin + chip + glowing `$STROKE` ticker + a one-line pitch — then two keycapped mechanics over a divider, then ONE bottom rail holding both CTAs and the contract bar. The D13 paragraph is replaced by the two mechanic sentences. | D13's heading (`EDSON'S COIN IS OUT`) plus a 50px ticker states the subject twice, and a paragraph buries the only two facts that are not true of every pump.fun launch. This is the LP's live token section compressed into one `.arcade-frame`. |
+| A2 | 2026-08-11 | **Placement: D14 is reversed.** The card renders **after** `<game-types bare />`, not under the hero. | The token card is a billboard — it sells nothing you can act on inside the app — and buying it a first impression by pushing the mode cards below the fold costs the page the one thing a visitor came for. Slot 2 still clears the fold's edge on a laptop. ⚠️ "The launch is the priority" is the argument that was heard and lost; do not re-promote it without the owner. |
+| A3 | 2026-08-11 | **Frame + controls.** `tone="cyan"` (not `line`), every control in the footer is an outline (`BUY` → `btn-arcade--ghost`, `READ MORE` and `COPY` → `btn-arcade--ghost-cyan`), and the whole card is re-packed to the height of its siblings: coin 250px → 132px, the ticker ceiling drops 50px → 40px, and the mechanics/footer padding comes in. | The A1 build measured ~630px against ~350-420px for `HomeHowItWorks` / `HomeOrbitCard`, on a hairline frame — half the panel was empty black, which reads as unfinished rather than as important. The filled amber `BUY` slab was also the loudest object on a card whose subject is the ticker. Measured after: **358px**, between its two siblings. ⚠️ Do not restore the LP's proportions — the LP section owns a viewport, this one owns a slot in a stack. |
+| A4 | 2026-08-11 | **Four corrections to the A3 build**, same review: the coin comes back up (112 → 132px at `md`); the attract line returns to its LP position — **under the coin**, not riding the chip rail — and takes the LP's words, **`START STROKING NOW!!`** (A3 had shipped a near-miss, `$STROKE IS LIVE!!`); the pitch goes back **under** the ticker instead of sharing its row; and `READ MORE` **loses the `↗`** (⚠️ this overrides §3.1 S5 for this control only — see the component comment for the trade, and note the header's mid-round button KEEPS its cue). | A3 cut too far. The coin is the card's only piece of art and had shrunk past the point where it read as an object; the attract line is the LP's arcade flash and belongs where the LP puts it, in the LP's words — a near-miss variant makes two surfaces of one campaign read as two campaigns; and a footer of four hairline boxes where exactly one wears a glyph reads as an oddity, not as a cue. Cost of the four: +31px. |
+| A5 | 2026-08-11 | **The contract cartridge moves out of the footer and up beside the ticker**, right-aligned. ⚠️ It is a **sibling of the ticker block inside the copy column**, NOT a third track of the hero grid — the hero stays two tracks (art · copy). It shared the row for one build as a third track and the owner rejected that: the chip rail's dashed rule stopped short of it, so it read as a separate container parked alongside the type instead of as one of the two things the column holds. Inside the column the rule spans it. It drops to its own line under **1024px** via `flex-wrap`. The footer is then just `BUY` + `READ MORE`, left-aligned — the same actions row every other panel on this page has. Coin goes up again, 132 → **176px** at `md` / 160px below it. | The ticker left ~640×90px of dead row on its right, and the contract is the card's most checkable object — beside the ticker is also where somebody about to buy actually looks. It costs no height (the cartridge is shorter than the ticker + pitch stack it shares the row with) and adds no data or claims. Rejected alongside it: a supply/burn stat strip — **there is no data source**, so the numbers would be hardcoded and disprovable on-chain within a day (AC 6), and it contradicts D12. Measured after: **386px**. |
+| A6 | 2026-08-11 | **The coin comes out of the flow, starts floating, and OVERLAPS the attract line.** Layout is unchanged in reading order — coin on top, attract line under it, exactly as the LP has it — but the line is now the art column's only in-flow content and pins to the column's **bottom**, while the coin hangs above it `position: absolute` inside a fixed **band** (150px at `md+`, 138px below). The two share ~10px instead of queueing, so the coin's bottom arc **passes behind the phrase**; `z-index` puts the text on top and it gains a 1px black keyline (four offsets, the trick `HomeSection`'s title already uses) so magenta stays legible over amber. Coin is bigger again (176 → **216px** at `md` / 200px below) and carries the LP's float verbatim — `token-coin-float`, 4.5s `ease-in-out`, ±3%, on the `<img>` so the bloom stays put while the coin bobs inside it. ⚠️ §7.3.3's "animate nothing" line is void — see the table there. | While the coin was a flow item, every pixel of coin was a pixel of panel, so "make it bigger" and "keep the card short" were one dial pulling both ways. Out of flow they are independent, and the overlap buys back the gap the two objects used to need: the coin grew ~23% linear / ~50% in area while the card came to **389px** (from 630 at A1, still under `HomeOrbitCard`'s 421). ⚠️ **Two rejected middles, both by the owner on sight, both worth not repeating:** (a) bottom-anchoring the coin so 30px of it hung over the card's top border — the coin belongs in the box; (b) moving the attract line ABOVE the coin — it belongs under, as on the LP. ⚠️ The overlap is arithmetic, not a look: `coin height − (band − 14)`, tuned to **10px** — the line is 14px tall, so that is the arc landing just past the caps. At 20px the whole phrase sat inside the coin's box and read as swallowed. `coin.png` is ~1.47:1, so it is the coin's **height** in that sum; sizing the band off its width is what made the first attempt 40px too deep. |
+| A7 | 2026-08-12 | **A THIRD APP SURFACE: a `token` section on `/how-to-play`** — not in the card, not in §10.3, not in the ACs, because it did not exist when they were written. One conditional entry in `GUIDE_SECTIONS` (gated on `tokenLive`, so a build without a mint is byte-identical to the pre-#160 guide) plus `GuideToken.vue`. See **§7.3.6**. | Players arriving from the header button or the home card had nowhere in the app to actually read about the coin — both controls opened the **landing page**, so the app's own manual, which explains every other mechanic in the product, was silent on the one thing it was advertising. |
+| A8 | 2026-08-12 | **⚠️ D12 IS PARTLY REVERSED, AND THE APP IS NOW THE DEEPEST TOKEN SURFACE.** D12's "link out to the LP for depth" still governs the **home card** and the **header button** (both still open `TOKEN_LP_URL`), but **not the guide**: §7.3.6 states the total supply, every slice in tokens, the mint address, the treasury address and the 1% cut by name, and both of its links to the landing page are **deleted**. Requires a **new env value, `VUE_APP_TREASURY_WALLET`** (§5.1). | Owner, on reading the first guide build: *"the text you generated is really bad, too much text to explain almost nothing. this is the place to use the actual numbers, values, addresses; don't delegate to places like the landing page."* D12's premise was that two surfaces restating the numbers can contradict each other — the answer is a single mirrored constants file and a two-repo rule (§5.3), not an app that refuses to state its own tokenomics. ⚠️ **This does not touch the LP.** D8/AC 4 cut supply/decimals/mint-authority **from the landing page**, and both are scoped `LP ·`; the split is now deliberate — LP = the pitch, app manual = the figures. |
+| A9 | 2026-08-12 | **The home card's `READ MORE` points INTO the app: `<router-link to="/how-to-play#token">`, same tab, no `target`/`rel`.** ⚠️ This corrects A8 one row above, which recorded "the home card and the header button **both still open `TOKEN_LP_URL`**" — that is now true of the **header button only**, and `TOKEN_LP_URL` has exactly one consumer left in the app. The event value is **unchanged** (`trackTokenClick({ source: 'home_read_more' })`), and the control still carries **no `↗`** — A4 took the cue off as a knowing trade, and the reason it was a trade (the link left the app) has simply evaporated. Also void, for this control: §7.3.1's "**Emits nothing** … both CTAs are external anchors" and its "`READ MORE` **leaves the app**" warning. | A7 built the guide's coin section and A8 made it the deepest token surface in the product — but the card kept pointing at the landing page, so the front door's one "tell me more" control threw the player out of the app to read a **shallower** version of a page one route away. ⚠️ **Still not an emit**, and the reason is tracking, not routing: this card's two CTAs fire `token_click`, a vocabulary `HomePage` does not speak (it fires `home_link_click`), so emitting would split one card's pair across two files and leave the internal half tracked where the external half is not — the #143 shape. A `<router-link>` with its own `@click` is also the idiom `OrbitPage` and `OrbitModal` already use for `/how-to-play#orbit`. ⚠️ **The `↗`/`↘` reading of `home_read_more` in `useAnalytics` moved with it:** what separates `token_click` from `home_link_click` is the SUBJECT (interest in the coin) and never was "the link leaves the app" — the comment claiming the latter is corrected in the same change, or the next reader folds the two series. ⚠️ **The ☰ pad's token row is deliberately NOT changed** — it is reachable **mid-round**, which is exactly why it stays an external new-tab link rather than a navigation. |
+
 #### 7.3.1 New `src/components/home/HomeTokenCard.vue`
+
+> ⚠️ **Superseded in part by §7.3.0 (A1, A3).** The gate, the tracking, the copy rules and the
+> external-link handling below all still stand; the layout, the section props and the button variants
+> do not.
 
 Built on `HomeSection` like every other front-door panel, so it inherits the CRT frame, the eyebrow,
 the `icon`-replaces-the-pluses rule and the `#actions` row.
@@ -488,31 +524,41 @@ the `icon`-replaces-the-pluses rule and the `#actions` row.
 
 #### 7.3.2 `src/pages/HomePage.vue`
 
-One line, directly under the hero and **above** `<game-types bare />`:
+One line, directly **after** the `<section>` that wraps `<game-types bare />` (⚠️ amended — §7.3.0 A2;
+D14 originally put it under the hero):
 
 ```html
     <home-token-card />
 ```
 
-It sits **outside** the `<section class="grid gap-5 md:gap-6">` that wraps the picker, as the first
-child of the `grid gap-6 md:gap-10 …` stack — so it takes the page's section rhythm like every other
-panel.
+It sits **outside** that `<section class="grid gap-5 md:gap-6">`, as a sibling in the
+`grid gap-6 md:gap-10 …` stack — so it takes the page's section rhythm like every other panel.
 
-⚠️ **The SECTION ORDER comment (lines 18-22) must be rewritten in the same commit** (D14). It
-currently argues *"The modes come first because the cards are the only thing here a visitor can act
-on, and every reference lobby puts the actionable thing above the accounting."* That is now false.
-The replacement must state what changed and why, and must record the accepted cost: the mode cards
-move below the fold, deliberately, because the token launch is the thing the page is promoting for
-this window.
+⚠️ **The SECTION ORDER comment must be rewritten in the same commit.** Its original claim — *"the
+modes come first because the cards are the only thing here a visitor can act on"* — is TRUE again
+after A2, so the rewrite is no longer a correction but a **record of the reversal**: the card was
+first for exactly one build, the owner moved it, and the replacement must say why (a billboard does
+not outrank the thing the page exists for) so the next reader does not re-promote it.
 
 #### 7.3.3 Reduced motion (app side) ⚠️ not free here
 
 If the coin gets a float animation, it needs **its own** `@media (prefers-reduced-motion: reduce)`
-block in `arcade.css`. The app has **no blanket rule** — every animation opts in individually (see
-`.app-icon--spin`, the money chips, the light-graphics list). This is the opposite of the LP (§7.1.3),
-and assuming the LP's behaviour here is how AC 18 fails on one surface only. The simplest compliant
-answer is **no animation on the app card at all**, which also satisfies AC 18 trivially; if one is
-added, add the guard with it.
+block. The app has **no blanket rule** — every animation opts in individually (see `.app-icon--spin`,
+the money chips, the light-graphics list). This is the opposite of the LP (§7.1.3), and assuming the
+LP's behaviour here is how AC 18 fails on one surface only.
+
+⚠️ **The card DOES animate, as of §7.3.0 A6** — the "simplest compliant answer is no animation at
+all" line this section used to end on is void. Two animations ship, both scoped to the component and
+both carrying their own guard:
+
+| Animation | What | Guard |
+| --- | --- | --- |
+| `token-attract` | the magenta attract line's hard 1.1s arcade flash (the LP's `.blink`, re-cut locally because the app's global `.blink` is a 3s `!important` fade) | own `prefers-reduced-motion` block |
+| `token-coin-float` | the coin's ±3% / 4.5s bob, a byte-for-byte port of the LP's `tokenCoinFloat` | own `prefers-reduced-motion` block |
+
+Neither is added to `arcade.css`'s `html.light-graphics` kill list — the same call `.animate-wobble`
+documents there. Both are transform/opacity only, on one `<img>` and 20 glyphs, with no layout and
+nothing repainting underneath; and the coin being alive is most of what this card does on a phone.
 
 #### 7.3.4 `src/components/GameHeader.vue` — the dedicated button
 
@@ -554,7 +600,93 @@ menu.
 #### 7.3.5 Explicitly NOT touched in the app
 
 `src/constants/keys.ts` (`VUE_APP_GAME_TOKEN_ADDRESS` / `USDC_TOKEN_ADDRESS`), the `menuCells` array,
-`useGame`, any service, any route. **No `/token` route** (D12).
+`useGame`, any service, any route. **No `/token` route** (D12) — the guide section in §7.3.6 is a
+section on an existing page, not a route, so it does not bend this.
+
+#### 7.3.6 New `src/components/guide/sections/GuideToken.vue` — the `/how-to-play#token` section (A7/A8)
+
+**Registration.** One conditional entry in `src/constants/guideSections.ts`:
+`...(tokenLive ? [TOKEN_SECTION] : [])`, placed **second-to-last** (after `refunds`, before
+`player-preferences`). Nav label and title both read from `TOKEN_TICKER`, never a literal.
+
+- ⚠️ **Fail-closed via the registry, not via the component.** On a build with no mint the entry never
+  enters the array, so the nav loses a chip, the body loses a card, and nothing downstream needs to
+  know — both derive from that one array. `#token` still resolves safely: `HowToPlayPage` matches the
+  hash against the array (`isKnownSection`), so a shared deep link lands at the top of the guide
+  rather than throwing on a missing selector.
+- ⚠️ **Do not promote it up among the game sections.** A manual that explains a tradeable asset before
+  it has finished explaining the game is a prospectus.
+
+**Content — the rule (A8).** *Every claim lands on a number or an address a reader can paste into an
+explorer.* If a line cannot be checked, it is either the pitch (keep it to a clause) or it does not
+belong. In order: the opening paragraph (SPL on Solana, `1,000,000,000`, minted on pump.fun, no mint
+authority) → **the contract bar** → four fact rows → **the supply block** → **the treasury bar** →
+**the team block** → the closer → `Buy on pump.fun` + `Chart ↗`.
+
+| What it states | Source | ⚠️ |
+| --- | --- | --- |
+| Total supply `1,000,000,000` | `TOTAL_SUPPLY` (const) | A property of the **launchpad** — every pump.fun mint is 1B / 6 decimals / no mint authority — not a number we chose, which is why it is safe as a constant and not read on-chain. **If the launch is ever not a pump.fun mint, this and every count derived from it is wrong.** |
+| Each slice in **tokens** and percent | `tokensForPercent(slice.percent)` | Derived from `TREASURY_SLICES`, so the bar, the legend and the prose cannot drift. `en-US` grouping is **pinned** — an unlocalised `toLocaleString()` renders `250.000.000` on a German browser next to `250,000,000` written into prose. |
+| The **mint address** | `TOKEN_MINT` (env) | In the **first screenful**, not with the CTAs: it is the first thing anyone verifying us looks for. No `v-if` — the section itself is gated on `tokenLive`. |
+| The **treasury address** | `TREASURY_WALLET` (env, **new**) | `v-if` **is** required here: it is a separate fail-closed value, so a build may legitimately have a live mint and no wallet. Unset drops the bar only; the split still renders. |
+| The **1% house cut**, by name | literal | ⚠️ **Reverses the "no number in the manual" rule**, and `GuideWhatYouWin` was changed in the **same commit** — the two sections move together or the manual contradicts itself. Both still send the player to the STATS panel for their mode's live `ActiveGame.commissionPercentage`. Phrased as **"1% of what you win above your own stake"**: the base is `max(0, winnerReward − ownStake − houseFundedShare)`, so a shorter phrasing overstates what we take. |
+| The team release ladder | `UNLOCK_STEP_TOKENS`, `TEAM_PERCENT` | Stepper gains are in **tokens** (`+10M`), not `+1%` — see below. |
+
+**⚠️ The team's 10% is NOT LOCKED, and the copy must never imply it is.** Owner, 2026-08-12: *"this
+thing is not LITERALLY locked btw, it's our suggestion of what we wanna do. it's not like literally
+vested tokens from a serious project."* There is **no vesting account and no timelock.** The wording
+that shipped before this — *"None of it is liquid on day one. It releases 1% at a time"* — reads as an
+enforced schedule, and anyone can check for a vesting contract in under a minute and find nothing.
+
+- **The caveat is one line, and it carries two halves.** *"No vesting contract, no lock — just a rule
+  we set and a wallet you can watch."* The **denial** and the **proof** are both required: the denial
+  alone is an apology, the proof alone is the claim that got struck. ⚠️ **But it does not grow back
+  into a paragraph.** The four-line version that first satisfied this rule was cut by the owner the
+  same day — *"less of a tone of disclaimer, more fun — disclaimer should be one liners"* — because it
+  explained what a vesting contract is and promised twice over not to lie, which read as legal
+  boilerplate stapled to a pitch.
+- **Banned verbs in this block:** *locked, vested, released on schedule, unlocks* — anything that
+  implies the chain is enforcing it.
+- **No price, no market cap target, no "when".** A market cap step is a condition, not a forecast; the
+  moment the block implies "we will reach $1B" it stops being a disclosure and becomes a promise about
+  a number nobody controls. The **fourth stepper node is DERIVED** (10% at 1% a step on $100M spacing =
+  ten steps) and is dimmed so it reads as "and on to the end", never as a milestone from the brief.
+
+**⚠️ Tone: one fact per clause, disclaimers as one-liners** (owner, 2026-08-12, on the A8 build:
+*"simplify all of these, less repetition, less of a tone of disclaimer, more fun"*). Concretely, and
+each of these is a repetition the build actually shipped before it was cut:
+
+| Where | Said the same thing | Now |
+| --- | --- | --- |
+| Team block | *"10% of the supply"* + *"1% — 10,000,000 — at a time"* + *"Ten steps, ten percent"*, under a heading already reading **THE TEAM'S 100,000,000** and a legend row already reading **10%** | Heading carries the total, the paragraph carries the rule, the stepper carries the ladder. **Nothing states any of them twice.** |
+| Treasury line | Restated the treasury total, then explained what a block explorer is | *"Every move out of it is a public transaction with a timestamp on it. Watch it."* |
+| Supply lede + float legend | *"No presale…"* in both | Lede only |
+| Closer | Opened *"And Space Stroker works with or without it"*, then said the same thing better with *"the game runs on USDC and always will"* — conceding twice | Two sentences |
+
+**Rules that survive from the earlier builds and are NOT relaxed by A8:**
+
+1. **Future tense** on the burn, the jackpot bonus and the reward payouts (AC 6) — none of the three
+   exists in code, each is its own follow-up card.
+2. **Nothing may imply the token can place a bet** (AC 7) — carried by the closer's *"the game runs on
+   USDC and always will"*. **That clause must survive any rewrite of the closer.**
+3. **No risk / "it can go to zero" line.** Removed twice, on purpose, by the owner. Reinstating it is a
+   conversation with the owner, not a tidy-up.
+4. **No `GuideTip`** — the black tip is for short, light-toned asides, and money is serious in tone.
+   Same call `GuideRefunds` and `GuideWhatYouWin` make.
+5. **`isEmbedded` gates both CTAs** — `useAnalytics` is disabled in a frame, so they would be knowingly
+   untracked controls (AC 14), and a regulated casino iframe has no business carrying a Buy button for
+   someone else's coin.
+
+**Materials.** A bar + legend for the split and a four-node **stepper** for the ladder — ⚠️ **not two
+tables** (owner, 2026-08-12: *"the 2 tables are bad to explain stuff"*). The address bars are a
+hand-port of `HomeTokenCard`'s `.token-card__cart`, itself a port of the LP's `.token-cartridge`:
+**three surfaces, one look, three stylesheets — keep them in step.** One `copied` ref serves both bars
+(a per-bar flag lets the shared timer strand a stale `COPIED` on the other one), and the clipboard
+always gets the **full** address (AC 10).
+
+**The `Chart ↗` CTA** replaced a `Supply and treasury ↗` link to the LP. ⚠️ Its analytics source stays
+`guide_supply` even though the label changed — it is a live GA series and renaming it splits the
+history for no gain.
 
 ---
 
@@ -626,8 +758,8 @@ only catch up when the pipeline finishes, and **launch day must redeploy both** 
 | 1 | `src/constants/token.ts` | **New.** `TOKEN_MINT`, `tokenLive`, `TOKEN_TICKER`, `TOKEN_BUY_URL`, `TOKEN_LP_URL`, `shortMint` (§7.2.1). |
 | 2 | `src/constants/icons.ts` | Add `'token'` to `IconName` + one coarse 8×8 drawing, `currentColor`, no baked fill (§7.2.2). |
 | 3 | `src/hooks/useAnalytics.ts` | Add `trackTokenClick({ source })` → `token_click` (§7.2.3). |
-| 4 | `src/components/home/HomeTokenCard.vue` | **New.** The home card: coin + contract bar left, copy + CTAs right; gated `tokenLive && !isEmbedded` (§7.3.1). |
-| 5 | `src/pages/HomePage.vue` | Render `<home-token-card />` directly under the hero, above `<game-types bare />`; **rewrite the SECTION ORDER comment** (§7.3.2). |
+| 4 | `src/components/home/HomeTokenCard.vue` | **New.** The home card: compact hero (coin + chip rail + ticker/pitch row) over two keycapped mechanics over one CTA + contract rail; `tone="cyan"`, outline-only controls; gated `tokenLive && !isEmbedded` (§7.3.1 **as amended by §7.3.0 A1/A3**). |
+| 5 | `src/pages/HomePage.vue` | Render `<home-token-card />` directly **after** the `<section>` holding `<game-types bare />`; **rewrite the SECTION ORDER comment** (§7.3.2, §7.3.0 A2). |
 | 6 | `src/components/GameHeader.vue` | The dedicated header button — own slot, new tab, `↗`, icon-only below `md` (§7.3.4). |
 | 7 | `src/assets/styles/arcade.css` | *Only if* the card animates: the matching `prefers-reduced-motion` block (§7.3.3). |
 | 8 | `.env.example` | Document `VUE_APP_TOKEN_MINT` (§5.2). |
@@ -700,10 +832,13 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (21 items).
     screen, then no token card renders on the home page and no token button appears in the header
     (fail-closed, as `VUE_APP_ORBIT_ENABLED` does).
 12. **APP ·** Given `VUE_APP_TOKEN_MINT` holds a mint, when a player loads the app home page, then
-    the token card renders directly under the hero and above the mode cards.
-13. **APP ·** Given the token card renders at desktop width, when its layout is inspected, then the
-    coin image sits in the left column with the contract bar directly beneath it, and the heading,
-    explanation and CTAs sit in the right column.
+    the token card renders **directly after the mode cards** (§7.3.0 A2).
+13. **APP ·** Given the token card renders at desktop width, when its layout is inspected, then it
+    wears a **cyan** frame; the coin, the `LIVE ON PUMP.FUN` chip and the `$STROKE` ticker share the
+    hero row **with the contract cartridge right-aligned on that same row**; the two mechanics sit side
+    by side over a divider; the bottom rail carries the two CTAs, left-aligned; **every control on the
+    card is an outline button**; and the panel is **no taller than `HomeOrbitCard`** on the same screen
+    (§7.3.0 A1/A3/A5).
 14. **APP ·** Given a player activates any CTA on the token card or the header token button, when GA
     is inspected, then an analytics event fires identifying which control was used (no CTA navigates
     without reporting).
@@ -764,8 +899,10 @@ enough for Astro's static frontmatter.
    section animates and `NOTHING TO BUY` stops blinking.
 7. **App, env empty** — `/` shows no token card and the mode cards sit where they always did; no token
    button on `/`, `/game`, `/game/play`, `/orbit`.
-8. **App, env filled** — the card renders under the hero and above the mode cards; at desktop width the
-   coin + contract bar are the left column and the copy + CTAs the right; `COPY` yields the full mint.
+8. **App, env filled** — the card renders directly after the mode cards, cyan-framed, with outline-only
+   controls; measure it against `HomeHowItWorks` on the same screen (it should be shorter, not taller);
+   `COPY` yields the full mint. Re-check at 390px and ~760px: the hero stacks below 640, the mechanics
+   stack below 820, and the ticker never wraps or overflows.
 9. **App, env filled** — the header button is present on **every** screen. Sit through a live round and
    look at it next to the in-game primary actions: is its weight right? (§7.3.4.)
 10. **App, env filled** — place a bet, then click the header button mid-round: a new tab opens on the LP
