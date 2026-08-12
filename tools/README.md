@@ -390,9 +390,13 @@ transaction rather than patching from documentation.
   is a **reverted transaction — the SOL does not move**.
 - `buy` takes a **third arg** (`track_volume`). Live traffic carries all three encodings — omitted
   (24-byte data, the commonest), `0x00`, and `0x01 0x01` — and all land.
-- **The token program varies per mint:** live pump.fun mints use both SPL Token and Token-2022, and the
-  ATA derivation depends on which. Solnet's `DeriveAssociatedTokenAccount` hardcodes SPL Token, so this
-  tool derives the ATA itself.
+- **The token program varies per mint:** live pump.fun mints use both SPL Token and Token-2022, and both
+  the ATA **derivation** and its **creation** depend on which. Solnet hardcodes SPL Token in
+  `DeriveAssociatedTokenAccount` *and* in `CreateAssociatedTokenAccount` — in the address it derives and
+  in the `token_program` account it passes — so this tool builds both itself, threading the program it
+  reads off the mint at runtime. Using Solnet's create helper on a Token-2022 mint fails every buy with
+  `incorrect program id for instruction`, and would open an account the buy does not reference. The
+  create is **CreateIdempotent**, so a resumed run does not abort on an ATA an earlier attempt opened.
 - **A curve is not necessarily SOL-quoted.** `BondingCurve.quote_mint` is the default pubkey for SOL;
   anything else is refused rather than mispriced.
 - **Solnet.Programs 6.1.0 has no `ComputeBudgetProgram`** — the priority-fee instructions are hand-built

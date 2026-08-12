@@ -60,6 +60,36 @@ public static class PumpFunProgram
     public static PublicKey DeriveAssociatedTokenAccount(PublicKey owner, PublicKey mint, PublicKey tokenProgram) =>
         Pda([owner.KeyBytes, tokenProgram.KeyBytes, mint.KeyBytes], AssociatedTokenProgramId);
 
+    /// <summary>
+    /// The ATA-create instruction, hand-built for the SAME reason
+    /// <see cref="DeriveAssociatedTokenAccount"/> is: Solnet's
+    /// <c>AssociatedTokenAccountProgram.CreateAssociatedTokenAccount</c> hardcodes SPL Token in BOTH the
+    /// address it derives and the <c>token_program</c> account it passes. pump.fun mints new tokens
+    /// under either token program, so on a Token-2022 mint that helper is rejected outright with
+    /// "incorrect program id for instruction" — and had it passed, it would have opened an account the
+    /// buy does not reference. The program is read off the mint at runtime and threaded through here.
+    ///
+    /// ⚠️ Data is <c>[1]</c> — CreateIdempotent, not Create. This tool resumes runs, so an ATA opened by
+    /// an earlier attempt is a normal state; plain Create (empty data) would abort the whole
+    /// transaction, buy included, the moment it met one.
+    /// </summary>
+    public static TransactionInstruction BuildCreateAssociatedTokenAccount(
+        PublicKey payer, PublicKey owner, PublicKey mint, PublicKey tokenProgram) =>
+        new()
+        {
+            ProgramId = AssociatedTokenProgramId.KeyBytes,
+            Keys =
+            [
+                AccountMeta.Writable(payer, true),
+                AccountMeta.Writable(DeriveAssociatedTokenAccount(owner, mint, tokenProgram), false),
+                AccountMeta.ReadOnly(owner, false),
+                AccountMeta.ReadOnly(mint, false),
+                AccountMeta.ReadOnly(SystemProgramId, false),
+                AccountMeta.ReadOnly(tokenProgram, false),
+            ],
+            Data = [1],
+        };
+
     /// <summary>The 16 accounts the IDL declares for <c>buy</c>, in IDL order.</summary>
     public sealed record BuyAccounts(
         PublicKey FeeRecipient,

@@ -241,7 +241,8 @@ public sealed class Sniper
         };
 
         if (!ataExists)
-            instructions.Add(Solnet.Programs.AssociatedTokenAccountProgram.CreateAssociatedTokenAccount(wallet, wallet, mint));
+            instructions.Add(PumpFunProgram.BuildCreateAssociatedTokenAccount(
+                wallet, wallet, mint, mintInfo.TokenProgram));
 
         instructions.Add(PumpFunProgram.BuildBuyInstruction(
             new PumpFunProgram.BuyAccounts(

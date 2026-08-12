@@ -18,6 +18,17 @@ namespace SpaceStroker.TokenSniper.Tests.Infrastructure;
 public class PumpFunProgramTests
 {
     private const string Mint = "6RTQtuhu19q4LnCxbJLPEWjS1USoqAbSBLkM93tXpump";
+
+    /// <summary>
+    /// A REAL Token-2022 pump.fun mint (mainnet, read 2026-08-11). pump.fun mints freshly created
+    /// tokens under EITHER token program, so both must be exercised — a tool that only handles SPL
+    /// Token fails 100% of the time on the other half of launches.
+    /// </summary>
+    private const string Token2022Mint = "HxeW7sEiPwXph8LjotmSYKCetsJpbmNfZygS4V7dpump";
+
+    private const string SplTokenProgram = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+    private const string Token2022Program = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
     private const string User = "7Q6RcQKsmpaRsaK17nuVyxDEWMRcPJUhboHvsqNRgTsR";
     private const string Creator = "69uK17vg5VqGQ7xVRRRhGgGeddhvXiTKREmbnXRDaZLV";
     private const string FeeRecipient = "CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM";
@@ -115,6 +126,89 @@ public class PumpFunProgramTests
 
         instruction.Keys.Count.ShouldBe(17);
         instruction.Keys[16].PublicKey.ShouldBe(extra.Key);
+    }
+
+    /// <summary>
+    /// The account the create instruction opens MUST be the very account the buy then names as
+    /// <c>associated_user</c>. Deriving those two with different token programs opens one account and
+    /// spends into another — the buy fails, and it fails only for mints under the other token program.
+    /// </summary>
+    [Theory]
+    [InlineData(Mint, SplTokenProgram)]
+    [InlineData(Token2022Mint, Token2022Program)]
+    public void CreateAssociatedTokenAccount_TargetsTheAccountTheBuyWillReference(string mintAddress, string tokenProgram)
+    {
+        var mint = new PublicKey(mintAddress);
+        var program = new PublicKey(tokenProgram);
+        var owner = new PublicKey(User);
+
+        var instruction = PumpFunProgram.BuildCreateAssociatedTokenAccount(owner, owner, mint, program);
+
+        instruction.Keys[1].PublicKey.ShouldBe(
+            PumpFunProgram.DeriveAssociatedTokenAccount(owner, mint, program).Key);
+    }
+
+    [Theory]
+    [InlineData(Mint, SplTokenProgram)]
+    [InlineData(Token2022Mint, Token2022Program)]
+    public void CreateAssociatedTokenAccount_CarriesTheMintsOwnTokenProgram(string mintAddress, string tokenProgram)
+    {
+        var mint = new PublicKey(mintAddress);
+        var program = new PublicKey(tokenProgram);
+        var owner = new PublicKey(User);
+
+        var instruction = PumpFunProgram.BuildCreateAssociatedTokenAccount(owner, owner, mint, program);
+
+        instruction.ProgramId.ShouldBe(PumpFunProgram.AssociatedTokenProgramId.KeyBytes);
+        instruction.Keys.Select(k => k.PublicKey).ShouldBe(
+        [
+            User,                                              // 0 payer
+            PumpFunProgram.DeriveAssociatedTokenAccount(owner, mint, program).Key,  // 1 the ATA
+            User,                                              // 2 owner
+            mintAddress,                                       // 3 mint
+            PumpFunProgram.SystemProgramId.Key,                // 4 system_program
+            tokenProgram,                                      // 5 token_program — the mint's own
+        ]);
+
+        instruction.Keys[0].IsSigner.ShouldBeTrue();
+        instruction.Keys[0].IsWritable.ShouldBeTrue();
+        instruction.Keys[1].IsWritable.ShouldBeTrue();
+        instruction.Keys.Where((_, i) => i != 0).ShouldAllBe(k => !k.IsSigner);
+        instruction.Keys.Where((_, i) => i != 0 && i != 1).ShouldAllBe(k => !k.IsWritable);
+    }
+
+    /// <summary>
+    /// Discriminator 1 is CreateIdempotent. Plain Create (empty data) aborts the WHOLE transaction if
+    /// the account already exists — and this tool resumes runs, so an ATA opened by an earlier attempt
+    /// is a normal state, not an error.
+    /// </summary>
+    [Fact]
+    public void CreateAssociatedTokenAccount_IsIdempotent()
+    {
+        var instruction = PumpFunProgram.BuildCreateAssociatedTokenAccount(
+            new PublicKey(User), new PublicKey(User), new PublicKey(Token2022Mint), PumpFunProgram.Token2022ProgramId);
+
+        instruction.Data.ShouldBe([(byte)1]);
+    }
+
+    /// <summary>
+    /// Why this instruction is hand-built. Solnet's helper hardcodes SPL Token in BOTH the derived
+    /// address and the token_program account, so on a Token-2022 mint it fails with "incorrect program
+    /// id for instruction" — and if it somehow passed, it would open the wrong account.
+    /// </summary>
+    [Fact]
+    public void CreateAssociatedTokenAccount_DoesNotMatchSolnetsHelperOnAToken2022Mint()
+    {
+        var owner = new PublicKey(User);
+        var mint = new PublicKey(Token2022Mint);
+
+        var ours = PumpFunProgram.BuildCreateAssociatedTokenAccount(
+            owner, owner, mint, PumpFunProgram.Token2022ProgramId);
+        var solnet = Solnet.Programs.AssociatedTokenAccountProgram.CreateAssociatedTokenAccount(owner, owner, mint);
+
+        solnet.Keys[5].PublicKey.ShouldBe(SplTokenProgram);
+        ours.Keys[5].PublicKey.ShouldBe(Token2022Program);
+        ours.Keys[1].PublicKey.ShouldNotBe(solnet.Keys[1].PublicKey);
     }
 
     [Fact]
