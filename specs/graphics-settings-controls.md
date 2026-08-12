@@ -2,7 +2,7 @@
 
 > **Status: Shipped** — merged via `feature/graphics-settings-controls` on **2026-08-09**
 > (`monkify-front` + `monkify-meta`). Distilled in
-> [`../features/graphics-settings-controls.md`](../features/graphics-settings-controls.md), which is
+> [`../features/graphics-settings-controls.md`](../features/frontend-ux.md), which is
 > the doc to read first; this spec stays the deep design archive. See §14 for what changed at
 > implementation time.
 >

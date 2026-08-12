@@ -2,7 +2,7 @@
 
 > ✅ **Status: SHIPPED** — merged to `main` on **2026-08-07** from `feature/house-seed-bet`
 > (`monkify-backend` + `monkify-meta`; `monkify-front` untouched, zero files). Distilled summary:
-> [`features/house-seed-bet.md`](../features/house-seed-bet.md).
+> [`features/house-seed-bet.md`](../features/games.md).
 >
 > Verified before the merge, on the branch **after `origin/main` was merged into it** (the
 > `orbit-new-ui` train had landed meanwhile and changed `ISolanaService`'s signature):

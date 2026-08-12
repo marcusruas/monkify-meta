@@ -4,7 +4,7 @@
 > `monkify-backend`, `monkify-front` and `monkify-meta`, 734 unit + 93 integration green on the branch
 > before the merge; it completed the train, which landed on **`main`** the same day. The distilled
 > summary of what actually runs
-> is [`../features/orbit-notifications.md`](../features/orbit-notifications.md); this spec stays the
+> is [`../features/orbit-notifications.md`](../features/orbit.md); this spec stays the
 > deep design archive. Three things below were superseded during implementation — the **no-migration**
 > claim (§4, `AddOrbitCashOutFloor` shipped; see §6.9), **`EnvNaming.DerivedIds()`** (§5.4, it needed
 > no change), and the §8.1 diagram's `{playerId}/OrbitNotification` label (the send uses the

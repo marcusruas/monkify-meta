@@ -5,7 +5,7 @@
 > [Create coinbase integration for filling wallets #165](https://trello.com/c/9OoHAuEa) (2026-08-11).
 > Repos affected: **`monkify-meta` only** (new `tools/` solution + knowledge base). No
 > `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
-> Distilled in [`features/coinbase-wallet-funding.md`](../features/coinbase-wallet-funding.md).
+> Distilled in [`features/coinbase-wallet-funding.md`](../features/token-ops.md).
 >
 > **Post-ship notes — what shipped differs from this spec in three ways, all recorded in §12:**
 > 1. **Location and structure.** The app lives at `monkify-meta/tools/` (`SpaceStroker.Tools.sln`), not

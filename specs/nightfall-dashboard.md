@@ -5,7 +5,7 @@
 > [Nightfall dashboard #166](https://trello.com/c/mUDhAdBu) (2026-08-11).
 > Repos affected: **`monkify-meta` only** (a new project in the existing `tools/` solution + the
 > knowledge base). No `monkify-backend`, no `monkify-front`, no `monkify-lp` change.
-> Distilled in [`features/nightfall-dashboard.md`](../features/nightfall-dashboard.md).
+> Distilled in [`features/nightfall-dashboard.md`](../features/token-ops.md).
 >
 > **Post-ship notes — what shipped differs from this spec in one significant way**, recorded in §15:
 > **§6.4 step 7 and §12 finding 1's primary path did not survive contact with Solnet 6.1.0.** The

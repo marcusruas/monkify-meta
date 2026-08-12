@@ -3,7 +3,7 @@
 > **Status: Shipped** — merged via `feature/ghost-wallet-snipe` on **2026-08-11** (`monkify-meta`
 > only). Refined + specced from Trello card
 > [Create ghost wallet snipe app #63](https://trello.com/c/nokWHm7z) (2026-08-11).
-> Distilled in [`features/ghost-wallet-snipe.md`](../features/ghost-wallet-snipe.md).
+> Distilled in [`features/ghost-wallet-snipe.md`](../features/token-ops.md).
 >
 > **Post-ship note — §6.2 and §6.4 were rewritten during implementation**, because the protocol facts
 > read off mainnet contradicted what this spec had assumed in five ways (curve field names, a third
@@ -83,7 +83,7 @@ From `monkify-meta/constraints.md` (full list there):
   `SpaceStroker.Tests.Integration` is **explicitly waived on the card** — zero backend surface, so
   there is no code path for it to drive (waiver precedent:
   [`coinbase-wallet-funding.md`](coinbase-wallet-funding.md),
-  [`main-production-operator.md`](main-production-operator.md)). The **`features/` doc is still
+  `main-production-operator.md`). The **`features/` doc is still
   required** at ship time.
 - **Unit tests are required** for the pure logic — curve math, target/shortfall, affordability,
   schedule, preflight, report models (§11). There is **no fake RPC**: the live path is verified by

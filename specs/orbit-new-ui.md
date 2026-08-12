@@ -9,7 +9,7 @@
 > [`orbit-single-control.md`](orbit-single-control.md) (2026-08-07, same merge) — read that spec's
 > §7.3 for the shipped control bar; the tabs, type scale and shared-component rules here stand.
 >
-> **Purpose:** [`orbit-page-restructure.md`](orbit-page-restructure.md) rebuilt `/orbit` as a
+> **Purpose:** `orbit-page-restructure.md` rebuilt `/orbit` as a
 > **collapse-to-dashboard step list**. The modal has since been redesigned (`66e4df3`) and absorbed
 > turn-on and add-money, which left the page's step metaphor describing a setup order the modal no
 > longer defers to. This card replaces that structure with **tabs**, moves the run/stop/off controls

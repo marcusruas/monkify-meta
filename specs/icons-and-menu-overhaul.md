@@ -13,7 +13,7 @@
 > VT323 15px** (not 270 / 32 / PS2P), `wallet` is a **second** fine-grid drawing, and identity marks
 > reach the **pages and modals**, not only the menu cells. Every divergence is recorded in §15's
 > revision log; the distilled current truth is
-> [`../features/icons-and-menu-overhaul.md`](../features/icons-and-menu-overhaul.md), which **wins**
+> [`../features/icons-and-menu-overhaul.md`](../features/frontend-ux.md), which **wins**
 > wherever the two disagree.
 >
 > **Design artifact (visual source of truth, revision 5, reviewed by the owner):**

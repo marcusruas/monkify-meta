@@ -3,7 +3,7 @@
 > **Status: SHIPPED** — via `feature/orbit-auto-bet-engine` into `release/orbit` (2026-08-02) in
 > `monkify-backend` + `monkify-front` + `monkify-meta`, and onto **`main`** with the whole Orbit train
 > on **2026-08-03**. Distilled into
-> [`../features/orbit-auto-bet-engine.md`](../features/orbit-auto-bet-engine.md), which is the
+> [`../features/orbit-auto-bet-engine.md`](../features/orbit.md), which is the
 > current-behaviour summary; this spec stays the deep design archive.
 >
 > **Built differently from this spec in three places** (all deliberate, all in the feature doc):

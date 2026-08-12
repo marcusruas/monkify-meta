@@ -2,7 +2,7 @@
 
 > **Status: SHIPPED (2026-08-08)** — merged via `feature/money-changing-animations` into `main` in
 > `monkify-front` + `monkify-meta`. Distilled into
-> [`../features/money-changing-animations.md`](../features/money-changing-animations.md), which is the
+> [`../features/money-changing-animations.md`](../features/frontend-ux.md), which is the
 > doc to read on a normal task; this file stays the deep design archive.
 >
 > ⚠️ **Three owner deviations landed after this spec was written — the feature doc is authoritative

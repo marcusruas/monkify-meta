@@ -2,7 +2,7 @@
 
 > **Status: SHIPPED 2026-08-10** — merged to `main` via `feature/off-page-game-presentation` in
 > `monkify-front` + `monkify-meta`. Distilled in
-> [`features/off-page-game-presentation.md`](../features/off-page-game-presentation.md).
+> [`features/off-page-game-presentation.md`](../features/frontend-ux.md).
 > Implementation landed **exactly as specified** — all three files in §8.1, no deviations.
 > ⚠️ **The §11 browser QA pass was waived by the owner**, so acceptance criteria 1–10 shipped verified
 > only by `yarn lint` + `yarn build` and code review, never driven against a running app. AC 7 (the

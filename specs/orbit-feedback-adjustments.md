@@ -2,7 +2,7 @@
 
 > **Status: Shipped** — merged to `main` on **2026-08-06** via `feature/orbit-feedback-adjustments` in
 > `monkify-backend`, `monkify-front` and `monkify-meta`, immediately after #141. Distilled in
-> [`../features/orbit-feedback-adjustments.md`](../features/orbit-feedback-adjustments.md).
+> [`../features/orbit-feedback-adjustments.md`](../features/orbit.md).
 > Refined via Trello card [#150 Orbit feedback adjustments](https://trello.com/c/fiKfaawz)
 > (2026-08-05). Repos affected: **`monkify-backend`**, **`monkify-front`**, and this doc in
 > **`monkify-meta`**.
