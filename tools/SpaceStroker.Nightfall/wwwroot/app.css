@@ -1,0 +1,552 @@
+/* Nightfall — arcade cabinet skin (mockup 1b).
+   Shares the SpaceStroker house style: Press Start 2P + VT323, cyan accent, clipped metal panels. */
+
+:root {
+  --bg: #070b14;
+  --panel: #0d1826;
+  --panel-2: #141c28;
+  --edge: #1c2b3a;
+  --edge-2: #10314a;
+  --cyan: #31d7f5;
+  --amber: #f5b431;
+  --green: #4dffa6;
+  --red: #ff5d5d;
+  --text: #eaf6ff;
+  --muted: #7fa8c4;
+  --dim: #3d5f75;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: #cfe6f5;
+  font: 17px/1.4 VT323, monospace;
+  padding-bottom: 82px;
+  /* Nothing on this page is a text document; a stray drag should start a marquee, not a selection. */
+  user-select: none;
+}
+
+/* Scanlines. Pointer-events off so they never eat a click on a wallet. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 255, 255, 0.028) 0 1px, transparent 1px 3px);
+}
+
+.px {
+  font-family: "Press Start 2P", monospace;
+}
+
+/* ---------------- header ---------------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  border-bottom: 2px solid var(--edge-2);
+  background: linear-gradient(var(--panel), #0a1220);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.logo {
+  font-family: "Press Start 2P", monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.logo span {
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(49, 215, 245, 0.55);
+}
+
+.logo i {
+  color: var(--amber);
+  font-style: normal;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+.meta b {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.mode {
+  margin-left: auto;
+  display: flex;
+  border: 2px solid var(--edge-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mode-opt {
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px;
+  padding: 8px 11px;
+  background: transparent;
+  border: 0;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.mode-opt.on {
+  background: #0d3a2a;
+  color: var(--green);
+  text-shadow: 0 0 8px rgba(77, 255, 166, 0.6);
+}
+
+/* LIVE armed: the whole chrome shifts red so it can never be mistaken for a rehearsal. */
+.mode-opt.on[data-live="true"] {
+  background: #3a0d0d;
+  color: var(--red);
+  text-shadow: 0 0 8px rgba(255, 93, 93, 0.6);
+}
+
+body.live .bar {
+  border-bottom-color: #6a2020;
+  background: linear-gradient(#1a0d12, #12060a);
+}
+
+body.live .logo i {
+  color: var(--red);
+}
+
+/* ---------------- toolbar ---------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 0;
+}
+
+.chip {
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px;
+  padding: 7px 10px;
+  background: #0d1826;
+  border: 2px solid var(--edge);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--cyan);
+  color: var(--text);
+}
+
+.stamp {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+/* ---------------- wallet grid ---------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+  gap: 12px;
+  padding: 14px 18px 24px;
+}
+
+.w {
+  position: relative;
+  padding: 12px 13px;
+  background: linear-gradient(160deg, var(--panel-2), #0d141d);
+  border: 2px solid var(--edge);
+  cursor: pointer;
+  /* The clipped corner is the lobby-card motif from the app. */
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition:
+    border-color 0.1s,
+    box-shadow 0.1s;
+}
+
+.w:hover {
+  border-color: #2a4a63;
+}
+
+.w.sel {
+  border-color: var(--cyan);
+  box-shadow:
+    0 0 0 1px rgba(49, 215, 245, 0.35),
+    0 0 18px rgba(49, 215, 245, 0.18);
+}
+
+.w.busy {
+  border-color: var(--amber);
+  box-shadow: 0 0 16px rgba(245, 180, 49, 0.2);
+}
+
+/* Unsellable wallets stay readable — the operator still needs to see what they hold. */
+.w.blocked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.w-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.w-alias {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.w-share {
+  color: var(--green);
+  font-size: 20px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.w-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.w-line b {
+  color: var(--text);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.w-est {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--edge);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--amber);
+}
+
+.w-est b {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.w-tag {
+  position: absolute;
+  top: -2px;
+  right: 16px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 6px;
+  padding: 3px 6px;
+  background: var(--amber);
+  color: #0a1220;
+}
+
+.w-tag.bad {
+  background: #2a3a48;
+  color: var(--muted);
+}
+
+.w-tag.good {
+  background: var(--green);
+  color: #062015;
+}
+
+.w-tag.err {
+  background: var(--red);
+  color: #200606;
+}
+
+.w-note {
+  margin-top: 7px;
+  color: var(--amber);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.w-sig {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--dim);
+  word-break: break-all;
+}
+
+.empty {
+  padding: 40px 18px;
+  color: var(--dim);
+  text-align: center;
+}
+
+/* ---------------- hover quote ---------------- */
+
+.hover {
+  position: fixed;
+  z-index: 6;
+  max-width: 320px;
+  padding: 10px 12px;
+  border: 2px solid var(--cyan);
+  background: #08161f;
+  color: #9fd4ea;
+  line-height: 1.55;
+  pointer-events: none;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.hover .hd {
+  display: block;
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px;
+  color: var(--cyan);
+  margin-bottom: 7px;
+  line-height: 1.6;
+}
+
+.hover b {
+  color: var(--text);
+  font-weight: 400;
+}
+
+.hover .warn {
+  color: var(--amber);
+}
+
+/* ---------------- footer ---------------- */
+
+.foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border-top: 2px solid var(--edge-2);
+  background: #0a1220;
+}
+
+body.live .foot {
+  border-top-color: #6a2020;
+  background: #12060a;
+}
+
+.lbl {
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px;
+  color: var(--dim);
+  line-height: 1.6;
+}
+
+.hint {
+  max-width: 260px;
+}
+
+.count {
+  margin-left: auto;
+  color: var(--cyan);
+}
+
+.inp {
+  width: 74px;
+  background: var(--panel);
+  border: 2px solid var(--edge);
+  color: var(--text);
+  padding: 6px 9px;
+  font: 17px VT323, monospace;
+}
+
+.inp:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+
+.inp.bad {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.go {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  padding: 10px 15px;
+  background: linear-gradient(#1d4a63, #12303f);
+  border: 2px solid var(--cyan);
+  color: #9beefc;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.go:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+body.live .go:not(:disabled) {
+  background: linear-gradient(#5e1616, #3a0d0d);
+  border-color: var(--red);
+  color: #ffc9c9;
+}
+
+/* ---------------- confirm dialog ---------------- */
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 12, 0.82);
+  padding: 20px;
+}
+
+.dialog {
+  width: min(520px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, var(--panel-2), #0b1119);
+  border: 2px solid var(--cyan);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+body.live .dialog {
+  border-color: var(--red);
+}
+
+.dialog-title {
+  margin: 0;
+  padding: 16px 18px 12px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 10px;
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+}
+
+body.live .dialog-title {
+  color: var(--red);
+}
+
+.dialog-body {
+  padding: 0 18px;
+  overflow-y: auto;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dialog-body b {
+  color: var(--text);
+  font-weight: 400;
+}
+
+.d-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--edge);
+}
+
+.d-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 2px solid var(--edge);
+  color: var(--amber);
+  font-size: 19px;
+}
+
+.d-skip {
+  margin-top: 10px;
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.d-warn {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--red);
+  background: #1a0a0a;
+  color: #ffb3b3;
+  line-height: 1.5;
+}
+
+.d-sim {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--green);
+  background: #0a1a13;
+  color: #a5f3cd;
+  line-height: 1.5;
+}
+
+.dialog-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 18px;
+}
+
+.btn {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--edge);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.btn.ghost:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.btn.danger {
+  border-color: var(--cyan);
+  background: linear-gradient(#1d4a63, #12303f);
+  color: #9beefc;
+}
+
+body.live .btn.danger {
+  border-color: var(--red);
+  background: linear-gradient(#5e1616, #3a0d0d);
+  color: #ffc9c9;
+}
+
+/* ---------------- marquee ---------------- */
+
+.marquee {
+  position: fixed;
+  z-index: 3;
+  border: 1px dashed var(--cyan);
+  background: rgba(49, 215, 245, 0.08);
+  pointer-events: none;
+}

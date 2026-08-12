@@ -2,7 +2,7 @@
 
 > **Status: SHIPPED 2026-08-10** — merged to `main` via `feature/orbit-modal-improvements` in
 > `monkify-front` + `monkify-meta`. Distilled in
-> [`../features/orbit-modal-improvements.md`](../features/orbit-modal-improvements.md), which is the
+> [`../features/orbit-modal-improvements.md`](../features/orbit.md), which is the
 > summary to read first; this spec stays as the deep design archive.
 > Refined via Trello card [#163 Orbit modal improvements](https://trello.com/c/77laekQh) (2026-08-10).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend` is not

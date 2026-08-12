@@ -15,11 +15,15 @@ deploy/
     persistent/                # LAYER 1 — DNS zone + state bucket (production: prevent_destroy; dev: destroyable)
     workload/                  # LAYER 2 — everything teardown may destroy
       modules/{network,data,registry,iam,secrets,cloud_run_api,cloud_run_consumers,static_site,edge}
-  tools/
-    SpaceStroker.Deploy/           # `spacestroker-deploy deploy [api|consumers|front|lp]` + `teardown` + `validate`
-    SpaceStroker.DbConsole/        # `spacestroker-db --db game|messaging` (read-write REPL, write-confirm)
-    SpaceStroker.DeployTools.sln
+  SpaceStroker.Deploy/         # `spacestroker-deploy deploy [api|consumers|front|lp]` + `teardown` + `validate`
+  SpaceStroker.Deploy.Tests/
+  SpaceStroker.Deploy.sln
 ```
+
+> The DB console (`spacestroker-db`) moved to `monkify-meta/tools/SpaceStroker.DbConsole` in card
+> [#167](https://trello.com/c/Co35YRGt) — it is a general operator tool, not a deploy step. It still
+> reads `deploy/secrets.<env>.json`, a **documented exception** to the tools solution's shared
+> `secrets.json`, because these connection strings are environment-scoped and owned by this tool.
 
 ## Prerequisites (on PATH, authenticated)
 
@@ -68,7 +72,7 @@ Notes:
 Check every derived id (and its GCP cap) before deploying anything:
 
 ```bash
-cd deploy/tools/SpaceStroker.Deploy
+cd deploy/SpaceStroker.Deploy
 dotnet run -- validate --env development
 ```
 
@@ -106,7 +110,7 @@ terraform output dns_name_servers
 ## Deploy
 
 ```bash
-cd deploy/tools/SpaceStroker.Deploy
+cd deploy/SpaceStroker.Deploy
 cp ../../secrets.example.json ../../secrets.production.json   # fill in real values (never commit)
 
 dotnet run -- deploy                 # full workload: secrets → Secret Manager, tfvars, apply,
@@ -161,7 +165,7 @@ root pass's `-d`, or the manifests would be deleted by the very deploy that wrot
 ## Teardown — workload-only by default, `--purge` for a full wipe
 
 ```bash
-cd deploy/tools/SpaceStroker.Deploy
+cd deploy/SpaceStroker.Deploy
 dotnet run -- teardown --env development            # workload only — keeps the DNS zone + state bucket
 dotnet run -- teardown --env development --purge     # full wipe — ALSO destroys the DNS zone + state bucket
 ```
@@ -248,8 +252,8 @@ Nothing here requires raw Terraform. If you want it anyway, the messages print t
 ## DB console
 
 ```bash
-cd deploy/tools/SpaceStroker.DbConsole
-dotnet run -- --db game              # or: --db messaging
+cd tools/SpaceStroker.DbConsole
+dotnet run -- --db game --env development     # or: --db messaging
 ```
 
 Starts the Cloud SQL Auth Proxy, connects over IAM, and opens a REPL. `SELECT`/`WITH`/`SHOW`/`EXPLAIN`

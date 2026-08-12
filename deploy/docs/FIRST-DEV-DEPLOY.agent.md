@@ -40,8 +40,9 @@ fails at `cloud_run`. That partial success is Phase 1's deliverable.
 - TF working dir is per-env: always `TF_DATA_DIR=.terraform-dev`. Vars file (never `*.auto.`):
   `development.tfvars.json`, passed with `-var-file`.
 - DB console instance-name bug is **fixed**: `SpaceStroker.DbConsole` now derives
-  `spacestroker-<envCode>-pg[-<suffix>]` from `--env` + `gcp.dbInstanceSuffix`. Use
-  `dotnet run -- --db game --env development`.
+  `spacestroker-<envCode>-pg[-<suffix>]` from `--env` + `gcp.dbInstanceSuffix`. It lives in
+  `monkify-meta/tools/SpaceStroker.DbConsole` (moved out of `deploy/tools/` in card #167) and still
+  reads `deploy/secrets.<env>.json`. Use `dotnet run -- --db game --env development`.
 
 ## Preconditions to verify before executing
 
@@ -64,7 +65,7 @@ Edit `deploy/secrets.development.json`:
 
 ## Execution
 
-All `dotnet run` from `monkify-meta/deploy/tools/SpaceStroker.Deploy`. `<PROJECT>` = real project id.
+All `dotnet run` from `monkify-meta/deploy/SpaceStroker.Deploy`. `<PROJECT>` = real project id.
 
 ### Phase 0 — auth + APIs
 ```bash
@@ -117,7 +118,7 @@ docker push  us-central1-docker.pkg.dev/<PROJECT>/spacestroker-dev/api:latest
 
 ### Phase 4 — Run 2: full deploy to completion
 ```bash
-cd ../../monkify-meta/deploy/tools/SpaceStroker.Deploy
+cd ../../monkify-meta/deploy/SpaceStroker.Deploy
 dotnet run -- deploy --env development
 ```
 Now: corrected secrets re-synced (new versions), `terraform apply` creates `cloud_run_*` (images

@@ -1,0 +1,16 @@
+# Local secrets — the operator's source of truth. NEVER commit (only the template is tracked).
+secrets*.json
+!secrets.example.json
+
+# Run state, receipts and reports — addresses, amounts, transaction ids and signatures.
+/Receipts/
+
+# Pre-refactor leftovers: run state that predates tools/Receipts/. Keep these until tools/ is clean,
+# otherwise a `git status` would offer to commit real addresses and transaction ids.
+*receipts*.json
+/reports/
+/snipe-receipts*.json
+
+# .NET build output for the console apps
+**/bin/
+**/obj/

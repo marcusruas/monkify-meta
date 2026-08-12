@@ -1,7 +1,7 @@
 # Space Stroker — "Real API error messages" — Implementation Spec
 
 > **Status: SHIPPED 2026-08-08** — merged to `main` via `feature/api-error-messages` in all three
-> repos. Distilled into [`../features/api-error-messages.md`](../features/api-error-messages.md); this
+> repos. Distilled into [`../features/api-error-messages.md`](../features/infra.md); this
 > spec stays the deep design archive. See §16 for what changed between this document and what shipped.
 >
 > Refined via Trello card

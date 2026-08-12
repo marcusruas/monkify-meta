@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SpaceStroker.TokenSniper</RootNamespace>
+    <AssemblyName>spacestroker-snipe-token</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Solnet only. Deliberately NO BouncyCastle here: the sibling WalletFunder needs it for Coinbase's
+      Ed25519 JWS, but Solana transaction signing is native to Solnet, and adding
+      BouncyCastle.Cryptography alongside the Portable.BouncyCastle 1.9.0 Solnet drags in makes every
+      Ed25519* type ambiguous (CS0433) — see specs/coinbase-wallet-funding.md §12 finding 7.
+      Pinned to 6.1.0 to match monkify-backend.
+    -->
+    <PackageReference Include="Solnet.Rpc" Version="6.1.0" />
+    <PackageReference Include="Solnet.Wallet" Version="6.1.0" />
+    <PackageReference Include="Solnet.Programs" Version="6.1.0" />
+  </ItemGroup>
+
+</Project>

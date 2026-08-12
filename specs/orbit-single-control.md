@@ -3,7 +3,7 @@
 > **Status: Shipped** — merged to `main` on **2026-08-07** via **`feature/orbit-new-ui`** in
 > `monkify-backend` and `monkify-front` (front and backend together — the API contract changed).
 > Designed in-session with the owner on **2026-08-07**; ⚠️ **no Trello card**. Distilled in
-> [`../features/orbit-single-control.md`](../features/orbit-single-control.md).
+> [`../features/orbit-single-control.md`](../features/orbit.md).
 >
 > **Purpose:** Orbit currently has FOUR points of control — `Enabled` (enrolment on/off, where OFF
 > force-cashes-out everything and starts an hours-long re-enable cool-off), `Stopped` (the free

@@ -77,6 +77,42 @@
   `AllowFreeBet` and lottery-schedule self-heals in `SpaceStroker.Consumers/Program.cs`.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
   `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
+- **⚠️ The folder tree must show the architecture. Never leave a project as a flat pile of `.cs` files.**
+  A reader — human or agent — should be able to infer how a project is built from `find . -name "*.cs"`
+  alone, without opening anything. That means **every** .NET project, from the biggest service down to a
+  single-purpose console tool, groups its files into folders that carry a **matching namespace**
+  (`Domain/FundingPlan.cs` ⇒ `namespace <Project>.Domain`), not a flat root directory.
+
+  **Use the layer vocabulary the solution already speaks** — the backend's own projects are the
+  reference (`SpaceStroker.Domain`, `SpaceStroker.Infrastructure`, `SpaceStroker.Api`,
+  `SpaceStroker.Common`). Inside a **single-project** app, mirror that split as folders:
+
+  | Folder | Holds | Depends on |
+  | --- | --- | --- |
+  | `Domain/` | Entities, value objects, pure rules and calculations. **No IO, no HTTP, no filesystem, no clock.** | nothing |
+  | `Infrastructure/` | Everything that talks to the outside world, one **sub-folder per external system** (`Infrastructure/Coinbase/`, `Infrastructure/Solana/`) | `Domain` |
+  | `Application/` | Orchestration, CLI/entry-point wiring, presentation (console output, formatting) | `Domain`, `Infrastructure` |
+
+  `Program.cs` stays at the project root — it is the entry point, not a layer.
+
+  **Mirror the same folders in the test project** (`Tests/Domain/…`, `Tests/Infrastructure/…`), and put
+  each test beside the layer of the type it exercises — a test for a file-backed store belongs in
+  `Tests/Infrastructure/`, even if the rules it asserts are domain rules.
+
+  Two reasons this is a rule and not a preference:
+  - **The layer boundary is the testability boundary.** Keeping `Domain` free of IO is what lets the
+    rules that matter be unit-tested with no fake, no container and no network. When a domain type
+    needs an external value (an account balance, the current time), **pass the value in** rather than
+    the client that fetches it — `Preflight.Check(pool, availableSol, …)` in
+    `tools/SpaceStroker.WalletFunder` is the worked example: it is a pure function precisely because the
+    balance is a `decimal`, not a `CoinbaseClient`.
+  - **Flat projects hide their own architecture.** Fifteen files in one folder read as fifteen equal
+    things; the same fifteen under three folders read as a design. This is the file-level counterpart of
+    the "main method orchestrates, not implements" rule above.
+
+  Applies to `monkify-backend` **and** to the standalone console apps in `monkify-meta/tools/` and
+  `monkify-meta/deploy/tools/`. (`deploy/tools/SpaceStroker.Deploy` predates the rule and is still flat —
+  bring it into line opportunistically, not as a drive-by refactor in an unrelated card.)
 - **Single-responsibility classes read top-down — isolate behaviours into named methods.** When a
   class exists to do one thing (a MediatR handler, a MassTransit consumer, a domain service entry
   point), the **main method should orchestrate, not implement**. Pull each distinct behaviour /
@@ -307,6 +343,41 @@ app.UseMiddleware<AdminTokenValidationMiddleware>();
   `POST /admin/bets/refund` to find. `RateLimitSettingsTests` asserts the rule list **exactly** so a
   new catch-all fails the build instead of a player quietly losing money. A rule whose `Endpoint` has
   no `:` (e.g. `api/*`) matches **nothing** — the first segment is parsed as the *hostname*.
+
+## Meta-repo console tools (`monkify-meta/tools`, `monkify-meta/deploy`)
+
+Neither solution is part of the deployed application. **Nothing here is built into a container image,
+deployed to Cloud Run, or run by the local Docker stack.** They are built and run by hand, on purpose —
+three of them move real money.
+
+| Solution | Holds | Binaries |
+| --- | --- | --- |
+| `tools/SpaceStroker.Tools.sln` | `SpaceStroker.WalletFunder` · `SpaceStroker.TokenSniper` · `SpaceStroker.Nightfall` · `SpaceStroker.DbConsole` | `spacestroker-fund-wallets` · `spacestroker-snipe-token` · `spacestroker-nightfall` · `spacestroker-db` |
+| `deploy/SpaceStroker.Deploy.sln` | `SpaceStroker.Deploy` + its tests, next to the Terraform stack | `spacestroker-deploy` |
+
+- **One shared, git-ignored `tools/secrets.json` for the whole tools solution.** Shared keys
+  (`solana.rpcUrl`, the `wallets[]` pool) sit at the **top level**; each tool gets one **named
+  section** (`coinbase`/`travelRule`/`funding`, `snipe`, `nightfall`). Every tool **ignores unknown
+  fields** in a pool entry — that is what lets one array serve all three. The only tracked config is
+  the placeholder-only `secrets.example.json`.
+- **Documented exception: `SpaceStroker.DbConsole` reads `deploy/secrets.<env>.json`,** not the shared
+  file. Cloud SQL connection strings are environment-scoped and owned by the deploy tool; copying
+  production credentials into a second untracked file would create drift and a second place to leak
+  from. It finds that file by walking up from `AppContext.BaseDirectory` for
+  `<dir>/monkify-meta/deploy/secrets.<env>.json`, so the lookup is independent of where the project
+  itself sits.
+- **All run state, receipts and reports go to the git-ignored `tools/Receipts/`.** Never write run
+  state to the solution root. ⚠️ **Changing a receipts default path is a money-safety change for
+  `spacestroker-fund-wallets`:** its Coinbase idempotency tokens are derived from the plan, so a
+  receipts file the tool cannot see reads as "no prior run" and a re-run issues genuinely new
+  transfers. It refuses to start when a pre-refactor file is about to be missed
+  (`Domain/LegacyReceipts.cs`). The sniper and Nightfall only warn — both recompute from live
+  on-chain state, which is their real resume truth.
+- **The Domain / Infrastructure / Application split applies here too** — see "The folder tree must
+  show the architecture" above. `Domain/` stays IO-free, which is precisely what makes the
+  money-safety rules unit-testable without a fake sender or a filesystem.
+- **Secrets never reach output.** Nothing beyond public addresses may appear in console output,
+  receipts or a report; a keyed RPC URL is masked to host-only wherever it is logged.
 
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, and add
      concrete examples. -->

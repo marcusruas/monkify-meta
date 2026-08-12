@@ -110,7 +110,7 @@ gcloud services enable \
 ### Stage 1 — Sanity-check the names
 
 ```bash
-cd monkify-meta/deploy/tools/SpaceStroker.Deploy
+cd monkify-meta/deploy/SpaceStroker.Deploy
 dotnet run -- validate --env development
 ```
 
@@ -120,7 +120,7 @@ stop and fix the secrets file before going further.
 ### Stage 2 — Run 1: create the plumbing (this one is *expected* to stop early)
 
 ```bash
-# still in deploy/tools/SpaceStroker.Deploy
+# still in deploy/SpaceStroker.Deploy
 dotnet run -- deploy --env development
 ```
 
@@ -170,7 +170,7 @@ docker push  us-central1-docker.pkg.dev/<PROJECT>/spacestroker-dev/api:latest
 ### Stage 5 — Run 2: finish the deploy
 
 ```bash
-cd ../../monkify-meta/deploy/tools/SpaceStroker.Deploy
+cd ../../monkify-meta/deploy/SpaceStroker.Deploy
 dotnet run -- deploy --env development
 ```
 
@@ -219,7 +219,7 @@ between test sessions: tear down, and later `deploy` recreates everything and re
 domain delegation.
 
 ```bash
-cd monkify-meta/deploy/tools/SpaceStroker.Deploy
+cd monkify-meta/deploy/SpaceStroker.Deploy
 dotnet run -- teardown --env development
 ```
 
@@ -256,7 +256,7 @@ makes the command exit non-zero and tells you exactly what is left. See `deploy/
   why DNS is the last stage.
 - **The DB console now works against dev.** After the deploy you can inspect the database with:
   ```bash
-  cd monkify-meta/deploy/tools/SpaceStroker.DbConsole
+  cd monkify-meta/tools/SpaceStroker.DbConsole
   dotnet run -- --db game --env development      # or: --db messaging
   ```
   (It now targets `spacestroker-dev-pg` correctly — the earlier hardcoded-name bug is fixed.)

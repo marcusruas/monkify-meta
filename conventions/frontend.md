@@ -69,7 +69,7 @@
 - **A money figure that moves is rendered by `MoneyValue.vue`, never by hand.** One component owns the
   roll, the `± ` chip, the credit-green/debit-dim-ink colours, the queue and the reduced-motion branch;
   the **formatter is injected** per call site. A change animates **only when it is attributed** — see
-  [`../features/money-changing-animations.md`](../features/money-changing-animations.md). Do not add a
+  [`../features/money-changing-animations.md`](../features/frontend-ux.md). Do not add a
   second animated readout, and do not animate a figure the player is currently typing into.
 - **A write that proves wallet ownership must be signed.** `usePlayerPreferences.ts` is the pattern:
   fetch a purpose-scoped nonce (`GET /players/nonce`), build the canonical message **byte-for-byte
@@ -906,7 +906,7 @@ const onVisibilityChange = () => {
 - **Also resync visual state on return, do not resume it.** Anything animating (positions, speeds,
   transitions) should be re-derived from current props/state on becoming visible rather than
   fast-forwarded from a paused value — see
-  [background-lifecycle-hardening](../features/background-lifecycle-hardening.md) for what "repair the
+  [background-lifecycle-hardening](../features/frontend-ux.md) for what "repair the
   paused transition" cost.
 
 Used by: `useIdleDisconnect.ts`, `useTokenBalance.ts`, `useGame.ts` (`gradualSpeedReset`),
@@ -919,7 +919,7 @@ visible on — and gate it at the consumer, never by muting the shared state and
 socket.** `useGame`'s SignalR subscription is tab-scoped and **deliberately** outlives `GamePage`
 (`unified-websocket-connection`), so anything global that reads it keeps reacting to a round the
 player has left. That is how the starfield and torpedoes ended up animating an abandoned round on
-every other page ([off-page-game-presentation](../features/off-page-game-presentation.md)).
+every other page ([off-page-game-presentation](../features/frontend-ux.md)).
 
 The three wrong fixes, and why:
 
