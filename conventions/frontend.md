@@ -607,6 +607,26 @@
     `maximum-scale`, so iOS Safari zooms the page whenever a focused input computes under 16px. Trim
     with leading and tracking instead; going lower means either breaking pinch-zoom or a `:focus`-only
     bump, both of which are trade-offs to raise explicitly.
+  - **The keyboard lift has TWO teardown routes, and a device-only bug needs device evidence
+    (Trello #170, 2026-08-13).** The console lifts on the bet input's focus and unwinds on its `blur`;
+    `src/hooks/useKeyboardDismiss.ts` force-blurs the input when the keyboard goes away without the
+    input saying so — `visualViewport` for a **dismissal** (BACK / swipe-down / iOS "Done", 150px gap,
+    behind a latch that waits for the keyboard to be seen open) and **`window`'s `blur`** for the
+    player **leaving the app**. The full rules live in
+    [`../features/frontend-ux.md`](../features/frontend-ux.md) §3; two apply to any focus work here:
+    ⚠️ **`document.activeElement` stays the input** — Android fires an input's focus/blur *events* from
+    **window** focus changes while the element keeps DOM focus, and Chrome restores that focus on
+    return, so a focus *flag* and real DOM focus are different things on this screen; and ⚠️ **a
+    listener that must hear the window blur cannot be armed on a focus flag**, because the flag flips
+    ~1 ms first.
+    ⚠️ **The process lesson generalises beyond this screen:** two fixes shipped green in desktop Chrome
+    and failed on the phone, because the synthetic repro encoded the same wrong model of the device as
+    the fix did. For a mobile-only defect, **instrument the page and read real device events before the
+    first fix** — a temporary on-page log (persisted to `localStorage` so it survives Chrome discarding
+    a backgrounded tab, plus a patched `HTMLInputElement.prototype.blur` so *our* blur is
+    distinguishable from the browser's) turned three rounds of guessing into one screenshot. And make
+    the repro model **causality**, not the observed effect: it only became honest once "Chrome restores
+    focus" was made conditional on the element still holding DOM focus.
   - **A mobile-only surface must be built crisp — `usePerfMode` forces `html.light-graphics` on every
     viewport below `lg`.** A component that only renders below `lg` therefore *always* runs in that
     mode, so a wide soft glow there is built specifically to be stripped: dead weight on the one device

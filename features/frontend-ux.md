@@ -97,6 +97,60 @@ phones are covered. Portrait **and** landscape, standalone **and** inside an ifr
 - Later passes brought the arcade cabinet + Edson to mobile and fixed tablet-console / lever-scaling
   edge cases.
 
+### The native-keyboard lift, and the TWO ways it is torn down
+
+While the bet input is focused, the game/practice column lifts the console above the native keyboard
+(`pb-[38dvh]` on the scrolling column + Edson hidden via `v-show="!betInputFocused"`), so the visor and
+the lever stay reachable. Nothing in the app can observe the keyboard directly — `public/index.html`
+ships **no `interactive-widget`**, so `dvh` does not move when the keyboard opens or closes.
+
+The lift is unwound by the input's `@blur`, and **one shared composable
+(`src/hooks/useKeyboardDismiss.ts`) force-blurs the input in the two cases where the keyboard goes away
+without the input reporting it.** It is used by **both** `GameConsole` and `PracticeConsole` — the bug
+shipped twice because the lift logic was copy-pasted, and the fix must not become a third copy. Its
+only output is `input.blur()`: the existing `@blur` handler then runs the **same** teardown as every
+other dismissal, so the app keeps **one** teardown route rather than two that can drift.
+
+| Route | Signal | Why not the other one |
+| --- | --- | --- |
+| **Dismissed** — system BACK, swipe-down, iOS "Done" | `visualViewport` `resize`; the keyboard is open while `innerHeight − visualViewport.height > 150px` | Keying on the *keyboard* rather than on which button was pressed covers all three for free |
+| **Left the app** — system app switcher, screen lock | `window` `blur` | `visualViewport` cannot see it at all, and `visibilitychange` arrives **~967 ms** too late (measured) |
+
+Four rules that cost real time to learn, all of them load-bearing:
+
+- **The threshold is ABSOLUTE, not a ratio.** A real soft keyboard is ~250–350px and URL-bar chrome
+  shifts are ~50–110px, so 150 separates them with room on both sides. 25% of a tall phone is ~250px,
+  which a numeric pad or a floating/split keyboard need not clear — and a false *close* collapses the
+  layout under a player who is still typing, the one failure to avoid.
+- **The detector LATCHES on "keyboard seen open" before it will fire a close.** The keyboard *animates*
+  open and Chrome Android emits `resize` through that animation, so an unlatched "gap below 150 ⇒ blur"
+  blurs the input on the first partial frame — the keyboard would never finish opening and the fix
+  would be worse than the bug.
+- **⚠️ The window-blur listener is armed on the SURFACE, not on `isFocused`.** Measured on a real
+  phone: pressing the app switcher fires the input's `blur` **event** at `t+0` (so `isFocused` is
+  already false) and `window` `blur` at `t+1ms`. A focus-armed listener is detached before it arrives.
+  Hence `useKeyboardDismiss(input, isFocused, onLiftSurface)` — two refs, two lifetimes.
+  **Collapsing them back into a single `armed` ref reintroduces the bug.**
+- **⚠️ `document.activeElement` stays the input the whole time.** Android fires the input's focus/blur
+  *events* from **window** focus changes while the element keeps real DOM focus — and that retained
+  focus is exactly what Chrome **restores** on return, re-firing `focus`, re-lifting the cabinet, with
+  no keyboard behind it. Giving up DOM focus *while we still hold it* is what leaves nothing to
+  restore. So the handler's guard is `document.activeElement === input`, not a focus flag.
+
+**Three inputs are wired, not two:** `GameConsole`'s *desktop* input branch is also a mobile surface —
+`GamePage.vue` renders `<game-console wide>` for viewports 600–1023px wide **and** ≥600px tall and
+binds `@focus-change` to it. `PracticeConsole` has no `wide` band, so only its mobile input is wired;
+its desktop branch does not even emit `focus-change`.
+
+**Desktop is untouched** — `onLiftSurface` is false above `lg`, so no listener is attached and a
+desktop player who alt-tabs away mid-word **keeps their caret**. Blurring costs only the caret in any
+case: the typed word lives in the store (`v-model`), never in the DOM node.
+
+⚠️ **This was a device-only defect and two fixes shipped green in desktop Chrome before failing on the
+phone**, because both were verified against synthetic events that encoded the same wrong model of
+Android. See `specs/mobile-keyboard-dismiss.md` §7.2b for the measured trace — it is the primary
+evidence and should not be re-derived.
+
 ## 4. Background, motion and performance
 
 - ⚠️ **`NebulaField.vue` was deleted outright** — 5 clouds of 40–82vw radial gradient carrying
@@ -167,4 +221,5 @@ right-side panel, attributed to each player's **display name** (the same identit
 `src/components/game/{GameTerminal,GameConsole,GameMonkey,GameSidePanel,GameChatPanel}.vue`,
 `src/components/GameBackground.vue` + `TorpedoSpawner.vue`, `src/hooks/{usePerfMode,useIsMobile,useChatUnread}.ts`,
 `src/utils/walletDeepLink.ts`, `src/components/GameAudio.vue` + `src/assets/audios/`,
-`src/components/game/GameMobileTabs.vue`.
+`src/components/game/GameMobileTabs.vue`, `src/hooks/useKeyboardDismiss.ts` (+ its three wiring
+points: both `GameConsole.vue` input branches and `PracticeConsole.vue`'s mobile one).

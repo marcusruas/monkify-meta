@@ -1,7 +1,15 @@
 # SpaceStroker — "Mobile keyboard dismiss" Bug Fix — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped 2026-08-13** — `feature/mobile-keyboard-dismiss` merged to `main` in
+> `monkify-front` and `monkify-meta`. Refined via Trello card
 > [On mobile, fix issue with the keyboard thing on typing](https://trello.com/c/MtqcFQEm) (2026-08-13).
+>
+> ⚠️ **What shipped is broader than the card was refined for, and decision 13 supersedes 12.** The
+> card covered the system BACK button; the owner found a **second route** (the app switcher) while
+> testing and it was folded in. The two routes need **different signals** — `visualViewport` for a
+> dismissal, `window` `blur` for leaving the app — and the app-switch half took two wrong attempts,
+> both of which passed in desktop Chrome. §7.2b holds the measured device trace that settled it; read
+> it before changing anything here.
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend` is NOT
 > affected** — no endpoint, entity, handler, consumer, EF mapping or migration is touched.
 >
@@ -411,8 +419,8 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/hooks/useKeyboardDismiss.ts` | **New.** The `visualViewport` subscription, the 150px constant, the open-latch, the focused-only lifecycle and the no-`visualViewport` fallback (§7.2). |
-| 2 | `src/components/game/GameConsole.vue` | Capture `props` (line 35); add `wordInput` template ref to **both** inputs (lines 366 and 513); arm the composable with `isFocused && (mobile || wide)` (§7.4). |
-| 3 | `src/components/practice/PracticeConsole.vue` | Capture `props` (line 25); add `wordInput` ref to the **mobile** input (line 193); arm with `isFocused && mobile` (§7.4). |
+| 2 | `src/components/game/GameConsole.vue` | Capture `props` (line 35); add `wordInput` template ref to **both** inputs (lines 366 and 513); pass `isFocused` and `onLiftSurface = mobile \|\| wide` **separately** (§7.4 — the two listener lifetimes must stay apart, decision 13). |
+| 3 | `src/components/practice/PracticeConsole.vue` | Capture `props` (line 25); add `wordInput` ref to the **mobile** input (line 193); pass `isFocused` and `onLiftSurface = mobile` **separately** (§7.4). |
 
 ### 10.3 Meta (`monkify-meta`)
 
