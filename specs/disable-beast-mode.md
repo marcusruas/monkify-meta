@@ -97,9 +97,9 @@ From `monkify-meta/constraints.md` (full list there):
 | 12 | `ComingSoon` types drop out of Orbit's `eligibleGameTypes`, out of the settings validator, and out of the placement engine's eligibility test. Beast Mode is one of only two `AllowOrbit: true` types (Space Jackpot is `false`), so **Orbit's picker collapses to exactly one option: Cosmic Sprint.** |
 | 13 | With a single eligible type, **`OrbitGameTab.vue` drops the dropdown entirely** for a read-only line naming the game (still auto-committing it, so the enrolment row is created exactly as `commitGame` does today), plus **"More modes coming to Orbit soon."** A dropdown with one option is a control that cannot be used. |
 | 14 | **`OrbitModal.vue`'s game picker keeps its `<select>`** — see §7.7 for why. It is a *confirm-then-navigate* flow, not an auto-committing field, and it only renders when nothing is set up yet. |
-| 15 | The gated `GameTypeCard` reads as a machine that is **switched off**, not as a broken card: dimmed/desaturated art, a `COMING SOON` pill where the status pill goes, the button replaced by a **disabled "Coming soon"**, no hover lift, **no GIF fetch**, no live/pot chip, no `chooseGame` emit, `aria-disabled`, no `cursor-pointer`. |
+| 15 | The gated `GameTypeCard` reads as a machine that is **switched off**, not as a broken card: **lightly** dimmed/desaturated art, a `COMING SOON` pill where the status pill goes, the button replaced by a **disabled "Coming soon"**, no chips at all, no `chooseGame` emit, `aria-disabled`, no `cursor-pointer`. ⚠️ **REVISED 2026-08-13 (owner, on the live build):** the card **keeps its full hover animation — lift, accent glow AND the GIF swap** — and the dim was softened from `grayscale(.75) brightness(.55)` to `grayscale(.3) brightness(.82)`. The original "no motion, heavy dim" reading made the card look **broken** rather than not-yet-open, and killed the artwork that is the whole reason for keeping the game in the catalogue. Motion says *alive*, not *clickable*; what carries "not yet" is the trio that cannot be misread — the pill, the disabled button, and a click that does nothing. The **cursor** is the one hover affordance still suppressed, because a pointer promises a destination this card does not have. |
 | 16 | **The "brief explanation of the game as it is today" is the catalogue `description` already on the card** — *"Back a beast - the first one Edson spells out moons the whole pot. No typing."* It stays visible in full. **No new front-side game copy**, so game copy cannot drift from the catalogue. |
-| 17 | The **Ticket chip stays** on the gated card. It is catalogue data (like the name, the tag and the description), not a live/pot chip; dropping it would make the lobby say less about the game than the manual does. |
+| 17 | ~~The **Ticket chip stays** on the gated card. It is catalogue data (like the name, the tag and the description), not a live/pot chip; dropping it would make the lobby say less about the game than the manual does.~~ ⚠️ **REVERSED 2026-08-13 (owner, on the live build): the ENTIRE chip HUD is hidden when gated, ticket price included.** The original reasoning was right that a price is catalogue data — but it is catalogue data that functions as an **invitation**, and quoting a price for a game that refuses every bet is the card advertising a transaction it cannot honour. The manual keeps its `TICKET:` line, which is fine: the guide's job is to teach the mode, not to sell entry. The price returns automatically when the flag flips — nothing is removed from the catalogue. |
 | 18 | **Deep link `/game/play?type=<BEAST_ID>`** (bookmark, stale tab, hand-typed) **bounces to `/game` (`GameLobby`) with a short toast**, before any live-instance fetch or socket open. Closes the bypass the card itself cannot. |
 | 19 | **`HomeHero.usualGame` skips `comingSoon` types** — the "Play <game>" CTA is simply not rendered, the same fall-through already documented there for a deactivated favourite. `featured` reads `liveByType` and can never surface one, since no rounds open. |
 | 20 | **`/how-to-play` KEEPS the Beast Mode mode card**, marked with the same coming-soon treatment, so the manual and the lobby tell the same story. |
@@ -198,26 +198,31 @@ touched — in particular the `AdminToken` PEM block stays byte-identical.
 next to `AllowOrbit`. A fresh environment therefore seeds Beast Mode already gated, and never opens a
 round for it.
 
-**6.1b — reconcile it on existing rows.** Add a block modelled exactly on the `AllowOrbit` self-heal
-(lines 403-427), **after** it. It must capture *which* types transitioned `false → true`, because
-that is the trigger for 6.1c:
+**6.1b — reconcile it on existing rows.** A self-heal modelled exactly on the `AllowOrbit` patch
+(lines 403-427), running **after** it. It must capture *which* types transitioned `false → true`,
+because that is the trigger for 6.1c.
+
+⚠️ **The loop itself lives in `SpaceStroker.Infrastructure/Services/Games/ComingSoonReconciler.cs`,
+not inline in `Program.cs`** (owner's call, 2026-08-12). Inline, this behaviour is untestable in both
+directions: top-level program statements are unreachable from a test, and `ExecuteUpdate` is a silent
+no-op on the in-memory provider the unit suite uses — so acceptance criterion 1 (an *existing* row
+picks the flag up, and nothing else on it is rewritten) and the cancellation that hangs off it would
+have shipped unproven. In a fresh integration database Beast Mode is *created* already gated, so the
+`false → true` branch never runs there either. The extracted seam is the only place the behaviour can
+actually be asserted, and it is what `DefaultGameSeedingTests.Reconcile_FlipsAnAlreadySeededRow_…`
+drives against real Postgres. Everything else about the design is unchanged: the reconciler touches the
+column and nothing else, and **`Program.cs` still owns the cache drop and the event publish**.
 
 ```csharp
-// Self-heal: align each configured type's coming-soon flag with config (#168). Same reason as the
-// AllowOrbit patch above — seeding is create-only by name, so a flag added to config after a row
-// exists would never reach it, and this flag is the ONLY way Beast Mode gets switched off.
-// ExecuteUpdate because the context is NoTracking: load-mutate-SaveChanges persists nothing.
-var comingSoonPatched = 0;
-var newlyGated = new List<Guid>();
-
+// ComingSoonReconciler.Reconcile — returns (Patched, NewlyGated)
 foreach (var config in defaults)
 {
-    var desiredComingSoon = config.ComingSoon;
+    var desired = config.ComingSoon;
 
     // Capture the ids BEFORE the update — this is the false -> true transition, and it is what the
-    // cancellation below keys on. A type already gated stays out of the list, so a restart does not
+    // cancellation keys on. A type already gated stays out of the list, so a restart does not
     // re-publish (the consumer is idempotent anyway, but a no-op event per boot is noise).
-    if (desiredComingSoon)
+    if (desired)
     {
         newlyGated.AddRange(context.GameParameters
             .AsNoTracking()
@@ -226,23 +231,30 @@ foreach (var config in defaults)
             .ToList());
     }
 
-    comingSoonPatched += context.GameParameters
-        .Where(x => x.Name == config.Name && x.ComingSoon != desiredComingSoon)
-        .ExecuteUpdate(setters => setters.SetProperty(x => x.ComingSoon, desiredComingSoon));
+    // ExecuteUpdate because the context is NoTracking: load-mutate-SaveChanges persists nothing.
+    patched += context.GameParameters
+        .Where(x => x.Name == config.Name && x.ComingSoon != desired)
+        .ExecuteUpdate(setters => setters.SetProperty(x => x.ComingSoon, desired));
 }
+```
 
-if (comingSoonPatched > 0)
+```csharp
+// Program.cs -> CreateDefaultGameParametersAsync, after the AllowOrbit self-heal
+var comingSoon = ComingSoonReconciler.Reconcile(context, defaults);
+
+if (comingSoon.Patched > 0)
 {
     // ⚠️ Do NOT delete this as redundant. GameParametersDto gains comingSoon and the ActiveParameters
     // cache has a 12h TTL — without dropping the key the first boot after deploy serves a blob that
     // predates the field, so the lobby keeps offering a game the API now refuses, for half a day.
     cacheService.Remove(CacheHelper.GenerateActiveParametersCacheSettings());
-    Log.Information("Patched {Count} default type(s) for ComingSoon.", comingSoonPatched);
+    Log.Information("Patched {Count} default type(s) for ComingSoon.", comingSoon.Patched);
 }
 ```
 
-**6.1c — cancel + refund the open round.** For each id in `newlyGated`, publish the **existing**
-`GameTypeDeactivatedEvent(id)` on the message bus. Resolve `IMessageBus` from the same scope.
+**6.1c — cancel + refund the open round.** For each id in `comingSoon.NewlyGated`, publish the
+**existing** `GameTypeDeactivatedEvent(id)` on the message bus. Resolve `IMessageBus` from the same
+scope. This stays in `Program.cs`, next to the cache drop.
 
 ⚠️ **This is safe precisely because these startup steps run on `ApplicationStarted`, not inline**
 (`Program.cs:249-256`, with the comment explaining that the transport's database is provisioned by a
@@ -413,12 +425,13 @@ const gated = computed(() => props.game.comingSoon === true);
 | Root `class` | `cursor-pointer` | **no** `cursor-pointer`, add a `is-gated` class |
 | Root `@click` | `$emit('chooseGame', game)` | **emits nothing** — guard inside the handler, not `v-if` on the listener, so the whole card is one code path |
 | Root a11y | — | `:aria-disabled="gated"` |
-| `@mouseenter="onEnter"` | fetches the GIF on first hover | **`onEnter` returns immediately when `gated`** — no ~330 KB fetch for a game nobody can enter |
-| Hover lift + accent glow | `:hover` rules | suppressed under `.is-gated` |
+| `@mouseenter="onEnter"` | fetches the GIF on first hover | **unchanged — the GIF still loads and plays** (revised 2026-08-13) |
+| Hover lift + accent glow | `:hover` rules | **unchanged — both kept** (revised 2026-08-13) |
 | Status pill (`status`) | Live now / Starting / Filling | **`null`** — replaced by a static `COMING SOON` pill in the same slot |
 | `liveChip` (lottery pot) | pot when snapshot present | **`null`** |
-| Ticket chip | shown | **shown** (decision 17) |
-| Art | full colour | dimmed + desaturated (`filter: grayscale(.75) brightness(.55)` on `.art-img`, tuned to taste) |
+| Ticket chip | shown | **hidden — the whole `.chips` HUD is `v-if="!gated"`** (decision 17, reversed 2026-08-13) |
+| Art | full colour | lightly dimmed + desaturated (`filter: grayscale(.3) brightness(.82)` on `.art-img`) |
+| Button | live `--primary` | disabled, with a local `.btn-gated` skin — ⚠️ `.btn-arcade` ships **no** `:disabled` rule and no muted variant, so a bare disabled arcade button renders as transparent text that still brightens on hover and dips 3px on press |
 | `name` / `tag` / `description` | as-is | **as-is** — the description is the "brief explanation" (decision 16) |
 | Button | `btn-arcade--primary` "Press to start" | `:disabled` "Coming soon", muted variant |
 
@@ -541,10 +554,14 @@ the object built in `cards` (line 119), then in the template:
 - a `COMING SOON` chip beside the existing `ARCHETYPE_LABEL` chip, in the muted/neutral colour the
   lobby pill uses (not the archetype accent);
 - the same dim/desaturate treatment on the poster as §7.2, so the manual and the lobby show the same
-  picture in the same state.
+  picture in the same state. ⚠️ **Keep the filter value equal to `GameTypeCard`'s** — both were
+  softened together on 2026-08-13.
 
 The blurb, ticket price and schedule stay — the guide's job is to teach the mode, and it is coming
-back.
+back. ⚠️ The guide keeps its `TICKET:` line even though the lobby card's ticket chip is now hidden
+(decision 17, reversed): the two surfaces are answering different questions. The lobby card is an
+invitation and must not quote a price for a game that refuses bets; the manual is a reference and
+should still describe the mode completely.
 
 ### 7.9 Admin portal
 
@@ -634,7 +651,8 @@ sequenceDiagram
 | 4 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | inline `Property(x => x.ComingSoon).IsRequired().HasDefaultValue(false)` (§4.2). **No new index.** |
 | 5 | `SpaceStroker.Infrastructure/Migrations/*_AddGameParametersComingSoon.*` | new migration + regenerated snapshot (§4.3) |
 | 6 | `SpaceStroker.Consumers/Program.cs` → `ToGameParameters` | map `ComingSoon` from config (§6.1a) |
-| 7 | `SpaceStroker.Consumers/Program.cs` → `CreateDefaultGameParametersAsync` | reconcile block + cache drop + publish `GameTypeDeactivatedEvent` for `false → true` transitions (§6.1b/c) |
+| 7 | `SpaceStroker.Infrastructure/Services/Games/ComingSoonReconciler.cs` | **new** — the name-matched self-heal loop, returning `(Patched, NewlyGated)` (§6.1b) |
+| 7b | `SpaceStroker.Consumers/Program.cs` → `CreateDefaultGameParametersAsync` | call the reconciler + cache drop + publish `GameTypeDeactivatedEvent` for `false → true` transitions (§6.1b/c) |
 | 8 | `SpaceStroker.Consumers/Program.cs` → `OpenNewGames` | ⚠️ skip coming-soon types (§6.2) |
 | 9 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` → `GetActiveParametersForRollover` | return `null` for a coming-soon type (§6.3) |
 | 10 | `SpaceStroker.Infrastructure/Consumers/GameParametersCreated/GameParametersCreatedConsumer.cs` | skip coming-soon types (§6.4) |
@@ -743,7 +761,8 @@ Copied 1:1 from the Trello checklist.
 6. Given `ComingSoon` flips to true while a round of that type is `GameStarting` or `InProgress`, when the flip is processed, then that round runs to completion and pays out normally, and its committed `ServerSeed` still verifies under provably-fair.
 7. Given a game type with `ComingSoon = true`, when a player loads their Orbit settings, then that type is absent from `eligibleGameTypes` and the Orbit engine never places a bet on it.
 8. Given exactly one eligible Orbit game type remains, when the player opens Orbit's GAME tab, then no dropdown is rendered, the single game is shown as a read-only line and still auto-committed (the enrolment row is created), and the message "More modes coming to Orbit soon." is displayed.
-9. Given a catalogue entry with `comingSoon = true`, when the lobby or the home picker renders its card, then the card is dimmed, shows a `COMING SOON` pill and a disabled "Coming soon" button, renders no status pill and no live/pot chips, does not lift or fetch its GIF on hover, and clicking it neither emits `chooseGame` nor navigates.
+9. Given a catalogue entry with `comingSoon = true`, when the lobby or the home picker renders its card, then the card is dimmed, shows a `COMING SOON` pill and a disabled "Coming soon" button, renders no status pill and **no chips at all (the ticket price included)**, shows no pointer cursor, and clicking it neither emits `chooseGame` nor navigates.
+   ⚠️ **Amended 2026-08-13 on the live build.** As written on the Trello checklist this criterion also required "does not lift or fetch its GIF on hover" and allowed the ticket chip to stay. Both were reversed by the owner after seeing it: the card **keeps its full hover animation** (lift, glow, GIF) because suppressing it made the card read as broken rather than not-yet-open, and the **ticket chip is now hidden** because a price is an invitation the game cannot honour. The Trello checklist item still carries the original wording — the MCP can toggle a checklist item's state but not its text — so **this line is the authoritative version**.
 10. Given a gated Beast Mode card, when it renders, then the catalogue description ("Back a beast - the first one Edson spells out moons the whole pot. No typing.") is still shown in full and no game copy is hard-coded in the frontend.
 11. Given `comingSoon` is true for a type, when a player opens `/game/play` with that type in the query (bookmark or stale tab), then they are redirected to `/game` and a short "coming soon" toast is shown.
 12. Given a player whose `mostPlayedTypeName` resolves to a `comingSoon` type, when the home hero renders, then no "Play \<that game\>" CTA is rendered (the same fall-through as a deactivated favourite).
@@ -799,4 +818,6 @@ acceptance criteria (the collapsed GAME tab).
 
 | Date | Change |
 | --- | --- |
+| 2026-08-13 | **Gated-card presentation revised by the owner on the running local build** (decisions 15 + 17, §7.2, §7.8, acceptance criterion 9): hover animation fully restored (lift, accent glow, GIF swap), dim softened `grayscale(.75) brightness(.55)` → `grayscale(.3) brightness(.82)` on both the lobby card and the `/how-to-play` mode card, and the entire chip HUD — ticket price included — hidden when gated. The dead click, the `COMING SOON` pill, the disabled button and the non-pointer cursor are unchanged and remain what actually communicate "not yet". |
+| 2026-08-12 | **Implemented.** One design change during implementation (owner's call): the §6.1b reconcile loop was lifted out of `Program.cs` into `ComingSoonReconciler` so acceptance criterion 1 — an already-seeded row picking the flag up, with `Active`/`Name`/`RequiredAmount`/`PresetChoices` untouched — could actually be asserted; inline it is unreachable from both suites. Behaviour is unchanged and `Program.cs` still owns the cache drop and the event publish. Also worth recording for the next reader: `GameParametersDto` cannot be deserialized in a test (its primary constructor takes the entity + token settings), so `ComingSoonGameFlowTests` reads the catalogue through a local record — which is the stronger assertion anyway, since it pins the wire shape the SPA sees. |
 | 2026-08-12 | Initial spec from the refined card (#168) + code exploration. Added five findings the card did not carry: the `OpenNewGames` startup re-open (§6.2), the shared-`GetAllActiveGameParameters` trap (§6.2 warning), the missing publisher for `GameTypeDeactivatedEvent` under a config-driven flip (§6.1c), `GameParametersCreatedConsumer` (§6.4), and `OrbitModal.vue` as a second Orbit game picker (§7.7, decision 14). |
