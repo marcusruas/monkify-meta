@@ -63,8 +63,40 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
     public void PreFlight()
     {
         _naming.Validate();
+        ValidateSecretBindings();
         WarnOnZoneNameDrift();
         EnsurePersistentLayer();
+    }
+
+    /// <summary>
+    /// Refuses to deploy while a `secrets` entry has no Terraform binding — see
+    /// <see cref="SecretBindingCheck"/> for why that is invisible rather than loud.
+    ///
+    /// Runs in PreFlight, so it gates every deploy and not just an explicit `validate`: the whole
+    /// point is to fail BEFORE SyncSecrets pushes a value nothing will ever mount.
+    /// </summary>
+    private void ValidateSecretBindings()
+    {
+        var mainTf = Path.Combine(_paths.TerraformWorkload, "main.tf");
+
+        // Not a silent skip: the guard is only meaningful against the real stack, and a missing
+        // main.tf means something far more wrong than an unbound secret.
+        if (!File.Exists(mainTf))
+            throw new DeployException($"Cannot verify secret bindings — {mainTf} does not exist.");
+
+        var unbound = SecretBindingCheck.FindUnbound(_s.Secrets.Keys, File.ReadAllText(mainTf));
+
+        if (unbound.Count == 0)
+            return;
+
+        throw new DeployException(
+            $"{unbound.Count} secret(s) in secrets.{_s.Environment}.json are not wired into Cloud Run:" +
+            Environment.NewLine +
+            string.Join(Environment.NewLine, unbound.Select(u => $"  - {u}")) +
+            Environment.NewLine + Environment.NewLine +
+            "Add each id to BOTH base_secret_ids and base_secret_env in " +
+            "deploy/terraform/workload/main.tf, then re-run. Without them the value syncs to Secret " +
+            "Manager and is never mounted, so the app silently uses its committed default.");
     }
 
     private void WarnOnZoneNameDrift()
@@ -84,8 +116,10 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             Console.WriteLine($"  [{(ok ? "PASS" : "FAIL")}] {kind,-18} {id} ({id.Length}/{limit})");
         Console.WriteLine();
         _naming.Validate();
+        ValidateSecretBindings();
         WarnOnZoneNameDrift();
         Console.WriteLine("All derived ids are within their GCP limits.");
+        Console.WriteLine($"All {_s.Secrets.Count} secret(s) are bound to Cloud Run by terraform/workload/main.tf.");
     }
 
     /// <summary>
