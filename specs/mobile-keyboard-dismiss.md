@@ -22,6 +22,7 @@
 | Keyboard closed by tapping elsewhere / the lever | `blur` fires → `focus-change(false)` → `pb-[38dvh]` drops, Edson returns | unchanged |
 | Keyboard closed by **system BACK** (Android) | keyboard hides, input **keeps focus**, `blur` never fires → cabinet stays lifted over dead space | the app sees the visual viewport grow back, force-blurs the input, and the **existing** `blur` path unwinds the lift |
 | Keyboard closed by swipe-down / OS hide / iOS "Done" | same defect | same fix — detection keys on the **keyboard**, not on which button was pressed |
+| Player leaves the app entirely (system app switcher, screen lock) | same defect, by a **second route** — see decision 12 | the input is blurred as the page goes hidden, so there is no focus to restore on return and no lift to come back to |
 | URL bar collapsing/expanding while typing | no effect (nothing watches the viewport) | still no effect — the 150px threshold is chosen to sit above it |
 | Desktop (`≥ lg`) | no lift at all | unchanged; the composable never arms |
 
@@ -68,6 +69,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 9 | **Rejected: `interactive-widget=resizes-content`** in the viewport meta (which would make `dvh` shrink with the keyboard and remove the manual lift mechanism entirely). It is a site-wide viewport change touching every `dvh`-sized screen (game, practice, Orbit modal, home) and needs a full re-verify pass — too large a blast radius for a bug card. Recorded so it is not re-proposed as a surprise. |
 | 10 | **No `visualViewport` support** (very old browsers) → behaviour is unchanged, i.e. `blur`-only exactly as today. Fail-safe, no polyfill. |
 | 11 | **Verification is two-part:** a deterministic synthetic proof in desktop Chrome **plus** a real-Android confirmation by the card owner. `monkify-front` has no test runner, and DevTools can emulate neither a soft keyboard nor the system BACK button, so neither half alone is sufficient. See §13. |
+| 13 | **⚠️ The app-switch fix is `window`'s `blur`, armed on the SURFACE — and decision 12's `visibilitychange` version was wrong. Measured on the device** (Trello #170, 2026-08-13, with a temporary on-page event log; the trace is in §7.6). Pressing the app-switcher produces: `t+0` the input's **`blur` event fires by itself** (the lift correctly unwinds) · `t+1ms` window `blur` — **but `document.activeElement` is still the input** · `t+967ms` `visibilitychange`. On return, window `focus` then the input's **`focus` event fires again**, the lift comes back, and no keyboard comes with it. Two corrections fall out: **(a) the teardown was never the broken part** — Android hands us the blur event on the way out and keeps DOM focus, so Chrome silently **restores** it on the way back; the cure is to give up DOM focus *while we still hold it*. **(b) the listener cannot be armed on `isFocused`** — that flag goes false at `t+0`, one millisecond before the window blur we need to hear. It is armed on the **surface** (`mobile \|\| wide`) for the component's lifetime and guards on `document.activeElement === input`, which costs nothing during play and is the condition that actually matters. `visibilitychange` is kept as a second trigger for the same handler (a screen lock, or an OS that skips the window blur), by which point the handler is a no-op anyway. |
+| 12 | ~~**The app switcher is a SECOND route to the same stuck state, and the viewport listener does not cover it**~~ — **superseded by decision 13.** The observation was right and the mechanism was wrong: the fix shipped as a `visibilitychange` blur armed on focus, which the device proved can never fire (the composable has already disarmed by then). Kept, struck through, because "blur on `visibilitychange`" is the obvious-looking fix and the next agent should be able to see it was tried and why it failed. Original text follows.<br><br>**⚠️ The app switcher is a SECOND route to the same stuck state, and the viewport listener does not cover it** (added 2026-08-13 after the owner reproduced it on a real phone **against this fix** — decision 11's device pass earning its keep; see §15). Leaving the app hides the keyboard; on return **Chrome restores focus to the input** but the keyboard does not come back with it, so `@focus` re-engages the lift, the composable re-arms, and — because no keyboard ever opens again — **the latch never sets and nothing will ever blur it**. The cabinet stays floating until the player taps elsewhere: the original bug, reached a different way. Fix: a `visibilitychange` listener, armed alongside the resize listener, that blurs **as the page goes hidden**. Blurring on the way *out* is what makes the return clean. It costs nothing for the same reason decision 2 does — the word lives in the store, so only the caret is lost — and it covers screen-lock and the wallet-deeplink hop for free. **Deliberately one-sided: the gap is NOT re-measured when the page becomes visible again.** The viewport has not settled at that point, so a keyboard on its way back in reads as "closed" and would be blurred away mid-animation — the same failure the latch exists to prevent. This listener is **not** gated on `visualViewport` support: an app switch strands the layout with or without it, so decision 10's fallback now means "blur-only teardown **plus** the app-switch blur". |
 
 ---
 
@@ -119,9 +122,11 @@ The defect: nothing in that list observes the keyboard. `blur` is the sole teard
 ### 7.2 New composable — `src/hooks/useKeyboardDismiss.ts`
 
 ```ts
-import { onBeforeUnmount, watch, type Ref } from 'vue';
+import { computed, onBeforeUnmount, watch, type Ref } from 'vue';
 
-// Force-blurs a text input when the on-screen keyboard closes WITHOUT blurring it.
+// Force-blurs a text input when the on-screen keyboard goes away WITHOUT the input reporting it —
+// either DISMISSED (system BACK, swipe-down, iOS "Done") or because the player LEFT THE APP (the
+// system app switcher, a screen lock). The two need different signals; see §7.2b.
 //
 // The mobile game/practice columns lift the console above the keyboard while the bet input is
 // focused (GamePage.vue:154 `pb-[38dvh]` + Edson hidden), and they unwind that lift on the input's
@@ -142,7 +147,11 @@ import { onBeforeUnmount, watch, type Ref } from 'vue';
 // false CLOSE collapses the layout under a player who is still typing, the one failure to avoid.
 const KEYBOARD_OPEN_GAP_PX = 150;
 
-export function useKeyboardDismiss(input: Ref<HTMLInputElement | null>, armed: Ref<boolean>) {
+export function useKeyboardDismiss(
+  input: Ref<HTMLInputElement | null>,
+  isFocused: Ref<boolean>,
+  onLiftSurface: Ref<boolean>
+) {
   const viewport = typeof window !== 'undefined' ? window.visualViewport : undefined;
 
   // ⚠️ LATCH — do not remove. The keyboard ANIMATES open, and Chrome Android fires `resize` through
@@ -165,19 +174,54 @@ export function useKeyboardDismiss(input: Ref<HTMLInputElement | null>, armed: R
     if (sawKeyboardOpen) input.value?.blur();
   };
 
-  const stop = () => viewport?.removeEventListener('resize', onViewportResize);
+  // ROUTE 2 — the player left the app. See the measured trace in §7.2b: Android fires the input's
+  // blur EVENT on the way out (so the lift already unwinds) but keeps DOM focus on the element, and
+  // Chrome RESTORES that focus on the way back without restoring the keyboard. Giving up DOM focus
+  // while we still hold it is what leaves nothing to restore.
+  const blurIfStillHoldingFocus = () => {
+    const el = input.value;
+    if (el && document.activeElement === el) el.blur();
+  };
+
+  const armed = computed(() => isFocused.value && onLiftSurface.value);
+
+  const stopViewport = () => viewport?.removeEventListener('resize', onViewportResize);
+  const stopWindow = () => {
+    window.removeEventListener('blur', blurIfStillHoldingFocus);
+    document.removeEventListener('visibilitychange', blurIfStillHoldingFocus);
+  };
 
   watch(
     armed,
     (isArmed) => {
-      stop(); // never stack listeners
+      stopViewport(); // never stack listeners
       sawKeyboardOpen = false; // every focus starts from "no keyboard seen yet"
       if (isArmed) viewport?.addEventListener('resize', onViewportResize);
     },
     { immediate: true }
   );
 
-  onBeforeUnmount(stop);
+  // ⚠️ Deliberately a DIFFERENT lifetime from the viewport listener: bound to the SURFACE, not to
+  // focus. `isFocused` goes false one millisecond BEFORE the window blur we need to hear (§7.2b), so
+  // a focus-armed listener is already detached when it arrives. Costs nothing during normal play —
+  // the handler returns immediately unless the bet input actually holds DOM focus — and is not gated
+  // on `visualViewport`, since leaving the app strands the layout either way.
+  watch(
+    onLiftSurface,
+    (onSurface) => {
+      stopWindow();
+      if (onSurface) {
+        window.addEventListener('blur', blurIfStillHoldingFocus);
+        document.addEventListener('visibilitychange', blurIfStillHoldingFocus);
+      }
+    },
+    { immediate: true }
+  );
+
+  onBeforeUnmount(() => {
+    stopViewport();
+    stopWindow();
+  });
 }
 ```
 
@@ -190,10 +234,47 @@ Notes for the implementer:
   measure on arm. On arm the keyboard has not opened yet, so a measurement there reads "closed" and,
   without the latch, would blur instantly.
 - **`viewport` is captured once and every use is optional-chained** — that is the whole of decision 10.
-  On a browser with no `visualViewport`, `addEventListener` is never called, nothing throws, and the
-  behaviour is byte-identical to today.
+  On a browser with no `visualViewport`, the resize listener is never attached and nothing throws.
+  ⚠️ **The `visibilitychange` listener is deliberately outside that guard** (decision 12), so such a
+  browser gets today's blur-only teardown **plus** the app-switch blur — not byte-identical to today
+  any more, and better for it.
+- **Blur on `hidden`, never on `visible`.** `visibilitychange` fires before the page is frozen, which
+  is what makes the outbound blur reliable; the inbound side is where the viewport is still settling
+  and a measurement lies.
 - **After `blur()` fires**, the input's `@blur` sets `armed` false, the watcher runs `stop()`, and the
   latch resets on the next focus. No manual teardown inside the handler.
+
+### 7.2b The measured app-switch trace (decision 13)
+
+Captured on a real Android phone with a temporary on-page event log, pressing the app-switcher button
+while the practice bet input was focused. `f` = `document.activeElement`, `l` = is the lift class on.
+
+```
+15382 focusin:input   f=input  l=1          player focuses; lift ON
+15454 vv:resize       f=input  l=1  g=295   keyboard animating open
+15469 vv:resize       f=input  l=1  g=359   keyboard open  → latch set
+16567 focusout:input   f=input  l=0  g=359  ⚠️ the browser fires blur ITSELF; lift correctly unwinds
+16568 window blur     f=input  l=0  g=359   ⚠️ 1ms later — and DOM focus is STILL the input
+16632 vv:resize       f=input  l=0  g=-1    keyboard gone
+17534 vis:hidden      f=input  l=0  g=-1    ⚠️ 967ms after the blur — far too late to arm on
+20130 vis:visible     f=input  l=0
+20171 window focus    f=input  l=0
+20172 focusin:input   f=input  l=1          ⚠️ CHROME RESTORES FOCUS → lift back on, no keyboard
+```
+
+Three things this killed:
+
+1. **"The teardown is missing."** It is not — line 16567 is the browser tearing down correctly on its
+   own. The bug is the *restore* at 20172.
+2. **"Blur on `visibilitychange`."** It arrives at 17534, 967 ms after `isFocused` went false at
+   16567, so a focus-armed listener is already detached. It literally cannot fire.
+3. **"`focusout` means the element lost focus."** `f=input` on every line: Android fires the input's
+   focus/blur **events** from *window* focus changes while the element keeps DOM focus. That retained
+   DOM focus is exactly what Chrome restores.
+
+⚠️ **`g` can be negative** (`-1` above): Android reports `visualViewport.height` about a pixel taller
+than `innerHeight` with the keyboard closed. Any future instrumentation must not use `-1` as a
+"no `visualViewport`" sentinel, and the `> 150` threshold is unaffected.
 
 ### 7.3 Why the latch is load-bearing (decision 5)
 
@@ -230,10 +311,13 @@ the player can never type. This is the single highest-risk detail in the card.
    // renders the desktop input branch — so the guard is the pair, not the branch. On desktop the
    // console is rendered by GameTerminal with neither prop and GameTerminal binds no `focus-change`,
    // so nothing arms and nothing lifts.
-   const keyboardLift = computed(() => isFocused.value && (props.mobile === true || props.wide === true));
-   useKeyboardDismiss(wordInput, keyboardLift);
+   const onLiftSurface = computed(() => props.mobile === true || props.wide === true);
+   useKeyboardDismiss(wordInput, isFocused, onLiftSurface);
    ```
    `computed` is already imported at line 16.
+   ⚠️ **Pass `isFocused` and the surface SEPARATELY — do not pre-`&&` them into one `armed` ref.** The
+   composable needs the two lifetimes apart: the viewport listener is focus-scoped, the window-blur
+   listener is surface-scoped, and collapsing them is precisely the bug decision 13 fixed.
 
 **`PracticeConsole.vue`** — the mobile input only:
 
@@ -241,8 +325,8 @@ the player can never type. This is the single highest-risk detail in the card.
 2. `ref="wordInput"` on the mobile input at `PracticeConsole.vue:193` **only**. The desktop branch
    (line 272) is deliberately left alone: it is desktop-only (practice has no `wide` band), and it
    does not even emit `focus-change` — wiring it would imply a lift that cannot happen there.
-3. `const keyboardLift = computed(() => isFocused.value && props.mobile === true);` then
-   `useKeyboardDismiss(wordInput, keyboardLift);`. Check `computed` is imported.
+3. `const onLiftSurface = computed(() => props.mobile === true);` then
+   `useKeyboardDismiss(wordInput, isFocused, onLiftSurface);`. Check `computed` is imported.
 
 **Unchanged, deliberately:** `GamePage.vue`, `PracticePage.vue`, `GameTerminal.vue`,
 `PracticeTerminal.vue`, `public/index.html`, and every `pb-[38dvh]` / `v-show="!betInputFocused"`
@@ -262,9 +346,13 @@ expression. They already do the right thing the moment `focus-change` reports `f
 | Rotation while focused | yes | `innerHeight` and `visualViewport.height` both change on the same event; the gap is recomputed and self-corrects |
 | Numeric keypad / floating / split keyboard | yes | still clears 150px ⇒ no false close |
 | Orbit-locked round | never focuses | the input is `:disabled` when `myBetThisRoundIsOrbit` ⇒ never arms |
-| Player switches to the CHAT tab while focused | yes → no | the column goes `invisible`; the input's normal `blur` still governs, exactly as today |
+| Player switches to the CHAT tab while focused | yes → no | the column goes `invisible`; the input's normal `blur` still governs, exactly as today. **In-page tab, not an OS one — `visibilitychange` does not fire** |
+| **Player leaves the app** (system app switcher, screen lock) while focused | yes (surface-scoped) | window `blur` ⇒ real `blur()` while DOM focus is still ours, so Chrome has nothing to restore on return — decision 13 |
+| Wallet deeplink hop (signing a bet) while the input happens to be focused | yes | same outbound blur. Harmless: the word lives in the store and the hop's own pending-bet state is untouched |
+| Desktop user alt-tabs away with the input focused | **no** | `onLiftSurface` is false above `lg`, so the window listener is never attached and the caret is **not** stolen. Verified explicitly — a desktop player who tabs away mid-word comes back to their caret |
+| Window blur while the input is NOT focused (any surface) | listener attached, guard fails | `document.activeElement !== input` ⇒ immediate return, nothing happens |
 | Pinch-zoom while focused | yes | `visualViewport.height` shrinks with zoom, so zooming in latches and zooming back out blurs. **Accepted:** the text is preserved and only the caret is lost, and the 16px input floor already prevents iOS *auto*-zoom, so this needs a deliberate two-finger gesture mid-bet. If it is ever reported, the one-line hardening is to ignore events while `visualViewport.scale > 1`. |
-| Browser with no `visualViewport` | n/a | listener never attached; today's blur-only behaviour |
+| Browser with no `visualViewport` | partial | the resize listener is never attached (today's blur-only behaviour), but the app-switch blur still applies — decision 12 |
 | Component unmounted while focused (route change mid-typing) | — | `onBeforeUnmount(stop)` detaches |
 
 ---
@@ -372,13 +460,22 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist.
    resizes for any reason, then no keyboard-close handling runs — the listener is attached only while
    the input is focused and is detached on blur and on unmount.
 6. Given a browser without `window.visualViewport`, when the player focuses and leaves the bet input,
-   then behaviour is identical to today (blur-only teardown) and **nothing throws in the console**.
+   then the blur-only teardown behaves exactly as today and **nothing throws in the console** — while
+   the app-switch teardown of AC 9 still applies, since that listener is not gated on
+   `visualViewport` (decision 12).
 7. Given the desktop console (viewport ≥ `lg`), when the player focuses the bet input, then no viewport
    listener is armed and no lift/teardown behaviour occurs — desktop is unchanged.
 8. Given the implementation is complete, when it is verified, then **both** proofs exist: (1) a
    synthetic desktop-Chrome run where a stubbed `visualViewport` height + dispatched `resize`
    demonstrably blurs the input and drops `pb-[38dvh]`, and (2) the card owner's confirmation on a real
    Android phone against the local stack.
+
+9. Given a mobile viewport with the bet input focused and the keyboard open, when the player leaves
+   the app entirely (the system app-switcher button, or a screen lock) and then returns, then the
+   console is back to its normal position with Edson visible and the input **not** focused — the
+   player is never returned to a lifted cabinet with no keyboard under it. The typed word is still in
+   the visor. Correspondingly, on **desktop** (≥ `lg`) switching away and back must **not** blur the
+   input — nothing is armed there. *(Added 2026-08-13 — decision 12.)*
 
 ⚠️ **AC 8 gates the card**, and half of it is the owner's. Do not move the card to **Implemented**
 claiming AC 8 on the synthetic proof alone.
@@ -438,6 +535,11 @@ and serve on a **verified-free** port — another worktree's server is often alr
    console errors.
 9. **AC 2:** type a word, latch, then close — the visor still shows the word and the lever still bets
    it.
+10. **AC 9 (app switch):** focus, latch the keyboard open, then stub `document.hidden` to `true` and
+    dispatch `visibilitychange`. Expect `focused false, lifted false` **immediately**, before any
+    return. Then flip `hidden` back to `false`, dispatch again with the gap at 0, and confirm nothing
+    re-lifts. Repeat at ≥ 1024px and confirm the desktop input is **still focused** after the same
+    flip — the caret must not be stolen where there is no lift.
 
 ### 13.2 Real Android confirmation (owner — the other half of AC 8)
 
@@ -448,6 +550,10 @@ and serve on a **verified-free** port — another worktree's server is often alr
    visible, in the same motion — no second tap needed, and the typed word still in the visor.
 5. Repeat on `/game/practice`.
 6. Also worth a pass: swipe-down keyboard dismissal, and rotating the phone while the input is focused.
+7. **AC 9 — the app-switch pass (this is the one that found decision 12).** Focus the visor, type a
+   partial word, then press the phone's **app-switcher** button to leave the browser, and come back.
+   Expect the cabinet already back to normal with Edson visible and the input not focused, with the
+   word still in the visor. Worth repeating with a screen lock/unlock instead of the switcher.
 
 ---
 
@@ -466,3 +572,5 @@ and serve on a **verified-free** port — another worktree's server is often alr
 | Date | Change |
 | --- | --- |
 | 2026-08-13 | Initial spec from refined card #170. Adds two findings from code exploration that the card did not carry: the **open-latch** requirement (§7.3, decision 5) and the **`wide` console's desktop input branch** being a mobile surface that must also be wired (§7.4, decision 8). |
+| 2026-08-13 | **Decision 12 + AC 9 — the app-switch route**, found by the owner on a real Android phone testing this fix on `/game/practice`: leaving the app via the system switcher and returning still stranded the lifted cabinet. Fixed with a `visibilitychange` blur armed on focus. Scope was folded into this card rather than split off, since it is the same composable and the same defect. The owner confirmed the **system BACK** case (AC 1/4) working on the device in the same pass. |
+| 2026-08-13 | **Decision 13 supersedes 12 — the `visibilitychange` fix did not work, and the device said why.** The owner reported the bug unchanged; a temporary on-page event log (§7.2b) showed `visibilitychange` arriving **967 ms after** `isFocused` had already gone false, so the focus-armed listener was detached before it could fire — and, more importantly, that the input **never loses DOM focus at all**, which is what lets Chrome restore it on return. Replaced with a **window `blur`** listener armed on the **surface** and guarded on `document.activeElement`. The composable's signature changed to `(input, isFocused, onLiftSurface)` so the two listener lifetimes stay separate. **Process note:** the first two attempts were verified only against synthetic events that encoded the same wrong model of the device, which is why both passed in Chrome and failed on the phone. The device log is now the primary evidence and §7.2b exists so it is never re-derived. |
