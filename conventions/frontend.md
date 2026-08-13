@@ -216,6 +216,13 @@
   | `.btn-icon` | `md` 40 square | **none** — geometry only |
 
   Rules that go with it:
+  - ⚠️ **`.btn-arcade` ships NO `:disabled` rule, and there is no muted variant** beside `--primary` /
+    `--cyan` / `--ghost`. A bare `.btn-arcade[disabled]` therefore renders as **transparent text that
+    still brightens on hover and still dips 3px on press** — a control that animates like a live button
+    while doing nothing. Spell the inert state out locally (inert fill, inert border, `box-shadow:
+    none`, `cursor: default`, and **both** motion rules cancelled), as `GameTypeCard`'s `.btn-gated`
+    does for the coming-soon card. Keep it local until a second consumer appears — a system-wide
+    `--muted` variant with one user is the dangling-rule problem below.
   - **Height is not skin.** `.btn-arcade` joins the scale for height and keeps its material. The old
     rule *"do not restyle `.btn-arcade` to match a dialog"* stands and is untouched by this.
   - **A step is BORDER-BOX height.** `.btn-arcade`'s `box-shadow: 0 5px 0` key-drop **overhangs** it,

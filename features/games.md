@@ -42,6 +42,7 @@ The fields on `GameParameters` define how a type behaves:
 | `MinimumNumberOfPlayers`     | Distinct players required before a round can start.                                        |
 | `RequiredAmount`             | The exact stake per bet (USD; `decimal(18,9)`).                                            |
 | `AllowFreeBet`               | When `true`, game type accepts free bets if backend/frontend dev flags allow. Default `false`. See `free-bet-mode.md`. |
+| `ComingSoon`                 | When `true`, the type is **listed but not playable** — no bets, no new rounds, not Orbit-eligible. Default `false`. ⚠️ **Not** `Active = false`, which removes it from the catalogue entirely. See §19. |
 | `PresetChoices`              | Optional fixed set of allowed choices → turns a type into a "pick from a list" game.       |
 | `LotteryParameters`          | Optional → turns a type into a scheduled, pot-based lottery.                               |
 
@@ -88,14 +89,20 @@ ships — there is one catalogue and one deployment:
 | Name          | Charset | Len | Mode                                                                                 |
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
 | Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
-| Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) |
+| Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) — ⚠️ **`ComingSoon = true` since 2026-08-13: listed, not playable** (§19) |
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
 All: min 2 players, duplicates allowed, settled in the single configured token. **Seeding never
 rewrites an existing row** — a type is inserted only when no row with that name exists, so a restart
-cannot resurrect an admin-deactivated type or mutate one under a live round. The single exception is
-the free-bet self-heal, which forces `AllowFreeBet = !IsProduction()`: outside production the free-bet
-path is testable without a funded wallet, and in production free bets are off.
+cannot resurrect an admin-deactivated type or mutate one under a live round. The exceptions are the
+**three named startup self-heals**, which reconcile **one field each** and never touch anything else
+(least of all `Active`, which is what keeps the resurrection guarantee intact):
+
+| Self-heal | Forces | Why it must exist |
+| --- | --- | --- |
+| `AllowFreeBet` | `= !IsProduction()` | outside production the free-bet path is testable without a funded wallet; in production free bets are off |
+| `AllowOrbit` | `= config.AllowOrbit` | a flag added to config after a row exists would otherwise never reach it |
+| `ComingSoon` | `= config.ComingSoon` | the **only** way a seeded type is switched off — there is no admin endpoint behind it (§19) |
 
 > **`DefaultGameParameters.cs` is deleted.** The old broad dev catalogue (Letters/Number/
 > NumbersAndLetters races, preset races, 4h + 24h lotteries at lengths 6 and 8) survives **only as test
@@ -118,7 +125,8 @@ path is testable without a funded wallet, and in production free bets are off.
   art; otherwise letters art.
 3. **`GameTypeCard.vue`** shows: name, description, the **price** (`${{ requiredAmount }} MONKI Per
   Ticket`), and a **LOTTERY badge** with formatted frequency when `lotteryParameters` is set.
-4. **Select:** clicking a card → `chooseGame(game)` sets `selectedGame`, navigates to
+4. **Select:** clicking a card → `chooseGame(game)` (⚠️ **not emitted at all when the type is
+  `comingSoon`** — §19) sets `selectedGame`, navigates to
   `/game?type=<gameTypeId>`, then `updateNewGame(true)` loads the live game instance and
    opens the websockets.
 5. **Game screen:** `GamePage` renders `GameTerminal` (the CRT terminal + bet console) and
@@ -351,6 +359,9 @@ checked right after the duplicate check:
   through (bounded, no money lost). See `specs/fix-bets-logic.md`.
 - **Game not accepting bets / not found** → refund with the vague `GameNotValidForBets` (see
 `constraints.md` §6).
+- **Coming-soon type** (`Parameters.ComingSoon`) → the **same** vague `GameNotValidForBets`, checked
+  **with self-exclusion and ahead of payment validation**, so a transfer that already landed on-chain is
+  refunded rather than accepted. No `Bet` row, no `Debit` ledger row, no `BetPlacedEvent`. See §19.
 - Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning
   (**except free bets** — log only, no refund event; see `free-bet-mode.md`).
 
@@ -594,3 +605,83 @@ as a live `> N AWAY!` row docked at the bottom next to the `> POT:` line. Displa
 - **Win reveal:** when the round ends, the winning word — **if the player bet it** — types out to
   `away = 0` at ~80 ms/char and holds. Non-winning rows freeze.
 - **Always visible** in a sticky, **opaque** bottom dock, so the auto-scrolling stream never hides it.
+
+## 19. Coming soon — published, not playable
+
+Spec: [`../specs/disable-beast-mode.md`](../specs/disable-beast-mode.md). Shipped 2026-08-13 with
+**Beast Mode** as the first (and today the only) gated type.
+
+`GameParameters.ComingSoon` is **deactivation semantics without leaving the catalogue**: the type keeps
+its lobby card, its `/how-to-play` mode card and its whole settled history, but it accepts no bet and
+opens no round. It exists because a front-only "not clickable" gate leaves the game fully bettable
+through the API, a stale tab or a saved deep link.
+
+| | `Active`, not coming soon | **`ComingSoon = true`** | `Active = false` |
+| --- | --- | --- | --- |
+| In `GET /games/active-types` | yes | **yes — carrying `comingSoon: true`** | no |
+| Lobby / home picker card | clickable | **gated (see below)** | absent |
+| `/how-to-play` mode card | yes | **yes, marked coming soon** | absent |
+| Bets accepted | yes | **no — vague `GameNotValidForBets`, paid stake refunded** | no |
+| Roll-over / Consumers startup open a round | yes | **no** | no |
+| In Orbit `eligibleGameTypes` | if `AllowOrbit` | **no** | no |
+| Settled rounds in history / stats / provably-fair | yes | **yes, untouched** | yes |
+
+**It is flipped by config + a Consumers redeploy — there is no endpoint.** ⚠️ **No admin token can be
+minted in production today** (`POST /dev/admin-token` is 404 there, the private key sits in Secret
+Manager while the API deploys with only the public half, and nothing in `monkify-meta/tools/` signs
+that JWT), so an `/admin/*` route would have shipped dead. An EF data migration was rejected too:
+reverting would need a second migration and it freezes a game name into migration history.
+
+- **The seeder reconciles the one field** (`ComingSoon` self-heal, §2) via `ComingSoonReconciler` —
+  ⚠️ deliberately **a class, not an inline loop in `Consumers/Program.cs`**, because top-level program
+  statements are unreachable from a test and `ExecuteUpdate` is a silent no-op on the in-memory
+  provider, so the `false → true` transition could not otherwise be asserted at all.
+- **On the `false → true` transition the seeder publishes the existing `GameTypeDeactivatedEvent`** —
+  the flip has no admin action to publish it. `GameTypeDeactivatedConsumer` needed **no logic change**:
+  it filters on `WaitingBets` only and never reads `Active`. So `WaitingBets` rounds are cancelled
+  (`NotEnoughPlayersToStart`, paid bets refunded via `RefundInvalidBetEvent`, free bets skipped) while
+  ⚠️ **`GameStarting` / `InProgress` rounds are left to finish and pay out** — refunding a round whose
+  `ServerSeed` is already committed would break provably-fair. Publishing is safe because these startup
+  steps run on `ApplicationStarted`, when the transport is already up.
+- **The flip drops the global `ActiveParameters` cache key** (12h TTL) — without it the first boot
+  after deploy serves a blob predating the field for half a day, so the lobby keeps offering a game the
+  API now refuses.
+- ⚠️ **The round-opening skip belongs at the `OpenNewGames` call site, never inside
+  `GameService.GetAllActiveGameParameters`.** That method has four callers and only this one wants the
+  type gone; the other three — the `/games/active-types` catalogue, the recent-rounds feed and global
+  stats — all need it to stay. Filtering in the service empties the very card the feature exists to
+  render. `GetActiveParametersForRollover` and `GameParametersCreatedConsumer` carry the same skip, so
+  a gated type runs dry after its current round and an admin-created gated type never opens one.
+- **Reversible with no data loss:** set the config flag back to `false` and redeploy Consumers — a
+  round opens, the card is clickable, the deep link stops bouncing, Orbit gets its option back.
+
+**Frontend — the card is a machine that is switched off, not a broken one.** Everything is resolved
+from the `comingSoon` catalogue field alone; ⚠️ **never from the name, the `gameTypeId` or the
+archetype** (the id is a fresh GUID after every teardown + reseed, and archetype-matching would
+silently gate any future preset type — `utils/gameArt.ts`'s "resolve by SHAPE, never name or id" rule
+applied to availability).
+
+- Gated `GameTypeCard`: neutral **`COMING SOON`** pill in the status-pill slot, a **disabled
+  "Coming soon"** button, **no chips at all — the ticket price included**, lightly dimmed art
+  (`grayscale(.3) brightness(.82)`), `aria-disabled`, **no pointer cursor**, and a click that emits no
+  `chooseGame`. ⚠️ **The hover animation — lift, accent glow AND the GIF swap — is deliberately kept**:
+  suppressing it made the card read as *broken* rather than *not yet open*, and killed the artwork that
+  is the whole reason for keeping the game in the catalogue. Motion says *alive*, not *clickable*; the
+  pill, the disabled button and the dead click are what carry "not yet". The **cursor** is the one
+  affordance still suppressed — it is the only one that would be an outright lie.
+- **The "brief explanation" is the catalogue `description`**, shown in full. No game copy is
+  hard-coded in the frontend, so it cannot drift from the catalogue.
+- `/game/play?type=<gated-id>` **bounces to the lobby with a toast**, before any live-instance fetch or
+  socket open — that closes the bookmark/stale-tab hole the card cannot.
+- `useLiveGames` **skips the live fan-out** for gated types (one fewer request per gated type on every
+  lobby and home load); the card renders from the catalogue alone. `HomeHero.usualGame` skips them too,
+  so a gated favourite simply renders no CTA. `GameTypes`' eyebrow counts **playable** types only.
+- `/how-to-play` **keeps the mode card**, dimmed with the same filter and chipped `COMING SOON`, so the
+  manual and the lobby tell the same story — but ⚠️ **it keeps its `TICKET:` line**: a manual describes,
+  a card invites, and quoting a price on a card for a game that refuses every bet advertises a
+  transaction it cannot honour.
+- ⚠️ **An older SPA build ignores `comingSoon` and would still let a player in — the backend refusal is
+  what actually protects the game.** The front only shapes the UI.
+
+Orbit eligibility and its single-option GAME tab are in [`orbit.md`](orbit.md); the admin portal's
+create-time checkbox is in [`admin-and-ops.md`](admin-and-ops.md).

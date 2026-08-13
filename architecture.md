@@ -460,8 +460,12 @@ another operator means **deploying the app again with a different `spacestrokers
   because a wallet address is public.
 - **Game types are seeded from config, create-only by name** (`SpaceStroker.Consumers` at startup): a
   type is inserted only when no row with that name exists and an existing row is never rewritten, so a
-  restart cannot resurrect an admin-deactivated type or mutate one under a live round. The exception is
-  the free-bet self-heal (`AllowFreeBet = !IsProduction()`).
+  restart cannot resurrect an admin-deactivated type or mutate one under a live round. The exceptions
+  are three **single-field** self-heals — `AllowFreeBet = !IsProduction()`, `AllowOrbit`, and
+  `ComingSoon` — none of which touches `Active`. ⚠️ **`ComingSoon` is how a type is taken out of play in
+  production** (config + a Consumers redeploy, which also publishes the existing
+  `GameTypeDeactivatedEvent` to cancel and refund its open round): there is no admin endpoint, because
+  no admin token can be minted in production. See `features/games.md` §19.
 - **Admin portal** (`/admin`): the one authenticated surface. `X-Admin-Token` is an
   admin-scoped RS256 JWT validated against the configured public key with **no `iss` and no contract
   check**; `POST /dev/admin-token` mints one outside production. Game types: create/list/deactivate,

@@ -40,9 +40,15 @@ refund. There is **no in-place edit** — to change a type, deactivate the old o
   "No bet found for that signature." Frontend: a **"Refund a Bet"** tab. See
   `features/refund-safeguards.md`.
 - **`AllowFreeBet` is never exposed** — admin-created types always have `AllowFreeBet = false`.
+- **`ComingSoon` is settable at creation only** (checkbox in `GameTypeForm.vue`, a `Status` column in
+  `GameTypeList.vue`) — a gated type is listed but not playable, and `GameParametersCreatedConsumer`
+  opens **no** first round for it. ⚠️ Unlike `AllowOrbit` there is **no lottery clamp**: any shape of
+  type may be published as coming soon. There is **no in-place edit**, so a seeded type is flipped from
+  config instead — see `games.md` §19, and note that ⚠️ **no admin token can be minted in production
+  today**, which is why that flip is config-driven rather than an endpoint.
 - **Flat `GameParameters`:** one row per type, created once and never mutated (config-wise). The only
   mutable field is `Active`. Roll-over reloads the same row and creates a successor only when
-  `Active == true`.
+  `Active == true` **and `ComingSoon == false`**.
 - **Create → first game:** `CreateGameType` publishes `GameParametersCreatedEvent`; a Consumers
   consumer opens the first game so the type is enterable shortly after creation.
 - **Deactivate while live:** the current game finishes normally; roll-over sees `Active == false` and
@@ -63,6 +69,14 @@ refund. There is **no in-place edit** — to change a type, deactivate the old o
   errors are acceptable on authenticated admin endpoints (not the vague auth path).
 - **Cache:** every create/deactivate invalidates the single global `ActiveParameters` key.
 - **Dev entry:** `POST /dev/admin-token` (404 in production) mints a token for local use.
+- ⚠️ **THERE IS NO WAY TO MINT AN ADMIN TOKEN IN PRODUCTION TODAY.** `/dev/admin-token` is 404 there,
+  the signing key `GeneralSettings:Operator:AdminToken:PrivateKeyPem` lives in GCP Secret Manager while
+  the API deploys with only `PublicKeyPem`, and **nothing in `monkify-meta/tools/` signs that JWT** (the
+  only JWT code there is Coinbase's). So **every `/admin/*` route is effectively unreachable in
+  production** — including `POST /admin/bets/refund`, which `refund-safeguards` depends on — without
+  someone pulling the key and signing a token offline. Recorded as a finding (owner's call: no card
+  raised). **Design production switches as config + a startup reconcile, not as admin endpoints** — that
+  is exactly why `ComingSoon` is config-driven (`games.md` §19).
 
 ## Key code touchpoints
 

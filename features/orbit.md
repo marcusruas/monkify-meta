@@ -49,6 +49,12 @@ human's.**
 - **Eligible** = enrolment `Enabled`, `GameParametersId` matches the round's type, **not**
   self-excluded, and the pool balance covers `RequiredAmount`. ⚠️ **A player who already has a bet in
   the round is excluded** — Orbit gets no exemption from the one-bet-per-round rules.
+- ⚠️ **A `ComingSoon` game type is never Orbit-eligible** (see [`games.md`](games.md) §19). Three reads
+  enforce it: `GetOrbitHandler` drops it from `eligibleGameTypes` (that is what shapes the UI),
+  `UpdateOrbitSettingsHandler` refuses a PATCH naming it with the existing vague `OrbitRequestInvalid`
+  (an old client), and `OrbitBetPlacementService.IsOrbitEligible` refuses to place — **that third one
+  is the one that protects money**, because a stale enrolment betting onto a type that refuses bets
+  would land in a refund loop.
 - ⚠️ **`Bet.FundedByOrbit` exists solely because Orbit's custody account signs on behalf of a
   DIFFERENT player's wallet**, which `SolanaService.ValidateBetPayment` would otherwise reject. It must
   never be set on any other bet — see the house seed bet in [`games.md`](games.md) §14, where setting
@@ -98,6 +104,22 @@ what Orbit was doing right now.
 It is now **two surfaces with one job each**: a compact **panel** for money moved mid-round, and an
 **`/orbit` page** that is the order you set Orbit up in and, once set up, the dashboard that says it is
 running. Plus a module in the game cabinet and a resolved mobile-deeplink sign-in.
+
+### One eligible type ⇒ no dropdown
+
+With Beast Mode published as coming soon, exactly **one** eligible type is left (Cosmic Sprint —
+Space Jackpot is `AllowOrbit: false`, because an auto-bet on a 24h draw would lock a player's funds for
+a day). A dropdown with one option is a control that cannot be used, so **`OrbitGameTab.vue` renders a
+read-only line** naming the game and its stake, plus *"More modes coming to Orbit soon."*, and
+**auto-commits it on mount** so the enrolment row is still created exactly as picking from the dropdown
+did (deposits need it to exist). ⚠️ Guard the auto-commit on the wallet **and** on the value actually
+differing, or every reload PATCHes. With **zero** eligible types the empty "Pick a game" select stays —
+that is a real condition, not a third state worth inventing.
+
+⚠️ **`OrbitModal.vue` keeps its `<select>`** and must not be collapsed the same way: it is a
+*confirm-then-navigate* picker that only renders when nothing is set up yet, so one option is still a
+real press — collapsing it would auto-navigate the player the moment the panel opens. It reads the same
+`eligibleGameTypes`, so the gated type is already gone from it.
 
 ## Key code touchpoints
 

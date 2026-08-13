@@ -75,6 +75,15 @@
   inequality **skips exactly the rows a newly-added nullable column needs to fill**. Compare the
   null-ness explicitly — `(x.Col == null) != (@value == null) || x.Col != @value`. Seen in the
   `AllowFreeBet` and lottery-schedule self-heals in `SpaceStroker.Consumers/Program.cs`.
+- **⚠️ Put a self-heal loop in a class, not inline in `Program.cs` — otherwise it ships unproven.** A
+  startup patch written as a top-level statement is **unreachable from both suites**: the unit suite
+  cannot call top-level program statements at all, and `ExecuteUpdate` is a silent **no-op** on the
+  in-memory provider it uses. The integration suite seeds a **fresh** database, where the row is
+  *created* in its final state — so the `false → true` transition, the very thing the patch exists for,
+  never runs there either. Extracting the loop (`ComingSoonReconciler`, taking the context + the config
+  list and returning what changed) is the only seam where the behaviour can be asserted against real
+  Postgres. `Program.cs` keeps the side effects — the cache drop and the event publish — so the
+  reconciler stays a pure single-column write.
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
   `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **⚠️ The folder tree must show the architecture. Never leave a project as a flat pile of `.cs` files.**

@@ -41,6 +41,12 @@
   `BetExtensions.IsFreeBet` (`Amount == 0`). See `features/free-bet-mode.md`.
 - **AllowFreeBet** — bool on `GameParameters` (DB default `false`). Per game type; exposed as
   `allowFreeBet` on active-types API responses.
+- **ComingSoon** — bool on `GameParameters` (DB default `false`), exposed as `comingSoon` on
+  active-types responses. **Published but not playable:** the type stays in the catalogue (so the lobby
+  and the manual can advertise it) while bets are refused with the vague `GameNotValidForBets`,
+  roll-over and startup open no round, and Orbit will not bet it. ⚠️ **Distinct from `Active = false`**,
+  which removes the type from the catalogue entirely. Flipped by config + a Consumers redeploy, never by
+  an endpoint. See `features/games.md` §19.
 - **AllowFreeBets** — bool on `GeneralSettings.Games` in `spacestrokersettings.json`. Global backend
   gate; must be `true` for the API to accept free bets.
 - **Typer / SpaceStrokerTyper** — the domain service that "types" characters until a bet's choice appears;
@@ -109,9 +115,10 @@
   by `SpaceStroker.Consumers` at startup **create-only by name**: a type is inserted only when no row
   with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
   admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
-  (6-char race), **Beast Mode** (preset, 8 beasts) and **Space Jackpot** (24h lottery). The one
-  exception to "never rewritten" is the free-bet self-heal, which forces
-  `AllowFreeBet = !IsProduction()`.
+  (6-char race), **Beast Mode** (preset, 8 beasts, **published coming soon**) and **Space Jackpot**
+  (24h lottery). The exceptions to "never rewritten" are the **three single-field startup self-heals**:
+  `AllowFreeBet = !IsProduction()`, `AllowOrbit` and `ComingSoon` from config. None of them touches
+  `Active`, which is what preserves the resurrection guarantee.
 - **Admin token** — an **RS256 JWT** with `scope = "admin"` and **no `sub`**, sent as
   **`X-Admin-Token`** on `/admin/*` REST calls. Signed with
   `GeneralSettings:Operator:AdminToken:PrivateKeyPem` and validated by `AdminTokenValidationMiddleware`

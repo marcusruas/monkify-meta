@@ -1,7 +1,25 @@
 # SpaceStroker — "Disable Beast Mode" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Disable Beast MOde #168](https://trello.com/c/ZWPTO6yg) (refined 2026-08-12, spec 2026-08-12).
+> **Status: Shipped 2026-08-13** — merged to `main` from `feature/disable-beast-mode` in
+> `monkify-backend`, `monkify-front` and `monkify-meta`. Refined via Trello card
+> [Disable Beast MOde #168](https://trello.com/c/ZWPTO6yg) (refined 2026-08-12, spec 2026-08-12,
+> implemented 2026-08-12, shipped 2026-08-13).
+>
+> **Distilled into [`../features/games.md`](../features/games.md) §19** — that section is the current
+> truth about how coming-soon types behave; this spec stays as the design archive. Orbit eligibility
+> lives in [`../features/orbit.md`](../features/orbit.md), the create-time flag in
+> [`../features/admin-and-ops.md`](../features/admin-and-ops.md), and the two durable code lessons
+> (extract a self-heal loop so it is testable; `.btn-arcade` has no `:disabled` rule) in
+> [`../conventions/backend.md`](../conventions/backend.md) and
+> [`../conventions/frontend.md`](../conventions/frontend.md).
+>
+> ⚠️ **Three decisions in the body below were overridden after the spec was written** — see §15 and the
+> ⚠️ markers on decisions 15 and 17: the reconcile loop became `ComingSoonReconciler` (§6.1b), the gated
+> card **kept** its hover animation and GIF with a softer dim, and the **entire chip HUD** (ticket price
+> included) is hidden when gated.
+>
+> **Verified before the merge:** `SpaceStroker.Tests` 948 passed / 0 failed;
+> `SpaceStroker.Tests.Integration` 120 passed / 0 failed.
 >
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > **`monkify-lp` is NOT affected** — the LP keeps advertising all three modes (card, out of scope).
