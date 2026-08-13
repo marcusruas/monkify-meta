@@ -267,9 +267,32 @@ Everything below is a **placeholder** in `secrets.example.json`; put real values
 | Where | Keys |
 | --- | --- |
 | **`gcp`** | `projectId`, `region`, `dnsZoneName`, `dnsDomain`, `domains.{api,app,lp,lpWww}`, `consumerCount`, `apiMinInstances`, `apiMaxInstances`, `enableDeletionProtection`, `dbInstanceSuffix` (optional) — **no `stateBucket`**, it is derived |
-| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Operator:Token:TokenOwnerPrivateKey`, `GeneralSettings:Operator:AdminToken:PrivateKeyPem`, **`GeneralSettings:Operator:Token:ClusterUrl`** (#62 — the Solana RPC endpoint is a secret because the provider's api-key rides in its query string) |
+| **`secrets`** (→ Secret Manager) | `ConnectionStrings:SpaceStroker` (game DB pwd), `ConnectionStrings:Messaging` (messaging DB pwd, #64), `ConnectionStrings:Redis` (Memorystore AUTH), `GeneralSettings:Operator:Token:TokenOwnerPrivateKey`, `GeneralSettings:Operator:AdminToken:PrivateKeyPem`, **`GeneralSettings:Operator:Token:ClusterUrl`** (#62 — the Solana RPC endpoint is a secret because the provider's api-key rides in its query string), the three Orbit keys `GeneralSettings:Operator:Token:Orbit:{PrivateKey,SessionSecret,TelegramBotToken}` (#121/#123), **`GeneralSettings:Operator:Token:HouseSeed:PrivateKey`** (#168 — the wallet that seeds every newly opened round) |
 | **`appConfig`** (non-secret env) | `ASPNETCORE_ENVIRONMENT=Production`, `GeneralSettings:Operator:Token:{FallbackClusterUrl(public mainnet),Symbol,MintAddress,SenderAccount,TokenOwnerPublicKey,Decimals}`, `GeneralSettings:Operator:AdminToken:PublicKeyPem`, `GeneralSettings:Cors:AllowedOrigins:0=https://app.spacestroker.com` |
 | **`frontBuild`** (baked into the SPA) | `VUE_APP_API_BASE_URL`, `VUE_APP_WEBSOCKET_BASE_URL`, `VUE_APP_SOLANA_NETWORK=mainnet-beta`, `VUE_APP_USDC_TOKEN_ADDRESS`, `VUE_APP_GAME_TOKEN_ADDRESS`, `VUE_APP_ALLOW_FREE_BETS=false`, `VUE_APP_DEV_LAUNCH=false`, `VUE_APP_IDLE_DISCONNECT_HIDDEN_MS=1800000`, `VUE_APP_IDLE_DISCONNECT_INACTIVE_MS=3600000`, **`VUE_APP_SOLANA_PROXY_URL=https://api.<env-host>/rpc`** (#99), `VUE_APP_SOLANA_CONFIRM_TIMEOUT_MS=45000`, `VUE_APP_SOLANA_CONFIRM_POLL_INTERVAL_MS=1000`, `VUE_APP_BALANCE_POLL_INTERVAL_MS=30000`, `VUE_APP_GA_MEASUREMENT_ID` / `PUBLIC_GA_MEASUREMENT_ID` (one id, both builds), **`VUE_APP_TOKEN_MINT` / `PUBLIC_TOKEN_MINT`** (#160 — the launch token's mint address, ONE value in both prefixes; **empty = the pre-launch state on both sites**, fail-closed, and ⚠️ **not** `VUE_APP_GAME_TOKEN_ADDRESS`, which is the *settlement* mint. Both sites are static builds, so filling it in is a rebuild + redeploy of **both**), **`VUE_APP_TREASURY_WALLET` / `PUBLIC_TREASURY_WALLET`** (#160 — the public address holding the game treasury, **ONE value in both prefixes** like the mint. Shown as a copyable bar + Solscan link in the LP's treasury block **and** in the app's `/how-to-play` token section. Empty = that bar is not rendered on either site, fail-closed; the supply chart still shows. Independent of the mint — a build may have a live mint and no wallet. ⚠️ a **public address**, never key material) |
+
+### ⚠️ Adding a `secrets` key takes THREE edits, not one
+
+`appConfig` is data-driven: the tool emits the whole block into the tfvars and Terraform passes it
+straight through as `var.plain_env`, so a key added there reaches Cloud Run on its own. **`secrets`
+is not.** Every entry also needs two hand-written lines in `terraform/workload/main.tf`:
+
+| Edit | Where | If you forget it |
+| --- | --- | --- |
+| the key + value | `secrets.<env>.json` | nothing is synced at all |
+| its id in `base_secret_ids` | `terraform/workload/main.tf` | no `secretAccessor` IAM — the revision fails to **start** |
+| its id in `base_secret_env` | `terraform/workload/main.tf` | synced to Secret Manager and **never mounted** — silent |
+
+The third row is the dangerous one. The deploy succeeds, prints `Deploy complete.`, and the app
+quietly falls back to whatever its committed `spacestrokersettings.json` says — which for a
+fail-closed setting means the feature simply does nothing. This has shipped **twice**: Orbit (#123,
+caught before release) and the house seed key (#168, which reached **production** on 2026-08-13 and
+turned house seeding into a silent no-op until someone noticed rounds were never being seeded).
+
+`spacestroker-deploy validate` — and every `deploy`, via `PreFlight` — now **fails** when a `secrets`
+key is missing from either list (`SecretBindingCheck`). Note that the per-id `[PASS]` lines only
+check an id's LENGTH against its GCP cap, which is exactly why an unbound secret used to print a
+perfectly cheerful `PASS`.
 
 > **Migrating an existing `secrets.<env>.json` for #99 (frontend Helius gateway).** Add the four
 > `frontBuild` keys above. **`VUE_APP_SOLANA_PROXY_URL` is the load-bearing one:** it was never emitted

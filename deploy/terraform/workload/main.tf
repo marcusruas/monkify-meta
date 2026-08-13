@@ -22,6 +22,12 @@ locals {
     "GeneralSettings-Operator-Token-Orbit-PrivateKey",
     "GeneralSettings-Operator-Token-Orbit-SessionSecret",
     "GeneralSettings-Operator-Token-Orbit-TelegramBotToken",
+    # House seed bet (#168). The house wallet signs one ordinary paid stake into every newly opened
+    # round, so it is the same class of key as Orbit's. It shipped to production on 2026-08-13 without
+    # these two lines: the value synced to Secret Manager fine, but nothing granted accessor IAM and
+    # nothing mounted it, so HouseSeedSettings.IsConfigured saw the committed MOCK_ fallback and the
+    # seeder returned at Information level — which Production's Warning floor drops. Silent no-op.
+    "GeneralSettings-Operator-Token-HouseSeed-PrivateKey",
   ]
 
   secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
@@ -29,15 +35,16 @@ locals {
   # ASP.NET env var name (double-underscore) -> Secret Manager secret id.
   # The env var NAMES are app config and never change; only the ids they point at are env-scoped.
   base_secret_env = {
-    "ConnectionStrings__SpaceStroker"                         = "ConnectionStrings-SpaceStroker"
-    "ConnectionStrings__Messaging"                            = "ConnectionStrings-Messaging"
-    "ConnectionStrings__Redis"                                = "ConnectionStrings-Redis"
-    "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"  = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
-    "GeneralSettings__Operator__AdminToken__PrivateKeyPem"    = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
-    "GeneralSettings__Operator__Token__ClusterUrl"            = "GeneralSettings-Operator-Token-ClusterUrl"
-    "GeneralSettings__Operator__Token__Orbit__PrivateKey"     = "GeneralSettings-Operator-Token-Orbit-PrivateKey"
-    "GeneralSettings__Operator__Token__Orbit__SessionSecret"  = "GeneralSettings-Operator-Token-Orbit-SessionSecret"
+    "ConnectionStrings__SpaceStroker"                           = "ConnectionStrings-SpaceStroker"
+    "ConnectionStrings__Messaging"                              = "ConnectionStrings-Messaging"
+    "ConnectionStrings__Redis"                                  = "ConnectionStrings-Redis"
+    "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"    = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
+    "GeneralSettings__Operator__AdminToken__PrivateKeyPem"      = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
+    "GeneralSettings__Operator__Token__ClusterUrl"              = "GeneralSettings-Operator-Token-ClusterUrl"
+    "GeneralSettings__Operator__Token__Orbit__PrivateKey"       = "GeneralSettings-Operator-Token-Orbit-PrivateKey"
+    "GeneralSettings__Operator__Token__Orbit__SessionSecret"    = "GeneralSettings-Operator-Token-Orbit-SessionSecret"
     "GeneralSettings__Operator__Token__Orbit__TelegramBotToken" = "GeneralSettings-Operator-Token-Orbit-TelegramBotToken"
+    "GeneralSettings__Operator__Token__HouseSeed__PrivateKey"   = "GeneralSettings-Operator-Token-HouseSeed-PrivateKey"
   }
 
   secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }
