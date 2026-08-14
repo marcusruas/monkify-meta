@@ -254,6 +254,13 @@ audio never affects bets, settlement, winners or game state.**
   while browsing games.
 - Own-bet, button and error SFX; **bettors-only** victory/lose cues at end of round.
 - Header **mute + volume**, persisted to `localStorage`, governing everything through a master gain.
+- ⚠️ **The master gain starts at 20%, not 100% (owner's call, 2026-08-13)** —
+  `DEFAULT_MASTER_VOLUME = 0.2` in `constants/helpers.ts`, which is both the module's own starting
+  value and what `GameHeader` hydrates the slider to when nothing is stored. This **supersedes the
+  spec's "default unmuted / full volume"**: opening a fresh tab at full master gain "gives you a jump
+  scare once it starts". It is a **master multiplier**, so it scales the per-track bases too — music
+  loops and SFX are started at `0.1`, so a fresh tab now plays them at `0.02`. **A stored preference
+  always wins**, so this never claws back a volume a player has already set.
 - ⚠️ **Shipped reality differs from the spec:** the 3/2/1 proximity "coin" bleeps were **dropped**
   (Suno could not produce them) — **9 generated mp3s, not 12**, and no proximity audio. `error1.wav` was
   kept. Assets were generated **manually in the Suno UI** (the MCP ran out of credits) and

@@ -108,7 +108,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 7 | **Running is 3 interchangeable variants.** The running-state music is **three** separate audios; the game plays **any one** of them per game. **All three share identical parameters** (duration, key/tempo baseline, seamless loop, the two intensity "spikes"). |
 | 8 | **Proximity bleeps are frontend-only, local player's own bets only.** Client-side from the streamed terminal text. No backend change, no new SignalR event. 3/2/1 escalating pitch; re-arm on match break; closest own bet drives the tier. |
 | 9 | **Victory / Lose audience = only players who bet.** Victory if the local player placed a **winning** bet; Lose if the local player bet but **did not win**; spectators (no bet) hear **neither**. Each fires once at game end. |
-| 10 | **Mute + volume control** in the game header, persisted in `localStorage`, **default unmuted / full volume**, applied via a global gain/mute multiplier in `helpers.ts` (client display-only). Implemented in card 3. |
+| 10 | **Mute + volume control** in the game header, persisted in `localStorage`, ~~**default unmuted / full volume**~~ → **SUPERSEDED 2026-08-13 (owner's call): default unmuted / `DEFAULT_MASTER_VOLUME = 0.2`** — full gain on a fresh tab was a jump scare. Applied via a global gain/mute multiplier in `helpers.ts` (client display-only). Implemented in card 3. |
 | 11 | **Format:** compressed **mp3** for music/loops (current `.wav` loops are ~5 MB); keep SFX small; retained `error1` stays `.wav`. Reversible convention. |
 | 12 | **Existing tab-visibility gating is preserved** — audio does not start while the tab is inactive (`GameAudio.vue` `isActiveTab()`); the new idle loop obeys the same gate. |
 
@@ -461,8 +461,9 @@ which already runs every streamed `Terminal` character through a per-own-choice 
 - A **mute toggle + volume slider** in the game header (e.g. `GameHeader.vue`), bound to §7.1's
   `setMuted` / `setMasterVolume`.
 - **Persist** to `localStorage` (suggested key `space-stroker.audio` → `{ muted, volume }`); **default
-  unmuted, full volume**; hydrate on mount. **Client display-only** — no server, no bet/settlement
-  effect.
+  unmuted, ~~full volume~~ `0.2`** (superseded 2026-08-13 — see §5 of `features/frontend-ux.md`;
+  `DEFAULT_MASTER_VOLUME` in `helpers.ts` is the one source, and a stored preference still wins);
+  hydrate on mount. **Client display-only** — no server, no bet/settlement effect.
 - Applies globally and live to any currently-playing loop (via §7.1's re-apply).
 
 ### 7.7 Preserved behavior

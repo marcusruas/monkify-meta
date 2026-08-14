@@ -196,7 +196,7 @@
   | Token | Desktop | `≤1023px` | Anchored on |
   | --- | --- | --- | --- |
   | `--ctl-h-sm` | 34.4px (`2.15rem`) | **40px** | `.btn-arcade--sm`, unchanged |
-  | `--ctl-h-md` | 40px | **44px** | the new default rung |
+  | `--ctl-h-md` | 40px | **44px** (**36px inside `.app-header`** — see the header opt-out below) | the new default rung |
   | `--ctl-h-lg` | 48px (`3rem`) | 48px | `.btn-arcade`, unchanged |
   | `--ctl-px-sm` / `md` / `lg` | 10 / 13 / 16px | same | horizontal padding only |
 
@@ -216,6 +216,18 @@
   | `.btn-icon` | `md` 40 square | **none** — geometry only |
 
   Rules that go with it:
+  - ⚠️ **THE HEADER BAR OPTS OUT OF THE `md` MOBILE STEP-UP (owner's call, 2026-08-13).** `.app-header`
+    re-declares `--ctl-h-md: 2.25rem` (**36px**) inside the same `@media (max-width: 1023px)` block in
+    `colors.css`, so below `lg` the two doors (`OrbitLauncher` + the connected wallet pill) and the two
+    `.btn-icon` squares (audio, ☰) are **36px, not 44px**. Reason: the bar itself is only **54px** with
+    4px of padding — 46px of usable box — so a 44px control fills it wall to wall and the cluster read
+    as "too fat, too much Y padding". **It is delivered as the TOKEN on `.app-header`, not as
+    per-class heights**, which is what keeps the two families in that bar the same height by
+    construction, and it is inherited **only** by the header subtree: every dialog field, page input
+    and dialog button keeps the 44px thumb rung, and the modals mounted in `GameHeader.vue`'s template
+    are `<Teleport to="#app">`, so they leave the subtree before they could inherit it. The touch
+    target is trimmed **vertically only** — the pills stay as wide as their contents. If you add a
+    control to the bar, this is why it is 36px there and 44px everywhere else.
   - ⚠️ **`.btn-arcade` ships NO `:disabled` rule, and there is no muted variant** beside `--primary` /
     `--cyan` / `--ghost`. A bare `.btn-arcade[disabled]` therefore renders as **transparent text that
     still brightens on hover and still dips 3px on press** — a control that animates like a live button
