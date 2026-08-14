@@ -68,9 +68,9 @@ From `monkify-meta/constraints.md` (full list there):
 | # | Decision |
 | --- | --- |
 | 1 | **Placement = "over the display", tuned (mock option B).** The bubble gets its **own z tier above every band** — nothing (Edson, terminal, cabinet, dimmer, console) may ever paint over its text, its buttons or its tail. |
-| 2 | The bubble is anchored **as low as it can go** with the tail still pointing down at Edson, and is **sized by its content**, not by a fixed band. Concretely: its bottom sits `20px` above the cabinet's top edge (14px of tail + a 6px gap). |
-| 3 | **Edson sinks 50% while a bubble is up**, sliding down behind the cabinet over **~220ms**, and rises back when the bubble closes. |
-| 4 | **The sink has a floor.** On a viewport short enough that a flat 50% would bury him, the sink is clamped so his **head and the bubble's tail target stay visible** (≥ 56px of him above the cabinet's edge). He must never disappear entirely — at the extreme the clamp resolves to a 0px sink, which is correct. |
+| 2 | The bubble is anchored to **Edson's head**, and is **sized by its content**, not by a fixed band. Concretely: its bottom sits `--practice-monkey-peek + 20px` above the cabinet's top edge (14px of tail + a 6px gap), so the tail tip always lands ~2px above his head. **Revised during implementation — see §3a.** |
+| 3 | **Edson sinks while a bubble is up**, sliding down behind the cabinet over **~220ms**, and rises back when the bubble closes. The sink is solved for the **peek** (how much of him stays above the cabinet = `--practice-monkey-peek`, **80px**), not for a flat depth. **Revised during implementation — see §3a.** |
+| 4 | **The sink has a floor**, and the peek formulation *is* the floor: `max(0px, …)` means that on a viewport too short to give up that much travel (landscape, where the band floors at `min-h-[80px]`) the sink resolves to `0px` and he simply does not sink. He can never disappear entirely. |
 | 5 | **He only sinks while a bubble is up** — not for the whole tutorial. Between beats, and for the whole race once beat 3 is dismissed, he is fully visible and his typing animation is unobstructed. **Four dips per round is accepted.** |
 | 6 | **The action row wraps.** When CONTINUE + SKIP ALL do not fit, SKIP ALL drops to a second line. Buttons keep their size and tap target — never clipped, never shrunk. |
 | 7 | **`NEED 0 MORE PLAYERS...` is fixed in BOTH places** — `practiceStatusLabel` **and** `GameTerminal`'s status map — with the **same string, word for word**, preserving the deliberate verbatim duplication documented in `specs/practice-mode.md` §7.3. |
@@ -79,6 +79,99 @@ From `monkify-meta/constraints.md` (full list there):
 | 10 | **Two geometry tokens replace duplicated literals.** The cabinet's height and its upward overlap become `--practice-console-h` / `--practice-console-overlap` in `colors.css`, because the bubble's anchor **and** the sink's floor both have to agree with the cabinet, and three hand-copied `clamp()`s would drift on the first tweak. |
 | 11 | **While the native keyboard is open the bubble rides the same lift the column gets** (`38dvh`). Without it the (now top-most) bubble would paint over the visor the player is typing into. Edson is `v-show`n off in that state, so the tail points at nothing either way. |
 | 12 | Scope is **the bubbles + the zero-players line**. Not the full mobile-UX audit the original one-liner asked for (§9). |
+
+---
+
+## 3a. Revised during implementation (device review, 2026-08-13)
+
+The spec's original geometry was wrong, and the device caught it twice. Recording it here because the
+mistake is easy to make again.
+
+**What was wrong.** Decisions 2 and 3 treated *"20px above the cabinet"* and *"the tail points at
+Edson"* as the same place. They are not. With a **flat 50% sink** Edson's head lands wherever his
+**flex-derived band height** puts it — measured **~79px above the cabinet's top edge** at 360×740, and
+further up on a taller phone. So a cabinet-relative anchor of +20px is **~59px BELOW his head**: the
+bubble is drawn *on top of him*, tail stabbing into his face. Raising it to +44px was still 35px
+below. Neither is tunable, because the target moves with the viewport.
+
+**The fix — solve for the peek, not the depth.** A new token `--practice-monkey-peek: 80px` defines
+how much of a sunk Edson stays above the cabinet. The sink becomes
+`max(0px, 100% - peek - overlap)` and the bubble anchors at `console-h + peek + 20px`. Both are then
+**constants relative to each other**, so the tail lands ~2px above his head on every viewport.
+Verified by measurement at 360×{640, 742, 934}: band height moves 172 → 202 → 265 and the sink follows
+68 → 95 → 151, while the peek stays 84px and the tail-to-head gap stays 2px. It also makes decision 4's
+floor fall out for free, replacing the hand-written `min(50%, max(0px, … − 56px))` clamp.
+
+**The trade this exposed, and the owner's call.** The room between the terminal's bottom edge and
+Edson's sunk head is only **~95px** at 360×740, while the **beat-3 and beat-4 bubbles are ~160px
+tall**. The bubble therefore *cannot* both clear the terminal and sit above Edson — every px of peek
+is a px of terminal covered. Measured on beat 3 at 360×740:
+
+| `--practice-monkey-peek` | Terminal band covered | Edson |
+| --- | --- | --- |
+| 80px | ~21% | clearly visible, tail on his head |
+| 48px | ~11% | head and shoulders |
+| 24px | ~4.7% (inside the original AC 6) | reduced to a stub; tail points at nothing |
+
+**AC 3 and AC 6 are reworded accordingly** (§12). The rejected fourth option — shrinking the terminal
+band while a bubble is up — would have dissolved the trade rather than making it, at the cost of a
+second thing moving per beat and four terminal reflows per round.
+
+### 3a.1 Settled at `peek: 100px`, with the bubble tightened on mobile
+
+Peek 80 was still **too little Edson** on the device (head down to the eyes only). Raising it alone
+was not enough, because at a **true 360px** width — not the ~500px a desktop browser will emulate —
+the beats-3/4 bubbles run to **three lines, 160px**, against a budget of only **~264px** between the
+terminal's status line and the cabinet. Every px of peek came straight off the status line.
+
+So the bubble itself was shrunk, **mobile-only** (`@media (max-width: 1023px)` in `PracticeBubble.vue`):
+`font-size: 24px → 21px`, `line-height: 1.25 → 1.18`, padding `14/16/12 → 10/13/9`. That buys **26px**
+— measured, not estimated — and 26px is what pays for the extra peek. Desktop keeps the original
+scale (AC 12), and 21px stays well clear of the 16px iOS-zoom floor documented in that file.
+
+**Settled: `--practice-monkey-peek: 100px`** (owner's call, 2026-08-13). On an iPhone SE (375×667)
+that reads as *"from his arms up"*, which was the brief. **The accepted cost:** on short viewports the
+bubble now sits over the terminal's **status line**, so beat 2's `> ALL BETS IN. STAND BY...` is
+readable once the bubble is dismissed rather than behind it. The owner took that trade knowingly over
+the alternative (≈ peek 85, status line always clear, less of Edson on SE).
+
+⚠️ **Do not tune this token against a desktop browser.** Chrome will not size a window below ~500px,
+and at 500px the bubble is two lines instead of three — every measurement is ~30px optimistic and the
+status-line collision does not reproduce. Use device emulation at a real 360px, or the phone.
+
+### 3a.1b The keyboard branch drops the peek
+
+Caught on a **real phone**, not in emulation: with the native keyboard up, the bubble's first line was
+pushed **under the header and clipped**. The keyboard branch was written against the original anchor
+(`38dvh + console-h + 20px`) and silently inherited the `peek` term when §3a added it — reserving
+**100px of headroom for a mascot that is not rendered**, because `PracticeMonkey` is `v-show`n off in
+that state (`v-show="!betInputFocused"`).
+
+The keyboard branch is therefore **`38dvh + console-h + 20px`, with no peek**: no Edson means no head
+to sit above and no tail target. Verified at 360×740 with the input focused — 88px of clearance below
+the header, tail 6px above the lifted cabinet, bubble fully on screen and still rendered (AC 8).
+
+> The general rule: `--practice-monkey-peek` may only appear in expressions that are evaluated **while
+> Edson is on screen**. Anywhere else it is dead space.
+
+### 3a.2 Out-of-card fix folded in: `--z-header` 40 → 45
+
+Found while reviewing on the device: **the header's menu was painted over, and its clicks swallowed,
+by practice's own bands.** `.app-header` is `sticky` + `z-index: 40`, which makes it a **stacking
+context**, so the menu dropdown and the wallet dropdown nested inside it are composited at the
+*header's* number however loudly they ask for `--z-popover: 50`. At 40 that put both under
+`--z-practice-cue: 42`: `elementFromPoint` over the open menu returned a terminal `<p>`, i.e. the
+entries were **unreachable**, not merely dim.
+
+This **predates the card** (the bands have been at 42 since #142); the new `--z-practice-bubble: 43`
+only added one more thing on top. Fixed by raising `--z-header` to **45** — above every practice tier,
+still below `--z-popover: 50` (the consent banner and the loader are *outside* the header, so their 50
+is real) and `--z-modal: 60`. It fixes both dropdowns at once precisely *because* they inherit the
+header's tier. Verified: all three probes over the open menu now return elements inside it.
+
+The dimmer still stops below the header geometrically. That is now belt-and-braces rather than the
+only thing keeping MUTE reachable, and it is kept deliberately — it is what makes the header read as
+outside the tutorial (see the comment in `PracticePage.vue`).
 
 ---
 
@@ -402,11 +495,11 @@ Beat coverage of the terminal band, measured on the mockups: **no sink ≈ 18%**
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `src/assets/styles/colors.css` | Add `--z-practice-bubble: 43` to the overlay scale; add `--practice-console-h` + `--practice-console-overlap` geometry tokens (values extracted verbatim from `PracticePage.vue`) |
+| 1 | `src/assets/styles/colors.css` | Add `--z-practice-bubble: 43` to the overlay scale; **raise `--z-header` 40 → 45** (§3a.2); add `--practice-console-h` + `--practice-console-overlap` geometry tokens (values extracted verbatim from `PracticePage.vue`) **and `--practice-monkey-peek: 100px`** (§3a) |
 | 2 | `tailwind.config.js` | Add `'practice-bubble': 'var(--z-practice-bubble)'` to the named `zIndex` scale |
 | 3 | `src/pages/PracticePage.vue` | Mobile bubble: `z-practice-cue` → `z-practice-bubble`, anchor to `--practice-console-h + 20px`, add the keyboard-open `38dvh` branch; mobile monkey: bind `:sunk="!!tutorial.line.value"`; mobile console: use the two tokens; refresh the `cueLift()` comment to name the new tier. **Desktop branch untouched.** |
 | 4 | `src/components/practice/PracticeMonkey.vue` | New optional `sunk` prop; `.practice-monkey__lift` (+ `--sunk`) on the wrapper `<div>` at `:178`; scoped transition + reduced-motion rule. **The `<img>` and its keyframes are not touched.** |
-| 5 | `src/components/practice/PracticeBubble.vue` | `.practice-bubble__actions`: `flex-wrap: wrap` + split `gap`; `.practice-bubble__btn`: `flex: 0 0 auto`. No `position` added to the scoped block |
+| 5 | `src/components/practice/PracticeBubble.vue` | `.practice-bubble__actions`: `flex-wrap: wrap` + split `gap`; `.practice-bubble__btn`: `flex: 0 0 auto`; **a `max-width: 1023px` block tightening type + padding to buy 26px** (§3a.1). No `position` added to the scoped block |
 | 6 | `src/constants/practiceGame.ts` | `practiceStatusLabel`: `remaining <= 0` → `> ALL BETS IN. STAND BY...` |
 | 7 | `src/components/game/GameTerminal.vue` | `gameStatusLabel`: the same zero guard in the race branch (`:250`) and the lottery branch (`:235`), word-for-word identical to #6 |
 
@@ -446,9 +539,12 @@ Copied 1:1 from the Trello checklist.
 2. Given a **320px-wide** phone, when a bubble is showing, then both CONTINUE and SKIP ALL are fully
    inside the bubble (SKIP ALL wrapping to a second line if needed), **at full size**, and both are
    tappable.
-3. Given a phone viewport, when a bubble opens, then Edson slides down by **50% of his height over
-   ~220ms** and the bubble sits just above his head with its tail on him; when that bubble closes, he
-   slides back to his resting position.
+3. Given a phone viewport, when a bubble opens, then Edson slides down **over ~220ms until exactly
+   `--practice-monkey-peek` (80px) of him is left above the cabinet's top edge**, and the bubble sits
+   just above his head with its tail landing ~2px above it; when that bubble closes, he slides back to
+   his resting position. *(Reworded from "50% of his height" — §3a: a flat 50% is what put the bubble
+   on his face, because his band height is flex-derived. The peek is the guarantee now, and it is
+   **100px** — §3a.1.)*
 4. Given a viewport short enough that a flat 50% sink would hide Edson's head behind the cabinet, when
    a bubble is showing, then the sink is **clamped** so his head and the bubble's tail target remain
    visible.
@@ -456,8 +552,11 @@ Copied 1:1 from the Trello checklist.
    after beat 3 is dismissed), then Edson is at his full resting position with his animation
    unobstructed.
 6. Given **beat 3** (the bubble that rides the running race) on a phone, when it is showing, then the
-   terminal's newest lines are still visible and the bubble covers **no more than ~5%** of the
-   terminal band.
+   terminal's **log is still readable above the bubble**. The percentage cap is dropped: at
+   `--practice-monkey-peek: 100px` the bubble covers the band's lower strip and, on short viewports,
+   the **status line** — an accepted cost (§3a.1). *(Reworded from "no more than ~5% of the terminal
+   band" — §3a: ~5% is unreachable without sinking Edson out of sight, and the owner chose the
+   readable bubble and the visible mascot.)*
 7. Given the **step-1 demo** is running on a phone (controls locked, Edson sunk), when the player
    looks for a way out, then **SKIP ALL is fully visible, enabled and tappable**, and pressing it
    exits the demo.
@@ -527,3 +626,7 @@ keyboard nor the real band heights):
 | Date | Change |
 | --- | --- |
 | 2026-08-13 | Initial spec from refined card #171 (+ code exploration: the `cueLift` collision, the console's DOM-order collision with the keyboard open, the `transform`-ownership hazard on Edson's `<img>`, and the two already-guarded `WAITING FOR n` blocks) |
+| 2026-08-13 | **Device review during implementation → §3a.** The cabinet-relative anchor was wrong (it put the bubble *on* Edson, twice); replaced by the `--practice-monkey-peek` model, which solves the sink for the peek and makes the bubble's anchor a constant relative to his head. AC 3 and AC 6 reworded; the §7.1/§7.2/§7.3 code blocks above are the **pre-revision** design — §3a is authoritative where they disagree. |
+| 2026-08-13 | **§3a.1** — peek settled at `100px` ("from his arms up" on an iPhone SE), paid for by tightening the bubble's type and padding on mobile only (−26px). Accepted cost: the status line sits behind the bubble on short viewports. Also recorded why a desktop browser cannot be used to tune this. |
+| 2026-08-13 | **§3a.1b** — real-phone catch: the keyboard-open branch had inherited the `peek` term and reserved 100px for a `v-show`n-off Edson, clipping the bubble's first line under the header. Peek dropped from that branch. |
+| 2026-08-13 | **§3a.2** — folded in an out-of-card fix the device review exposed: `--z-header` 40 → 45, because the header's stacking context was capping its own menu and wallet dropdowns *below* practice's bands, making entries unclickable on `/game/practice`. Pre-existing since #142. |
