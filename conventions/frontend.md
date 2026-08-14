@@ -724,8 +724,45 @@
     same `VUE_APP_NEW_GAME_DELAY` the real console does. Backend-owned numbers that the frontend cannot
     see (`TimeUntilGameStarts` = 10, `TerminalBatchLimit` = 500) are hard-coded with a comment naming
     the setting, so the next person knows where the truth lives.
-  See `features/practice-mode.md`.
+  See `specs/practice-mode.md`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
+
+## One named z-index scale — and a stacking context caps everything inside it
+
+Every layer number lives **once**, as a custom property in `src/assets/styles/colors.css`;
+`tailwind.config.js` only maps names onto those variables (`header: 'var(--z-header)'`). Never write a
+bare `z-[47]` in markup — a number with no name is a number nobody can reason about later.
+
+The scale, low to high:
+
+| Token | Value | What sits there |
+| --- | --- | --- |
+| `--z-base` / `--z-app` / `--z-furniture` | 0 / 10 / 20 | page, `App.vue` root, in-page docked chrome |
+| `--z-practice-dim` | 41 | the practice tutorial's backdrop |
+| `--z-practice-cue` | 42 | every band the tutorial lifts (Edson, terminal, cabinet) |
+| `--z-practice-bubble` | 43 | the tutorial bubble — **must never be covered** (#171) |
+| `--z-header` | 45 | the sticky `GameHeader` |
+| `--z-popover` | 50 | dropdowns, tooltips, the consent banner |
+| `--z-modal` / `--z-blocking` / `--z-legal` | 60 / 70 / 80 | teleported overlays, boot/idle recovery, the 18+ gate |
+
+⚠️ **A `position` + `z-index` element is a STACKING CONTEXT, so nothing nested inside it can outrank
+it — however loudly the child asks.** `.app-header` is `sticky` + `z-index`, so its menu dropdown and
+its wallet dropdown composite at the **header's** number even though both are written as
+`--z-popover: 50`. While the header was at **40** that put them *under* practice's lifted bands (42):
+`elementFromPoint` over the open menu returned a terminal `<p>`, i.e. the entries were **unreachable,
+not merely dim**. Raising `--z-header` to 45 fixed both dropdowns at once precisely *because* they
+inherit its tier. It stays below `--z-popover` because the consent banner and the loader are
+**outside** the header, so their 50 is real.
+
+Two corollaries worth keeping:
+
+- **Adding a tier means checking what it now outranks**, and what still outranks it. The tier is the
+  cheap part; the audit is the work.
+- **Between elements on the same tier, DOM order decides** — which is the whole of #171's original
+  bug: the bubble and Edson's band were both 42, and he is written later. If two things must never
+  cover each other, give one of them its own number rather than relying on source order.
+- The consent banner, the loader, the legal gate and every `--z-modal` overlay are **teleported to
+  `#app`** for the same reason — see "Teleport to `#app`" below.
 
 ## Two overlay tiers
 

@@ -151,6 +151,70 @@ phone**, because both were verified against synthetic events that encoded the sa
 Android. See `specs/mobile-keyboard-dismiss.md` §7.2b for the measured trace — it is the primary
 evidence and should not be re-derived.
 
+### The practice tutorial bubble below `lg` — a stacking bug, not a sizing bug
+
+The tutorial bubble on `/game/practice` is **the one element in the app that nothing may ever cover**:
+SKIP ALL is the only way out of the step-1 control lock, and the bubble is the first thing a
+first-time visitor reads on the one surface that works without a wallet. It sits on its **own tier,
+`--z-practice-bubble: 43`**, above every lifted band (`--z-practice-cue: 42`) and below
+`--z-popover: 50`, so Settings still covers it.
+
+It used to share `z-practice-cue` with Edson's band, and **he is later in the DOM**, so his saucer
+painted over the bubble's third line and over the whole CONTINUE button. The same DOM-order rule hid
+it behind the **console** while the native keyboard was open. Both were fixed by the tier alone — the
+bubble was never too big.
+
+**Edson sinks behind the cabinet while a bubble is up** (a 220ms `transition` on the wrapper, `none`
+under `prefers-reduced-motion`), and rises when it closes — four dips per round, accepted. Four rules
+hold that geometry together:
+
+- **⚠️ Solve for the PEEK, not the depth.** `--practice-monkey-peek` is how much of Edson stays above
+  the cabinet's top edge; the sink is `max(0px, 100% − peek − overlap)` and the bubble anchors at
+  `console-h + peek + 20px`. A flat "sink 50%" is what put the bubble **on his face, twice**: his band
+  height is **flex-derived**, so his head lands at a different offset on every viewport and a
+  cabinet-relative anchor chases a moving target. Solving for the peek makes the two constants
+  relative to each other — measured across 360×{640, 742, 934}, the band moves 172 → 202 → 265px, the
+  sink follows 68 → 95 → 151px, and the tail-to-head gap holds at **2px**.
+- **The peek IS the floor.** On a viewport too short to give up that much travel (landscape, where the
+  band floors at 80px) the `max()` resolves to `0px` and he simply does not sink. He can never vanish
+  — no separate clamp needed.
+- **⚠️ The peek is also the terminal-coverage dial, and the two cannot both win.** There are only
+  ~95px between the terminal's bottom and a sunk Edson's head on a 360×740 phone, against ~160px of
+  bubble: every px of peek is a px of terminal covered (80px ≈ 21% of the band, 48px ≈ 11%, 24px ≈ 5%).
+  **100px is the owner's call** — "from his arms up" on an iPhone SE — paid for by tightening the
+  bubble's type and padding **mobile-only** (`font-size: 24 → 21px`, tighter padding: −26px, measured;
+  21px keeps clear of the 16px iOS-zoom floor). Desktop keeps the original scale. The accepted cost is
+  that on a short viewport the bubble covers the terminal's **status line**.
+- **⚠️ `--practice-monkey-peek` may only appear where Edson is actually rendered.** The
+  keyboard-open branch is `38dvh + console-h + 20px` with **no peek**: `PracticeMonkey` is `v-show`n
+  off there, so reserving 100px of headroom for an absent mascot pushed the bubble's first line under
+  the header and clipped it — caught on a real phone, not in emulation.
+
+Two implementation hazards, both instances of failure modes this component family has hit before:
+
+- **The sink goes on the wrapper `<div>`, never on the `<img>`.** The image already owns `transform`
+  for its entry animation and for `practice-wobble 8s infinite`, whose keyframes set `transform`
+  outright and would erase a translate 5× per loop. (Same reason the bubble's tail uses `margin-left`.)
+- **A `transition`, never an animation** — every phone runs `html.light-graphics`, which strips
+  infinite animations by selector. Do not add this selector to `arcade.css`'s kill list.
+- **Positioning stays at the call site.** `PracticeBubble.vue`'s scoped block (0,2,0) beats a Tailwind
+  utility (0,1,0); adding `position`/`bottom` there is the mechanic that once stretched the bubble to
+  the full height of the desktop row. ⚠️ In Tailwind arbitrary values, `calc()`'s required whitespace
+  is written as an **underscore** (`calc(var(--x)_+_20px)`) — without it the declaration is dropped
+  **silently** and the bubble lands at the top of the column. And `-mt-[var(--x)]` cannot negate a
+  variable; use `mt-[calc(var(--x)_*_-1)]`.
+
+**Desktop (`>= lg`) is untouched** — there the bubble is a later sibling inside Edson's own positioned
+band, so it already wins the stacking contest, and a 360px bubble in a desktop row has no wrap problem.
+The action row does `flex-wrap` so **SKIP ALL drops to a second line** at 320px rather than being
+clipped; the buttons never shrink, because a squeezed tap target on the only exit is not an
+improvement over a clipped one.
+
+⚠️ **Do not tune any of this in a desktop browser.** Chrome will not size a window below ~500px, and
+at 500px these bubbles are two lines instead of three — every measurement comes out ~30px optimistic
+and the status-line collision does not reproduce. Use CDP device emulation at a real 360px, or the
+phone.
+
 ## 4. Background, motion and performance
 
 - ⚠️ **`NebulaField.vue` was deleted outright** — 5 clouds of 40–82vw radial gradient carrying
@@ -222,4 +286,7 @@ right-side panel, attributed to each player's **display name** (the same identit
 `src/components/GameBackground.vue` + `TorpedoSpawner.vue`, `src/hooks/{usePerfMode,useIsMobile,useChatUnread}.ts`,
 `src/utils/walletDeepLink.ts`, `src/components/GameAudio.vue` + `src/assets/audios/`,
 `src/components/game/GameMobileTabs.vue`, `src/hooks/useKeyboardDismiss.ts` (+ its three wiring
-points: both `GameConsole.vue` input branches and `PracticeConsole.vue`'s mobile one).
+points: both `GameConsole.vue` input branches and `PracticeConsole.vue`'s mobile one),
+`src/pages/PracticePage.vue` (the mobile column: the bubble's tier + anchor, `:sunk`, the cabinet's
+geometry tokens) + `src/components/practice/{PracticeBubble,PracticeMonkey}.vue` (the wrapping action
+row, the mobile-only type scale, and the sink on the wrapper `<div>`).

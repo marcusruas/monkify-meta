@@ -78,6 +78,20 @@ down**.
 copy, same timings, same animations, same audio bed. **If the real game screen changes, practice should
 change with it.** Later work added a guided tutorial and an always-win outcome.
 
+**The status copy is a verbatim duplicate, and it is duplicated on purpose** — `practiceStatusLabel`
+(`src/constants/practiceGame.ts`) and `GameTerminal`'s `gameStatusLabel` hold the **same strings, word
+for word**, copied rather than shared (`specs/practice-mode.md` §7.3). **Change one, change the other.**
+A defect found in practice is therefore usually a defect on the money screen too: the tutorial's beat 2
+holds the round *after* EDSON-BOT's bet lands, so `remaining` is already `0` and both maps printed
+`> YOUR BET IS IN! NEED 0 MORE PLAYERS...` for as long as the bubble was up. Both now guard
+`remaining <= 0` → **`> ALL BETS IN. STAND BY...`**, and ⚠️ the guard sits **outside** the
+`userHasBet` ternary — the other arm would otherwise read `> NEED 0 MORE PLAYERS TO START...`, the
+same defect wearing a different label. Both of `GameTerminal`'s arms (race **and** lottery) carry it.
+
+**On a phone the tutorial bubble owns its own stacking tier and Edson sinks out of its way** — the
+geometry is load-bearing and easy to get wrong (a flat sink drew the bubble on his face twice). See
+[`frontend-ux.md`](frontend-ux.md) §3 → "The practice tutorial bubble below `lg`".
+
 ## Key code touchpoints (`monkify-front`)
 
 `src/pages/HomePage.vue`, `src/pages/HowToPlayPage.vue`, `src/pages/ResponsibleGamingPage.vue`,

@@ -1,8 +1,18 @@
 # SpaceStroker — "Practice tutorial bubbles on mobile" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped 2026-08-14** — merged to `main` via `feature/practice-mobile-bubbles` in
+> `monkify-front` + `monkify-meta`. Refined via Trello card
 > [Practice mode's messages are weird in mobile](https://trello.com/c/exQzo2cX) (#171, refined
-> 2026-08-13).
+> 2026-08-13). Distilled into [`../features/frontend-ux.md`](../features/frontend-ux.md) §3 and
+> [`../features/home-and-onboarding.md`](../features/home-and-onboarding.md) §3; this spec stays the
+> deep design archive.
+>
+> ⚠️ **§7.1–§7.3 below are the PRE-REVISION design. `§3a`–`§3a.2` are authoritative where they
+> disagree** — the geometry was wrong and the device caught it three times (the anchor, the peek
+> value, and the keyboard branch), plus one out-of-card fix (`--z-header` 40 → 45). The failed
+> reasoning is kept next to what replaced it on purpose. What actually shipped, in four numbers:
+> `--z-practice-bubble: 43`, `--z-header: 45`, `--practice-monkey-peek: 100px`, and a 220ms
+> `transition` on the wrapper.
 > Repos affected: `monkify-front` and this doc in `monkify-meta`. **`monkify-backend` is NOT
 > affected** — practice mode never leaves the browser (no request, no socket, no wallet, no money),
 > so there is no entity, handler, consumer, EF mapping, migration, endpoint or SignalR contract to
@@ -613,11 +623,11 @@ keyboard nor the real band heights):
 ## 14. Trello / pipeline
 
 - **Source card:** [#171 — Practice mode's messages are weird in mobile](https://trello.com/c/exQzo2cX)
-  — list **Specs created**; the **Implementation** section on the card carries branch, worktree and
-  spec path.
+  — list **Shipped**; the **Implementation** section on the card carries branch, worktree and spec
+  path.
 - **Branch / worktree:** `feature/practice-mobile-bubbles` in `monkify-front` + `monkify-meta`,
-  checked out at `.worktrees/practice-mobile-bubbles/<repo>`.
-- **Next:** `/monkify-implement-feature 171`, then `/monkify-ship-feature 171`.
+  **merged to `main` in both on 2026-08-14**; branch and worktrees deleted afterwards.
+- **Done:** refine → create-spec → implement → **ship**.
 
 ---
 
@@ -630,3 +640,4 @@ keyboard nor the real band heights):
 | 2026-08-13 | **§3a.1** — peek settled at `100px` ("from his arms up" on an iPhone SE), paid for by tightening the bubble's type and padding on mobile only (−26px). Accepted cost: the status line sits behind the bubble on short viewports. Also recorded why a desktop browser cannot be used to tune this. |
 | 2026-08-13 | **§3a.1b** — real-phone catch: the keyboard-open branch had inherited the `peek` term and reserved 100px for a `v-show`n-off Edson, clipping the bubble's first line under the header. Peek dropped from that branch. |
 | 2026-08-13 | **§3a.2** — folded in an out-of-card fix the device review exposed: `--z-header` 40 → 45, because the header's stacking context was capping its own menu and wallet dropdowns *below* practice's bands, making entries unclickable on `/game/practice`. Pre-existing since #142. |
+| 2026-08-14 | **Shipped.** Merged to `main` in `monkify-front` + `monkify-meta` (`yarn lint` + `yarn build` clean on the branch; device proof on the owner's Android + CDP emulation at 360×{640, 742, 934}). Distilled into `features/frontend-ux.md` §3 and `features/home-and-onboarding.md` §3, with the z-tier scale recorded in `conventions/frontend.md`. One comment-only correction landed with the ship: `colors.css` still described the peek as the rejected **80px** next to the shipped `100px`. |
