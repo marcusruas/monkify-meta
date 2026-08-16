@@ -517,6 +517,15 @@ the house wallet is **both the transfer's sender and the bet's own `Wallet`**, s
 because Orbit's *custody account* signs on behalf of a **different** player's wallet. Setting it here
 would discard a validation that genuinely passes **and** route a win into the player-custody account.
 
+⚠️ **A round may run on the house seed bet plus Orbit bets alone, with no human in it** (#172), and
+such a round carries **zero non-house entropy** — both the house bet's `Seed` and every Orbit bet's
+`Seed` are `OrbitChoiceGenerator.DeriveSeed(ServerSeed, playerId)`. This is a **deliberate, accepted**
+exposure, not an oversight: [`../specs/orbit-auto-bet-engine.md`](../specs/orbit-auto-bet-engine.md)
+decision 13 already accepted it for Orbit-only rounds, and #172 extended that acceptance to rounds the
+house **bets in**. It sits alongside — and does not weaken — the AC 21 invariant that a type with
+`MinimumNumberOfPlayers < 2` is never seeded at all. See
+[`../specs/house-seed-orbit-conflict.md`](../specs/house-seed-orbit-conflict.md).
+
 *(It replaced `SpaceStroker.Seeder`, a console app polling every 6 hours that covered only two types
 and stopped whenever that machine was off. The app is deleted.)*
 

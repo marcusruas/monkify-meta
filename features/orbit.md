@@ -46,6 +46,20 @@ human's.**
 
 - **Every eligible enrolled player bets every round — no cap.** Filling only the gap to
   `MinimumNumberOfPlayers` was rejected: it silently skips rounds a player enrolled to play.
+- ⚠️ **The house seed bet counts as an ordinary existing bettor in Orbit's viability check** (#172), so
+  on a `MinimumNumberOfPlayers = 2` type one funded Orbit player is enough to start a round with **no
+  human in it**. Two defects hid this: the planner runs at t≈0 while the house bet waits a randomised
+  0–10s, and `BetPlacedConsumer`'s re-plan trigger sat **below** its under-subscribed early return —
+  which also broke the plain 1-human + 1-Orbit case decision 4 promised. Both are fixed in
+  [`../specs/house-seed-orbit-conflict.md`](../specs/house-seed-orbit-conflict.md), together with a
+  Consumers startup pass that re-plans every open round.
+- ⚠️ **A failed placement must not be re-planned into.** `FailPlacement` decrements the gate and
+  republishes `BetPlacedEvent` to wake the round, so anything that re-plans on that event will
+  re-dispatch the same player forever. `BetPlacedConsumer` distinguishes the two ways a round reaches
+  `ExpectedOrbitBets == 0`: **`MarkPlanned`** (expiry `null` — nobody to dispatch, still re-plannable)
+  versus **`ReleaseGateSlot`** (expiry set — armed and every placement failed, never re-plan). The
+  `BetDebit` claim index does **not** bound this: it only exists after `ClaimAndDebit`, so every
+  pre-claim failure (no chosen word, low SOL, no committed seed, no free choice) would loop.
 - **Eligible** = enrolment `Enabled`, `GameParametersId` matches the round's type, **not**
   self-excluded, and the pool balance covers `RequiredAmount`. ⚠️ **A player who already has a bet in
   the round is excluded** — Orbit gets no exemption from the one-bet-per-round rules.

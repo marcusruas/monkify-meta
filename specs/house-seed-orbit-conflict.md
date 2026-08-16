@@ -96,7 +96,7 @@ during code exploration, each with its reason.
 | --- | --- |
 | 1 | **The house seed bet counts as an ordinary bettor for Orbit's viability check**, exactly as it already counts for `MinimumNumberOfPlayers`. A round may run house-vs-Orbit with **no human in it**. Rejected: excluding house-seeded bets from that arithmetic — it would need a way to tell a house bet from a player's, which `house-seed-bet` decision 2 forbids by design. |
 | 2 | ⚠️ **Accepted, documented consequence:** such a round carries **zero non-house entropy** — both the house bet's `Seed` and the Orbit bet's `Seed` are `OrbitChoiceGenerator.DeriveSeed(ServerSeed, playerId)` — **and the house is itself a bettor in it**. `orbit-auto-bet-engine` decision 13 already accepted "no non-house entropy" for Orbit-only rounds; this extends that acceptance to rounds the house bets in. |
-| 3 | **Fix shape: re-plan on every bet.** Hoist the `ExpectedOrbitBets is null or 0` → `PlanPlacements` call above the under-subscribed early return. Rejected: making the planner wait for the house seed bet (fixes only the house case, and couples the planner to house-seed timing that the separate receive endpoints exist to decouple) and doing both (two overlapping triggers for one defect). |
+| 3 | **Fix shape: re-plan on every bet.** Hoist the `ExpectedOrbitBets` → `PlanPlacements` call above the under-subscribed early return (the guard itself was refined during implementation — decision 14). Rejected: making the planner wait for the house seed bet (fixes only the house case, and couples the planner to house-seed timing that the separate receive endpoints exist to decouple) and doing both (two overlapping triggers for one defect). |
 | 4 | **The hoist goes above the `playerCount < MinimumNumberOfPlayers` check**, not inside the under-subscribed branch, so a later edit to the lottery-refund path cannot move it out from under the fix. Guard unchanged. |
 | 5 | **A startup pass re-plans every open round**, because a round already parked does not self-heal — nothing publishes another trigger for a dormant round, and races only roll over when they run, so one parked round stops every later round of its type. |
 | 6 | ⚠️ **The startup pass publishes `GameOpenedEvent`, NEVER `BetPlacedEvent`.** A correctness finding, not a preference — see §6.3. |
@@ -107,6 +107,8 @@ during code exploration, each with its reason.
 | 11 | **Spec decision — in practice the pass only ever sees `WaitingBets`.** `CloseOngoingGames` runs first and closes `Game.GameInProgressStatus`, which is **`[GameStarting, InProgress]`** (`Game.cs:84`) — so no `GameStarting` round survives to reach the pass. The query still reads `Game.GameAcceptingBets` because that is the set the feature means; the narrowing is an ordering guarantee, not something to hard-code. |
 | 12 | **Spec decision — the existing test `ProcessMessage_RoundBecomesViableWithNoGate_AsksThePlannerToPlace` must be corrected, not just kept green.** It seeds `GameWithBets(betCount: 2)` — an **already viable** round — while its docstring claims it covers "the human bet that makes it viable". That mismatch is why the dead trigger went unnoticed. It must be re-seeded under-subscribed (§11). |
 | 13 | **Spec decision — no new logging category.** `PlanPlacements` already logs its skip and its arm decisions, and the startup pass gets one `Information` summary line plus an `Error` on failure. Nothing else in this change needs an operator signal. |
+| 14 | ⚠️ **Implementation decision (2026-08-16) — the guard is NOT "null or 0". It is `null || (0 && OrbitGateExpiresAt is null)`.** A round reaches 0 two different ways and they are not interchangeable: `MarkPlanned` writes 0 with a **null** expiry ("planning ran, nobody to dispatch" — still re-plannable), while `ReleaseGateSlot` decrements to 0 with the expiry **still set** ("armed for N placements, every one failed"). Re-planning the second is an **unbounded loop**: `FailPlacement` republishes `BetPlacedEvent` to wake the round, the re-plan re-dispatches the same player, it fails again, and it republishes forever. **This was caught by the integration suite**, as hundreds of repeated *"the player has no chosen word and has not opted in to an automatic one"* placements for one player in one round, with the gate re-armed each time — it failed `AFailedPlacement_DoesNotHoldTheRound_UntilTheGateTimesOut` and, through log-error assertions, three `ProvablyFairFlowTests`. |
+| 15 | ⚠️ **Correction — the `BetDebit` claim index does NOT break that loop, and the refined card said it did.** The claim only exists once `ClaimAndDebit` has run, so it bounds re-dispatch **only for failures after the claim**. Every **pre-claim** failure — no chosen word, low SOL, no committed server seed, no free choice in 10 attempts, self-excluded — calls `FailPlacement`/`SkipPlacement` with no claim row written, and loops. The expiry check in decision 14 is what actually bounds it. |
 
 ---
 
@@ -157,10 +159,11 @@ var gameBets = await gameService.GetBetsByGameId(game.Id);
 // became permanent: house bet lands, count is 1, we return, and a funded Orbit player sits out
 // every round forever. See specs/house-seed-orbit-conflict.md.
 //
-// Guard unchanged: null (never planned) or 0 (planned, nothing outstanding). A POSITIVE count still
-// blocks — placements are in flight and the gate below is armed, which is the state that guard
-// exists to protect.
-if (game.ExpectedOrbitBets is null or 0)
+// ⚠️ NOT "null or 0" — see decisions 14 and 15. A POSITIVE count blocks (placements in flight, the
+// gate below is armed). 0 blocks TOO when a gate was armed on this round and released by failures
+// (expiry SET); it is re-plannable only when planning simply found nobody (MarkPlanned, expiry NULL).
+// Without that distinction, FailPlacement's wake-up republish drives an unbounded re-dispatch loop.
+if (game.ExpectedOrbitBets is null || (game.ExpectedOrbitBets == 0 && game.OrbitGateExpiresAt is null))
 {
     var placement = scope.ServiceProvider.GetRequiredService<IOrbitBetPlacementService>();
     await placement.PlanPlacements(game);
@@ -408,6 +411,23 @@ Project: `monkify-backend/src/SpaceStroker.Tests`. Run with `scripts/run_tests.b
 unit-testable; its behaviour is pinned by AC 7, 8, 9, 10 and 11 through the manual QA in §13 and by
 the `BetPlacedConsumer` / planner tests above. **Do not** refactor `Program.cs` into a testable
 service for this card — that is scope the card did not ask for.
+
+### 11.3 Integration test — added despite the `Minor change` exemption
+
+`SpaceStroker.Tests.Integration/OrbitAutoBetFlowTests.cs` →
+**`AHouseSeedBet_LetsALoneOrbitPlayerStartTheRound`**.
+
+Level `Minor change` waives the mandatory integration test, but the card's **central claim** has no
+other home: the dispatch it asserts **cannot** be unit-tested, because `PlanPlacements` reaches
+`ArmGate` — an `ExecuteUpdateAsync` the EF in-memory provider **throws** on. (The
+`OrbitBetPlacementServiceTests` class docstring claims that provider "silently no-ops"; it does not,
+and this card is what found that out.) Added with the owner's explicit go-ahead.
+
+It seeds one funded Orbit player on a min-2 type, asserts the planner **skips without marking**
+(`ExpectedOrbitBets == null` — the precondition defect 1 creates), drives a **real** house seed bet
+through `IHouseSeedBetService` below the production gate, then asserts the Orbit stake lands in the
+**same** round, that exactly one `BetDebit` is written for it, and that the round reaches
+`RewardForWinnersCompleted` with no human bet in it. Covers AC 1 and AC 5.
 
 > ⚠️ **Existing suites to re-run and fix, not to ignore:** `UnitTests/Consumers/PlaceOrbitBetConsumerTests.cs`
 > and `UnitTests/Services/HouseSeedBetServiceTests.cs`. Neither should need behavioural changes — if
