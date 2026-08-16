@@ -196,7 +196,7 @@
   | Token | Desktop | `≤1023px` | Anchored on |
   | --- | --- | --- | --- |
   | `--ctl-h-sm` | 34.4px (`2.15rem`) | **40px** | `.btn-arcade--sm`, unchanged |
-  | `--ctl-h-md` | 40px | **44px** | the new default rung |
+  | `--ctl-h-md` | 40px | **44px** (**36px inside `.app-header`** — see the header opt-out below) | the new default rung |
   | `--ctl-h-lg` | 48px (`3rem`) | 48px | `.btn-arcade`, unchanged |
   | `--ctl-px-sm` / `md` / `lg` | 10 / 13 / 16px | same | horizontal padding only |
 
@@ -216,6 +216,18 @@
   | `.btn-icon` | `md` 40 square | **none** — geometry only |
 
   Rules that go with it:
+  - ⚠️ **THE HEADER BAR OPTS OUT OF THE `md` MOBILE STEP-UP (owner's call, 2026-08-13).** `.app-header`
+    re-declares `--ctl-h-md: 2.25rem` (**36px**) inside the same `@media (max-width: 1023px)` block in
+    `colors.css`, so below `lg` the two doors (`OrbitLauncher` + the connected wallet pill) and the two
+    `.btn-icon` squares (audio, ☰) are **36px, not 44px**. Reason: the bar itself is only **54px** with
+    4px of padding — 46px of usable box — so a 44px control fills it wall to wall and the cluster read
+    as "too fat, too much Y padding". **It is delivered as the TOKEN on `.app-header`, not as
+    per-class heights**, which is what keeps the two families in that bar the same height by
+    construction, and it is inherited **only** by the header subtree: every dialog field, page input
+    and dialog button keeps the 44px thumb rung, and the modals mounted in `GameHeader.vue`'s template
+    are `<Teleport to="#app">`, so they leave the subtree before they could inherit it. The touch
+    target is trimmed **vertically only** — the pills stay as wide as their contents. If you add a
+    control to the bar, this is why it is 36px there and 44px everywhere else.
   - ⚠️ **`.btn-arcade` ships NO `:disabled` rule, and there is no muted variant** beside `--primary` /
     `--cyan` / `--ghost`. A bare `.btn-arcade[disabled]` therefore renders as **transparent text that
     still brightens on hover and still dips 3px on press** — a control that animates like a live button
@@ -607,6 +619,26 @@
     `maximum-scale`, so iOS Safari zooms the page whenever a focused input computes under 16px. Trim
     with leading and tracking instead; going lower means either breaking pinch-zoom or a `:focus`-only
     bump, both of which are trade-offs to raise explicitly.
+  - **The keyboard lift has TWO teardown routes, and a device-only bug needs device evidence
+    (Trello #170, 2026-08-13).** The console lifts on the bet input's focus and unwinds on its `blur`;
+    `src/hooks/useKeyboardDismiss.ts` force-blurs the input when the keyboard goes away without the
+    input saying so — `visualViewport` for a **dismissal** (BACK / swipe-down / iOS "Done", 150px gap,
+    behind a latch that waits for the keyboard to be seen open) and **`window`'s `blur`** for the
+    player **leaving the app**. The full rules live in
+    [`../features/frontend-ux.md`](../features/frontend-ux.md) §3; two apply to any focus work here:
+    ⚠️ **`document.activeElement` stays the input** — Android fires an input's focus/blur *events* from
+    **window** focus changes while the element keeps DOM focus, and Chrome restores that focus on
+    return, so a focus *flag* and real DOM focus are different things on this screen; and ⚠️ **a
+    listener that must hear the window blur cannot be armed on a focus flag**, because the flag flips
+    ~1 ms first.
+    ⚠️ **The process lesson generalises beyond this screen:** two fixes shipped green in desktop Chrome
+    and failed on the phone, because the synthetic repro encoded the same wrong model of the device as
+    the fix did. For a mobile-only defect, **instrument the page and read real device events before the
+    first fix** — a temporary on-page log (persisted to `localStorage` so it survives Chrome discarding
+    a backgrounded tab, plus a patched `HTMLInputElement.prototype.blur` so *our* blur is
+    distinguishable from the browser's) turned three rounds of guessing into one screenshot. And make
+    the repro model **causality**, not the observed effect: it only became honest once "Chrome restores
+    focus" was made conditional on the element still holding DOM focus.
   - **A mobile-only surface must be built crisp — `usePerfMode` forces `html.light-graphics` on every
     viewport below `lg`.** A component that only renders below `lg` therefore *always* runs in that
     mode, so a wide soft glow there is built specifically to be stripped: dead weight on the one device
@@ -704,8 +736,45 @@
     same `VUE_APP_NEW_GAME_DELAY` the real console does. Backend-owned numbers that the frontend cannot
     see (`TimeUntilGameStarts` = 10, `TerminalBatchLimit` = 500) are hard-coded with a comment naming
     the setting, so the next person knows where the truth lives.
-  See `features/practice-mode.md`.
+  See `specs/practice-mode.md`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).
+
+## One named z-index scale — and a stacking context caps everything inside it
+
+Every layer number lives **once**, as a custom property in `src/assets/styles/colors.css`;
+`tailwind.config.js` only maps names onto those variables (`header: 'var(--z-header)'`). Never write a
+bare `z-[47]` in markup — a number with no name is a number nobody can reason about later.
+
+The scale, low to high:
+
+| Token | Value | What sits there |
+| --- | --- | --- |
+| `--z-base` / `--z-app` / `--z-furniture` | 0 / 10 / 20 | page, `App.vue` root, in-page docked chrome |
+| `--z-practice-dim` | 41 | the practice tutorial's backdrop |
+| `--z-practice-cue` | 42 | every band the tutorial lifts (Edson, terminal, cabinet) |
+| `--z-practice-bubble` | 43 | the tutorial bubble — **must never be covered** (#171) |
+| `--z-header` | 45 | the sticky `GameHeader` |
+| `--z-popover` | 50 | dropdowns, tooltips, the consent banner |
+| `--z-modal` / `--z-blocking` / `--z-legal` | 60 / 70 / 80 | teleported overlays, boot/idle recovery, the 18+ gate |
+
+⚠️ **A `position` + `z-index` element is a STACKING CONTEXT, so nothing nested inside it can outrank
+it — however loudly the child asks.** `.app-header` is `sticky` + `z-index`, so its menu dropdown and
+its wallet dropdown composite at the **header's** number even though both are written as
+`--z-popover: 50`. While the header was at **40** that put them *under* practice's lifted bands (42):
+`elementFromPoint` over the open menu returned a terminal `<p>`, i.e. the entries were **unreachable,
+not merely dim**. Raising `--z-header` to 45 fixed both dropdowns at once precisely *because* they
+inherit its tier. It stays below `--z-popover` because the consent banner and the loader are
+**outside** the header, so their 50 is real.
+
+Two corollaries worth keeping:
+
+- **Adding a tier means checking what it now outranks**, and what still outranks it. The tier is the
+  cheap part; the audit is the work.
+- **Between elements on the same tier, DOM order decides** — which is the whole of #171's original
+  bug: the bubble and Edson's band were both 42, and he is written later. If two things must never
+  cover each other, give one of them its own number rather than relying on source order.
+- The consent banner, the loader, the legal gate and every `--z-modal` overlay are **teleported to
+  `#app`** for the same reason — see "Teleport to `#app`" below.
 
 ## Two overlay tiers
 
