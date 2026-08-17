@@ -20,6 +20,15 @@
   box-sizing: border-box;
 }
 
+/* app.js shows and hides every overlay (#veil, #hover, #marquee, #empty) by toggling the `hidden`
+   attribute — but that attribute only hides through the USER-AGENT rule `[hidden] { display: none }`,
+   which loses the cascade to any author `display` on the same element. `.veil { display: flex }`
+   duly beat it and pinned the confirm dialog over the whole page from first paint, with CANCEL
+   unable to dismiss it. !important is what keeps a later `display` rule from re-breaking this. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;

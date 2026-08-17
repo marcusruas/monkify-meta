@@ -13,9 +13,19 @@ public class SwapInstructionsGuardTests
     private static GuardedInstruction Instruction(string programId, params string[] accounts)
         => new(programId, accounts.Length == 0 ? [Wallet] : accounts, "");
 
+    /// <summary>
+    /// ⚠️ ComputeBudget declares NO accounts — that is the instruction's real on-chain shape, and the
+    /// reason this helper exists separately. An earlier fixture handed it the wallet like every other
+    /// instruction, which made the suite green while every LIVE sell was refused with "an instruction
+    /// for ComputeBudget111… does not involve this wallet". A fixture that cannot fail the way
+    /// production fails is not a test.
+    /// </summary>
+    private static GuardedInstruction AccountlessInstruction(string programId)
+        => new(programId, [], "");
+
     private static List<GuardedInstruction> CleanSet() =>
     [
-        Instruction(SwapInstructionsGuard.ComputeBudgetProgramId),
+        AccountlessInstruction(SwapInstructionsGuard.ComputeBudgetProgramId),
         Instruction(SwapInstructionsGuard.AssociatedTokenAccountProgramId),
         Instruction(SwapInstructionsGuard.JupiterAggregatorV6ProgramId),
         Instruction(SwapInstructionsGuard.TokenProgramId),
@@ -95,5 +105,32 @@ public class SwapInstructionsGuardTests
     public void An_empty_instruction_set_is_refused()
     {
         Should.Throw<NightfallException>(() => Assert([]));
+    }
+
+    [Fact]
+    public void The_accountless_compute_budget_instructions_every_real_swap_carries_are_allowed()
+    {
+        // Jupiter puts a compute-unit LIMIT and a compute-unit PRICE on every swap, and both take no
+        // accounts. Requiring them to name the wallet made the guard refuse every live sell.
+        var real = new List<GuardedInstruction>
+        {
+            AccountlessInstruction(SwapInstructionsGuard.ComputeBudgetProgramId),
+            AccountlessInstruction(SwapInstructionsGuard.ComputeBudgetProgramId),
+            Instruction(SwapInstructionsGuard.JupiterAggregatorV6ProgramId),
+        };
+
+        Should.NotThrow(() => Assert(real));
+    }
+
+    [Fact]
+    public void An_accountless_instruction_for_any_other_program_is_still_refused()
+    {
+        // The exemption is ComputeBudget's alone. Dropping the wallet check for anything that simply
+        // declares no accounts would be a much wider hole than the bug it fixes.
+        var sneaky = CleanSet();
+        sneaky.Add(AccountlessInstruction(SwapInstructionsGuard.TokenProgramId));
+
+        var ex = Should.Throw<NightfallException>(() => Assert(sneaky));
+        ex.Message.ShouldContain("does not involve");
     }
 }

@@ -55,7 +55,7 @@ public sealed class NightfallState(IReadOnlyList<PoolEntry> pool, SecretsView se
     /// </summary>
     public bool IsLive { get; private set; }
 
-    public MintInfo Mint { get; set; } = new(0UL, 0);
+    public MintInfo Mint { get; set; } = new(0UL, 0, SwapInstructionsGuard.TokenProgramId);
     public decimal UnitPriceSol { get; set; }
     public DateTimeOffset? RefreshedUtc { get; private set; }
 

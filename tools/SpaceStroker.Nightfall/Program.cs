@@ -47,11 +47,13 @@ try
     }
 
     var rpc = ClientFactory.GetClient(secrets.Solana.RpcUrl);
-    var reader = new SolanaReader(rpc, secrets.Nightfall.Token.Mint);
 
     // Read the mint once. Every percentage on screen depends on it, so a failure here is fatal
-    // rather than a dashboard full of zeroes.
-    var mint = await reader.GetMintAsync(CancellationToken.None);
+    // rather than a dashboard full of zeroes. It also settles which token program owns the mint —
+    // SPL Token or Token-2022 — which the reader needs before it can derive a single token account.
+    var mint = await SolanaReader.ReadMintAsync(rpc, secrets.Nightfall.Token.Mint, CancellationToken.None);
+
+    var reader = new SolanaReader(rpc, secrets.Nightfall.Token.Mint, mint.TokenProgram);
 
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     var jupiter = new JupiterClient(http, secrets.Nightfall.Jupiter);

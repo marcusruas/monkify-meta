@@ -87,7 +87,13 @@ public static class SnipePlan
             var cost = BondingCurve.CostForTokens(state, fees, tokens);
             if (cost > spendable)
             {
-                tokens = BondingCurve.TokensForBudget(state, fees, spendable);
+                // ⚠️ Size the buy against the balance MINUS the slippage margin, not against the whole
+                // balance. Spending every spendable lamport on tokens makes cost == spendable, and the
+                // clamp below then pins maxSolCost to that same figure — an on-chain ceiling equal to
+                // our own quote to the lamport. pump.fun reverts with 6002 TooMuchSolRequired if it
+                // needs even one lamport more, so a capped wallet used to fail by construction on any
+                // rounding difference or any buy that landed between the quote and the submit.
+                tokens = BondingCurve.TokensForBudget(state, fees, BudgetWithinSlippage(spendable, slippageTolerance));
                 capped = true;
 
                 if (tokens == 0)
@@ -109,6 +115,18 @@ public static class SnipePlan
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// The largest quote whose <see cref="WithSlippage"/> ceiling still fits inside
+    /// <paramref name="spendable"/>: spendable / (1 + tolerance), floored. This is what leaves a
+    /// balance-capped wallet a real slippage margin instead of an on-chain ceiling equal to its quote.
+    /// </summary>
+    public static ulong BudgetWithinSlippage(ulong spendable, decimal tolerance)
+    {
+        if (tolerance <= 0) return spendable;
+
+        return (ulong)decimal.Floor(spendable / (1m + tolerance));
     }
 
     /// <summary>

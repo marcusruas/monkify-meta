@@ -22,7 +22,7 @@ public class NightfallStateTests
             MaxPriceImpactPercent: 10m,
             MaxConcurrentSells: 4))
         {
-            Mint = new MintInfo(1_000_000_000UL, 6),
+            Mint = new MintInfo(1_000_000_000UL, 6, SwapInstructionsGuard.TokenProgramId),
         };
     }
 

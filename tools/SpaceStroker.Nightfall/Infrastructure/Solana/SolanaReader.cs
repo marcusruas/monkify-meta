@@ -1,25 +1,48 @@
 using System.Globalization;
-using System.Text.Json;
-using Solnet.Programs;
 using Solnet.Rpc;
 using Solnet.Rpc.Types;
-using Solnet.Wallet;
 using SpaceStroker.Nightfall.Domain;
 
 namespace SpaceStroker.Nightfall.Infrastructure.Solana;
 
 public sealed record WalletBalances(long SolLamports, ulong TokenRaw);
 
-public sealed record MintInfo(ulong Supply, int Decimals);
+/// <summary>
+/// <paramref name="TokenProgram"/> is read from the mint account's OWNER, never assumed: it is a seed
+/// of every associated token account address, so assuming SPL Token makes every Token-2022 balance
+/// read as zero. See AssociatedToken.
+/// </summary>
+public sealed record MintInfo(ulong Supply, int Decimals, string TokenProgram);
 
 /// <summary>
 /// Every read the dashboard makes, batched so a 20-wallet pool costs two RPC calls per refresh
 /// rather than forty.
 /// </summary>
-public sealed class SolanaReader(IRpcClient rpc, string mint)
+/// <remarks>
+/// The token program is a CONSTRUCTOR argument on purpose. It has to be read from the chain before
+/// any address can be derived, and taking it here means DeriveAta cannot be called before it is
+/// known — read the mint with <see cref="ReadMintAsync"/> first, then build the reader.
+/// </remarks>
+public sealed class SolanaReader(IRpcClient rpc, string mint, string tokenProgram)
 {
-    public async Task<MintInfo> GetMintAsync(CancellationToken ct)
+    public string TokenProgram { get; } = tokenProgram;
+
+    /// <summary>
+    /// Reads supply, decimals and the mint's owning token program. Static because its result is what
+    /// a reader needs to exist — see the remarks above.
+    /// </summary>
+    public static async Task<MintInfo> ReadMintAsync(IRpcClient rpc, string mint, CancellationToken ct)
     {
+        // The account read comes first: without it we cannot know which token program owns the mint,
+        // and a supply that parses tells us nothing about that.
+        var account = await rpc.GetAccountInfoAsync(mint, Commitment.Confirmed);
+
+        if (!account.WasSuccessful || account.Result?.Value is null)
+            throw new NightfallException(
+                $"Could not read the mint account {mint}. The token mint or the RPC endpoint may be wrong. ({account.Reason})");
+
+        var tokenProgram = AssociatedToken.EnsureTokenProgram(account.Result.Value.Owner, mint);
+
         var result = await rpc.GetTokenSupplyAsync(mint, Commitment.Confirmed);
 
         if (!result.WasSuccessful || result.Result?.Value is null)
@@ -30,7 +53,7 @@ public sealed class SolanaReader(IRpcClient rpc, string mint)
             ? parsed
             : throw new NightfallException($"The RPC returned an unreadable supply for {mint}.");
 
-        return new MintInfo(supply, result.Result.Value.Decimals);
+        return new MintInfo(supply, result.Result.Value.Decimals, tokenProgram);
     }
 
     /// <summary>
@@ -69,12 +92,11 @@ public sealed class SolanaReader(IRpcClient rpc, string mint)
         return amounts[0];
     }
 
-    public string DeriveAta(string owner)
-    {
-        var ata = AssociatedTokenAccountProgram.DeriveAssociatedTokenAccount(new PublicKey(owner), new PublicKey(mint));
-
-        return ata?.Key ?? throw new NightfallException($"Could not derive the token account for {owner}.");
-    }
+    /// <summary>
+    /// ⚠️ Derived with THIS MINT'S token program, never with Solnet's hardcoded SPL Token — see
+    /// AssociatedToken for what that costs on a pump.fun Token-2022 mint.
+    /// </summary>
+    public string DeriveAta(string owner) => AssociatedToken.Derive(owner, mint, TokenProgram);
 
     private async Task<List<long>> GetLamportsAsync(List<string> addresses, CancellationToken ct)
     {
@@ -116,6 +138,10 @@ public sealed class SolanaReader(IRpcClient rpc, string mint)
     /// The SPL token account layout puts the u64 amount at byte 64 (mint 32 || owner 32 || amount 8).
     /// Read straight from base64 account data so one getMultipleAccounts covers the whole pool —
     /// getTokenAccountBalance would be one round trip per wallet.
+    ///
+    /// This is program-agnostic: a Token-2022 account keeps that same 165-byte base layout and appends
+    /// its extensions AFTER it (the live pump.fun accounts are 170 bytes), so the amount stays at 64.
+    /// Only the ADDRESS differs between the two programs — see AssociatedToken.
     /// </summary>
     private static ulong ReadSplAmount(IList<string>? data)
     {

@@ -15,7 +15,7 @@ public static class ConsoleReport
         Console.WriteLine("  spacestroker-nightfall");
         Console.WriteLine("  ─────────────────────────────────────────────────────────────");
         Console.WriteLine($"  dashboard : {url}");
-        Console.WriteLine($"  token     : {secrets.Nightfall.Token.Mint}");
+        Console.WriteLine($"  token     : {secrets.Nightfall.Token.Mint}  ({AssociatedToken.Describe(mint.TokenProgram)})");
         Console.WriteLine($"  supply    : {TokenAmount.Format(TokenAmount.ToUi(mint.Supply, mint.Decimals))} ({mint.Decimals} decimals)");
         Console.WriteLine($"  wallets   : {secrets.Pool.Count}");
         Console.WriteLine($"  rpc       : {RpcUrlMask.HostOnly(secrets.Solana.RpcUrl)}");

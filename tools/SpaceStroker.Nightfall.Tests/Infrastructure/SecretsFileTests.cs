@@ -196,7 +196,7 @@ public class SecretsFileTests : IDisposable
 
         secrets.Nightfall.Jupiter.SlippageBps.ShouldBe(300);
         secrets.Nightfall.Jupiter.MaxPriceImpactPercent.ShouldBe(10m);
-        secrets.Nightfall.Jupiter.QuoteCacheSeconds.ShouldBe(10);
+        secrets.Nightfall.Jupiter.QuoteCacheSeconds.ShouldBe(5);
         secrets.Nightfall.Sell.MaxConcurrentSells.ShouldBe(4);
         secrets.Nightfall.Sell.MinSolForFeeSol.ShouldBe(0.003m);
         secrets.Nightfall.Sell.RefreshIntervalSeconds.ShouldBe(15);

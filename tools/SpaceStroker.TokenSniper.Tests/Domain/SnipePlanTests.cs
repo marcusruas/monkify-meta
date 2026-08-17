@@ -69,6 +69,32 @@ public class SnipePlanTests
     }
 
     [Fact]
+    public void Build_LeavesACappedWalletARealSlippageMargin()
+    {
+        // ⚠️ Regression, 2026-08-14: a capped wallet used to buy tokens for its ENTIRE spendable
+        // balance, so maxSolCost was clamped down to exactly the quote and every buy reverted with
+        // pump.fun 6002 TooMuchSolRequired. The ceiling must sit ABOVE the quote and still inside
+        // what the wallet can pay.
+        var target = new WalletTarget("W01", "addr", 1m, TargetBaseUnits: 200_000_000_000_000, HeldBaseUnits: 0);
+        const ulong spendable = 1_000_000_000;
+
+        var buy = SnipePlan.Build([target], Funding("W01", spendable + 15_000_000), Curve(), OnePercent, 0.25m, 15_000_000)[0];
+
+        buy.CappedByBalance.ShouldBeTrue();
+        buy.MaxSolCostLamports.ShouldBeGreaterThan(buy.QuotedCostLamports);
+        buy.MaxSolCostLamports.ShouldBeLessThanOrEqualTo(spendable);
+        buy.MaxSolCostLamports.ShouldBe(SnipePlan.WithSlippage(buy.QuotedCostLamports, 0.25m));
+    }
+
+    [Fact]
+    public void BudgetWithinSlippage_DiscountsTheBalanceByTheToleranceAndIsAnIdentityAtZero()
+    {
+        SnipePlan.BudgetWithinSlippage(1_250, 0.25m).ShouldBe(1_000ul);
+        SnipePlan.BudgetWithinSlippage(1_000, 0m).ShouldBe(1_000ul);
+        SnipePlan.WithSlippage(SnipePlan.BudgetWithinSlippage(999, 0.25m), 0.25m).ShouldBeLessThanOrEqualTo(999ul);
+    }
+
+    [Fact]
     public void Build_SkipsAWalletWithNoSpendableSolAfterTheReserve()
     {
         var target = new WalletTarget("W01", "addr", 1m, TargetBaseUnits: 500, HeldBaseUnits: 0);

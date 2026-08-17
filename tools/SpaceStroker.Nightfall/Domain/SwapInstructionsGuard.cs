@@ -66,6 +66,18 @@ public static class SwapInstructionsGuard
                 throw new NightfallException(
                     $"Refusing to sign: the swap calls an unexpected program {instruction.ProgramId}.");
 
+            // ⚠️ ComputeBudget is exempt from the wallet check below, and ONLY ComputeBudget.
+            // It sets the transaction's compute-unit limit and price and takes NO ACCOUNTS AT ALL, so
+            // "must involve this wallet" is unsatisfiable for it by construction — Jupiter puts one on
+            // every swap, and requiring it refused every live sell with a message that read like a
+            // security incident. An instruction that names no accounts also cannot touch anyone's
+            // funds: a Solana program may only read or write the accounts it is handed.
+            //
+            // The exemption is deliberately keyed on the program id rather than on "declares no
+            // accounts" — the latter would be a far wider hole than the bug it closes.
+            if (instruction.ProgramId == ComputeBudgetProgramId)
+                continue;
+
             // 3. Every instruction must touch this wallet. An instruction that does not is either
             //    operating on somebody else's accounts or is not part of our swap at all.
             if (!instruction.Accounts.Contains(userPublicKey, StringComparer.Ordinal))

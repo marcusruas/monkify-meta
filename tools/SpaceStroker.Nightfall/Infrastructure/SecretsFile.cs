@@ -142,7 +142,12 @@ public sealed class JupiterSection
     [JsonPropertyName("slippageBps")] public int SlippageBps { get; set; } = 300;
     [JsonPropertyName("maxPriceImpactPercent")] public decimal MaxPriceImpactPercent { get; set; } = 10m;
     [JsonPropertyName("prioritizationFeeLamports")] public long PrioritizationFeeLamports { get; set; }
-    [JsonPropertyName("quoteCacheSeconds")] public int QuoteCacheSeconds { get; set; } = 10;
+    /// <summary>
+    /// TTL of the in-memory quote cache (QuoteCache — no external store involved). A hover, and the
+    /// confirmation dialog, reuse a quote for this long before Jupiter is called again. Raising it
+    /// spends less quota but shows staler prices; lowering it does the reverse.
+    /// </summary>
+    [JsonPropertyName("quoteCacheSeconds")] public int QuoteCacheSeconds { get; set; } = 5;
 }
 
 public sealed class SellSection

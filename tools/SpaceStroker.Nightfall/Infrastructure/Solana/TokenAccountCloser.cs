@@ -48,7 +48,11 @@ public sealed class TokenAccountCloser(IRpcClient rpc, SolanaReader reader)
                     new PublicKey(tokenAccount),
                     account.PublicKey,     // rent destination — back to the wallet itself
                     account.PublicKey,     // owner/authority
-                    TokenProgram.ProgramIdKey))
+                    // ⚠️ The MINT'S program, not TokenProgram.ProgramIdKey: only the program that owns
+                    // the account can close it, so hardcoding SPL Token silently forfeits the rent on
+                    // every Token-2022 (pump.fun) account. The layout is identical, so the instruction
+                    // itself is unchanged — only the program it is addressed to.
+                    new PublicKey(reader.TokenProgram)))
                 .Build(account);
 
             var result = await rpc.SendTransactionAsync(transaction, skipPreflight: false, Commitment.Confirmed);

@@ -272,6 +272,12 @@
   let hoverKey = null;
   let hoverTimer = null;
 
+  // 1 s debounce on the NETWORK CALL only. Hover fires on every mouse move and a quote is a
+  // rate-limited call, so sweeping across the pool must not spend the whole Jupiter quota. The panel
+  // itself still appears at once (showQuote paints "quoting…" and everything it already knows
+  // synchronously) — delaying the panel too would just read as a laggy dashboard.
+  const QUOTE_DEBOUNCE_MS = 1000;
+
   el.grid.addEventListener("mouseover", (event) => {
     const node = event.target.closest(".w");
     if (!node || node.dataset.key === hoverKey) return;
@@ -279,9 +285,8 @@
     hoverKey = node.dataset.key;
     clearTimeout(hoverTimer);
 
-    // 300 ms debounce: hover fires on every mouse move, and a quote is a rate-limited network call.
-    // Sweeping across the pool must not spend the whole Jupiter quota.
-    hoverTimer = setTimeout(() => showQuote(node), 300);
+    const quote = showQuote(node);
+    if (quote) hoverTimer = setTimeout(quote, QUOTE_DEBOUNCE_MS);
   });
 
   el.grid.addEventListener("mouseout", (event) => {
@@ -307,10 +312,13 @@
     el.hover.style.top = `${Math.max(pad, top)}px`;
   }
 
-  async function showQuote(node) {
+  // Paints everything already known IMMEDIATELY and returns the one part that needs the network, so
+  // the caller can debounce just that. Returns null when nothing needs quoting — a settled wallet
+  // shows its realized figure and an unsellable one shows its reason, neither of which is a request.
+  function showQuote(node) {
     const key = node.dataset.key;
     const wallet = state.wallets.find((w) => w.publicKey === key);
-    if (!wallet) return;
+    if (!wallet) return null;
 
     const head = `<span class="hd">▸ ${escape(wallet.alias)} · ${wallet.realizedSol != null ? "SOLD" : `QUOTE · ${percentLabel()}%`}</span>`;
 
@@ -323,16 +331,20 @@
           (wallet.quotedSol != null ? `QUOTED <b>${fmtSol(wallet.quotedSol)} SOL</b><br />` : "") +
           `<span style="word-break:break-all">${escape(wallet.signature || "")}</span>`,
       );
-      return;
+      return null;
     }
 
     if (!wallet.selectable) {
       show(head + `<span class="warn">${escape(wallet.reason || "Not sellable.")}</span>`);
-      return;
+      return null;
     }
 
     show(head + "quoting…");
 
+    return () => fetchQuote(key, head);
+  }
+
+  async function fetchQuote(key, head) {
     try {
       const percent = readPercent();
       const query = percent === null || percent === undefined ? "" : `&percent=${percent}`;

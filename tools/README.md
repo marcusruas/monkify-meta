@@ -222,7 +222,7 @@ cp secrets.example.json secrets.json    # git-ignored; the template is not
 | Field | Meaning |
 | --- | --- |
 | `solana.rpcUrl` | **Top level, shared.** The keyed endpoint. Used for **every** read and every broadcast. Masked to host-only wherever logged. |
-| `nightfall.token.mint` | The Token CA. Config-only — the browser never supplies it. |
+| `nightfall.token.mint` | The Token CA. Config-only — the browser never supplies it. Works with **SPL Token and Token-2022** mints alike: the owning token program is read from the mint account at startup and printed in the banner. |
 | `nightfall.jupiter.apiBaseUrl` | Base for `/quote`, `/swap-instructions` and `/swap`. ⚠️ Jupiter moved off `quote-api.jup.ag/v6`; confirm the current base against their docs. |
 | `nightfall.jupiter.slippageBps` | Applied to every sell. `300` = 3%. |
 | `nightfall.jupiter.maxPriceImpactPercent` | A quote worse than this **aborts that wallet before broadcasting**. |
@@ -290,9 +290,10 @@ contains a private key.
 dotnet test SpaceStroker.Tools.sln
 ```
 
-112 tests cover the **pure** logic: the sell-percentage maths, the exclusion gates, the instruction
+126 tests cover the **pure** logic: the sell-percentage maths, the exclusion gates, the instruction
 guard, retryable-vs-terminal classification, the realized-SOL parse, the receipt state machine,
-config loading, the quote cache, and transaction signing. There is deliberately **no fake Jupiter and
+config loading, the quote cache, transaction signing, and the associated-token-account derivation
+(cross-checked against `@solana/web3.js`). There is deliberately **no fake Jupiter and
 no fake RPC** — the live path is verified by running in `SIMULATE` against the real endpoints.
 
 ---
