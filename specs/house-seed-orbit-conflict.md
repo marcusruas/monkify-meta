@@ -1,6 +1,22 @@
 # SpaceStroker — "House seed / Orbit start conflict" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> ✅ **Status: SHIPPED** — merged to `main` on **2026-08-17** from `feature/house-seed-orbit-conflict`
+> (`monkify-backend` + `monkify-meta`; `monkify-front` untouched, zero files). Verified on the branch
+> before the merge: **954 unit / 121 integration, all green** (clean `origin/main` baseline: 120
+> integration). 6 unit tests added, 1 corrected, 1 integration test added.
+>
+> ⚠️ **Two §3 decisions were added DURING implementation and are the ones worth knowing** — the guard
+> is **not** `null or 0` (decision 14), and the `BetDebit` claim index does **not** bound a re-dispatch
+> loop the way the refined card claimed (decision 15). The first implementation looped on exactly that
+> and the integration suite caught it.
+>
+> Card **Level = `Minor change`**, so there is deliberately **no `features/house-seed-orbit-conflict.md`**;
+> the behaviour is recorded in [`../features/games.md`](../features/games.md) §14 and
+> [`../features/orbit.md`](../features/orbit.md) §2.
+>
+> ---
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [#172 Conflict between house seed and orbit](https://trello.com/c/nnn5uWri/172-conflict-between-house-seed-and-orbit)
 > (2026-08-16).
 > Repos affected: **`monkify-backend`** (the fix) and **`monkify-meta`** (this spec + the KB).
