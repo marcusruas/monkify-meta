@@ -236,6 +236,40 @@ that file rather than a one-line slip in a template.
 the denominator every percentage is read against, it cannot be restated as a percentage, and it is the
 app-only disclosure this whole section exists to protect. `formatTokens` survives for exactly that.
 
+#### ⚠️ THE SECOND EXCEPTION — the Feedbacker Program states COUNTS, on purpose (2026-08-17)
+
+The whole of [`feedbacker.md`](feedbacker.md) — the LP's `#feedbacker` section and the app guide's
+`#feedbacker` section — is **exempt from the rule above** and states plain token counts: `250M set
+aside`, the `60M / 50M / 40M / 30M / 20M` season bars, the `100k / 300k / 600k` bug tiers, `up to
+500k`, `up to 50k`, and the `2.5M` season cap. Note the first row of the table above is **literally
+that section's headline**, so this looks exactly like the mistake the rule exists to prevent. It is
+not. **Do not "fix" it back.**
+
+Owner's call at refinement (Trello #173), after being shown both alternatives and rejecting each:
+
+| Rejected | Why it lost |
+| --- | --- |
+| The design's own **figures-free** turn (`v5`/`5b`: a `SMALL / MEDIUM / LARGE` word scale, chart deleted) | Reviewed and rejected; the owner wanted the numbers |
+| **Percentages of supply** | The season bars convert cleanly (`6/5/4/3/2%`) but the per-submission prices collapse to `0.01% / 0.03% / 0.06% / 0.05% / 0.005%` — three near-identical strings differing in the second decimal, in a pixel font |
+
+⚠️ **The exemption is SCOPED to that programme and changes nothing else.** `TokenSection.vue`,
+`HomeTokenCard.vue` and `GuideToken.vue` keep their percentages; **`tokensForPercent` stays deleted**
+and `formatTokens` is **not** reintroduced. Every Feedbacker figure is a hand-written display string in
+the mirrored `FEEDBACKER` blocks — nothing there derives from `TOTAL_SUPPLY`, so the "a count is only
+as good as `TOTAL_SUPPLY`" objection does not bite: the counts are the source, not a derivation.
+
+⚠️ **That programme's budget IS the 25% `Community & game rewards` slice**, not a second pot, and its
+section says so in one line — the two sit two slots apart on the LP, one saying `250M` and one saying
+`25%` about the same money. See [`feedbacker.md`](feedbacker.md), which also records an **open
+arithmetic conflict between those season budgets and the treasury's Streamflow lock** that blocks the
+next LP deploy.
+
+> ⚠️ **READ §5 (the Streamflow lock) TOGETHER WITH THIS.** The lock and this exception were written
+> the same day by different runs, minutes apart, and they interact: the lock puts the whole treasury —
+> including the 25% slice the Feedbacker counts describe — on a **52-week linear release**, while the
+> season budgets those counts state are **front-loaded**. [`feedbacker.md`](feedbacker.md) records the
+> resulting arithmetic conflict, which blocks the next LP deploy.
+
 ### ⚠️ No em dashes in the guide's token copy
 
 Owner, 2026-08-12: *"remove em dashes from the how-to-play#token (ai giveaway)."* Every `—` in the

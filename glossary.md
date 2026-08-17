@@ -311,6 +311,20 @@
   precisely why the merged ledger had to make that column nullable. ⚠️ It has **no automated recovery** if its
   retries are exhausted: the 12h sweep and the admin refund endpoint both find work by bet.
 
+- **Feedbacker Program** — the standing offer to pay players, in the project's token, for bugs
+  (fixed prices), suggestions and things they make about the game. ⚠️ **An announcement, not a
+  system:** it exists as one section on the landing page and one in the app's `/how-to-play` guide,
+  both gated on the mint; **no code takes, judges or pays a submission** — that happens by hand in the
+  community Telegram. Its budget is not a new pot, it **is** the 25% `Community & game rewards`
+  treasury slice. ⚠️ It is also the **one surface exempted** from the "percentages only, never token
+  counts" copy rule. See [`features/feedbacker.md`](features/feedbacker.md).
+
+- **Season (Feedbacker)** — one budgeted window of that programme (`S1`…`S5`), each with a smaller
+  token budget than the one before it. The current one is a single `currentSeason` index in the
+  mirrored `FEEDBACKER` constants block, which drives the highlighted bar and the `YOU ARE HERE`
+  chip. ⚠️ Not to be confused with a game round, a lottery draw window, or anything the backend knows
+  about — nothing in `monkify-backend` models a season.
+
 - **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
   balance, funded by on-chain deposits, withdrawable on demand, and **auto-bet once per round**
   on the game type the player chose. All three cards are done (custody + engine + notifications), so
