@@ -163,21 +163,59 @@ public sealed class SolanaGateway
     public async Task<PublicKey?> FindBondingCurveV2Async(PublicKey mint, int maxTransactions = 20)
     {
         var curve = PumpFunProgram.DeriveBondingCurve(mint);
-        var signatures = await _client.GetSignaturesForAddressAsync(curve.Key, 100, commitment: Commitment.Confirmed);
-
-        if (!signatures.WasSuccessful || signatures.Result is null)
-            throw new SniperException($"Could not list transactions for the bonding curve {curve.Key}: {signatures.Reason}");
+        var signatures = await ListSignaturesAsync(curve, 100);
 
         var examined = 0;
-        foreach (var signature in signatures.Result)
+        foreach (var signature in signatures)
         {
             if (examined++ >= maxTransactions) break;
 
-            var found = await FindBondingCurveV2InTransactionAsync(signature.Signature);
+            var found = await FindBondingCurveV2InTransactionAsync(signature);
             if (found is not null) return found;
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// ⚠️ Raw JSON-RPC on purpose, for the same class of reason as
+    /// <see cref="FindBondingCurveV2InTransactionAsync"/>. Solnet 6.1.0 deserialises each entry's
+    /// <c>err</c> into its own <c>TransactionError</c> model, and that model does not cover every
+    /// variant the chain emits today — an <c>InsufficientFundsForRent</c> entry (whose value is an
+    /// object, <c>{"account_index":0}</c>, not a string or a <c>{"Custom":n}</c> pair) fails the whole
+    /// response with "Unable to parse json". One unrelated failed transaction in the curve's recent
+    /// history would then block every buy on the mint, because this listing is how
+    /// <c>bonding_curve_v2</c> is discovered.
+    ///
+    /// We only ever need the signature strings, so the errors are not decoded at all.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ListSignaturesAsync(PublicKey address, int limit)
+    {
+        var payload = $$"""
+            {"jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress","params":["{{address.Key}}",
+             {"limit":{{limit}},"commitment":"confirmed"}]}
+            """;
+
+        using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+        using var response = await Http.PostAsync(_rpcUrl, content);
+
+        if (!response.IsSuccessStatusCode)
+            throw new SniperException(
+                $"Could not list transactions for {address.Key}: the RPC answered {(int)response.StatusCode}.");
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        if (json.RootElement.TryGetProperty("error", out var error))
+            throw new SniperException($"Could not list transactions for {address.Key}: {error}");
+
+        if (!json.RootElement.TryGetProperty("result", out var result) || result.ValueKind is not JsonValueKind.Array)
+            throw new SniperException($"Could not list transactions for {address.Key}: the RPC returned no result array.");
+
+        return result.EnumerateArray()
+            .Select(entry => entry.TryGetProperty("signature", out var signature) ? signature.GetString() : null)
+            .Where(signature => !string.IsNullOrEmpty(signature))
+            .Select(signature => signature!)
+            .ToList();
     }
 
     /// <summary>
