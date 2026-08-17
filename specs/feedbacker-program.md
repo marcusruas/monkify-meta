@@ -1,5 +1,21 @@
 # SpaceStroker — "Feedbacker Program" Feature — Implementation Spec
 
+> **Status: Shipped — 2026-08-17**, via `feature/feedbacker-program` merged to `master` (`monkify-lp`)
+> and `main` (`monkify-front`, `monkify-meta`). The distilled, current-truth summary now lives in
+> [`../features/feedbacker.md`](../features/feedbacker.md); this spec stays as the deep design archive.
+>
+> **What shipped matches this document**, with one deliberate deviation and one open item:
+> - **Deviation:** the `YOU ARE HERE ▾` chip renders **inside the current season's column** rather than
+>   in the panel eyebrow, so its caret points at the bar it names and `currentSeason` visibly moves it
+>   (§6.4.2 proposed this; it was built that way).
+> - ⚠️ **Open, and it blocks the next LP deploy:** the **Streamflow treasury lock** (49% of supply on a
+>   52-week release) landed on both base branches *while this card was in flight*, and the season
+>   budgets are front-loaded against it — Season 1 asks 60M in a 6-week window in which the **whole**
+>   locked treasury releases only ~56.5M. See [`../features/feedbacker.md`](../features/feedbacker.md)
+>   → "Open, and it blocks the next LP deploy".
+>
+> Original header follows.
+>
 > **Status: Ready for implementation** — refined via Trello card
 > [Feedbacker Program — LP section (design 4b) below the token + How to play guide section (#173)](https://trello.com/c/lf5uWFrX)
 > (2026-08-17), spec written 2026-08-17.

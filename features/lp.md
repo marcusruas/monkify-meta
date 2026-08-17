@@ -46,13 +46,22 @@ the page is information only. See [`token-launch.md`](token-launch.md).
 
 ## Page structure
 
-Section order: hero → **`#token`** → `#about` (how-it-works) → `#modes` → `#story` → `#roadmap` →
-`#community`. ⚠️ **`#token` was 6th and is now 2nd**, in **both** build states.
+Section order: hero → **`#token`** → **`#feedbacker`** → `#about` (how-it-works) → `#modes` → `#story`
+→ `#roadmap` → `#community`. ⚠️ **`#token` was 6th and is now 2nd**, in **both** build states.
+**`#feedbacker` (Trello #173) is 3rd and renders only when the mint is set** — see
+[`feedbacker.md`](feedbacker.md).
 
 ⚠️ **`ContentSection`'s backdrop props are POSITIONAL.** `hue` / `neb` / `pattern` / `nebOpacity` carry
 the one-way blue→red journey down the page and **stay with the slot**; only `art` travels with its
 section. Moving a section without rebalancing them puts two similar backdrops next to each other — the
 `#token` promotion had to rebalance all six.
+
+⚠️ **The `neb` hue sweep is now 248 → 263 → 278 → 305 → 332 → 8 → 42, and `pattern` maps 1–7.**
+Inserting `#feedbacker` took the **midpoint** of its two neighbours (263, with `.neb-p7` newly authored
+in `global.css`), which is the one insertion that keeps the journey one-way **without rebalancing any
+existing slot** — none of the other six changed. A future insertion should do the same rather than
+re-spreading the whole page. `#feedbacker` carries **`art=""`**: only the `token` scene has measured
+phone placements, so a desktop-percentage scene would drop sprites onto the page's densest copy.
 
 - **Hero is two-column:** copy + CTAs + a cosmetic **LIVE typing pill** on the left; a glowing Edson coin
   + mascot chimp (`edson.png`) + a drifting comet on the right. Stacks to one column on mobile. The
@@ -74,9 +83,11 @@ section. Moving a section without rebalancing them puts two similar backdrops ne
 - **Story** keeps the EDSON.LOG CRT terminal (typed caption, `CH n/6`, PREV/NEXT + dots) wrapping Bolso's
   painted `part1–6` slides — restyled, not rebuilt.
 - **Header:** coin + wordmark, nav **Modes / Story / Roadmap / Troop**, **PLAY NOW** button. Once the
-  mint is set, **`Token` is prepended as the first nav item** (desktop + mobile both iterate one array,
-  so gating it there covers both) and nothing else is renamed. **Footer:** the **"BET ON THE MONKEY"**
-  tagline beside the wordmark.
+  mint is set, **`Token` is prepended as the first nav item and `Rewards` (→ `#feedbacker`) follows it
+  as the second** (desktop + mobile both iterate one array, so gating them there covers both) and
+  nothing else is renamed. ⚠️ The nav says **`Rewards`** while the anchor and the app's guide fragment
+  are both `feedbacker` — the row is Press Start 2P and cannot fit the longer word; the shortening is
+  the nav label only. **Footer:** the **"BET ON THE MONKEY"** tagline beside the wordmark.
 - **Per-section space art:** slowly-drifting sprites (planets / black hole / satellites / asteroids /
   comets) behind every section, with distinct nebula tints in a one-way blue→red journey and depth-based
   scroll parallax. ⚠️ **No wins/pot ticker or fabricated live-activity numbers appears anywhere.**
@@ -130,7 +141,9 @@ bottom-anchored. All three share one uniform square frame.
 | File | Role |
 | --- | --- |
 | `src/pages/index.astro` | Hero + decorative HUD, `#token` slot, `#about` + FAIR PLAY bar, `#modes`, per-section art wiring |
-| `src/pages/terms.astro` | ⚠️ The hand-written commission rate |
+| `src/pages/terms.astro` | ⚠️ The hand-written commission rate · the gated, deliberately **number-free** `REWARDS FOR FEEDBACK` clause ([`feedbacker.md`](feedbacker.md)) |
+| `src/components/FeedbackerSection.vue` | The `#feedbacker` section — ⚠️ **static, no `client:*` directive** ([`feedbacker.md`](feedbacker.md)) |
+| `src/icons.ts` · `PixelIcon.vue` | The drawn pixel marks. ⚠️ `▾`/`↓` are **outside** the self-hosted Press Start 2P subset and must be drawn; `·` and `–` **are** in range and stay characters |
 | `src/constants.ts` | `GAME_URL` (bare origin), `SOCIALS`, and the whole token block — see [`token-launch.md`](token-launch.md) |
 | `src/components/TokenSection.vue` · `HeroHud.vue` | The `#token` section (both states) · the interactive hero corners |
 | `src/components/PixelText.vue` · `PumpMark.vue` · `PixelIcon.vue` · `src/icons.ts` | ⚠️ Press Start 2P's `$`/`!` are drawn wrong and glyphs like `●` fall outside the self-hosted subset — display copy goes through `PixelText`, marks are drawn geometry, never a bare character |

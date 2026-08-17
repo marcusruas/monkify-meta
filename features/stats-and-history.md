@@ -149,6 +149,15 @@ visitor rather than to "referral / www.spacestroker.com".
   `wallet_name` and `connect_path`; failures carry the error **name** only), `bet_placed` (a count:
   `game_type`, `payment_method`, `is_free`) and `token_click` (a **`source`** label and nothing else —
   no wallet, no amount, no mint).
+- **`feedbacker_click`** (LP, a **`source`** label — `lp_rules` today), fired by the Feedbacker
+  section's `Full rules →` link. ⚠️ **Deliberately NOT `cta_play_click`, and the LP's listener needed a
+  change to keep it out.** That delegated listener fires for **any** clicked link whose href starts with
+  `GAME_URL`, defaulting to `cta: 'unknown'`; `Full rules →` is the site's **first link to an app
+  SUBPAGE** rather than the front door, so it would otherwise have landed in the play-CTA series
+  indistinguishable from a genuine unlabelled play button, permanently inflating it with clicks that
+  never reached the game. A link carrying `data-track-event` now fires that event with its
+  `data-track-source` and returns; everything else behaves exactly as before. Same reasoning as
+  `token_click` below. See [`feedbacker.md`](feedbacker.md).
 - ⚠️ **`token_click` is deliberately separate from `home_link_click`.** The latter answers *"which
   surface do players reach for from the front door"*; the former answers *"how many people want to know
   about the coin"*, wherever it is shown. Its five sources (`home_buy`, `home_read_more`, `menu`,

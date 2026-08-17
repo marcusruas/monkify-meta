@@ -38,15 +38,23 @@ thing below the fold. It renders nothing at all unless a mint is configured. See
 ## 2. `/how-to-play`
 
 One readable, linkable page explaining the game, in deep-linkable sections: the game itself (premise +
-getting in + the round), the payout, the live modes, provable fairness, refunds, **the project's coin**
-and the optional preferences.
+getting in + the round), the payout, the live modes, provable fairness, refunds, **the project's coin**,
+**the Feedbacker Program** and the optional preferences.
 
-⚠️ **The token section is CONDITIONAL** — it enters `GUIDE_SECTIONS` only on a build with a mint
-configured, so both the nav and the body lose it together and the page is otherwise unchanged.
-`#token` still resolves safely without it (the page matches the hash against that same array). It sits
-**second-to-last**, after refunds: everything about the game comes first, and ⚠️ **a manual that explains
-a tradeable asset before it has finished explaining the game is a prospectus**. It is also the surface
-that carries the **real supply and treasury figures** the LP deliberately omits.
+⚠️ **TWO sections are CONDITIONAL** — the token section and, since Trello #173, the **Feedbacker**
+section ([`feedbacker.md`](feedbacker.md)). Each enters `GUIDE_SECTIONS` only on a build with a mint
+configured, so both the nav and the body lose them together and the page is otherwise unchanged. Their
+fragments still resolve safely without them (the page matches the hash against that same array). The
+coin sits after refunds and Feedbacker directly after the coin: everything about the game comes first,
+and ⚠️ **a manual that explains a tradeable asset before it has finished explaining the game is a
+prospectus**. The coin section is also the surface that carries the **real supply and treasury figures**
+the LP deliberately omits — the Feedbacker section is gated for a plainer reason: every reward it
+describes is paid in the token, so without a mint it would advertise payouts in a currency that does not
+exist.
+
+⚠️ **`#feedbacker` is a CROSS-REPO URL contract.** The landing page links to
+`/how-to-play#feedbacker` — the LP's first ever link into an app subpage — so renaming that id breaks a
+link that lives in `monkify-lp`, where nothing in this repo would catch it.
 
 It **replaced the Quick Tour**, which auto-opened once behind seven guards and was then gone forever.
 ⚠️ **Nothing auto-opens any more, on any route, for any player.** The Quick Tour is **deleted from the
