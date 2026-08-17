@@ -34,6 +34,14 @@ the page is information only. See [`token-launch.md`](token-launch.md).
   and the treasury block. ⚠️ **No total supply, decimals, mint authority or LP status** — that split is
   deliberate; the app's manual carries those figures instead. Rules in
   [`token-launch.md`](token-launch.md).
+- **The treasury block is THREE labelled beats** (2026-08-17): `WHAT WE HOLD AS TREASURY` →
+  **`NOBODY CAN OPEN THE VAULT`** (the Streamflow lock: 49% of supply, a fifty-second released weekly to
+  2027-08-13, a 52-cell week meter and a third `VESTING` cartridge) → `WHERE IT GOES` (credits meter +
+  supply table). ⚠️ **`WHERE IT GOES` exists because the lock interposed** — the split used to sit
+  directly under the lede, which *was* its heading. ⚠️ **The lock block is the ONLY present-tense claim
+  in the section** (both mechanic cards stay future tense) because it is the only one already on-chain,
+  and ⚠️ **the Team row's market-cap ladder is NOT the lock** — see [`token-launch.md`](token-launch.md)
+  §5, which is the one place that distinction is spelled out.
 - **Trust points**, all stated: provably-fair per-round seed, instant on-chain Solana payouts,
   auto-refund of bad bets.
 - **Roadmap** perks are future/earned-by-playing — no holder gating, no "$MONKIFY live". The HI-SCORE
@@ -131,8 +139,8 @@ bottom-anchored. All three share one uniform square frame.
 | --- | --- |
 | `src/pages/index.astro` | Hero + decorative HUD, `#token` slot, `#about` + FAIR PLAY bar, `#modes`, per-section art wiring |
 | `src/pages/terms.astro` | ⚠️ The hand-written commission rate |
-| `src/constants.ts` | `GAME_URL` (bare origin), `SOCIALS`, and the whole token block — see [`token-launch.md`](token-launch.md) |
-| `src/components/TokenSection.vue` · `HeroHud.vue` | The `#token` section (both states) · the interactive hero corners |
+| `src/constants.ts` | `GAME_URL` (bare origin), `SOCIALS`, and the whole token block **including the Streamflow lock constants** — see [`token-launch.md`](token-launch.md) |
+| `src/components/TokenSection.vue` · `HeroHud.vue` | The `#token` section (both states), **the lock block + `.vest-meter` + the `49% LOCKED` hero chip** · the interactive hero corners |
 | `src/components/PixelText.vue` · `PumpMark.vue` · `PixelIcon.vue` · `src/icons.ts` | ⚠️ Press Start 2P's `$`/`!` are drawn wrong and glyphs like `●` fall outside the self-hosted subset — display copy goes through `PixelText`, marks are drawn geometry, never a bare character |
 | `src/components/Header.vue` · `Footer.vue` | Coin + wordmark + PLAY NOW + gated `Token` nav item · "BET ON THE MONKEY" |
 | `src/components/HeroTypingPill.vue` | The cosmetic local LIVE pill |

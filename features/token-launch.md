@@ -90,9 +90,54 @@ knowingly-accepted cost is that the most prominent section on the page says "the
 - **The treasury is disclosed, not hidden** — ~50% of supply, framed as the fuel for the two mechanics.
   DexScreener/Bubblemaps/RugCheck surface a position that size within minutes, so silence would read as
   concealment; framing it as the point of the section is what turns the number from a red flag into the
-  pitch.
+  pitch. **Since 2026-08-14 it is also *locked* — see §5**, which is the strongest claim either surface
+  makes and the only one here that is chain-enforced.
 
-## 5. Where it appears
+## 5. ⚠️ The treasury is LOCKED — and this is newer than most of this file
+
+On **2026-08-14** the treasury went into a single **Streamflow** vesting contract
+(`Ar3XwZpR3eY2ptz9nPbwUzzSybKCT8641ykSHWi6i16U`, *"Space Stroker Locked Treasury"*). Streamflow reports
+it as **immutable** — *"can neither be canceled nor transferred"* — and **sender = recipient = the
+treasury wallet both sites already publish** (`GqxF…qjme`).
+
+| | |
+| --- | --- |
+| Held | **490M of the 1,000,000,000 supply — 49%**, not 50% |
+| Type | **Linear**, unlock rate **Weekly**: one fifty-second per week |
+| Window | **2026-08-14 17:18 GMT-3 → 2027-08-13**, exactly **52** weeks |
+| Who can cancel / transfer | **No one** |
+
+- ⚠️ **49%, NOT 50%, and both numbers stay.** The treasury lede still reads `~50% of the supply sits in
+  the game treasury` and `TREASURY_SLICES` still sums to 50. 490M of 1B is 49%, and the ~1% difference
+  is the part that was never streamed. The lock's figure is the one sitting directly under a *"go verify
+  it"* link, so it is stated exactly rather than rounded up to match the prose beside it.
+- ⚠️ **THE LOCK AND THE TEAM'S MARKET-CAP LADDER ARE TWO DIFFERENT RULES OVER TWO DIFFERENT SCOPES.**
+  Merging them is the mistake this section exists to prevent:
+  - the **weekly drip is chain-enforced** and covers the whole treasury, the team's slice included;
+  - the **ladder** (1% per $100M step) is a rule the team set **itself** over its own 10%. The
+    contract's recipient is the treasury wallet *as a whole* and cannot tell a team token from a
+    marketing one, so **nothing on-chain enforces the steps**.
+- ⚠️ **The owner's 2026-08-12 line — *"this thing is not LITERALLY locked btw, it's our suggestion of
+  what we wanna do"* — PREDATES the contract by two days and now survives ONLY as a statement about the
+  ladder.** It is still quoted at `UNLOCK_STEP_PERCENT` and in `GuideToken.vue`, scoped there. **Do not
+  quote it against the lock block**, and do not restore the guide caveat's old opener `No vesting
+  contract and no lock` — that sentence became false on 2026-08-14 and had the page denying a contract
+  it links to two blocks above. It now reads *"The contract locks the tokens, not these steps: that part
+  is a rule we set and a wallet you can watch."*
+- **The contract ID is SOURCE in both repos, not a third env key.** Unlike the mint and the treasury
+  wallet it can never differ between environments, so an env key would buy nothing and cost a
+  deploy-tool change. It still runs through the same `ADDRESS_PATTERN`, so the block fails closed.
+- **The week counter is derived, never written.** `vestedWeeks(now)` floors `(now − start) / 1 week`,
+  clamped to `0…52`. ⚠️ **Stepped, never continuous** — Streamflow releases this contract in weekly
+  increments, so a by-the-second reading would put tokens on the page that are still locked on-chain.
+- ⚠️ **On the LP the counter renders only after the visitor's clock is read** (a `ready` gate plus a
+  reserved-height box, so nothing shifts on hydration). Astro server-renders that island and Vue only
+  repairs a mismatched text node in **dev** builds: seeding at build time would freeze the week number
+  into a static file, and seeding at the contract's start would ship `100% still locked` long after that
+  stopped being true — understating what has been released, in our own favour, on the one block that
+  invites the reader to check. **The app needs no such gate** (client-rendered SPA, no server pass).
+
+## 6. Where it appears
 
 ### Landing page (`monkify-lp`)
 
@@ -102,8 +147,23 @@ carries: the coin, the ticker, a copyable contract bar, **exactly two CTAs** (Bu
 the two mechanic cards, and the treasury block. The hero's secondary CTA becomes `Buy $STROKE` and three
 of the hero HUD's four corners become real controls.
 
+**The treasury block is THREE labelled beats, not one** (2026-08-17): `WHAT WE HOLD AS TREASURY` (lede)
+→ `NOBODY CAN OPEN THE VAULT` (the lock, §5) → `WHERE IT GOES` (credits meter + supply table).
+⚠️ **That third eyebrow is load-bearing, not decoration** — the split used to sit directly under the
+lede, which *was* its heading; with a whole sub-block interposed it would otherwise read as a
+continuation of the vesting contract rather than as the breakdown of what the treasury is for.
+The lock beat carries a **52-cell week meter** (the same `.credit-meter` overlay trick re-cut from
+twenty 5% cells, with a **1px hairline** divider rather than a percentage one — a 1/52 cell is ~6px on a
+phone and a proportional divider would eat a sixth of it), whose **lit portion is what is STILL LOCKED**
+and drains left to right, plus a **third `token-cartridge`** holding the contract.
+⚠️ **That bar is labelled `VESTING`, not `STREAMFLOW`, and links `Verify ↗`, not `Streamflow ↗`** — at
+360px the longer label squeezed `truncate` down to `Ar3…` and ate the address tail, which is the half a
+reader eyeball-matches. The service is named in the sentence directly above it instead.
+The hero chip rail also gains a **`49% LOCKED`** chip beside `LIVE ON PUMP.FUN`, ⚠️ **hidden below `sm`**
+(the row is `flex` with no wrap and two stencil chips do not fit a 360px phone).
+
 ⚠️ **It deliberately does NOT display total supply, decimals or mint authority.** They are free facts on
-any pump.fun launch and read as padding. See §6 for the one place that does.
+any pump.fun launch and read as padding. See §7 for the one place that does.
 
 ⚠️ **`ContentSection`'s backdrop props are POSITIONAL.** `hue` / `neb` / `pattern` / `nebOpacity` run a
 one-way blue→red journey down the page and **stay with the slot**; only `art` travels with its section.
@@ -134,10 +194,18 @@ Moving a section without rebalancing those puts two similar backdrops next to ea
 - **Every surface also hides when embedded** (`useEmbed().isEmbedded`) — see
   [`embedding.md`](embedding.md).
 
-## 6. ⚠️ The app manual says MORE than the LP, on purpose
+## 7. ⚠️ The app manual says MORE than the LP, on purpose
 
 `/how-to-play`'s token section carries the **1,000,000,000 total**, the mint address, the treasury
 address, the **1% cut by name** and the **team release ladder**. The LP carries none of those.
+
+Since 2026-08-17 it also carries the **lock** (§5), as its own `The lock: 49% of the supply` block
+**between the supply split and the team ladder** — and the order is the argument: *what the project
+holds → the contract that stops it moving → the extra rule the team puts on its own slice*. Placed after
+the ladder it would leave a reader judging the team's promise without knowing the chain already holds
+the tokens. Two figures here are **app-only**, keeping the split above intact: the **start date** and the
+weekly **`0.94% of the supply`**. ⚠️ It is the **one block on that page allowed to say "locked"** —
+everything around it is governed by the 2026-08-12 verb ban, which §5 explains is scoped to the ladder.
 
 This is the agreed split (owner, 2026-08-12), not drift: the manual is the surface that states real
 figures, and every claim in it lands on a number or an address a reader can paste into an explorer. **Do
@@ -184,10 +252,14 @@ glyph.
 `monkify-front/src/constants/token.ts`). **A percentage change is a two-repo change.** The underlying
 numbers are still `TODO(launch)` at both sources — only the 10% team slice came from the brief.
 
-## 7. Analytics
+## 8. Analytics
 
 One event, `token_click`, carrying a **`source` label and nothing else** — no wallet, no amount, no mint.
 Values: `home_buy`, `home_read_more`, `menu`, `guide_buy`, `guide_supply`.
+
+⚠️ **The address bars are NOT instrumented, and the Streamflow `Verify ↗` link follows them.** Neither
+the mint's `Solscan ↗` nor the treasury's fires anything, so the new vesting link does not either —
+adding a sixth `source` value for it would be a decision about what the series means, not a tidy-up.
 
 ⚠️ **Deliberately NOT folded into `home_link_click`.** That series' documented meaning is *"which surface
 do players reach for from the front door"*; this one counts *"how many people want to know about the
@@ -195,18 +267,24 @@ coin"*, wherever it is shown. `home_read_more` routes to `/how-to-play#token` (i
 2026-08-12) and `guide_supply` opens the DexScreener chart — so the three read as a **funnel**:
 front-door card → guide → chart. See [`stats-and-history.md`](stats-and-history.md) → Analytics.
 
-## 8. Open before the LIVE build
+## 9. Open before the LIVE build
 
-None of these block the code — every one is a single source constant — but all must be settled before a
-build with a real mint ships:
+> ⚠️ **The live build already shipped** — `spacestroker.com` serves the live section with mint
+> `Dts45D3WfhuJuwpK5nYkPM6Jyu5DqeEQzTw3rJkopump` and treasury `GqxFusRS3fHL8aLQoDyz4yPmwadc1zQ375WxJHhWqjme`.
+> Items 1 and 2 below are therefore **settled by reality**, not still open; they are kept with their
+> answers because the constants they name still carry stale `TODO(launch)` markers.
 
-1. **The ticker** (`$STROKE` is a stand-in, `TODO(launch)` in both repos).
-2. **The treasury percentages** — two of the three slices are placeholders sized to land the treasury on
-   50%; ⚠️ the bar renders `percent` as a raw flex weight and does **not** normalise, so slices that do
-   not total 100 with the public float silently misrepresent the split.
+1. ~~**The ticker**~~ — **resolved: `$STROKE` is the real ticker.** The mint ends `…opump` and the
+   Streamflow contract denominates in `STROKE`. ⚠️ **`TOKEN_TICKER` is still marked `TODO(launch)` in
+   BOTH repos against a name that is now permanent on-chain** — the comment is stale, not the value.
+2. ~~**The treasury percentages**~~ — **partly resolved.** The lock puts **49%** on-chain (§5), so the
+   "sized to land the treasury on 50%" placeholder assumption is now checkable and ~1% out. The split
+   *between* community / marketing / team is still unconfirmed. ⚠️ The bar still renders `percent` as a
+   raw flex weight and does **not** normalise, so slices that do not total 100 with the public float
+   silently misrepresent the split.
 3. **Confirmation that buyback-and-burn and jackpot seeding are genuinely intended** — naming them in
-   copy makes them a public promise.
-4. Whether the apex `spacestroker.com` or `www.` is canonical for any LP deep link.
+   copy makes them a public promise. **Still open**; both remain future tense (§4).
+4. Whether the apex `spacestroker.com` or `www.` is canonical for any LP deep link. **Still open.**
 
 ## Key code touchpoints
 
@@ -214,8 +292,8 @@ build with a real mint ships:
 
 | File | Role |
 | --- | --- |
-| `src/constants.ts` | `TOKEN_MINT` / `TOKEN_LIVE` / `TREASURY_WALLET` (the base58 gate), `TOKEN_TICKER`, `TREASURY_SLICES` + derived totals, the pump.fun / DexScreener / Solscan URLs, `shortMint`, and `SOCIALS` |
-| `src/components/TokenSection.vue` | Both states — the live section and the "No token. Yet." panel |
+| `src/constants.ts` | `TOKEN_MINT` / `TOKEN_LIVE` / `TREASURY_WALLET` (the base58 gate), `TOKEN_TICKER`, `TREASURY_SLICES` + derived totals, the pump.fun / DexScreener / Solscan URLs, `shortMint`, `SOCIALS`, **and the lock block: `VESTING_CONTRACT` / `VESTING_URL` / `VEST_PERCENT` / `VEST_WEEKS` / `VEST_START_MS` / `VEST_END_LABEL` / `vestedWeeks()`** |
+| `src/components/TokenSection.vue` | Both states — the live section and the "No token. Yet." panel. **The lock block, its `ready` gate and `.vest-meter` live here**; the pre-launch panel is untouched (no token ⇒ nothing to lock) |
 | `src/pages/index.astro` | `#token` in slot 2, the rebalanced `ContentSection` props, the gated hero CTA |
 | `src/components/Header.vue` | `Token` as the first nav item, gated |
 | `src/components/HeroHud.vue` | The interactive hero corners (pump.fun status, socials, contract) — ⚠️ **not** `aria-hidden`, unlike the decorative HUD it was split out of |
@@ -226,7 +304,7 @@ build with a real mint ships:
 
 | File | Role |
 | --- | --- |
-| `src/constants/token.ts` | `tokenLive`, `TOKEN_TICKER`, the URLs, the mirrored `TREASURY_SLICES` |
+| `src/constants/token.ts` | `tokenLive`, `TOKEN_TICKER`, the URLs, the mirrored `TREASURY_SLICES`, `UNLOCK_STEP_PERCENT`, **and the mirrored lock block** (same names as the LP plus `VEST_WEEKLY_PERCENT` and `VEST_START_LABEL`, ⚠️ the two app-only ones — see §7) |
 | `src/components/home/HomeTokenCard.vue` | The front-door card |
 | `src/components/guide/sections/GuideToken.vue` + `src/constants/guideSections.ts` | The conditional manual section (⚠️ `#token` still resolves safely on a build without it) |
 | `src/components/GameHeader.vue` | The ☰ pad's token row |
@@ -238,8 +316,16 @@ build with a real mint ships:
 
 ## Known gaps
 
-- **No browser QA was run** in either env state before shipping (owner waived it, 2026-08-12); both
-  builds are clean and the empty-mint state is the current production behavior, but the **live-mint state
-  has never been rendered in a browser**.
+- ~~**No browser QA was run** in either env state~~ — **closed 2026-08-17.** The **live-mint state has
+  now been rendered in a browser on both surfaces**, at 1280px and at a true 360px (CDP viewport
+  emulation, not `resize_page`): LP `#token` and app `/how-to-play#token`, zero console errors, no
+  horizontal overflow, COPY verified on all three LP bars. The 2026-08-12 waiver stands for what shipped
+  then; this covers the surfaces as they are now.
 - `monkify-backend/scripts/setup_local_environment.bat` does **not** emit the two keys, so the local
-  Docker stack can only exercise the pre-launch state.
+  Docker stack can only exercise the pre-launch state. ⚠️ **Neither hub's env file carries them either**
+  — rendering any token surface locally means adding the two public addresses by hand to
+  `monkify-lp/.env` and `monkify-front/.env.local` (both gitignored) and reverting after, and
+  `/how-to-play` **additionally needs the backend up** or the `> RECONNECTING…` overlay hides the page.
+- ⚠️ **At 360px all three app address bars truncate the address to ~4 leading characters** (`Ar3…`,
+  `Dts4…`, `GqxF…`), losing the tail a reader eyeball-matches against an explorer. Pre-existing
+  `.addr-bar` behaviour, not introduced by the lock block — fixing it is one change across all three.
