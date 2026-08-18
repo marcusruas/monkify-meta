@@ -125,16 +125,16 @@ bottom-anchored. All three share one uniform square frame.
   in `src/constants.ts` and it is the **bare origin** — no `/space-stroker/game` path. Since the home
   dashboard dropped the route prefix, the origin resolves to the app's **starting page** rather than the
   bare lobby.
-- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/SpaceStrokerportal`, YouTube
+- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/SpaceStroker`, YouTube
   `https://www.youtube.com/@EdsonStroker`. **Discord was removed**; the grid is **3-up at `lg`** and
   stacked below it (three columns inside that panel below ~1024px wrap the "TELEGRAM" label). Nav label
   stays **"Community"**; "gang" appears in CTAs as flavour. ⚠️ **`SOCIALS` in `src/constants.ts` is THE
   list** — the hero HUD and the community slots both iterate it, each mark is **one path on a 24×24 box**
   so each consumer builds its own `<svg>`, and the array's **order and length** drive the community
   grid's column count.
-  ⚠️ **The Telegram handle is a verification PORTAL bot, not the group** — the community now sits behind
-  it, so `t.me/spacestroker` (the old direct group link, still recorded in the historical `INDEX.md`
-  entry for the launch-links card) is dead everywhere. **Four** places carry it and they must move
+  ⚠️ **The Telegram handle points STRAIGHT AT THE COMMUNITY GROUP `t.me/SpaceStroker`** (2026-08-17).
+  The `t.me/SpaceStrokerportal` verification-portal bot that used to front it is **retired** from the LP;
+  the group link is what every LP surface now shows. **Four** places carry it and they must move
   together: `SOCIALS` (hero HUD + community slot), the JSON-LD `sameAs` in `Layout.astro`, and the
   CONTACT links on **`terms.astro` and `responsible-gambling.astro`** — the legal pages also print the
   handle as **visible text**, so an href-only edit leaves the copy contradicting the link. Unrelated to
