@@ -75,7 +75,7 @@ The same card converted **Responsible Gaming** from a ☰ modal into its own pag
 ## 3. `/game/practice`
 
 A first-time visitor cannot see what Space Stroker is: watching one round end requires a connected
-wallet, an on-chain USDC transfer **and** a second player — every seeded type is
+wallet, an on-chain SOL transfer **and** a second player — every seeded type is
 `MinimumNumberOfPlayers: 2`.
 
 `/game/practice` is a complete round that runs **entirely in the browser**: no request, no socket, no

@@ -2,7 +2,12 @@
 
 > **What this covers.** What the house keeps out of a winning pot, how a payout is divided among
 > winners, and how money that got stuck comes back to the player. Everything here settles in the one
-> configured token on-chain — there is no off-chain money path any more.
+> configured asset on-chain — there is no off-chain money path any more.
+>
+> ⚠️ **That asset is NATIVE SOL since 2026-08-20** (Trello #174) — not an SPL token. The math below is
+> unchanged, but it now runs at **9 decimals** over lamports, and money that predates the switch is
+> refused by the payout and refund paths rather than settled. See
+> [`sol-settlement.md`](sol-settlement.md).
 >
 > ⚠️ **The project's pump.fun coin is NOT this token and never appears in this document.** It is
 > marketing information on a page, gated by its own env key, and it touches no stake, payout, refund or
@@ -54,6 +59,10 @@ netReward  = winnerReward − commission
   commission, so the sum of payouts never exceeds the pot held on-chain.
 - **Free bets** (amount 0) contribute nothing and receive nothing → no commission.
 - **Refunds are unaffected** — a refund always returns the full stake.
+- ⚠️ **A bet created before `SettlementCutoverUtc` is never paid or refunded.** Its `Amount` is a bare
+  number denominated in the previous settlement asset, so moving it now would pay the same figure in
+  SOL. Both consumers mark it `NeedsManualAnalysis` and log at Error. See
+  [`sol-settlement.md`](sol-settlement.md).
 
 ### Configuring the rate
 
@@ -122,7 +131,9 @@ was never returned) and there was no way to force one.
   load-mutate-SaveChanges would persist nothing.
 - **12-hour sweep.** `PendingRefundSweepJob` (Hangfire, cron `0 */12 * * *`, id `pending-refund-sweep`,
   in `SpaceStroker.Consumers`) loads **all** `NeedsRefunding` bets in **any** game state and publishes one
-  `RefundInvalidBetEvent` each. The sweep changes no status — it only publishes; the consumer moves the
+  `RefundInvalidBetEvent` each — **except** pre-cutover bets, which it **parks** as
+  `NeedsManualAnalysis` instead. ⚠️ Parking rather than skipping is load-bearing: `NeedsRefunding` is
+  the status this sweep selects on, so a merely-skipped bet would be re-swept every 12 hours forever. The sweep changes no status — it only publishes; the consumer moves the
   money and flips the status. Failed refunds retry every 12h indefinitely.
 - **Admin refund by payment signature.** `POST /admin/bets/refund` (under `X-Admin-Token`) takes
   `{ paymentSignature }` and marks the bet `NeedsRefunding`. It is the **only** producer of that status,

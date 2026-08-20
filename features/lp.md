@@ -13,17 +13,17 @@
 
 ## Positioning
 
-Players bet **real USDC** on what Edson the space chimp types next — provably fair, instant on-chain
+Players bet **real SOL** on what Edson the space chimp types next — provably fair, instant on-chain
 (Solana) payouts, auto-refunds. Audience: pre-launch degen/arcade players.
 
 ⚠️ **"Token-free" is now a BUILD STATE, not the product's positioning.** The page has a full pump.fun
 token surface behind `PUBLIC_TOKEN_MINT`; with that key empty it renders exactly the token-free page
-described below. **The coin is never a stake** — rounds still settle in USDC and every token claim on
+described below. **The coin is never a stake** — rounds settle in SOL and every token claim on
 the page is information only. See [`token-launch.md`](token-launch.md).
 
 - **Brand:** every user-visible surface reads **Space Stroker** — wordmark **SPACE·STROKER** ("OUT" in
   primary orange `#ffa214`). The built site contains **no user-visible `Monkify` / `$MONKIFY`**.
-- **USDC is the stake** wherever money is named; **the coin is never offered as currency**, in either
+- **SOL is the stake** wherever money is named; **the coin is never offered as currency**, in either
   build state.
 - **Pre-launch (`PUBLIC_TOKEN_MINT` empty): no token to buy.** The old Tokenomics section is gone,
   replaced by a two-column **"No token. Yet."** card: nothing to buy now, a token *may* come later

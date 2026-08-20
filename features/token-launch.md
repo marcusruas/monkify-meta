@@ -18,11 +18,11 @@ This is the single rule everything else here depends on.
 
 | | Settlement mint | Launch token |
 | --- | --- | --- |
-| What it is | The one token every game pays out in — **USDC** | The project's **pump.fun** coin |
+| What it is | The asset every game pays out in — **native SOL** | The project's **pump.fun** coin |
 | Where it lives | Backend `GeneralSettings:Operator:Token:MintAddress`; frontend `VUE_APP_GAME_TOKEN_ADDRESS` | `VUE_APP_TOKEN_MINT` (app) / `PUBLIC_TOKEN_MINT` (LP) |
 | What it does | Moves real money — stakes, payouts, refunds, the ledger | **Nothing.** It is information on a page |
 
-**Rounds settle in USDC and the launch token is information only.** It is not a stake, not a balance,
+**Rounds settle in SOL and the launch token is information only.** It is not a stake, not a balance,
 not a payment method. ⚠️ **Never reuse `VUE_APP_GAME_TOKEN_ADDRESS` for a token surface, and never point
 a token surface's env key at settlement** — the two are independent values on purpose, and conflating
 them means changing one silently moves the other. See [`money.md`](money.md) for the money path this
@@ -73,7 +73,7 @@ knowingly-accepted cost is that the most prominent section on the page says "the
 - **The jackpot mechanic's wording (owner, 2026-08-12).** The heading is **`Space Jackpot earns you
   $STROKE`** and the body **`Every winner of Space Jackpot will be rewarded with $STROKE from the
   Treasury Wallet.`** It replaced *"Bigger jackpots"* / *"The daily Space Jackpot will carry a $STROKE
-  bonus on top of the USDC pot"* — the heading names the mode **and** the payout, so the body says who
+  bonus on top of the SOL pot"* — the heading names the mode **and** the payout, so the body says who
   gets it and where it comes from instead of repeating the mode name.
   ⚠️ **That pair is verbatim in TWO files and they move together:** `monkify-lp` →
   `TokenSection.vue` and `monkify-front` → `HomeTokenCard.vue`. Changing one ships two different

@@ -47,7 +47,7 @@ feature.
 - `/terms` and `/responsible-gambling`, siblings of `/cookies`, linked from the LP footer and picked
   up by the sitemap automatically.
 - The Terms are written against **what the code actually does**: non-custodial (we never hold keys),
-  USDC on Solana, no accounts, provably-fair verification, the house cut (**"currently 1%"** since
+  SOL on Solana, no accounts, provably-fair verification, the house cut (**"currently 1%"** since
   2026-08-04; 0.5% before) taken only from profit above the player's own stake, and **exactly when a bet
   is and is not auto-refunded**. They state plainly that they are **not legal advice and have not been
   reviewed by a lawyer**.

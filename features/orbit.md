@@ -1,7 +1,7 @@
 # Domain — Orbit (custodial balance + auto-betting)
 
 > **What this covers.** Orbit is the platform's **first custody of real player money**: a house-held
-> balance a player funds with on-chain USDC deposits, out of which the house places **one real bet per
+> balance a player funds with on-chain SOL deposits, out of which the house places **one real bet per
 > round** on their behalf, crediting winnings back and cashing out at a threshold they set.
 >
 > ⚠️ **Orbit is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed) and is DARK in
@@ -31,11 +31,22 @@
 - ⚠️ **The invariant is `OrbitBalance.Amount == SUM(OrbitTransaction.Amount)`** for that pool and
   player, over **all** rows with **no status filter**. A failed cash-out stays at `−X` and is cancelled
   by an appended compensating row — never by deleting or filtering one.
-- Deposits are **free-form whole numbers** within a published bound. ⚠️ The deposit-bound message
-  (*"Deposits are whole numbers from N to M."*) is a **sanctioned exception** to the vague-messaging
-  rule: it states a bound the backend already publishes, it reveals nothing about a session or another
-  player, and it is refused **client-side before the transfer is signed** — a player told only "that
-  could not be accepted" after their money left the wallet has no way to learn what is allowed.
+- Deposits are **free-form** within a published bound — ladder `0.05 / 0.1 / 0.5` SOL, minimum
+  **0.05**, maximum **5 per transaction**, minimum cash-out **0.05**. ⚠️ **DECIMALS ARE LEGAL:** the
+  whole-number rule was policy inherited from the USDC ladder and in SOL meant a minimum deposit worth
+  a few hundred dollars. What replaces it is a **precision** check against the asset's decimals —
+  crediting an amount finer than the chain can move would write a balance no cash-out could pay back
+  out. The deposit-bound message (*"Deposits are between 0.05 and 5 SOL."*) remains a **sanctioned
+  exception** to the vague-messaging rule: it states a bound the backend already publishes, reveals
+  nothing about a session or another player, and is refused **client-side before the transfer is
+  signed** — a player told only "that could not be accepted" after their money left the wallet has no
+  way to learn what is allowed. ⚠️ The **chips** on the field are derived from that published ladder,
+  never hard-coded; the old literal `+10/+25/+50` survived a currency switch once and pinned a 5-SOL
+  field to its ceiling on every tap.
+- ⚠️ **The low-SOL guard is a SOLVENCY check, not a balance check.** With native settlement the stake
+  and the gas are the same lamports, so player deposits sit in the very balance the guard reads: it
+  requires `solBalance − Σ(the pool's owed player balances) ≥ MinimumSolBalance`. A flat floor would
+  pass forever while the house float was empty. See [`sol-settlement.md`](sol-settlement.md).
 
 ## 2. The engine — who bets, and how
 

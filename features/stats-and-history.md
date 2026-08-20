@@ -47,6 +47,14 @@ public, both cached in Redis (~120 s per type).
 ### Windowing
 
 - Both endpoints take an optional **`window`** of `week` | `month` | `all`.
+- ⚠️ **`SettlementCutoverUtc` is a FLOOR under whatever window was asked for.** Totals sum a bare
+  numeric column that carries no currency, so a window reaching back past the day this deployment
+  stopped settling in the previous asset would add those figures to SOL ones and report a number in no
+  currency at all. The effective bound is the LATER of the two (`StatsWindowExtensions.EffectiveCutoff`),
+  and it applies to global, per-type **and** per-player totals. Null cutover ⇒ no extra bound, which is
+  what every deployment that never switched carries. See [`sol-settlement.md`](sol-settlement.md).
+- ⚠️ **Only the SUMMING stops.** Games history, the recent-rounds feed and provably-fair verification
+  still list and verify every pre-cutover round — nothing is relabelled, hidden or deleted.
 - ⚠️ **Windows are ROLLING, not calendar** — `week` = last 7 days, `month` = last 30. There is **no
   timezone or week-start decision anywhere in the system**, and a window is always full size, so tiles
   never collapse to near-zero at the start of a month.

@@ -40,7 +40,7 @@ The fields on `GameParameters` define how a type behaves:
 | `ChoiceRequiredLength`       | Exact length a player's choice (and the winning sequence) must be.                         |
 | `AcceptDuplicatedCharacters` | Whether a choice may repeat characters (e.g. `"aabbcc"`).                                  |
 | `MinimumNumberOfPlayers`     | Distinct players required before a round can start.                                        |
-| `RequiredAmount`             | The exact stake per bet (USD; `decimal(18,9)`).                                            |
+| `RequiredAmount`             | The exact stake per bet, in the configured settlement asset (`decimal(18,9)`).             |
 | `AllowFreeBet`               | When `true`, game type accepts free bets if backend/frontend dev flags allow. Default `false`. See `free-bet-mode.md`. |
 | `ComingSoon`                 | When `true`, the type is **listed but not playable** — no bets, no new rounds, not Orbit-eligible. Default `false`. ⚠️ **Not** `Active = false`, which removes it from the catalogue entirely. See §19. |
 | `PresetChoices`              | Optional fixed set of allowed choices → turns a type into a "pick from a list" game.       |
@@ -92,7 +92,11 @@ ships — there is one catalogue and one deployment:
 | Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) — ⚠️ **`ComingSoon = true` since 2026-08-13: listed, not playable** (§19) |
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
-All: min 2 players, duplicates allowed, settled in the single configured token. **Seeding never
+All: min 2 players, duplicates allowed, settled in the single configured asset — **native SOL** since
+2026-08-20 (see [`sol-settlement.md`](sol-settlement.md)). Prices: **Cosmic Sprint 0.02**, **Beast Mode
+0.02**, **Space Jackpot 0.1**. ⚠️ Seeding is create-only by name and there is **no `RequiredAmount`
+self-heal**, so a re-price reaches a FRESH install only; an existing database needs
+`deploy/sql/sol-settlement-cutover.sql`. **Seeding never
 rewrites an existing row** — a type is inserted only when no row with that name exists, so a restart
 cannot resurrect an admin-deactivated type or mutate one under a live round. The exceptions are the
 **three named startup self-heals**, which reconcile **one field each** and never touch anything else
@@ -123,8 +127,7 @@ cannot resurrect an admin-deactivated type or mutate one under a live round. The
   image by content:
   - `Number` → number art; `NumbersAndLetters` → "free" art; `> 1` `presetChoices` → horse/animal
   art; otherwise letters art.
-3. **`GameTypeCard.vue`** shows: name, description, the **price** (`${{ requiredAmount }} MONKI Per
-  Ticket`), and a **LOTTERY badge** with formatted frequency when `lotteryParameters` is set.
+3. **`GameTypeCard.vue`** shows: name, description, the **price** (`{{ requiredAmount }} {{ tokenSymbol }}`, e.g. `0.02 SOL`, beside the Solana mark), and a **LOTTERY badge** with formatted frequency when `lotteryParameters` is set.
 4. **Select:** clicking a card → `chooseGame(game)` (⚠️ **not emitted at all when the type is
   `comingSoon`** — §19) sets `selectedGame`, navigates to
   `/game?type=<gameTypeId>`, then `updateNewGame(true)` loads the live game instance and

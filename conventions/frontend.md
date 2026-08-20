@@ -78,7 +78,7 @@
 - **Amounts are token-native, always.** `formatAmount` renders `{amount} {tokenSymbol}` at the token's
   decimals — there is no preferred display currency, no `useDisplayCurrency`, and no FX conversion.
   Pass it the amount, never an object: `formatAmount` reading a whole game/bet object is how
-  `[object Object] USDC` reached the terminal.
+  `[object Object] SOL` reached the terminal.
 - **Responses** are `DefaultResponse<T>` = `{ data, messages }`.
 - **Real-time via `@microsoft/signalr`: one connection per tab, owned by `useGameHub`.**
   `src/hooks/useGameHub.ts` is the only module that builds a `HubConnection` — a single socket to the

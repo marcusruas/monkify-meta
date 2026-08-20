@@ -138,7 +138,7 @@
   admin portal (`ISecretProtector`/`AesSecretProtector` are deleted). Deployed environments inject it
   via Secret Manager; the committed file carries a placeholder.
 - **The launch token** — the project's **pump.fun** coin (ticker `$STROKE`, a stand-in until launch).
-  ⚠️ **NOT the configured token above, and never a stake** — rounds settle in USDC and this coin has no
+  ⚠️ **NOT the configured token above, and never a stake** — rounds settle in SOL and this coin has no
   backend surface at all: no endpoint, entity, migration or settlement path. It exists only as copy on
   four frontend surfaces, gated by `VUE_APP_TOKEN_MINT` / `PUBLIC_TOKEN_MINT` (fail-closed, build-time).
   Its mint address and the **treasury wallet** (`VUE_APP_TREASURY_WALLET` / `PUBLIC_TREASURY_WALLET`, a

@@ -291,7 +291,7 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 The first place the platform holds player money rather than passing it straight through.
 
 - A **second house keypair** (`GeneralSettings:Operator:Token:Orbit`) holds every player's deposited
-  USDC in one on-chain token account, kept **separate from the bet/payout keypair** so "what we owe
+  SOL in one on-chain account, kept **separate from the bet/payout keypair** so "what we owe
   players" is checkable against "what the account holds", and so an Orbit-funded transfer is never a
   same-account no-op.
 - Balances live in `OrbitBalance` and are authoritative **only** as a cache: the truth is

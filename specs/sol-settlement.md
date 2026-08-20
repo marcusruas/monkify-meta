@@ -1,6 +1,37 @@
 # SpaceStroker — "SOL Settlement" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> ✅ **Status: SHIPPED** — merged to `main` on **2026-08-20** from `feature/sol-settlement`
+> (`monkify-backend`, `monkify-front`, `monkify-lp` — into `master` there — and `monkify-meta`).
+> Distilled summary: [`../features/sol-settlement.md`](../features/sol-settlement.md).
+>
+> **Verified before the merge, on the branch: 990 unit / 125 integration, all green.**
+>
+> ⚠️ **Not yet running against real money.** The committed config points at devnet and
+> `SettlementCutoverUtc` is `null`, which keeps the pre-cutover guard inert. Switching a real
+> environment is the §13 runbook — it drains every open round, force-cashes-out Orbit, funds the
+> wallets in SOL, deploys Consumers **and** the API together, and runs
+> `deploy/sql/sol-settlement-cutover.sql`. `secrets.<env>.json` are gitignored, so no branch can carry
+> that config.
+>
+> ⚠️ **ONE §3 DECISION CHANGED DURING IMPLEMENTATION — §6.3 BELOW IS STALE ON THIS POINT.** The spec
+> said `PendingRefundSweepJob` should **skip** a pre-cutover bet and log a count. That is wrong, and
+> an integration test caught it: `NeedsRefunding` is exactly the status the sweep selects on, so a
+> skipped bet was re-scanned every 12 hours forever — the infinite retry the guard exists to prevent,
+> merely moved up a level. **What shipped PARKS the bet as `NeedsManualAnalysis`**, which the sweep
+> never selects. `features/sol-settlement.md` documents the shipped behaviour.
+>
+> Two more things worth knowing, both found in testing rather than review:
+> - The integration harness's `UnregisteredMint` constant **was wrapped SOL's address** — the very
+>   value this feature registers as its sentinel. The test proving unknown mints are rejected was
+>   probing our own. It is mainnet USDC now.
+> - Three client-side guards kept enforcing whole-number Orbit deposits after the backend stopped, so
+>   `0.05` — the smallest legal deposit — was unenterable. `Math.floor` in the MAX/chip maths also
+>   disabled MAX for any wallet under 1 SOL, and the hard-coded `+10/+25/+50` chips each pinned a
+>   5-SOL field to its ceiling.
+>
+> ---
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [#174 Stop using USDC in the games](https://trello.com/c/K0Texy2Z/174-stop-using-usdc-in-the-games)
 > (2026-08-20). **Level: `Feature`** — a mandatory happy-path integration test and a dedicated
 > `features/sol-settlement.md` KB doc are both required.

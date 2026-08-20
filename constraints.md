@@ -126,8 +126,9 @@ agents work different features at once without colliding.
   state-specific copy.
 - Field-level validation errors are fine on the **authenticated** admin endpoints — they are not the
   vague-auth path.
-- **Sanctioned exception — the Orbit deposit bound.** `Deposits are whole numbers from N to M.`
-  (`useOrbit.deposit`, 2026-08-04) is deliberately **specific**. It states a bound the backend already
+- **Sanctioned exception — the Orbit deposit bound.** `Deposits are between N and M SOL.`
+  (`useOrbit.deposit`; originally *"whole numbers from N to M"*, reworded 2026-08-20 when SOL
+  settlement dropped the whole-number rule) is deliberately **specific**. It states a bound the backend already
   publishes on the `/orbit` payload, so it reveals nothing about a session, a nonce, another player or
   any internal state. It is also refused **client-side, before the transfer is signed** — so it is not
   a server rejection at all. A vague message here would be actively harmful: the transfer leaves the
