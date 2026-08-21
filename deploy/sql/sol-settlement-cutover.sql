@@ -28,7 +28,12 @@ BEGIN;
 
 -- ---------------------------------------------------------------------------------
 -- 1. Refuse to run while any round is open on a type we are about to re-price.
---    Statuses 0/2/3 are WaitingBets / GameStarting / InProgress (Game.ActiveGamesStatus).
+--    Statuses 1/3/4 are WaitingBets / GameStarting / InProgress (Game.ActiveGamesStatus).
+--    ⚠ GameStatus IS 1-BASED (WaitingBets = 1). This guard read IN (0, 2, 3) until 2026-08-21,
+--    which is nothing + NotEnoughPlayersToStart + GameStarting: it MISSED WaitingBets and
+--    InProgress, the two states where a round is actually taking bets or running. It reported a
+--    clean drain during the production cutover while two rounds were open and holding paid bets.
+--    BetStatus, by contrast, IS zero-based (Made = 0) - do not "fix" the two to match.
 -- ---------------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -38,7 +43,7 @@ BEGIN
     FROM "Games" g
     JOIN "GameParameters" p ON p."Id" = g."ParametersId"
     WHERE p."Name" IN ('Cosmic Sprint', 'Beast Mode', 'Space Jackpot')
-      AND g."Status" IN (0, 2, 3);
+      AND g."Status" IN (1, 3, 4);
 
     IF open_rounds > 0 THEN
         RAISE EXCEPTION
