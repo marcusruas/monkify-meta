@@ -11,6 +11,15 @@
 --    therefore pays a partner MORE than their traffic earned us. Nothing in code enforces
 --    this; it is the reason the bound is written down here and in ReferralSettings.
 --
+-- ⚠️ SINCE #177 THIS IS A RECONCILIATION TOOL, NOT THE PAYMENT MECHANISM. Partners are paid
+--    automatically from the /partner page, out of a dedicated ReferralPayout account, and every
+--    payment is a row in "ReferralCashOuts". Section 3 below is the one that reconciles against
+--    what the page shows; sections 1 and 2 still answer the WINDOWED question ("what did this
+--    traffic wager in March"), which the page does not.
+--
+-- ⚠️ NEVER PAY FROM SECTION 1 ANY MORE. It totals earnings and knows nothing about what has already
+--    been sent, so paying from it after the first cash-out pays a partner twice.
+--
 -- ⚠️ THIS FILE HAND-MIRRORS THE SCHEMA AND WILL ROT SILENTLY. Table names are EF defaults
 --    from the DbSet property names ("GameBets", "Games", "Players") and the enums are stored
 --    as ints. Re-check it whenever Bet, Player, GameStatus or BetStatus changes — the deploy
@@ -99,3 +108,57 @@ ORDER BY owed_sol DESC;
 -- FROM qualifying_bets
 -- GROUP BY code, wallet, first_seen
 -- ORDER BY code, turnover_sol DESC;
+
+
+-- ── 3. RECONCILIATION vs the /partner page (#177) ────────────────────────────────────
+-- The number a partner actually sees, and the one the Cash out button pays. ALL-TIME on both
+-- halves — the page has no reporting window — so it deliberately IGNORES params.from_utc/to_utc.
+--
+-- ⚠️ Re-paste the CTE block above before this query; the REPL runs one statement at a time. Then
+--    edit qualifying_bets' date filter to drop the window, or this reads a windowed turnover
+--    against all-time payments and understates what is owed.
+--
+-- ⚠️ SUM(Amount) HAS NO STATUS FILTER, and must not grow one. A Failed withdrawal keeps its negative
+--    amount and is cancelled only by an APPENDED positive Reversal row. Filtering Failed rows out
+--    would double-count every transfer that timed out but confirmed on-chain — the same invariant
+--    OrbitTransaction holds, and the reason the app never edits a row to undo a payment.
+--
+-- ⚠️ Amount is SIGNED: withdrawals are negative, reversals positive. So payable is earnings PLUS the
+--    sum, never minus it.
+--
+-- A NEGATIVE payable is legitimate, not corruption: an admin refund can retroactively remove a
+-- settled bet from turnover, and editing a partner's SharePercentage re-prices their whole history.
+-- The app carries that deficit rather than clamping it, so new turnover works it off.
+--
+-- SELECT
+--     r.code                                                   AS referrer,
+--     ROUND(COALESCE(e.earned, 0), 9)                          AS earned_all_time_sol,
+--     ROUND(-COALESCE(c.settled, 0), 9)                        AS paid_out_sol,
+--     ROUND(COALESCE(e.earned, 0) + COALESCE(c.settled, 0), 9)  AS payable_sol
+-- FROM referrers r
+--     LEFT JOIN (
+--         SELECT code, SUM(amount) * share_percentage / 100 AS earned
+--         FROM qualifying_bets
+--         GROUP BY code, share_percentage
+--     ) e ON e.code = r.code
+--     LEFT JOIN (
+--         SELECT lower("ReferralCode") AS code, SUM("Amount") AS settled
+--         FROM "ReferralCashOuts"
+--         GROUP BY lower("ReferralCode")
+--     ) c ON c.code = lower(r.code)
+-- ORDER BY payable_sol DESC;
+
+
+-- ── 4. CASH-OUTS NEEDING A HUMAN ─────────────────────────────────────────────────────
+-- ⚠️ THE ONE THAT MATTERS OPERATIONALLY. Status 1 = Executing means the consumer signed something
+--    and never learned the outcome — the send threw, or the confirmation timed out. It is
+--    deliberately NOT auto-reversed, because a timed-out transfer can still confirm on chain, and
+--    reversing it would credit the partner for money that also left the account.
+--
+--    A row sitting here needs a person to check the payout account on chain and then either mark it
+--    Paid with its signature, or append a Reversal. Nothing else will move it.
+--
+-- SELECT "Id", "ReferralCode", "Amount", "RequestedAt", "Reason"
+-- FROM "ReferralCashOuts"
+-- WHERE "Type" = 0 AND "Status" = 1
+-- ORDER BY "RequestedAt";

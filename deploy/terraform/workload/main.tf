@@ -28,6 +28,12 @@ locals {
     # nothing mounted it, so HouseSeedSettings.IsConfigured saw the committed MOCK_ fallback and the
     # seeder returned at Information level — which Production's Warning floor drops. Silent no-op.
     "GeneralSettings-Operator-Token-HouseSeed-PrivateKey",
+    # Referral payout (#177). The dedicated account partners are paid from — the same class of key as
+    # Orbit's and the house seed's, and the FOURTH keypair in the system. ReferralPayoutSettings
+    # fails CLOSED on a MOCK_ value in either half, so an unbound secret here is not a loud failure:
+    # the container falls back to the committed MOCK_ placeholder and every cash-out silently reports
+    # "temporarily unavailable" while earnings keep rendering. Exactly the #168 shape.
+    "GeneralSettings-Operator-Token-ReferralPayout-PrivateKey",
   ]
 
   secret_ids = toset([for id in local.base_secret_ids : "${local.name_prefix}-${id}"])
@@ -35,16 +41,17 @@ locals {
   # ASP.NET env var name (double-underscore) -> Secret Manager secret id.
   # The env var NAMES are app config and never change; only the ids they point at are env-scoped.
   base_secret_env = {
-    "ConnectionStrings__SpaceStroker"                           = "ConnectionStrings-SpaceStroker"
-    "ConnectionStrings__Messaging"                              = "ConnectionStrings-Messaging"
-    "ConnectionStrings__Redis"                                  = "ConnectionStrings-Redis"
-    "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"    = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
-    "GeneralSettings__Operator__AdminToken__PrivateKeyPem"      = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
-    "GeneralSettings__Operator__Token__ClusterUrl"              = "GeneralSettings-Operator-Token-ClusterUrl"
-    "GeneralSettings__Operator__Token__Orbit__PrivateKey"       = "GeneralSettings-Operator-Token-Orbit-PrivateKey"
-    "GeneralSettings__Operator__Token__Orbit__SessionSecret"    = "GeneralSettings-Operator-Token-Orbit-SessionSecret"
-    "GeneralSettings__Operator__Token__Orbit__TelegramBotToken" = "GeneralSettings-Operator-Token-Orbit-TelegramBotToken"
-    "GeneralSettings__Operator__Token__HouseSeed__PrivateKey"   = "GeneralSettings-Operator-Token-HouseSeed-PrivateKey"
+    "ConnectionStrings__SpaceStroker"                              = "ConnectionStrings-SpaceStroker"
+    "ConnectionStrings__Messaging"                                 = "ConnectionStrings-Messaging"
+    "ConnectionStrings__Redis"                                     = "ConnectionStrings-Redis"
+    "GeneralSettings__Operator__Token__TokenOwnerPrivateKey"       = "GeneralSettings-Operator-Token-TokenOwnerPrivateKey"
+    "GeneralSettings__Operator__AdminToken__PrivateKeyPem"         = "GeneralSettings-Operator-AdminToken-PrivateKeyPem"
+    "GeneralSettings__Operator__Token__ClusterUrl"                 = "GeneralSettings-Operator-Token-ClusterUrl"
+    "GeneralSettings__Operator__Token__Orbit__PrivateKey"          = "GeneralSettings-Operator-Token-Orbit-PrivateKey"
+    "GeneralSettings__Operator__Token__Orbit__SessionSecret"       = "GeneralSettings-Operator-Token-Orbit-SessionSecret"
+    "GeneralSettings__Operator__Token__Orbit__TelegramBotToken"    = "GeneralSettings-Operator-Token-Orbit-TelegramBotToken"
+    "GeneralSettings__Operator__Token__HouseSeed__PrivateKey"      = "GeneralSettings-Operator-Token-HouseSeed-PrivateKey"
+    "GeneralSettings__Operator__Token__ReferralPayout__PrivateKey" = "GeneralSettings-Operator-Token-ReferralPayout-PrivateKey"
   }
 
   secret_env = { for env_name, id in local.base_secret_env : env_name => "${local.name_prefix}-${id}" }
