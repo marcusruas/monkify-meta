@@ -85,6 +85,12 @@ human's.**
   never be set on any other bet — see the house seed bet in [`games.md`](games.md) §14, where setting
   it would discard a validation that genuinely passes **and** route a win into the custody account.
 - The engine is where the `BetDebit` / `WinCredit` / `Refund` ledger types are actually written.
+- ⚠️ **An engine-placed bet carries the player’s referral code** (#175) with no code in this path at
+  all: the placement consumer sends an in-process `RegisterBetRequest`, and `RegisterBetHandler` stamps
+  `Bet.ReferralCode` from the **`Player` row** rather than from the request body — which is precisely
+  what makes it work here, since the body the consumer builds has no referral on it. A player who
+  enrols in Orbit **before ever betting** is attributed by the `POST /orbit/session` write instead.
+  See [`referral-program.md`](referral-program.md).
 
 ### Reserved words claim the choice across rounds
 

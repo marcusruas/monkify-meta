@@ -53,9 +53,17 @@ feature.
   reviewed by a lawyer**.
 - ⚠️ **The house-cut rate is the one number the Terms hardcode, and it goes stale silently.** The rate
   lives in backend config, every in-app badge renders it live, and this page does not — it was found
-  still claiming 0.5% after the rate rose. The wording now says *"currently 1%"* and points at the
+  still claiming 0.5% after the rate rose. The wording now says *"currently 2%"* (raised with the
+  referral program, #175) and points at the
   in-app STATS panel as the live figure, but **any rate change must still update
   `monkify-lp/src/pages/terms.astro`** (see `features/crypto-commission.md`).
+- **`/terms` carries a numberless REFERRALS clause** (#175): we may compensate third parties for
+  referring players, a referral link confers **no** player benefit or obligation and changes nothing
+  about bets, odds, payouts or the house cut, and attribution is at our discretion. ⚠️ **No
+  percentage, cap or partner name is in it** — deliberately, because this page is hand-maintained and
+  the one number it does hardcode has already gone stale once (above). ⚠️ **Ungated**, unlike the
+  Feedbacker clause: the referral programme is not a token surface, so it carries no `TOKEN_LIVE`
+  dependency. See [`referral-program.md`](referral-program.md).
 - ⚠️ **No restricted-jurisdictions clause.** We do not geo-block, and an unenforced clause is worse
   than silence. Geoblocking is a separate, unclaimed card.
 - ⚠️ **No legal entity and no governing law are named** — a deliberate known gap, not an oversight.

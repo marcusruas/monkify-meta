@@ -29,8 +29,9 @@
 > gone, so the commission applies to **every** game type and the `PaymentMethod` branch that gated it is
 > deleted. The rate key moved to **`GeneralSettings.Operator.Token.CommissionPercentage`**.
 
-> ⚠️ **Rate raised 0.5% → 1% on 2026-08-04.** Only the number changed — no code, entity or migration
-> change. Every figure below is the **current 1%** rate; the 0.5% figures live on in
+> ⚠️ **Rate raised 0.5% → 1% on 2026-08-04, then 1% → 2% on 2026-08-21** (Trello #175, which raised
+> it to fund the [referral program](referral-program.md)). Only the number changed each time — no code,
+> entity or migration change. Every figure below is the **current 2%** rate; the 0.5% figures live on in
 > [`../specs/crypto-commission.md`](../specs/crypto-commission.md) as the record of what that card shipped.
 
 Space Stroker retains a small **house commission** on winnings instead of paying out the whole pot. The
@@ -53,8 +54,9 @@ netReward  = winnerReward − commission
 - Because every bet in a game shares one fixed `RequiredAmount`, the total retained equals
   **rate × (losing-bet stakes)**.
 - ⚠️ **The yield as a share of the pot is therefore always BELOW the nominal rate** — the winner's own
-  stake is never taxed. At 1%: a 6-bet/1-winner race retains **0.83%** of the pot, a heads-up race
-  **0.50%**, a 3-bet/2-winner round **0.33%**. *Anyone quoting "1% of the pot" is overstating it.*
+  stake is never taxed. At 2%: a 6-bet/1-winner race retains **1.67%** of the pot, a heads-up race
+  **1.00%**, a 3-bet/2-winner round **0.67%**. *Anyone quoting "2% of the pot" is overstating it.*
+  ⚠️ This is also the ceiling on a referral partner’s cut — see [`referral-program.md`](referral-program.md).
 - **Rounding** is down to the token's decimals (`MidpointRounding.ToZero`), applied **after** the
   commission, so the sum of payouts never exceeds the pot held on-chain.
 - **Free bets** (amount 0) contribute nothing and receive nothing → no commission.
@@ -85,17 +87,24 @@ netReward  = winnerReward − commission
 
 - **Badges only, all rendered live from the backend.** `GameStatsPanel.vue` (the `/game` STATS tab) and
   `GameStatsPage.vue` (`/game/stats`) interpolate `ActiveGame.commissionPercentage` /
-  `GlobalStats.commissionPercentage`, so they read `"1% HOUSE CUT"` today and `"0% HOUSE CUT"` at a zero
+  `GlobalStats.commissionPercentage`, so they read `"2% HOUSE CUT"` today and `"0% HOUSE CUT"` at a zero
   rate. **A rate change is zero frontend work.**
-- ⚠️ **There are now FOUR hand-written "1%"s, and a rate change must move ALL of them.** The badges above
+- ⚠️ **There are FIVE hand-written rate figures, and a rate change must move ALL of them.** (#175 found
+  five, not the four recorded here before — `GuideToken.vue` names it **twice**, in a row title and in
+  the row body.) The badges above
   are free; these are not. None of them is generated from config:
 
   | Where | File | Note |
   | --- | --- | --- |
   | Terms page (LP) | `monkify-lp/src/pages/terms.astro` | A **legal document**. It was once found stating 0.5% after the rate moved to 1% |
   | The manual, payout section | `monkify-front/.../GuideWhatYouWin.vue` | Since **2026-08-12** — it used to name no number |
-  | The manual, token section | `monkify-front/.../GuideToken.vue` | The buyback mechanic is funded "from the 1% house cut" |
+  | The manual, token section — **row title** | `monkify-front/.../GuideToken.vue` | `THE 2% HOUSE CUT BUYS THE COIN` |
+  | The manual, token section — **row body** | `monkify-front/.../GuideToken.vue` | "The game takes 2% of what you win above your own stake" |
   | The LP token section + home card | `monkify-lp/.../TokenSection.vue`, `monkify-front/.../HomeTokenCard.vue` | Same mechanic sentence |
+
+  ⚠️ **Do NOT blanket find-and-replace the rate.** `monkify-lp/src/constants.ts` (`"1% per $100M of
+  market cap"`) and `GuideToken.vue`’s release-cadence prose are the **team vesting schedule**, not the
+  house cut, and must stay at 1%.
 
   The guide's two both keep a hedge — the number is named **and** the reader is pointed at the STATS
   panel for their mode's live rate. ⚠️ **The token copy does not and cannot**: a buyback funded by "a
@@ -166,7 +175,7 @@ was never returned) and there was no way to force one.
 | --- | --- |
 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `CommissionForWinner` in `CalculateRewardForBet`; materialized `Winners`; `PayableWinnerCount`; `CalculateRefundForInvalidBet` / `CalculateRemainingBetPayout` |
 | `SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` | `CommissionPercentage` |
-| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`1.0`** — the production rate, not a mock |
+| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`2.0`** — the production rate, not a mock |
 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` · `GlobalStatsDto` | Rate pass-through for the badges |
 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credits `rewardResult.Value` via the payment strategy |
 | `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` | The 12h sweep |
@@ -180,7 +189,7 @@ was never returned) and there was no way to force one.
 
 **Tests** — `CommissionRateTests` (pins the rate), `BetDomainServiceTests` (⚠️ its fixtures deliberately
 use their **own** `0.5m` rate with hardcoded expectations `1.4975` / `19.95` / `18.98`: they test the
-**formula** independently of the configured rate — **do not "fix" them to 1%**), `PendingRefundSweepJobTests`,
+**formula** independently of the configured rate — **do not "fix" them to the configured rate**), `PendingRefundSweepJobTests`,
 `RefundBetHandlerTests`, `RefundInvalidBetConsumerTests`; integration `GameFlowTests.PaidCryptoRace_AppliesCommission_CreditsPotMinusCut`
 (derives the expectation from the **running** config, so it validates whatever rate ships) and
 `RefundSafeguardsTests`.
