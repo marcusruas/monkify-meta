@@ -50,7 +50,7 @@
 sentence to stay under 255):**
 
 ```
-Bet real USDC on what Edson — an immortal space chimp — types next. First exact pick sweeps the pot. Provably fair. Instant Solana payouts. No token, no presale. Play ▶️ [PLAY_URL]
+Bet real SOL on what Edson — an immortal space chimp — types next. First exact pick sweeps the pot. Provably fair. Instant Solana payouts. No token, no presale. Play ▶️ [PLAY_URL]
 ```
 
 - **Group photo:** a square crop of Edson — `monkify-lp/src/assets/edson.png` (or a frame of `edson-ship-typing.gif`).
@@ -63,9 +63,9 @@ Bet real USDC on what Edson — an immortal space chimp — types next. First ex
 ```
 gm degens — welcome to the Space Stroker lobby. 🐵🍌
 
-One room, the whole gang. This is where we watch an immortal space chimp smash a keyboard and throw USDC on the gibberish. Peak degeneracy. We're not sorry.
+One room, the whole gang. This is where we watch an immortal space chimp smash a keyboard and throw SOL on the gibberish. Peak degeneracy. We're not sorry.
 
-The play: call what Edson types next → back it with USDC → yank the lever → first EXACT pick sweeps the entire pot. That's the whole game.
+The play: call what Edson types next → back it with SOL → yank the lever → first EXACT pick sweeps the entire pot. That's the whole game.
 
 🎲 Provably fair — every round seeded, verify it yourself. No trust-me-bro.
 ⚡ Instant payouts — on-chain on Solana, zero "pending" cope.
@@ -82,7 +82,7 @@ Bet what you can afford to lose, anon — it's a monkey and a keyboard, not a pe
 `[PLAY_URL]` line above is already tappable — keep it).
 
 > **Alternate one-liner** for the description if you want a different angle (still ≤255): _"The infinite monkey, on
-> chain. Bet USDC on what Edson types next — first exact pick takes the pot. Provably fair, instant Solana payouts.
+> chain. Bet SOL on what Edson types next — first exact pick takes the pot. Provably fair, instant Solana payouts.
 > No token. ▶️ [PLAY_URL]"_
 
 ---
@@ -114,7 +114,7 @@ The infinite monkey theorem: a monkey smashing keys forever eventually types any
 
 Edson is that monkey.
 
-You bet real USDC on what he types next — first exact pick sweeps the whole pot.
+You bet real SOL on what he types next — first exact pick sweeps the whole pot.
 
 Live in 2 days, on Solana. No token, nothing to buy — just you vs the keyboard.
 ```
@@ -126,7 +126,7 @@ Live in 2 days, on Solana. No token, nothing to buy — just you vs the keyboard
 
 No token. No presale. Nothing to buy.
 
-Just real USDC on Solana, provably-fair rounds, and instant on-chain payouts.
+Just real SOL on Solana, provably-fair rounds, and instant on-chain payouts.
 
 Tomorrow Edson starts typing — and this gang starts betting. Drop a 🐵 if you're in.
 ```
@@ -150,7 +150,7 @@ Which table are you starting on? Drop it in the chat 👇
 ```
 WE'RE LIVE. 🐵🚀
 
-Space Stroker is open — bet real USDC on what Edson the space chimp types next. First exact pick sweeps the pot.
+Space Stroker is open — bet real SOL on what Edson the space chimp types next. First exact pick sweeps the pot.
 
 Provably fair. Instant payouts on Solana. No token.
 
@@ -178,7 +178,7 @@ You bet on what he spells next. He types live. First exact match wins the pot.
 How a round works:
 
 1️⃣ Call your pick — a 6-char run, or tap a beast
-2️⃣ Back it with USDC and pull the lever
+2️⃣ Back it with SOL and pull the lever
 3️⃣ Edson hammers the keys, live
 
 The first pick he spells out exactly sweeps the whole pot. That's it.
@@ -236,7 +236,7 @@ Who is Edson, actually? Grab a coffee. 🧵🐵
 
 5/ Out in the void he became a legend. Whole alien civilizations tuned in and gambled on whether his next line of gibberish would finally crack the code.
 
-6/ He's still typing. Now you get to place the bet. Real USDC. Provably fair. On Solana. ▶️ [PLAY_URL]
+6/ He's still typing. Now you get to place the bet. Real SOL. Provably fair. On Solana. ▶️ [PLAY_URL]
 ```
 
 **POST-2 — Beast Mode spotlight** · T+2 · _media: `cards/beastmode.gif`_
@@ -296,7 +296,7 @@ Post the **real** version **only** once you have a genuine, verifiable number; o
 ```
 Edson's been busy. 🐵💥
 
-Biggest pot swept so far: [REAL_NUMBER] USDC, in a single keystroke run.
+Biggest pot swept so far: [REAL_NUMBER] SOL, in a single keystroke run.
 
 [Post ONLY with a real, verifiable figure once it happens. Never invent one.]
 
@@ -307,7 +307,7 @@ The lobby's loud and Edson hasn't stopped typing.
 
 Pull up a stool, talk trash, and call his next run with the rest of the gang.
 
-Real USDC. Provably fair. On Solana. 🐵
+Real SOL. Provably fair. On Solana. 🐵
 
 ▶️ [PLAY_URL]
 ```
@@ -351,7 +351,7 @@ awake — watch and lean in.
 ### 4.1 Group setup & optimisation (see §6)
 Public group, claimed `[GROUP_URL]`, the §1 description with `[PLAY_URL]`, Edson group photo, the **pinned welcome**
 (with PLAY NOW button) and the **pinned safety notice**, a management bot + **join captcha**. A cold visitor must
-"get it" in 2 seconds from the pins: *bet USDC on what a monkey types, provably fair, on Solana, no token.*
+"get it" in 2 seconds from the pins: *bet SOL on what a monkey types, provably fair, on Solana, no token.*
 
 ### 4.2 Cold-start seeding — never an empty room
 You're starting near zero. An empty, silent group kills trust instantly, so before you invite anyone wider:
@@ -409,7 +409,7 @@ Watch what actually lands for *your* gang and lean in.
 ### 4.8 Free KOL / group-admin outreach (no paid promo)
 Target **small** Solana-gaming creators and **friendly group admins** (a few thousand members — they actually reply
 and amplify; mega-accounts ignore cold DMs). A short, honest DM:
-> "Hey — we're 3 devs launching Space Stroker, a provably-fair, token-free USDC betting game on Solana (bet on what a
+> "Hey — we're 3 devs launching Space Stroker, a provably-fair, token-free SOL betting game on Solana (bet on what a
 > monkey types 🐵). No budget, just built something we love. Mind if we drop our Telegram in your group / would you
 > want a first look + a couple of free rounds? No ask, no strings."
 Offer a genuine look; **never** promise payment you can't make, and don't fake a partnership.
@@ -451,7 +451,7 @@ needed**; post the source GIFs as-is. The **group photo** must be a **static squ
 | Pinned welcome | `edson-ship-typing.gif` | The signature "Edson typing in his saucer". |
 | PRE-1 | `edson-ship-typing.gif` | Doors-opening hero shot. |
 | PRE-2 | `game/typing2.gif` | Keys-flying sprite = "he types, you bet". |
-| PRE-3 | `monk-coin-main.png` | Coin = money/USDC, no-token framing. |
+| PRE-3 | `monk-coin-main.png` | Coin = money/SOL, no-token framing. |
 | PRE-4 | `cards/beastmode.gif` | Mode tease; the beast card is the most eye-catching. |
 | T0-1 | `edson-ship-typing.gif` | Launch hero shot. |
 | T0-2 | `game/typing.gif` | "He types live." |
@@ -546,7 +546,7 @@ Separate from moderating *members*, keep the **team's** copy honest. Never post:
   anti-scam line.
 - ❌ Claims about features that aren't live on launch day.
 
-**Always:** brand "Space Stroker", real USDC on Solana, provably-fair, responsible/18+ tone, `[GROUP_URL]` /
+**Always:** brand "Space Stroker", real SOL on Solana, provably-fair, responsible/18+ tone, `[GROUP_URL]` /
 `[PLAY_URL]` as the only official links.
 
 **Pre-post self-audit** (run before posting a batch, from the `monkify-meta` worktree):

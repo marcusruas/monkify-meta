@@ -41,7 +41,7 @@
 **Bio (143 chars — X limit is 160):**
 
 ```
-Gamble like an ape. Bet USDC on what Edson types next — first exact pick takes the pot. Provably fair, instant Solana payouts. No token. Play ↓
+Gamble like an ape. Bet SOL on what Edson types next — first exact pick takes the pot. Provably fair, instant Solana payouts. No token. Play ↓
 ```
 
 - **Bio link:** `[PLAY_URL]` (this is the one place the raw link lives — "link in bio" in every tweet points here).
@@ -50,9 +50,9 @@ Gamble like an ape. Bet USDC on what Edson types next — first exact pick takes
   or screenshot the LP hero. (Banner must be a static image; don't use a GIF.)
 - **Location field (optional, for flavor):** `The infinite void` · **Pinned tweet:** the launch thread (§2.2), pinned on T-0.
 
-> Alternate bios if you want a different angle (both ≤160): _"Bet real USDC on what Edson the space chimp types
+> Alternate bios if you want a different angle (both ≤160): _"Bet real SOL on what Edson the space chimp types
 > next. First exact pick sweeps the pot. Provably fair, instant Solana payouts. No token. ↓"_ · _"The infinite
-> monkey, on-chain. Bet USDC on what Edson types next. Provably fair, instant Solana payouts. No token, no
+> monkey, on-chain. Bet SOL on what Edson types next. Provably fair, instant Solana payouts. No token, no
 > presale. Play ↓ 🐵"_
 
 ---
@@ -68,7 +68,7 @@ Every tweet is ≤280 characters. Media picks are in §5.
 ```
 gm. something's typing in the void 🐵⌨️
 
-in 48h you can throw real USDC on what this space chimp types next — call it right, sweep the whole pot.
+in 48h you can throw real SOL on what this space chimp types next — call it right, sweep the whole pot.
 
 provably fair, instant on Solana, no token no presale. pure degen fuel. wen edson? soon.
 ```
@@ -80,7 +80,7 @@ The infinite monkey theorem: a monkey smashing keys forever eventually types any
 
 Edson is that monkey.
 
-You bet real USDC on what he types next — first exact pick sweeps the whole pot.
+You bet real SOL on what he types next — first exact pick sweeps the whole pot.
 
 Live in 2 days, on Solana.
 ```
@@ -92,7 +92,7 @@ Live in 2 days, on Solana.
 
 No token. No presale. Nothing to buy.
 
-Just real USDC on Solana, provably-fair rounds, and instant on-chain payouts.
+Just real SOL on Solana, provably-fair rounds, and instant on-chain payouts.
 
 Tomorrow, Edson starts typing — and you start betting. 🐵
 ```
@@ -116,7 +116,7 @@ Pick your table tomorrow.
 ```
 We're live. 🐵
 
-Space Stroker is open — bet real USDC on what Edson the space chimp types next. First exact pick sweeps the pot.
+Space Stroker is open — bet real SOL on what Edson the space chimp types next. First exact pick sweeps the pot.
 
 Provably fair. Instant payouts on Solana. No token.
 
@@ -142,7 +142,7 @@ You bet on what he spells next. He types live. First exact match wins.
 How a round works:
 
 1️⃣ Call your pick — a 6-char run, or tap a beast
-2️⃣ Back it with USDC and pull the lever
+2️⃣ Back it with SOL and pull the lever
 3️⃣ Edson hammers the keys, live
 
 The first pick he spells out exactly sweeps the whole pot.
@@ -209,7 +209,7 @@ Who is Edson, actually? A thread 🧵🐵
 
 Now you get to place the bet.
 
-Real USDC. Provably fair. On Solana.
+Real SOL. Provably fair. On Solana.
 
 Play 👉 link in bio 🐵⌨️
 ```
@@ -265,7 +265,7 @@ Post the **real** version **only** once you have a genuine, verifiable number; o
 ```
 Edson's been busy. 🐵💥
 
-Biggest pot swept so far: [REAL_NUMBER] USDC, in a single keystroke run.
+Biggest pot swept so far: [REAL_NUMBER] SOL, in a single keystroke run.
 
 [Post ONLY with a real, verifiable figure once it happens.]
 
@@ -276,7 +276,7 @@ The lobby's loud and Edson hasn't stopped typing.
 
 Pull up a stool, talk trash, and call his next run with the rest of the gang.
 
-Real USDC. Provably fair. On Solana.
+Real SOL. Provably fair. On Solana.
 
 Play 👉 link in bio 🐵
 ```
@@ -319,7 +319,7 @@ clips, memes, and real winning-round screenshots. Consistency + replies compound
 ### 4.1 Account setup & optimisation
 Handle `@SpaceStroker`, display name "Space Stroker 🐵", the §1 bio with **`[PLAY_URL]` as the link-in-bio**, Edson
 profile pic, a space/arcade banner, and the **launch thread pinned** on T-0. A cold visitor must "get it" in 2
-seconds: *bet USDC on what a monkey types, provably fair, on Solana.*
+seconds: *bet SOL on what a monkey types, provably fair, on Solana.*
 
 ### 4.2 Cold-start seeding — the first hour of every post
 You're starting near zero, so never post into an empty room:
@@ -367,7 +367,7 @@ prime weekday-midday window**. Then watch your own analytics for a week and lean
 ### 4.7 Free KOL / micro-influencer outreach (no paid promo)
 Target **small Solana-gaming creators** (a few thousand followers — they reply and amplify; mega-KOLs ignore
 cold DMs). A short, honest DM:
-> "Hey — we're 3 devs launching Space Stroker, a provably-fair, token-free USDC betting game on Solana (bet on
+> "Hey — we're 3 devs launching Space Stroker, a provably-fair, token-free SOL betting game on Solana (bet on
 > what a monkey types 🐵). No budget, just built something we love — want a first look / a couple of free
 > rounds to try? No ask, no strings."
 Offer early access and a genuine look; **never** promise payment you can't make, and don't fake a partnership.
@@ -409,7 +409,7 @@ posting-time step, not part of this doc).
 | --- | --- | --- |
 | PRE-1 | `edson-ship-typing.gif` | The signature "Edson typing in his saucer" — the face of the brand. |
 | PRE-2 | `game/typing2.gif` | Keys-flying sprite = "he types, you bet". |
-| PRE-3 | `monk-coin-main.png` | Coin = money/USDC, no-token framing. |
+| PRE-3 | `monk-coin-main.png` | Coin = money/SOL, no-token framing. |
 | PRE-4 | `cards/beastmode.gif` | Mode tease; the beast card is the most eye-catching. |
 | T0-1 | `edson-ship-typing.gif` | Launch hero shot. |
 | T0-2 | `game/typing.gif` | "He types live." |
@@ -438,7 +438,7 @@ posting-time step, not part of this doc).
 - ❌ A raw app link in a **main** tweet body — link lives in the **bio** and **first reply**.
 - ❌ Claims about features that aren't live on launch day.
 
-**Always:** brand "Space Stroker", handle @SpaceStroker, real USDC on Solana, provably-fair, responsible/18+ tone.
+**Always:** brand "Space Stroker", handle @SpaceStroker, real SOL on Solana, provably-fair, responsible/18+ tone.
 
 **Pre-post self-audit** (run before posting a batch, from the `monkify-meta` worktree):
 

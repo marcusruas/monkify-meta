@@ -19,11 +19,11 @@ This is the single rule everything else here depends on.
 | | Settlement mint | Launch token |
 | --- | --- | --- |
 | What it is | The asset every game pays out in — **native SOL** | The project's **pump.fun** coin |
-| Where it lives | Backend `GeneralSettings:Operator:Token:MintAddress`; frontend `VUE_APP_GAME_TOKEN_ADDRESS` | `VUE_APP_TOKEN_MINT` (app) / `PUBLIC_TOKEN_MINT` (LP) |
+| Where it lives | Backend `GeneralSettings:Operator:Token:MintAddress`; frontend `VUE_APP_SETTLEMENT_MINT` | `VUE_APP_TOKEN_MINT` (app) / `PUBLIC_TOKEN_MINT` (LP) |
 | What it does | Moves real money — stakes, payouts, refunds, the ledger | **Nothing.** It is information on a page |
 
 **Rounds settle in SOL and the launch token is information only.** It is not a stake, not a balance,
-not a payment method. ⚠️ **Never reuse `VUE_APP_GAME_TOKEN_ADDRESS` for a token surface, and never point
+not a payment method. ⚠️ **Never reuse `VUE_APP_SETTLEMENT_MINT` for a token surface, and never point
 a token surface's env key at settlement** — the two are independent values on purpose, and conflating
 them means changing one silently moves the other. See [`money.md`](money.md) for the money path this
 does not touch.

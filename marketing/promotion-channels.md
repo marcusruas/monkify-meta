@@ -32,12 +32,12 @@ Every entry's canonical row lives **once**, in §5, under its platform. §2 and 
 
 ## 1. Who we're hunting
 
-Space Stroker is a **web3 dapp on Solana**: bet USDC on what Edson types next, provably fair, instant
+Space Stroker is a **web3 dapp on Solana**: bet SOL on what Edson types next, provably fair, instant
 on-chain payouts, no token. That shapes who we fit:
 
 | Axis | What it looks like | Why we fit |
 | --- | --- | --- |
-| **crypto** | Solana-native degens, wallet-first users, no-signup crowd | We are USDC-on-Solana, wallet-only, no account to create |
+| **crypto** | Solana-native degens, wallet-first users, no-signup crowd | We are SOL-on-Solana, wallet-only, no account to create |
 | **gambling** | People who already bet on-chain and argue about fairness | We are a betting game, and provably fair is a real answer to "is it rigged?" |
 | **web3 games** | On-chain gaming communities, not token-farming crowds | We are a live playable web app — not a bot, not a presale |
 | **memes** | Meme- and lore-driven rooms | Edson's lore is the shareable asset, and it costs nothing to give away |
@@ -503,7 +503,7 @@ in this document.
 - **Responsible tone, 18+.** Never encourage chasing losses or betting more than someone can lose. Where a
   community has a responsible-gambling rule (`RD-04` runs a self-exclusion process), respect it visibly.
   **Never promote into a recovery community** (`XC-T3-01`).
-- **Positioning.** Space Stroker is a **web3 dapp on Solana** — USDC, provably fair, no token. It is **not**
+- **Positioning.** Space Stroker is a **web3 dapp on Solana** — SOL, provably fair, no token. It is **not**
   a licensed gambling operator, and nothing we post should imply that it is licensed, regulated or endorsed.
 - **Respect the room's rules over this document.** If a mod's answer contradicts the `Self-promo` cell, the
   mod is right and the cell is stale — fix the cell (§6).

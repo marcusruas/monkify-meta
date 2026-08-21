@@ -1105,7 +1105,7 @@ marks here). Full behaviour: `features/icons-and-menu-overhaul.md`.
   tint by passing a text utility (`class="text-orbit"`), never a per-call-site `fill`.
   ⚠️ **Exactly two icons carry a baked fill** (`win-at` green, `falls-to` warm red). Do not add a
   third. `AppIcon` renders **one fill per drawing**, so a two-colour mark (a brand logo) cannot live
-  in the registry at all — `usdc.svg` stays a two-tone vector rendered through `<img>` with
+  in the registry at all — `sol.svg` (which replaced `usdc.svg` at the SOL switch) stays a two-tone vector rendered through `<img>` with
   `image-rendering: auto`.
 - **A mark replaces the generic marker, it does not join it.** `ArcadeModal` drops its 6px amber
   square when `titlebar-lead` is filled (`.dialog--has-lead`); `HomeSection` drops its `+ TITLE +`

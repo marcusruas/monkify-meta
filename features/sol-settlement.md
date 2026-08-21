@@ -1,8 +1,14 @@
 # Feature — SOL settlement (native, not an SPL token)
 
-> Status: **shipped.** Authoritative spec: [`../specs/sol-settlement.md`](../specs/sol-settlement.md)
-> (merged via `feature/sol-settlement` on 2026-08-20, Trello
-> [#174](https://trello.com/c/K0Texy2Z/174-stop-using-usdc-in-the-games)).
+> Status: **shipped AND LIVE IN PRODUCTION.** Authoritative spec:
+> [`../specs/sol-settlement.md`](../specs/sol-settlement.md) (merged via `feature/sol-settlement` on
+> 2026-08-20, Trello [#174](https://trello.com/c/K0Texy2Z/174-stop-using-usdc-in-the-games)).
+>
+> ⚠️ **USDC IS RETIRED. Real money now moves in SOL.** The §13 cutover runbook has been RUN and
+> `deploy/sql/sol-settlement-cutover.sql` applied: production config points at native SOL and
+> `SettlementCutoverUtc` is SET, so the pre-cutover guard below is live rather than inert. Treat any
+> doc, comment, env key or marketing line that still calls USDC the stake as **stale copy to fix**,
+> not as a description of a second supported asset — the platform settles in exactly one.
 >
 > ⚠️ **This replaced the settlement transport, not just the ticker.** Everything that moves money —
 > the SPA's transfer builder, payment validation, payouts, refunds, balance reads, Orbit custody —
