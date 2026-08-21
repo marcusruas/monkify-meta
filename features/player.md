@@ -34,6 +34,11 @@ filtering, per-round bet limits and self-exclusion off. **Anonymous free bets de
   ⚠️ **Exception — free bets always count individually** (`Bet.Id`) even when they resolve to the same
   `Player`, so a single tester can start a game. See [`games.md`](games.md).
 - **Self-exclusion lives on this row** (`SelfExcludedAt` + `SelfExcludedUntil`) and is evaluated per bet,
+- **Referral attribution lives on this row too** (`ReferralCode` + `ReferredAt`) and is ⚠️ **written
+  only when NULL** — first-touch, never overridden, by the two handlers that already prove wallet
+  control. `ReferredAt` exists because this row is created by five different paths and can predate
+  attribution by days, so `CreatedDate` is not the acquisition date. See
+  [`referral-program.md`](referral-program.md).
   so an expiry needs no scheduled job. See [`legal.md`](legal.md).
 - **API/DTOs:** bet responses and SignalR events expose `externalPlayerId` (nullable).
 

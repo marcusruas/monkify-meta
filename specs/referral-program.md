@@ -1,6 +1,6 @@
 # SpaceStroker — "Referral Program" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-21** (merged via `feature/referral-program`) — refined via Trello card
 > [#175 Referral program](https://trello.com/c/GPgZJksn/175-referral-program) (2026-08-20).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 >
@@ -9,6 +9,9 @@
 > through it — Orbit auto-bets included — is stamped with that partner's code, so a report can total
 > what that traffic wagered and the partner is paid a configured share of it **by hand**. The house
 > commission is raised **1% → 2%** in the same card to fund the programme.
+>
+> Distilled in [`../features/referral-program.md`](../features/referral-program.md). Superseded in part
+> by Trello #177, which replaces §3 decision 5 ("report only") with an automated partner cash-out.
 
 ---
 
