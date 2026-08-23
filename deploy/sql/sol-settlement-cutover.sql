@@ -4,6 +4,11 @@
 -- Run ONCE, by hand, immediately after deploying the SOL configuration.
 -- See monkify-meta/specs/sol-settlement.md §13 for the full runbook.
 --
+-- ⚠️ SUPERSEDED FOR COSMIC SPRINT (2026-08-23). This script is kept as the RECORD OF WHAT WAS RUN
+--    at the SOL cutover, so its values are deliberately left at 0.02 / 0.02 / 0.1. Cosmic Sprint
+--    now prices at 0.01 — re-running this file as-is would silently put it BACK to 0.02. Use
+--    deploy/sql/cosmic-sprint-reprice.sql instead, and treat this one as history.
+--
 -- ⚠️ WHY THIS IS SQL AND NOT CODE. Game types are seeded CREATE-ONLY BY NAME: the startup
 --    seeder inserts a type when no row with that name exists and never rewrites an existing
 --    one, which is what stops a restart resurrecting an admin-deactivated type or mutating a

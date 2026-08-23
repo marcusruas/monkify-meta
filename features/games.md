@@ -93,10 +93,17 @@ ships — there is one catalogue and one deployment:
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
 All: min 2 players, duplicates allowed, settled in the single configured asset — **native SOL** since
-2026-08-20 (see [`sol-settlement.md`](sol-settlement.md)). Prices: **Cosmic Sprint 0.02**, **Beast Mode
-0.02**, **Space Jackpot 0.1**. ⚠️ Seeding is create-only by name and there is **no `RequiredAmount`
-self-heal**, so a re-price reaches a FRESH install only; an existing database needs
-`deploy/sql/sol-settlement-cutover.sql`. **Seeding never
+2026-08-20 (see [`sol-settlement.md`](sol-settlement.md)). Prices: **Cosmic Sprint 0.01** (re-priced
+from 0.02 on 2026-08-23), **Beast Mode 0.02**, **Space Jackpot 0.1**. ⚠️ Seeding is create-only by
+name and there is **no `RequiredAmount` self-heal**, so a re-price reaches a FRESH install only; an
+existing database needs a hand-run script — `deploy/sql/cosmic-sprint-reprice.sql` for the
+2026-08-23 price, `deploy/sql/sol-settlement-cutover.sql` for the original SOL cutover. ⚠️ The DB
+row and the 12h `ActiveParameters` Redis blob must move **together**: the row is what validates a
+bet (`BetDomainService.ChoiceIsValidForGame`, off `GameService.GetGameById` — the DB, not the
+cache), the blob is what the browser quotes, and while they disagree every UI bet is refused as
+`InvalidAmount` **after its SOL already moved on-chain**. Only a **Consumers boot** clears that key
+in production — both invalidating handlers are admin-only and no admin token can be minted there.
+**Seeding never
 rewrites an existing row** — a type is inserted only when no row with that name exists, so a restart
 cannot resurrect an admin-deactivated type or mutate one under a live round. The exceptions are the
 **three named startup self-heals**, which reconcile **one field each** and never touch anything else
