@@ -12,7 +12,8 @@
 ## What it does
 
 Every game settles in **native SOL** instead of the SPL token it used to (mainnet USDC). A ticket is
-**0.02 SOL** on Cosmic Sprint, **0.1 SOL** on Space Jackpot, and **0.02 SOL** on the gated Beast Mode.
+**0.01 SOL** on Cosmic Sprint (0.02 at the cutover; re-priced 2026-08-23), **0.1 SOL** on Space
+Jackpot, and **0.02 SOL** on the gated Beast Mode.
 Stakes leave the player's wallet as an ordinary lamport transfer and winnings arrive the same way —
 no mint, no associated token account, nothing to unwrap.
 
