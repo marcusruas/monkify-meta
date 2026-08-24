@@ -87,7 +87,7 @@ netReward  = winnerReward − commission
 
 - **Badges only, all rendered live from the backend.** `GameStatsPanel.vue` (the `/game` STATS tab) and
   `GameStatsPage.vue` (`/game/stats`) interpolate `ActiveGame.commissionPercentage` /
-  `GlobalStats.commissionPercentage`, so they read `"2% HOUSE CUT"` today and `"0% HOUSE CUT"` at a zero
+  `GlobalStats.commissionPercentage`, so they read `"5% HOUSE CUT"` today and `"0% HOUSE CUT"` at a zero
   rate. **A rate change is zero frontend work.**
 - ⚠️ **There are FIVE hand-written rate figures, and a rate change must move ALL of them.** (#175 found
   five, not the four recorded here before — `GuideToken.vue` names it **twice**, in a row title and in
@@ -98,8 +98,8 @@ netReward  = winnerReward − commission
   | --- | --- | --- |
   | Terms page (LP) | `monkify-lp/src/pages/terms.astro` | A **legal document**. It was once found stating 0.5% after the rate moved to 1% |
   | The manual, payout section | `monkify-front/.../GuideWhatYouWin.vue` | Since **2026-08-12** — it used to name no number |
-  | The manual, token section — **row title** | `monkify-front/.../GuideToken.vue` | `THE 2% HOUSE CUT BUYS THE COIN` |
-  | The manual, token section — **row body** | `monkify-front/.../GuideToken.vue` | "The game takes 2% of what you win above your own stake" |
+  | The manual, token section — **row title** | `monkify-front/.../GuideToken.vue` | `THE 5% HOUSE CUT BUYS THE COIN` |
+  | The manual, token section — **row body** | `monkify-front/.../GuideToken.vue` | "The game takes 5% of what you win above your own stake" |
   | The LP token section + home card | `monkify-lp/.../TokenSection.vue`, `monkify-front/.../HomeTokenCard.vue` | Same mechanic sentence |
 
   ⚠️ **Do NOT blanket find-and-replace the rate.** `monkify-lp/src/constants.ts` (`"1% per $100M of
@@ -175,7 +175,7 @@ was never returned) and there was no way to force one.
 | --- | --- |
 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `CommissionForWinner` in `CalculateRewardForBet`; materialized `Winners`; `PayableWinnerCount`; `CalculateRefundForInvalidBet` / `CalculateRemainingBetPayout` |
 | `SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` | `CommissionPercentage` |
-| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`2.0`** — the production rate, not a mock |
+| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`5.0`** — the production rate, not a mock |
 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` · `GlobalStatsDto` | Rate pass-through for the badges |
 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credits `rewardResult.Value` via the payment strategy |
 | `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` | The 12h sweep |

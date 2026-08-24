@@ -1,6 +1,16 @@
 # Space Stroker — "Partner earnings page (referral cash-out)" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` via `feature/referral-cash-out` on **2026-08-24**.
+>
+> ⚠️ **Two deviations from this spec shipped, deliberately.** (1) Partners are a
+> **`ReferralPartners` table with an `Active` column**, not `GeneralSettings:Operator:Referrals`;
+> `DefaultPartners` remains only as a create-only startup seed, and the duplicate-code and
+> duplicate-`PayoutWallet` guards are **UNIQUE indexes** instead of startup throws (§ below still
+> describes the throws — read them as the *intent*, satisfied now by the database). (2) The same
+> branch raised the **house cut 2% → 5%**, which card #177 lists as out of scope.
+> See [`../features/referral-cash-out.md`](../features/referral-cash-out.md) for current truth.
+>
+> Originally refined via Trello card
 > [#177 Partner earnings page (referral cash-out)](https://trello.com/c/FRzhCu07/177-partner-earnings-page-referral-cash-out)
 > (2026-08-21).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc + the deploy stack in `monkify-meta`.
@@ -247,10 +257,11 @@ erDiagram
     }
 ```
 
-⚠️ **`ReferralCashOut.ReferralCode` carries no foreign key** and cannot: partners live in
-`GeneralSettings:Operator:Referrals`, not in a table ([#175 chose config because no admin token can be
-minted in production](../features/admin-and-ops.md)). The code is joined the same way
-`Bet.ReferralCode` is.
+⚠️ **`ReferralCashOut.ReferralCode` still carries no foreign key**, even though partners are
+now a table (`ReferralPartners`, #177). That is deliberate rather than leftover: the column is a
+historical record of what a bet was attributed to **at the time it was placed**, and a partner row
+has to stay deletable and renameable without rewriting settled money. The code is joined the same
+way `Bet.ReferralCode` is.
 
 ---
 
@@ -404,19 +415,24 @@ public ReferralSettings? ResolveByWallet(string? wallet);
 public ReferralSettings? ResolveSettings(string? rawCode);
 ```
 
-⚠️ **A duplicate `PayoutWallet` throws at startup**, with the same shape as the duplicate-code throw:
+⚠️ **A duplicate `PayoutWallet` is rejected by the database**, as is a duplicate code.
 
-```
-Duplicate referral payout wallet '<wallet>' in GeneralSettings:Operator:Referrals.
-One wallet must map to exactly one code — a partner running two campaigns needs a second wallet.
-```
+Both were startup throws in `ReferralDirectory` while partners were config, because config had
+nowhere else to catch them. Partners are the `ReferralPartners` table now (#177), so the guards are
+`IX_ReferralPartners_NormalizedCode` (UNIQUE) and `IX_ReferralPartners_PayoutWallet` (UNIQUE,
+filtered `"PayoutWallet" IS NOT NULL`) — the bad row cannot be written at all.
 
 Unlike a malformed *code* (skipped, because it is inert), a duplicate wallet is **not** inert: it
 makes `ResolveByWallet` ambiguous on the money path, and the alternatives are aggregation (a payment
 split across rows, dragging the cooldown and the unique index with it) or first-match-wins (the second
-partner's earnings silently unreachable). Registration is already
-`services.AddSingleton(new ReferralDirectory(settings.Operator.Referrals))` in
-`SpaceStroker.Infrastructure/DependencyInjection.cs`, so the throw fails the host at boot.
+partner's earnings silently unreachable).
+
+⚠️ The in-memory throws are **gone, deliberately**. With the index enforcing it, throwing as
+well would only mean one row the database already rejected could take down every host; the snapshot
+resolves first-wins instead. Registration is now
+`services.AddScoped<IReferralDirectoryProvider, ReferralDirectoryProvider>()` in
+`SpaceStroker.Infrastructure/DependencyInjection.cs` — scoped, not a singleton, because a
+boot-time snapshot would make the `Active` column unusable without a restart.
 
 ⚠️ A partner whose `PayoutWallet` is blank (the committed mock is a placeholder string, not empty) is
 simply absent from the wallet index — not an error, and not a match for anyone.
