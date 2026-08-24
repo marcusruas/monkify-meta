@@ -995,8 +995,34 @@ const onVisibilityChange = () => {
   [background-lifecycle-hardening](../features/frontend-ux.md) for what "repair the
   paused transition" cost.
 
-Used by: `useIdleDisconnect.ts`, `useTokenBalance.ts`, `useGame.ts` (`gradualSpeedReset`),
-`GameBackground.vue`, `TorpedoSpawner.vue`.
+- **A deadline that stages state across rounds must be stamped with the round it belongs to.** A
+  throttled tab can evaluate late, and a step-down applied into a round that has already started drives
+  the wrong animation. `useGame.gradualSpeedReset` stamps `speedResetGameId` and
+  `evaluateSpeedReset` drops the deadline when the round is gone. Fix this at the ARM site, not in the
+  watcher that consumes it — a guard at the far end hides the next regression in the source.
+
+Used by: `useIdleDisconnect.ts`, `useTokenBalance.ts`, `useGame.ts` (`gradualSpeedReset`, and the
+**round rollover** — deadline + 500 ms ticker + `visibilitychange`, see
+[`game-mode-ux.md`](../features/game-mode-ux.md)), `GameBackground.vue`, `TorpedoSpawner.vue`.
+
+## A timer's CARDINALITY must not be a property of the layout
+
+If a component can be mounted more than once, any timer, deadline or one-shot inside it runs once **per
+mount** — and how many mounts exist is a question about breakpoints, not about the behaviour.
+
+`GameConsole.vue` is mounted by `GameTerminal` on desktop **and** by `GamePage` on mobile in two
+breakpoint-gated places. Its round-rollover timer therefore fired up to three times, which nothing in
+the component made visible. Moving the *decision* into `useGame` module scope behind a **register-once
+flag** (the `moneyWiringDone` / `idleWiringDone` / `rolloverWiringDone` pattern) makes the cardinality a
+property of the tab instead.
+
+- **The component keeps the presentation, the composable owns the decision.** `GameConsole` still plays
+  the lever; it watches a `rolloverCount` the composable bumps.
+- **Register-once inside the composable is safe** when everything the closure touches is module-scope
+  state — capturing the first consumer's closure is then not a leak. Say so in a comment, as
+  `useGame`'s money wiring does.
+- **A manual trigger and its automatic counterpart must be the same function**, or they diverge. The
+  lever calls the same `triggerRollover` the deadline does.
 
 ## Global effects driven by a tab-scoped singleton need a ROUTE gate, at the consumer
 

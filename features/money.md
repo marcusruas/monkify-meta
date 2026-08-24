@@ -110,7 +110,40 @@ netReward  = winnerReward − commission
   panel for their mode's live rate. ⚠️ **The token copy does not and cannot**: a buyback funded by "a
   small cut" is not a claim anyone can check. That is the cost of naming the mechanic. See
   [`token-launch.md`](token-launch.md).
-- **No terminal line, no lobby-card change.**
+- **No lobby-card change.** ⚠️ **There IS a terminal line as of 2026-08-24** — see §3 below. It states
+  the **net a winner was paid**, not the rate, so it needs no update when the rate moves.
+
+## 3. What the player is told they were paid
+
+Shipped with [`game-mode-ux.md`](game-mode-ux.md) (2026-08-24).
+
+- The reward-completed status event carries **`netRewardPerWinner`** — the NET a single **paid** winner
+  received after the cut, i.e. what actually moved. The terminal prints it as **`> PAID:`** under
+  `> PAID TO:`, and the win toasts show the same figure.
+- It is **captured from the payout loop**, never re-derived on the client. Re-deriving it in TypeScript
+  from pot/winners/rate was explicitly rejected: it would duplicate `BetDomainService` (free-bet
+  `PayableWinnerCount`, lottery `houseFundedShare`, 9-dp truncation) and drift silently the next time
+  payout math changes.
+- **Uniform across paid winners by construction**, which is the only reason one figure can go to the
+  whole game group without leaking anything. Pinned by
+  `BetDomainServiceTests.EveryPaidWinnerInARound_ReceivesTheIdenticalNetAmount`.
+- **Null whenever nothing was paid** — free-bet-only round, nobody won, pre-cutover, or
+  `ErrorWhenProcessingRewards`. The line is then **absent entirely**; it never prints `0`.
+- ⚠️ An errored round publishes null **even when one winner was really paid**. Deliberate: the money is
+  in the ledger, but the round does not make a payout claim it cannot make for every winner.
+
+### Display precision — three, on purpose
+
+| Surface | Places | Formatter |
+| --- | --- | --- |
+| Pot, lobby card price, Orbit panel, everything else | **2** (`DP`) | `formatSol` |
+| Header balance pills | **max 3** | `formatCompact` |
+| `> PAID:` and both win toasts | **max 4** | `formatPayout` |
+
+All three **truncate, never round** (a displayed figure is therefore always ≤ the real one), and each
+keeps a significant-digit escape. ⚠️ **The escape floor must match the places**: `formatSol` escapes
+only below `0.01`, which is exactly why a `0.0296` payout used to render `0.02`. **Global `DP` stays 2**
+— raising it app-wide is what once put `0.5656` in the header pill.
 
 ### The multi-winner division fix (shipped alongside)
 

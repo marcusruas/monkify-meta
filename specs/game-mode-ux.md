@@ -1,6 +1,15 @@
 # SpaceStroker — "Improve UX in game mode" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED 2026-08-24** — merged to `main` via `feature/game-mode-ux` in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled into [`../features/game-mode-ux.md`](../features/game-mode-ux.md),
+> which is the doc to read on an ordinary task; this spec stays the deep design archive.
+>
+> ⚠️ **Two things below are stale as shipped** — see §16:
+> 1. §14 AC #9's worked example assumes a **2%** house cut. The live rate is **5%**, so that round pays
+>    **0.029**, not `0.0296`. Nothing in the code hardcodes a rate.
+> 2. AC #14 was **amended at ship time**: the **header balance pills are 3dp**. Global `DP` is still 2.
+>
+> Originally refined via Trello card
 > [Improve UX in game mode #180](https://trello.com/c/GAVPRzf1/180-improve-ux-in-game-mode) (2026-08-23).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc + the deploy config in `monkify-meta`.
 >
@@ -923,3 +932,4 @@ Copied 1:1 from the Trello **Acceptance Criteria** checklist (26 items).
 | Date | Change |
 | --- | --- |
 | 2026-08-23 | Initial spec from refined card #180 + code exploration (12 findings in §12) |
+| 2026-08-24 | **Shipped.** Deviations from this spec, all deliberate: (1) the house cut is **5%**, not the 2% §14 assumes — every test derives from the configured rate, so only the worked example was wrong; (2) the consumer unit tests went into `UnitTests/Background/RewardWinnersHandlerTests.cs`, which already owned the paid-path harness §11.1 proposed building from scratch in `UnitTests/Consumers/`; (3) C# forbids optional arguments in expression trees, so ~25 existing Moq `Setup`/`Verify` sites needed the 4th argument spelled out — §6.3 implied they would keep matching; (4) `GameStatus.GameEndedAbruptely` (9) was missing from the **front** enum entirely and was added, which §7.4 assumed already existed; (5) `GameStatusEvent.startDate` is nullable on the wire but `GameInstance.startDate` is `string \| undefined`, so the read coerces with `?? undefined` — the untyped `JSON.parse` had been writing `null` straight in; (6) **header balance pills moved to 3dp** (owner's call at ship time, amending AC #14) via `formatCompact`, whose only callers are those pills — global `DP` stays 2. |

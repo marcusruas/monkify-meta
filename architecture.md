@@ -176,7 +176,10 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 - Clients join a per-game group (`JoinGame`). During a run, the typer streams:
   - `…/Terminal` — batched characters,
   - `…/DisplaySpeed` — current typing speed,
-  - `…/Status` — game status transitions (incl. winners on `Ended`),
+  - `…/Status` — game status transitions (incl. winners on `Ended`, and — since 2026-08-24 — a
+    `result` on `RewardForWinnersCompleted` too, carrying `netRewardPerWinner`: the net a single **paid**
+    winner received, captured from the payout loop by `RewardGameConsumer` and null when nothing was
+    paid. Built in `SpaceStroker.Consumers`; the API gains nothing),
   - `{gameId}/ChatMessage` — per-game chat (`SendChatMessage` on the same hub/group),
   - `{gameId}/Bets` — each new bet, published by `BetNotificationConsumer`,
   - and the `GameReceived` broadcast (`Clients.All`) announcing the next round.
