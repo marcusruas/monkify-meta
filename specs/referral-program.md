@@ -447,6 +447,35 @@ route and every entry (a partner may paste a link to any page).
 
 ⚠️ Strip with `history.replaceState` so there is no reload and no navigation entry.
 
+### 7.2a `monkify-front` — carrying it into a wallet's in-app browser
+
+The stash in §7.2 is bound to **one browsing context**. Opening the game inside a wallet's own
+browser is a jump to another one with its **own `localStorage`**, so the stash does not travel — and
+because §7.2 has already stripped `ref` from the address bar, the URL handed to the wallet carries
+nothing either. The player connects, bets, and the partner is never credited.
+
+**`src/utils/walletDeepLink.ts`** — re-attach the code to the URL given to the wallet:
+
+```ts
+// Puts ?ref=<code> back on the target so the fresh context can capture it. Used by
+// openInWalletBrowser() (all 7 browse wallets) and openInWalletApp().
+export function withReferral(url: string): string;
+```
+
+- Applied at the **one place the browse target is built**, so every wallet in `WALLET_BROWSE_LINKS`
+  and the Tier-1 "open in app instead" fallback inherit it — no per-wallet branch to forget.
+- ⚠️ **Browse links only.** The Phantom/Solflare deeplink **protocol** hop (`useMobileWallet`'s
+  `redirectLink()`) returns to the *same* browser, where the stash never left; a code there would
+  merely re-dirty the address bar the strip just cleaned.
+- ⚠️ An `ref` **already on the URL is not clobbered** — an explicit one is more specific than the
+  stash.
+- Reads through `readReferral()`, so the 30-day window, the shape check and the `try`/`catch` all
+  apply unchanged: an expired or malformed stash carries nothing, and `localStorage` throwing degrades
+  to "no referral" rather than a broken connect.
+- The wallets' own `?ref=<dApp origin>` sits on the **outer** wallet URL while ours rides inside the
+  percent-encoded inner URL, so the two never collide:
+  `https://phantom.app/ul/browse/http%3A%2F%2F…%3Ftype%3Dabc%26ref%3Dmock-partner?ref=http%3A%2F%2F…`
+
 ### 7.3 Sending it — one place, not four
 
 `useGame.ts` builds a `BodyGameBet` at **four** sites (free bet, paid bet, and two mobile-deeplink

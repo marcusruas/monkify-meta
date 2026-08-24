@@ -264,6 +264,14 @@ wallet does **not** broadcast; we do (§7.3). On user reject/error the wallet ap
 Opening one navigates the user into that wallet's in-app browser on the current game URL, where the
 injected provider exists and `sendToken` works unchanged (same as today's `openInWalletApp`, generalized).
 
+⚠️ **The in-app browser is a different browsing context with its own `localStorage`** — anything the
+SPA stashed in the player's normal browser does **not** travel with them. Whatever the fresh context
+needs has to ride on the **URL**. Today that is the referral code: `openInWalletBrowser` passes the
+target through `walletDeepLink.withReferral()`, which re-appends `?ref=<code>` (see
+[`referral-program.md`](referral-program.md) §7.2a) because referral capture has already stripped it
+from the address bar. Anything future that is stashed pre-connect and needed post-connect has the
+same problem and needs the same treatment.
+
 **`redirect_link` builder (Tier 1):** builds the return URL to the self-healing return route; on Android,
 emits the **`intent://`** form (decision 13).
 

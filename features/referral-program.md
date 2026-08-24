@@ -113,6 +113,20 @@ good at.
   parameters and the hash.
 - ⚠️ **The SPA validates shape only** (`[a-z0-9_-]`, 1–32 chars); membership is the backend's call.
   Publishing the allowlist to the browser would expose every partner's code and name.
+- ⚠️ **There is a SECOND hop, and the strip above is what makes it dangerous.** Opening the game in a
+  wallet's in-app browser (`openInWalletBrowser`, the Tier-2 path and the Tier-1 "open in app
+  instead" fallback) is a jump into a **different browsing context with its own `localStorage`** — the
+  stash does not travel. Because capture already removed `ref` from the address bar, handing the
+  wallet a bare `window.location.href` arrived with **nothing**, so every player who connected that
+  way was unattributed. `walletDeepLink.withReferral()` re-appends `?ref=<code>` to the URL given to
+  the wallet; the webview boots the SPA, `captureFromUrl()` stashes it in **that** context and strips
+  it again. On Android this is the default route for the Tier-1 wallets, so it was most of mobile,
+  not an edge case.
+- ⚠️ The re-append is for the **browse** links only. The Phantom/Solflare deeplink **protocol** hop
+  (`useMobileWallet`'s `redirectLink()`) returns to the *same* browser, where the stash never left —
+  adding a code there would only put back in the address bar what the strip just cleaned. Note the
+  browse links carry their own `?ref=<dApp origin>` on the **outer** wallet URL; ours rides inside the
+  percent-encoded inner URL, so the two never collide.
 - The code is attached **centrally** in `mainService.applyBet` and `orbitService.createOrbitSession`,
   never at the call sites: ⚠️ `useGame.ts` builds a bet body in **four** places, two of them
   mobile-deeplink resume paths that rebuild it after a round trip through the wallet app.
