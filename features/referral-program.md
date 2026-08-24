@@ -58,14 +58,32 @@ good at.
 - The stamp is denormalized on purpose — it **freezes** each bet's attribution at placement, so a
   future change to the attribution policy cannot move history a partner was already paid on.
 
-### Partners are config, and an unknown code is silent
+### Partners are a TABLE with an `Active` column, and an unknown code is silent
 
-- `GeneralSettings:Operator:Referrals` holds `{ Code, DisplayName, SharePercentage, PayoutWallet }`
-  per partner. Empty or absent ⇒ the programme is **inert**: every code is unknown and nothing is ever
-  written. That is what every dev stack and the development GCP environment carry.
-- Config rather than a table because ⚠️ **no admin token can be minted in production**
-  ([`admin-and-ops.md`](admin-and-ops.md)), so an admin-managed list would be unreachable exactly
-  where it is needed. Onboarding a partner is a config edit plus a redeploy of both hosts.
+- **`ReferralPartners`** holds `{ Code, NormalizedCode, DisplayName, SharePercentage, PayoutWallet,
+  Active }` per partner. `NormalizedCode` is UNIQUE; `PayoutWallet` is unique **filtered on NOT
+  NULL**, so many partners may sit at "not set up to be paid yet" at once. Those two indexes are
+  the guards that used to be startup throws in `ReferralDirectory`.
+- ⚠️ **This replaced config (#177).** #175 put the whole programme in
+  `GeneralSettings:Operator:Referrals` because no admin token can be minted in production
+  ([`admin-and-ops.md`](admin-and-ops.md)). That never actually reached production: the key was
+  never added to `base_secret_ids`/`base_secret_env` in `deploy/terraform/workload/main.tf`, so a
+  deployed environment only ever saw the committed MOCK partner. Hand-run SQL against the table
+  reaches production; a config edit did not.
+- `GeneralSettings:Operator:DefaultPartners` survives only as a **create-only seed**, run at
+  Consumers startup exactly like `DefaultGames`. ⚠️ An existing row is never rewritten from
+  config, so a restart cannot resurrect a deactivated partner or move a `SharePercentage` /
+  `PayoutWallet` out from under money already earned. A `MOCK_` wallet is seeded as NULL.
+- ⚠️ **`Active` gates ATTRIBUTION ONLY.** Turning a partner off stops new bets carrying their
+  code — including bets from players **already** referred to them, because the bet path
+  re-resolves the player's stored code through the directory rather than copying it — so their
+  turnover stops growing. It touches **no history**: earlier bets keep their code, the balance
+  stays payable, and the partner can still sign in and cash out. Refusing to pay an earned
+  balance would be a liability, not an off switch.
+- The directory is served by `IReferralDirectoryProvider`, which caches the whole table for
+  **60s** (`ReferralPartners` key). ⚠️ That cache is what keeps attribution off a
+  per-bet query, and it bounds how long a just-deactivated partner keeps earning: up to one
+  minute. Seeding and any write call `Invalidate()`.
 - `ReferralDirectory` is the only place a raw code is resolved. It **fails closed** — null, blank,
   malformed, over-length and not-configured all resolve to null, which downstream means "not
   referred", never an error. ⚠️ A caller must not be able to probe which codes exist

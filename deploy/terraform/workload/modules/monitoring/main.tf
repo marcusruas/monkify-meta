@@ -172,6 +172,85 @@ resource "google_logging_metric" "armor_preview" {
 # not names — name_prefix scopes resource names and does nothing for billing — and per-module label
 # coverage is unverified. A partial label filter would UNDER-report spend, which is worse than a
 # project-wide budget that over-reports.
+# --- Referral payout solvency (#177) -----------------------------------------------
+#
+# ⚠️ THE FIRST ALERT POLICY IN THIS MODULE. Everything before it charts or measures; nothing paged
+# anyone. It exists because the referral payout account can run dry INDEPENDENTLY of a perfectly
+# healthy treasury: it is a separate keypair, funded by hand, and when it empties the only symptom is
+# a partner pressing Cash out and being told "temporarily unavailable". Without this the first
+# report comes from the partner.
+#
+# ⚠️ Production's log floor is Warning, so the consumer logs this refusal at ERROR deliberately —
+# Log.Information would never reach Cloud Logging at all (features/infra.md).
+#
+# NOTE: the uptime checks above still alert NOBODY. That is a real gap and a separate card; it is not
+# quietly fixed here, because bundling it would hide it.
+resource "google_logging_metric" "referral_payout_blocked" {
+  count   = local.enable_channel ? 1 : 0
+  name    = "${var.name_prefix}-referral-payout-blocked"
+  project = var.project_id
+  filter  = <<-EOT
+    resource.type="cloud_run_revision"
+    resource.labels.service_name="${var.name_prefix}-consumers"
+    severity>=ERROR
+    jsonPayload.message:"referral payout account has"
+  EOT
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+    unit        = "1"
+  }
+}
+
+resource "google_monitoring_alert_policy" "referral_payout_blocked" {
+  count        = local.enable_channel ? 1 : 0
+  project      = var.project_id
+  display_name = "${var.name_prefix} referral payout account is below its solvency floor"
+  combiner     = "OR"
+
+  documentation {
+    content   = <<-EOT
+      A partner cash-out was REFUSED before signing because the referral payout account could not
+      cover it and stay above MinimumSolBalance.
+
+      The withdrawal was reversed, so the partner's balance is intact and they can press again — but
+      until the account is topped up every cash-out will keep failing the same way.
+
+      The guard is pool-aware: it compares (balance - what is owed to ALL partners - the amount about
+      to be sent). A balance that "looks fine" can still trip it, because the money owed sits in the
+      very balance being read.
+
+      Fix: fund the account at GeneralSettings:Operator:Token:ReferralPayout:PublicKey.
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  conditions {
+    display_name = "A referral cash-out was refused for solvency"
+
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/${google_logging_metric.referral_payout_blocked[0].name}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.ops[0].id]
+
+  alert_strategy {
+    # A dry account stays dry until someone funds it, so re-notifying every half hour is noise. This
+    # closes the incident once the refusals stop, which is the signal that the top-up worked.
+    auto_close = "1800s"
+  }
+}
+
 resource "google_billing_budget" "spend" {
   count           = local.enable_budget ? 1 : 0
   billing_account = var.billing_account_id
