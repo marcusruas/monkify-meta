@@ -8,6 +8,17 @@
 > Those two docs have the **copy**. This doc has the **targets** they deferred. Nothing here was written
 > from memory — every row was opened during the 2026-07-26 pass and records what that page actually showed.
 
+> ⚠️ **Two corrections added 2026-08-27** — read before using this doc.
+>
+> 1. **The product facts below are stale.** This doc says "token-free: USDC on Solana". Settlement is now
+>    **native SOL**, the house cut is **5%**, and a pump.fun launch token exists as UI. Re-check
+>    `features/money.md` and `features/token-launch.md` before pasting any pitch line from here.
+> 2. **For paying partners, use [`referral-partners.md`](referral-partners.md) instead.** This doc is where
+>    we go to **post**; that one is who we **pay** (referral `?ref=` codes). It also supersedes §5.7's
+>    premise for outreach: a 2026-08-27 pass found that the large Slots & Casino creators listed there
+>    publish a **rival casino's affiliate code in their own bio** (Stake / Shuffle / Gamdom), so they are
+>    not winnable as referral partners at any rate we can offer.
+
 ---
 
 ## 0. How to use this doc (60-second runbook)
