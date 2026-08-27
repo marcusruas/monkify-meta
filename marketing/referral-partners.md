@@ -24,13 +24,17 @@
    the ones worth having are contractually tied to Stake / Shuffle / Gamdom and publish that casino's
    code in their bio. We cannot outbid them and they cannot take us.
 2. **The realistic pool is small crypto-native accounts (1k–30k) whose audience already holds SOL** —
-   §3, Tier 1. Their followers can play in one click; a slots-stream audience mostly cannot.
-3. **Offer 1.0% of turnover.** §1 derives the ceiling: above ~2.5% we pay a partner more than their
-   traffic earned us. ⚠️ The rate is **permanent per code** — you cannot raise it later without
-   re-pricing their whole history.
-4. **Lead the DM with the payout page, not the game.** Self-serve SOL cash-out at `/partner` is the
-   part no competitor affiliate programme has (§4).
-5. Onboarding a partner is a **hand-run SQL insert** — production ships with zero real partners (§5).
+   §3.1, Tier 1 — **plus the 1.3k–4.6k Kick streamers in §3.1b**, who were found by mining a good fit's
+   follow graph rather than by keyword search. One of them has "Dm me for business" in their bio.
+3. **Offer 1.0% of turnover, ceiling 1.5%.** §1 derives the hard limit: above ~2.5% we pay a partner
+   more than their traffic earned us. ⚠️ The rate is **permanent per code** — you cannot raise it later
+   without re-pricing their whole history.
+4. ⚠️ **Never write "1%" in a DM. Write "~40% revenue share."** Same money — but rivals quote 25–60% of
+   NGR, so the turnover number reads as an insult until you convert it (§1).
+5. **Two things genuinely beat Rainbet and Shuffle**, and both are true: we pay **even in months the
+   referred players win** (turnover basis, so no zero months), and cash-out is **self-serve on demand**
+   rather than daily-at-best (§1, §4).
+6. Onboarding a partner is a **hand-run SQL insert** — production ships with zero real partners (§5).
 
 ---
 
@@ -61,9 +65,43 @@ Commission is `rate × (winnerReward − ownStake)`. With `N` players and one wi
 | 5 players | 4.0% | 4.0% |
 | Large lobby | → 5.0% | → 5.0% |
 
-**Use 2.5% as the hard ceiling** — it is the worst case, and heads-up rounds are common. **Offer 1.0%**
-and keep the headroom. 1% of turnover is a genuinely competitive affiliate number because it is paid on
-*volume*, not on net losses.
+**Use 2.5% as the hard ceiling** — it is the worst case, and heads-up rounds are common. **Offer 1.0%**,
+with **1.5% as the negotiating ceiling** for a partner worth stretching for.
+
+### ⚠️ Never say "1%" in a DM — say "≈40% revenue share"
+
+This is the single most important line in this document. The market these people know quotes
+**percentage of NGR (net gaming revenue — the house's profit)**, not of turnover. Verified competitor
+terms, 2026-08-27:
+
+| Programme | Headline rate | Basis | Carryover | Payout |
+| --- | --- | --- | --- | --- |
+| **Rainbet Partners** | **25%–60% revshare** | not stated publicly | **no negative carryover** | not stated |
+| **Shuffle** | base **10% of net revenue from the house edge**; performance tiers **25%–45%** by FTD volume | NGR (casino); **3% of amount wagered** on sports | **no negative carryover** | **daily**, no minimum |
+
+Against that board, "1% of turnover" reads as an insult — a partner will compare it to "up to 60%" and
+stop reading. Convert it before you send:
+
+| Our offer (of turnover) | = share of our NGR, heads-up | = share of our NGR, large lobby |
+| --- | --- | --- |
+| **1.0%** | **40%** | 20% |
+| 1.5% | 60% | 30% |
+| 2.5% (ceiling) | 100% — break-even | 50% |
+
+So **1.0% of turnover is a ~20–40% revenue share** — mid-band against Rainbet and Shuffle. Quote it that
+way, and be ready to show the arithmetic if they ask.
+
+### The two things that genuinely beat the incumbents
+
+Both fall out of the turnover basis, and neither is marketing spin:
+
+1. **We pay even when their players win.** Rainbet and Shuffle both advertise "no negative carryover" —
+   but that only means a losing month resets to zero, and the partner still earns **nothing** that month.
+   Ours is computed on *volume*, so a partner earns on every wagered lamport regardless of outcome.
+   **There is no month where a referred, active audience pays them zero.** No competitor found can say that.
+2. **Cash-out is self-serve and on-demand.** Shuffle's *daily* payout is the best in the market per its
+   own review. Ours is whenever they press the button, straight to their wallet, no invoice and no
+   approval step.
 
 ⚠️ **The rate is effectively permanent.** `SharePercentage` is applied to all-time turnover on every
 cash-out, so editing it **re-prices history already paid on**. The ops rule is *do not re-rate a live
@@ -119,6 +157,29 @@ These are the ones to write to this week.
 | `RP-03` | [@Onchaingamblr](https://x.com/Onchaingamblr) | 1,775 | 78.9K posts, joined Aug 2023 | ✅ | Bio: "Degen. Gambler. I gamble on memes and myself." Extremely high posting volume for the follower count — an engaged niche account, cheap to win over. |
 | `RP-04` | [@RadTrades_](https://x.com/RadTrades_) | 27K | 22.7K posts, **followed by Ansem** | ✅ | Was posting unpaid-looking praise for MetaWin ("the best crypto casino and it's not even CLOSE") — **proven to promote crypto casinos to a crypto audience**. Biggest Tier-1 reach. Expect them to ask for cash on top of rev-share. |
 | `RP-05` | [@miladydegens](https://x.com/miladydegens) | 18.7K | 1,090 posts, joined Nov 2024, Telegram in bio | ✅ | "degen calls" — a calls channel with a Telegram. Pure degen audience that already signs Solana transactions. Lower quality of attention, but volume and a second surface (TG). |
+
+### 3.1b Tier 1 — **small** gambling streamers · found via the follower graph
+
+⚠️ **These are the real answer to "small gambling streamers", and the first pass missed all of them.**
+They were found by opening `x.com/swarmy007/following` — mining the follow graph of a good fit surfaces
+peers that keyword search never returns, because their bios say "KICK Streamer", not "crypto gambling".
+Use this technique first next time (§6).
+
+All three: **DMs open**, live or streaming within a day of the check, and small enough that a founder
+DM lands. They sit at **1.3k–4.6k Kick followers** — an order of magnitude below §3.3, and far more winnable.
+
+| id | Who | X | Kick | Status at check | Tied to | Why them |
+| --- | --- | --- | --- | --- | --- | --- |
+| `RP-11` | **PickleTime** | [@its_pickletime](https://x.com/its_pickletime) · **6,252** followers / 146 following · ✅ | [its_pickletime](https://kick.com/its_pickletime) · **1,300** | **LIVE** in Slots & Casino | Thrill (`thrill.com/?r=pickletime`) | ⚠️ **Bio literally says "Dm me for business."** An explicit invitation — start here. "Troll with the craziest gambling clips and news". Follower/following ratio of 43:1 means a real audience, not a follow-farm. |
+| `RP-12` | **LuckyW** | [@Luckyy_W](https://x.com/Luckyy_W) · **4,766** · ✅ | [luckyw](https://kick.com/luckyw) · **4,600** | offline, last live ~1 day before check | own `Luckywrewards.com` | **Runs their own rewards/affiliate site.** Already understands rev-share mechanics, so the §1 NGR conversation will land instead of confusing them. Own Discord. |
+| `RP-13` | **TeamML** | [@CodeML_](https://x.com/CodeML_) · **4,622** · ✅ | [teamml](https://kick.com/teamml) · **3,500** | **LIVE** in Slots & Casino | Shuffle (`!shuffle`, own `codeml.co`) | **Bachelor's in Marketing** and runs their own site + Discord — the most likely of the three to run a promo competently rather than mumble a code once. |
+
+> **On their existing casino ties:** at 1–5k followers these are ordinary affiliate signups, not the
+> six-figure exclusive contracts §2 documents. A second code alongside is normal at this size. Say so
+> explicitly in the DM.
+
+Also seen in the same graph and worth a look if the three above go cold: `@damyrage` (226 followers,
+"Fascinated by the gambling industry", DMs open) — too small today, but genuine.
 
 ### 3.2 Tier 2 — worth a message, with a caveat
 
@@ -180,6 +241,44 @@ Not partners; recorded because they turned up and matter.
   passwords. Just connect. Every bet is provably fair. PvP games you won't find anywhere else." Tiny
   today. Worth watching, and a reason not to sit on the wallet-first / provably-fair messaging.
 
+### 3.6 Twitch — ⚠️ a policy question that may be an opportunity, and needs a real answer
+
+Twitch's gambling policy (2022, still in force) **prohibits streaming slots, roulette and dice on sites
+not licensed in the US or an equivalently-regulated jurisdiction** — `stake.com`, `rollbit.com`,
+`duelbits.com`, `roobet.com` and `blaze.com` are named. Its Community Guidelines separately disallow
+content that **links or provides referral codes** for such sites. That ban is why the scene moved to Kick.
+
+⚠️ **Space Stroker is not a slot, a roulette or a dice game**, and sportsbook, poker and fantasy were
+explicitly left permitted. On a plain reading we may fall outside the prohibition — which would make us
+one of the few crypto-betting products a Twitch partner could feature at all, a genuine edge in a channel
+our competitors are locked out of.
+
+**Do not act on that reading yet.** `promotion-channels.md` §2 records that platform-ToS and gambling
+compliance research was **excluded by explicit user decision**, so nobody has actually checked this. It is
+the difference between an unusual opening and getting a partner's channel deleted. **Get a real ToS/legal
+read before pitching any Twitch streamer.**
+
+Directory state at check (2026-08-27): the `Slots` category still carried **53.8k concurrent viewers**
+across ~1.4M followers. Confidently read, English unless noted: **MitchJones** (5.7k viewers),
+**GODMOTA** (1.5k, Portuguese), **maisdochecka** (172, Portuguese), **SteroSlots** (63), **Shmeku** (6,
+running `!rainbet`). ⚠️ Beyond these the directory is a long tail of sub-100-viewer channels whose names
+my parse could not attribute to their viewer counts reliably — **deliberately not recorded** rather than
+guessed. Re-run by hand if Twitch clears legally.
+
+### 3.7 Telegram — ⚠️ not enumerated, and here is why
+
+**No entries.** Recorded as a shortfall, not padded.
+
+Telegram is where these deals actually close — it is the business contact in the bio of most accounts in
+§3 (`@Kryp_Toon`, `@miladydegens`, `@0xSweep`, `@swarmy007` all route business to `t.me/…`). But that
+makes it a **contact channel, not a discovery surface**: you find the person on X or Kick and *then*
+message their Telegram. There is no browsable directory to enumerate.
+
+`promotion-channels.md` §5.2 already ran the discovery attempt and came back short (6 of a target 8),
+concluding public Solana Telegram is "substantially a coordinated pump funnel". That finding stands; this
+pass did not re-litigate it. **Practical rule: when a target's bio lists a Telegram, use it** — a DM there
+is read by a human, where an X DM competes with fifty agency pitches.
+
 ---
 
 ## 4. The DM — what to actually send
@@ -196,17 +295,23 @@ settles in native SOL, no KYC.
 Not asking for a shoutout. We just shipped a partner programme and I'd rather give
 a code to someone whose audience already has a wallet than pay an agency.
 
-You'd get: your own ?ref= link, 1% of everything your players wager (their auto-bets
-included), and a /partner page where you connect your wallet, see what you've earned
-and cash out in SOL yourself. No invoices, no waiting on us.
+Terms are ~40% revshare, but paid on volume rather than on our profit — so unlike
+Rainbet or Shuffle, you still get paid in the months your players run hot. Their
+auto-bets count too.
+
+And you're not waiting on us to send it: you connect your wallet at /partner, see
+what you've earned, and cash out to SOL yourself whenever you want.
 
 Worth a look? Happy to set the code up and you decide after you see it pay.
 ```
 
 Why each line is there:
 - *"Not asking for a shoutout"* — separates us from the 40 agency DMs they got today.
-- *"their auto-bets included"* — Orbit really does keep earning them money passively. It is unusual and true.
-- *"cash out yourself"* — the differentiator. Do not bury it.
+- *"~40% revshare"* — the §1 conversion. **Never lead with "1%"**; they benchmark against "up to 60%".
+- *"paid on volume… you still get paid in the months your players run hot"* — the one thing no rival
+  programme can offer. Naming Rainbet and Shuffle proves you know their world.
+- *"their auto-bets count too"* — Orbit really does keep earning them money passively. Unusual and true.
+- *"cash out yourself"* — beats Shuffle's daily payout, the best in the market. Do not bury it.
 - *"you decide after you see it pay"* — a code costs us nothing; set it live and let the dashboard sell.
 
 **Adjust per tier:** for `RP-06` (DeFi analyst) drop "degen" framing entirely and lead with *provably
@@ -249,8 +354,30 @@ Everything here rots. Before using a row:
   (`/[\d.,]+\s*(mil|k)?\s*(seguidores|followers)/i`), not from the first lines of the card.
 - Kick's category slug is **`/category/slots`** (`/categories/slots-casino` 404s).
 
+### ⚠️ Discovery technique — do this first, it outperforms everything else
+
+**Mine the follow graph of a confirmed good fit** (`x.com/<handle>/following`), then filter the cells for
+`kick.com|twitch|gambl|casino|slot|bet|degen|wager`. Every entry in §3.1b came from one such pass on
+`@swarmy007` and **none** of them was reachable by keyword search — their bios say "KICK Streamer", not
+"crypto gambling". Keyword People-search mostly returns dead handles that squatted the obvious name
+(§3.4 is full of them: 47 followers, 1 post). Rank an account by **posts and follower/following ratio**,
+never by follower count alone.
+
+Order of operations that worked: follow-graph mine → profile-verify (followers, DM button, bio affiliate
+code) → size their Kick/Twitch channel → only then decide tier.
+
 ### Correction log
 
 - **2026-08-27** — created. Corrected two assumptions carried from `promotion-channels.md`: that large
   gambling streamers are approachable (§2 — they publish rival codes in-bio), and that its product
   facts still hold (USDC → **native SOL**, cut → **5%**).
+- **2026-08-27, second pass** — added §1's competitor rate board, §3.1b, §3.6 and §3.7 after the first
+  pass was challenged as incomplete. Three corrections to that first pass:
+  1. ⚠️ **"1% of turnover is competitive" was asserted without a benchmark.** It is defensible, but only
+     once converted to **~20–40% of NGR** against Rainbet's 25–60% and Shuffle's 25–45%. Un-converted it
+     would have killed every DM sent. The conversion table is now §1.
+  2. ⚠️ **The first pass found no genuinely small streamers** — its smallest was 15k Kick followers —
+     because it searched by keyword. The follow-graph technique above produced 1.3k–4.6k channels with
+     open DMs in a single pass.
+  3. **Twitch, Telegram and the follow graph were simply not covered.** Now §3.6, §3.7 and above —
+     Telegram still deliberately empty, with the reason stated.
