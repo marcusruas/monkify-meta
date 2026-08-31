@@ -92,6 +92,8 @@ knowingly-accepted cost is that the most prominent section on the page says "the
   concealment; framing it as the point of the section is what turns the number from a red flag into the
   pitch. **Since 2026-08-14 it is also *locked* — see §5**, which is the strongest claim either surface
   makes and the only one here that is chain-enforced.
+- ⚠️ **"The treasury" is 50% and "everything we hold" is 60% — since 2026-08-31 those are two different
+  numbers.** The team's 10% left the treasury for its own wallet; see §5.1.
 
 ## 5. ⚠️ The treasury is LOCKED — and this is newer than most of this file
 
@@ -107,16 +109,24 @@ treasury wallet both sites already publish** (`GqxF…qjme`).
 | Window | **2026-08-14 17:18 GMT-3 → 2027-08-13**, exactly **52** weeks |
 | Who can cancel / transfer | **No one** |
 
+- ⚠️ **WHAT THE LOCK COVERS CHANGED ON 2026-08-31, THOUGH THE 490M DID NOT.** It holds the **treasury**
+  — community and marketing. It does **not** cover the team's 10%, which now sits in its own wallet
+  (§5.1). Every sentence built on this block used to say the lock covered *"the whole treasury, the
+  team's slice included"*; **that sentence is now false and must not come back** — a Streamflow lookup
+  disproves it in one click. The 490M is unchanged because it was always the treasury's tokens.
 - ⚠️ **49%, NOT 50%, and both numbers stay.** The treasury lede still reads `~50% of the supply sits in
   the game treasury` and `TREASURY_SLICES` still sums to 50. 490M of 1B is 49%, and the ~1% difference
   is the part that was never streamed. The lock's figure is the one sitting directly under a *"go verify
-  it"* link, so it is stated exactly rather than rounded up to match the prose beside it.
+  it"* link, so it is stated exactly rather than rounded up to match the prose beside it. ⚠️ It is a
+  share **of total supply, not of the treasury** — 49 of the treasury's 50, never 98%.
 - ⚠️ **THE LOCK AND THE TEAM'S MARKET-CAP LADDER ARE TWO DIFFERENT RULES OVER TWO DIFFERENT SCOPES.**
-  Merging them is the mistake this section exists to prevent:
-  - the **weekly drip is chain-enforced** and covers the whole treasury, the team's slice included;
-  - the **ladder** (1% per $100M step) is a rule the team set **itself** over its own 10%. The
-    contract's recipient is the treasury wallet *as a whole* and cannot tell a team token from a
-    marketing one, so **nothing on-chain enforces the steps**.
+  Merging them is the mistake this section exists to prevent — and since the split they no longer even
+  overlap:
+  - the **weekly drip is chain-enforced** and covers the treasury: community and marketing, nothing else;
+  - the **ladder** (1% per $100M step) is a rule the team set **itself** over its own 10%, which now
+    sits **outside this contract** in its own wallet. **Nothing on-chain enforces the steps** — and that
+    caveat now carries more weight, not less: before the split the tokens were at least held by the
+    contract, and now they are in a plain wallet the team can move.
 - ⚠️ **The owner's 2026-08-12 line — *"this thing is not LITERALLY locked btw, it's our suggestion of
   what we wanna do"* — PREDATES the contract by two days and now survives ONLY as a statement about the
   ladder.** It is still quoted at `UNLOCK_STEP_PERCENT` and in `GuideToken.vue`, scoped there. **Do not
@@ -136,6 +146,48 @@ treasury wallet both sites already publish** (`GqxF…qjme`).
   into a static file, and seeding at the contract's start would ship `100% still locked` long after that
   stopped being true — understating what has been released, in our own favour, on the one block that
   invites the reader to check. **The app needs no such gate** (client-rendered SPA, no server pass).
+
+## 5.1. ⚠️ The team's 10% left the treasury (2026-08-31)
+
+The team's slice used to be the third entry in `TREASURY_SLICES`, which made *"the treasury"* and
+*"everything we hold"* the same 50%. They are now two different numbers, and **the whole token surface
+depends on that distinction**:
+
+| Constant | Share | What it is |
+| --- | --- | --- |
+| `TREASURY_TOTAL` | **50%** | The game treasury — community 30 + marketing 20. **The only thing the Streamflow lock covers.** |
+| `TEAM_PERCENT` | **10%** | The team's, in its own wallet `2NBsPWJ5UGHnQ99aZJ8osge3HqXEDrVb2Zn99DV5rdGM`. **No contract covers it.** |
+| `HELD_TOTAL` | **60%** | Everything the project holds. The coloured run of the supply bar. |
+| `PUBLIC_FLOAT_PERCENT` | **40%** | The remainder. ⚠️ **Was 50%** — see the trap below. |
+
+- **Community and marketing grew 25/15 → 30/20 because of this.** The treasury is still 50% of supply;
+  that 50% now buys only those two things. The owner's framing: *"the old 50% now does not contain our
+  dev supply. so its like 60 → 50 locked + 10 dev team on new wallet."*
+- ⚠️ **THE PUBLIC FLOAT DROPPED FROM 50% TO 40%, AND THAT IS THE REAL COST OF THE SPLIT.** Every
+  *"the other half hit the open curve"* sentence became false in the same change. Both repos rendered
+  one; both now render `PUBLIC_FLOAT_PERCENT` instead of the word *half*. **Grep for `half` before
+  claiming the float anywhere.**
+- ⚠️ **`TEAM_SLICE` IS NOT IN `TREASURY_SLICES` AND MUST NOT BE PUT BACK.** The lock block derives its
+  scope from that array, so an entry there silently returns the team's tokens to a *"nobody can move
+  this"* claim that is no longer true. The bar and the table iterate **`SUPPLY_SLICES`**
+  (`[...TREASURY_SLICES, TEAM_SLICE]`) so the 10% is still drawn and still named.
+- ⚠️ **THE `percentFor('Team')` TRAP — it bit during this change and would have shipped silently.**
+  `monkify-front`'s `percentFor` matches slices **by label**, so once `Team` left `TREASURY_SLICES` the
+  lookup kept compiling while resolving to its `?? 0` fallback — printing *"the team's 0%"* across the
+  guide with no error anywhere. `TEAM_PERCENT` now reads `TEAM_SLICE.percent` directly. **Any
+  label-matched lookup is a silent-zero waiting to happen when a slice moves.**
+- **The wallet address is SOURCE in both repos, not a fourth env key** — the same call already made for
+  `VESTING_CONTRACT`: one fixed mainnet address that cannot differ between environments, so an env key
+  would buy nothing and cost a deploy-tool change. It runs through `ADDRESS_PATTERN`, so a mistyped edit
+  drops the address bar rather than shipping a link to nowhere.
+- **Both surfaces publish the address**, because *"held separately"* is a claim and the address is the
+  only thing that makes it checkable: the LP gets a third `token-cartridge` (magenta, under the
+  treasury's) and the guide gets a `TEAM` `addr-bar` under the ladder caveat — which is also what
+  finally makes that caveat's *"a wallet you can watch"* literal rather than a figure of speech.
+- ⚠️ **THE WALLET WAS EMPTY WHEN THIS SHIPPED.** At the time of the change
+  `2NBsPWJ5…rdGM` held **0 SOL and had no token account for the mint at all** (checked against mainnet
+  RPC). Both sites link it straight to Solscan under a *"go verify it"* framing, so **the 100M has to
+  land before this copy is deployed** or the most checkable claim on the page checks out as nothing.
 
 ## 6. Where it appears
 
@@ -258,7 +310,7 @@ and `formatTokens` is **not** reintroduced. Every Feedbacker figure is a hand-wr
 the mirrored `FEEDBACKER` blocks — nothing there derives from `TOTAL_SUPPLY`, so the "a count is only
 as good as `TOTAL_SUPPLY`" objection does not bite: the counts are the source, not a derivation.
 
-⚠️ **That programme's budget IS the 25% `Community & game rewards` slice**, not a second pot, and its
+⚠️ **That programme's budget IS the `Community & game rewards` slice (30% since 2026-08-31, was 25%)**, not a second pot, and its
 section says so in one line — the two sit two slots apart on the LP, one saying `250M` and one saying
 `25%` about the same money. See [`feedbacker.md`](feedbacker.md), which also records an **open
 arithmetic conflict between those season budgets and the treasury's Streamflow lock** that blocks the
@@ -282,9 +334,11 @@ glyph.
 > pre-launch branch, which is marked final copy) still uses em dashes and was **not** swept. Widening
 > this to the rest of either site is a separate decision.
 
-⚠️ **The consequence: `TREASURY_SLICES` now exists in BOTH repos** (`monkify-lp/src/constants.ts` and
-`monkify-front/src/constants/token.ts`). **A percentage change is a two-repo change.** The underlying
-numbers are still `TODO(launch)` at both sources — only the 10% team slice came from the brief.
+⚠️ **The consequence: the supply model now exists in BOTH repos** (`monkify-lp/src/constants.ts` and
+`monkify-front/src/constants/token.ts`) — `TREASURY_SLICES`, `TEAM_SLICE`, `SUPPLY_SLICES`,
+`TREASURY_TOTAL`, `TEAM_PERCENT`, `HELD_TOTAL`, `PUBLIC_FLOAT_PERCENT` **and** `TEAM_WALLET`.
+**A percentage or wallet change is a two-repo change.** The community/marketing division is still
+`TODO(launch)` at both sources — only the 10% team slice came from the brief.
 
 ## 8. Analytics
 
@@ -312,10 +366,15 @@ front-door card → guide → chart. See [`stats-and-history.md`](stats-and-hist
    Streamflow contract denominates in `STROKE`. ⚠️ **`TOKEN_TICKER` is still marked `TODO(launch)` in
    BOTH repos against a name that is now permanent on-chain** — the comment is stale, not the value.
 2. ~~**The treasury percentages**~~ — **partly resolved.** The lock puts **49%** on-chain (§5), so the
-   "sized to land the treasury on 50%" placeholder assumption is now checkable and ~1% out. The split
-   *between* community / marketing / team is still unconfirmed. ⚠️ The bar still renders `percent` as a
-   raw flex weight and does **not** normalise, so slices that do not total 100 with the public float
-   silently misrepresent the split.
+   "sized to land the treasury on 50%" placeholder assumption is now checkable and ~1% out. The team's
+   **10% is settled and now sits outside the treasury** (§5.1); the division of the treasury's 50%
+   *between* community (30) and marketing (20) is still unconfirmed. ⚠️ The bar still renders `percent`
+   as a raw flex weight and does **not** normalise, so slices that do not total 100 with the public
+   float silently misrepresent the split.
+5. ⚠️ **The team wallet has to be funded before the next LP/app deploy.** `2NBsPWJ5…rdGM` held **0 SOL
+   and no token account for the mint** when the copy pointing at it was written (§5.1). Both sites link
+   it to Solscan as proof of the 10%, so deploying ahead of the transfer publishes a verifiable claim
+   that verifies as empty. **Still open.**
 3. **Confirmation that buyback-and-burn and jackpot seeding are genuinely intended** — naming them in
    copy makes them a public promise. **Still open**; both remain future tense (§4).
 4. Whether the apex `spacestroker.com` or `www.` is canonical for any LP deep link. **Still open.**
@@ -326,7 +385,7 @@ front-door card → guide → chart. See [`stats-and-history.md`](stats-and-hist
 
 | File | Role |
 | --- | --- |
-| `src/constants.ts` | `TOKEN_MINT` / `TOKEN_LIVE` / `TREASURY_WALLET` (the base58 gate), `TOKEN_TICKER`, `TREASURY_SLICES` + derived totals, the pump.fun / DexScreener / Solscan URLs, `shortMint`, `SOCIALS`, **and the lock block: `VESTING_CONTRACT` / `VESTING_URL` / `VEST_PERCENT` / `VEST_WEEKS` / `VEST_START_MS` / `VEST_END_LABEL` / `vestedWeeks()`** |
+| `src/constants.ts` | `TOKEN_MINT` / `TOKEN_LIVE` / `TREASURY_WALLET` (the base58 gate), `TOKEN_TICKER`, `TREASURY_SLICES` / `TEAM_SLICE` / `SUPPLY_SLICES` + derived totals (`TREASURY_TOTAL`, `TEAM_PERCENT`, `HELD_TOTAL`, `PUBLIC_FLOAT_PERCENT`), `TEAM_WALLET` / `TEAM_WALLET_URL`, the pump.fun / DexScreener / Solscan URLs, `shortMint`, `SOCIALS`, **and the lock block: `VESTING_CONTRACT` / `VESTING_URL` / `VEST_PERCENT` / `VEST_WEEKS` / `VEST_START_MS` / `VEST_END_LABEL` / `vestedWeeks()`** |
 | `src/components/TokenSection.vue` | Both states — the live section and the "No token. Yet." panel. **The lock block, its `ready` gate and `.vest-meter` live here**; the pre-launch panel is untouched (no token ⇒ nothing to lock) |
 | `src/pages/index.astro` | `#token` in slot 2, the rebalanced `ContentSection` props, the gated hero CTA |
 | `src/components/Header.vue` | `Token` as the first nav item, gated |
@@ -338,7 +397,7 @@ front-door card → guide → chart. See [`stats-and-history.md`](stats-and-hist
 
 | File | Role |
 | --- | --- |
-| `src/constants/token.ts` | `tokenLive`, `TOKEN_TICKER`, the URLs, the mirrored `TREASURY_SLICES`, `UNLOCK_STEP_PERCENT`, **and the mirrored lock block** (same names as the LP plus `VEST_WEEKLY_PERCENT` and `VEST_START_LABEL`, ⚠️ the two app-only ones — see §7) |
+| `src/constants/token.ts` | `tokenLive`, `TOKEN_TICKER`, the URLs, the mirrored `TREASURY_SLICES` / `TEAM_SLICE` / `SUPPLY_SLICES` + totals, `TEAM_WALLET` / `TEAM_SOLSCAN_URL`, `UNLOCK_STEP_PERCENT`, **and the mirrored lock block** (same names as the LP plus `VEST_WEEKLY_PERCENT` and `VEST_START_LABEL`, ⚠️ the two app-only ones — see §7) |
 | `src/components/home/HomeTokenCard.vue` | The front-door card |
 | `src/components/guide/sections/GuideToken.vue` + `src/constants/guideSections.ts` | The conditional manual section (⚠️ `#token` still resolves safely on a build without it) |
 | `src/components/GameHeader.vue` | The ☰ pad's token row |
