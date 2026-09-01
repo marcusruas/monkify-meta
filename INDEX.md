@@ -181,6 +181,7 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/admin-and-ops.md` | The admin portal at `/admin`: an admin-scoped RS256 token (`X-Admin-Token`) validated against the **configured** keypair, create/list/deactivate game types across all three modes (**deactivate-or-create, no in-place edit** — which is why recreating a type resets its stats and why an un-won lottery pot must be **transferred**), the bet-refund panel, and `POST /dev/admin-token` outside production. The operator half was reworked away by `remove-operators`. | Living |
 | `features/legal.md` | Legal documentation and **per-wallet self-exclusion**. The legal pages, and the exclusion state (`SelfExcludedAt` / `SelfExcludedUntil`) that lives on the `Player` row and is evaluated **per bet**, so an expiry needs no scheduled job. Uses the same purpose-scoped signed-nonce mechanism as preferences — ⚠️ a challenge minted for one purpose cannot be replayed against the other. | Living |
 | `features/remove-operators.md` | **The deployment is the operator.** Deleted the whole multi-tenant apparatus — `Operator`/`OperatorToken`/`OperatorPlayer`, the `X-Launch-Token` surface, the off-chain `Standard` payment method + `PaymentMethod` enum, the per-operator RG pre-bet hook, `ISecretProtector`, operator branding and the FX/display-currency stack. Everything token/game/admin reads from **`GeneralSettings:Operator`**; player endpoints are **public** and identity is the **connected wallet**. **One ledger:** `CryptoTransactionLog` merged into `TransactionLog`. Greenfield migration. ⚠️ **Kept as its own doc on purpose — it is the only place today's operator-free architecture is explained.** | Living |
+| [`specs/typer-refactoring.md`](specs/typer-refactoring.md) | **`Feature`, `monkify-backend` + `monkify-meta` — `monkify-front` NOT affected (same SignalR contract; the FAIR verifiers consume the published `characterPool` verbatim):** cut the ~21s round to **~10s avg / 15s max** and reduce fallback-decided winners. Config retune (race mean 8–12s, p95 15s; lottery draw run likewise) + `MaxTyperCharacters` 5M → **500K**; terminal batching → **time-based flush 50/40/30ms keyed to `DisplaySpeed`** (~25K SignalR msgs/round → hundreds, every char still delivered for the `N AWAY!` row); free-text **race** pool = union of bet-choice chars + the ⌊alphabet/5⌋ floor (lottery pool untouched — money behavior); persist **`Game.CharacterPool` + `Game.MaxCharacters`** at run end (migration `TyperRunSnapshot`, NULL ⇒ legacy derivation with pinned constants) so historical verification never breaks. Fallback stays count-triggered/deterministic. Trello #181 ([Xim01Mvw](https://trello.com/c/Xim01Mvw)). | Ready |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -201,6 +202,16 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 
 ## Feature currently in flight
+
+**Space Stroker typer refactoring** ([#181](https://trello.com/c/Xim01Mvw/181-space-stroker-typer-refactoring)) —
+**spec ready, not yet implemented.** Spec: [`specs/typer-refactoring.md`](specs/typer-refactoring.md).
+Branch `feature/typer-refactoring` in `monkify-backend` and `monkify-meta` (worktrees at
+`.worktrees/typer-refactoring/<repo>`); `monkify-front` NOT affected. Level **`Feature`**. Cuts the
+~21s round to ~10s avg / 15s max (config retune + character ceiling 5M → 500K), replaces count-based
+terminal batching with a `DisplaySpeed`-keyed 50/40/30ms time flush, derives the free-text **race**
+pool from bet-choice characters (fewer fallback winners; lottery pool untouched), and persists
+`Game.CharacterPool` + `Game.MaxCharacters` (migration `TyperRunSnapshot`) so verification of
+historical rounds keeps reproducing — NULL columns take a pinned legacy derivation.
 
 **Improve UX in game mode** ([#180](https://trello.com/c/GAVPRzf1/180-improve-ux-in-game-mode)) — **merged
 to `main` on 2026-08-24** in `monkify-backend`, `monkify-front` and `monkify-meta`. Spec:
