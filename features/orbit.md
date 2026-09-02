@@ -4,8 +4,16 @@
 > balance a player funds with on-chain SOL deposits, out of which the house places **one real bet per
 > round** on their behalf, crediting winnings back and cashing out at a threshold they set.
 >
-> ⚠️ **Orbit is gated by `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed) and is DARK in
-> production.**
+> ⚠️ **Orbit is LIVE in production** (owner-confirmed 2026-09-02). It is still gated by
+> `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed, build-time), but production builds now set
+> it — the flag is the switch, not a statement that the feature is dark.
+>
+> ⚠️ *This doc said "DARK in production" until 2026-09-02, long after that stopped being true, and the
+> staleness had teeth: while writing the leaderboards copy (#182) it produced a first draft that
+> deliberately avoided naming Orbit, on the grounds that naming a dark feature would describe
+> something no player could see. **Real player money moves through Orbit in production — reason about
+> it as a live money path, not a dormant one.*** Historical entries in `INDEX.md` that say Orbit was
+> dark are dated records of what was true when those cards shipped; they are left as history.
 >
 > Built as a three-card train — custody → engine → notifications — then reworked by four follow-ups.
 > Deep design: [`../specs/orbit-custodial-wallet.md`](../specs/orbit-custodial-wallet.md) ·
