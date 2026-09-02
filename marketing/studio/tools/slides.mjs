@@ -58,6 +58,16 @@ async function main() {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(600);
 
+  // A slideshow is a 9:16 idea: it exists to be swiped in TikTok photo mode or Stories. Cutting a
+  // landscape piece into slides would produce correctly-sized, wrongly-framed images, which is
+  // worse than no output because it looks finished.
+  if (!(await page.evaluate(() => window.__slidesOk !== false))) {
+    throw new Error(
+      `${video.id} is a "${video.format}" piece, and a slideshow cut only makes sense for the ` +
+        'vertical format. Post the MP4, or add a 9:16 video to the campaign.',
+    );
+  }
+
   const count = await page.evaluate(() => window.__sceneCount());
   // How long entry animations take to finish, declared by the piece. Photograph earlier and a chip
   // is caught halfway in, on one slide out of six, which is the kind of thing nobody notices until

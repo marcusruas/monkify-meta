@@ -52,7 +52,10 @@ export const BOARD_NAMES = Object.keys(BOARDS);
 export const FORMATS = {
   reels: { w: 1080, h: 1920, where: 'Reels / Shorts / TikTok 9:16' },
   square: { w: 1080, h: 1080, where: 'square feed video 1:1' },
-  wide: { w: 1920, h: 1080, where: 'YouTube / site 16:9' },
+  /* X, YouTube, the site. ⚠️ For X this is the CORRECT shape: the timeline shows a 16:9 whole and
+     crops taller media hard, the same reason the `x16` still board exists. X also autoplays MUTED,
+     so a landscape piece has to read with the sound off. */
+  wide: { w: 1920, h: 1080, where: 'X / YouTube / site 16:9' },
 };
 
 export const FORMAT_NAMES = Object.keys(FORMATS);

@@ -139,11 +139,25 @@ export const stills = [
 ];
 
 export const video = {
-  id: 'reels-01-leaderboard',
-  format: 'reels',
+  id: 'x-01-leaderboard',
+  format: 'wide',   // X: the one shape the timeline never crops (tools/boards.mjs)
   music: 'game_starting.mp3',
   musicGain: 0.4,
   accent: 'amber',
+  // Persistent plate behind every scene. 1920x1080, so nothing is enlarged, and it stops the
+  // right half reading as dead black on the four scenes that carry no art of their own.
+  bg: { src: 'space-bg.png', x: '62%', y: '50%', zoom: 1, veil: 0.12 },
+  /* THE X POST ITSELF. Written against marketing/twitter-launch-campaign.md:
+     · §4.5 — ONE hashtag. Three or more reads as spam to the algorithm and REDUCES reach.
+     · §6 — no raw app link in the main tweet body. The link lives in the bio and the first reply.
+     · 280 characters hard cap; tools/captions.mjs counts it and flags an overrun.
+     ⚠️ That doc still says the game settles in USDC. It predates the SOL cutover (2026-08-20) and
+     is stale on that point; this campaign says SOL, or says nothing about currency. */
+  caption:
+    'The board is live.\n\nEvery completed round counts toward a rolling 7-day ranking. Top 25, and your own row stays pinned even when you are nowhere near it.\n\nStakes are fixed, so rank is rounds played, not bet size.\n\nNo prize. Just the top of the board.',
+  hashtags: ['Solana'],
+  reply: 'Board: app.spacestroker.com/leaderboard',
+
   scenes: [
     {
       // The hook is a question the product can now answer and could not before. `features/
@@ -165,7 +179,7 @@ export const video = {
     {
       id: 'rules',
       ms: 3400,
-      headline: 'How it works.',
+      headline: 'The rules.',
       chips: ['ROLLING 7 DAYS', 'TOP 25', 'YOUR ROW PINNED'],
       sfx: 'phone_beep.mp3',
     },
@@ -174,7 +188,7 @@ export const video = {
       id: 'fair',
       ms: 3000,
       accent: 'cyan',
-      headline: 'Rank is rounds,<br>not <em>bet size</em>.',
+      headline: 'Rank is<br>rounds, not<br><em>bet size</em>.',
       sub: 'Stakes are fixed. Only rounds count.',
       sfx: 'button_press.mp3',
     },
@@ -182,8 +196,8 @@ export const video = {
       // Closing on the honest position rather than on a call to win something.
       id: 'close',
       ms: 2800,
-      headline: 'No prize.<br>Just <em>the top</em>.',
-      sub: 'app.spacestroker.com',
+      headline: 'No prize.<br>Just <em>rank</em>.',
+      sub: 'app.spacestroker.com/leaderboard',
       sfx: 'victory.mp3',
     },
   ],

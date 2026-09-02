@@ -87,22 +87,47 @@ if (video) {
   lines.push('');
   lines.push(`**File:** \`out/${slug}/${video.id}.mp4\` · **${f.where}** · **${(ms / 1000).toFixed(1)}s**`);
   lines.push('');
-  lines.push(`Slideshow cut: \`out/${slug}/slides/\` (inset framing, TikTok photo mode) — regenerate the`);
-  lines.push(`Stories framing with \`node tools/slides.mjs ${slug} overlaid\`.`);
-  lines.push('');
-  lines.push('⚠️ **For Reels and TikTok, consider posting the silent cut** and picking a trending sound in');
-  lines.push('the app: it helps distribution and the licence is handled there.');
-  lines.push('');
-  lines.push(`    node tools/render.mjs ${slug} --silent`);
-  lines.push('');
-  lines.push('⚠️ Instagram on the **web** has no sound picker, so a silent file posted from a desktop stays');
-  lines.push('a silent Reel. Post the sounded cut there, or post from the phone.');
-  lines.push('');
+  if (video.format === 'reels') {
+    lines.push(`Slideshow cut: \`out/${slug}/slides/\` (inset framing, TikTok photo mode) — regenerate the`);
+    lines.push(`Stories framing with \`node tools/slides.mjs ${slug} overlaid\`.`);
+    lines.push('');
+    lines.push('⚠️ **For Reels and TikTok, consider posting the silent cut** and picking a trending sound in');
+    lines.push('the app: it helps distribution and the licence is handled there.');
+    lines.push('');
+    lines.push(`    node tools/render.mjs ${slug} --silent`);
+    lines.push('');
+    lines.push('⚠️ Instagram on the **web** has no sound picker, so a silent file posted from a desktop stays');
+    lines.push('a silent Reel. Post the sounded cut there, or post from the phone.');
+    lines.push('');
+  } else {
+    // A landscape piece has no slideshow cut: swiping stills is a 9:16 idea.
+    lines.push('⚠️ **X autoplays video MUTED in the timeline**, so this has to land with the sound off.');
+    lines.push('It does: every beat is on-screen type. The soundtrack is there for anyone who unmutes.');
+    lines.push('');
+    lines.push('⚠️ **Post the video on its own.** X takes one video per post, and a 16:9 is shown whole —');
+    lines.push('this is the one shape its timeline never crops.');
+    lines.push('');
+  }
   if (video.caption) {
+    // The character count is printed because X hard-caps at 280 and an over-long post is
+    // truncated at publish time, usually mid-sentence.
+    const body = video.caption + (video.hashtags?.length ? '\n\n' + tags(video.hashtags) : '');
+    const n = [...body].length;
+    lines.push(`**Post text** — ${n} characters${n > 280 ? ' ⚠️ OVER the 280 limit' : ' of 280'}`);
+    lines.push('');
     lines.push('```');
-    lines.push(video.caption);
+    lines.push(body);
     lines.push('```');
     lines.push('');
+    if (video.reply) {
+      lines.push('**First reply** — the link lives here, never in the main tweet body');
+      lines.push('(marketing/twitter-launch-campaign.md §6).');
+      lines.push('');
+      lines.push('```');
+      lines.push(video.reply);
+      lines.push('```');
+      lines.push('');
+    }
   }
   lines.push('**Scenes**');
   lines.push('');

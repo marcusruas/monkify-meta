@@ -29,6 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { FORMATS } from './boards.mjs';
 import { LAUNCH_ARGS, chromium } from './browser.mjs';
+import { assertNoWraps, inspect, reportUpscales } from './checks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -38,6 +39,7 @@ if (!slug || slug.startsWith('--')) throw new Error('usage: node tools/render.mj
 const silent = args.includes('--silent');
 const noMusic = args.includes('--no-music');
 const slidesFrame = args.includes('--slides-frame');
+const allowWrap = args.includes('--allow-wrap');
 if (silent && noMusic) {
   throw new Error('--silent and --no-music contradict each other: one asks for no sound, the other for some.');
 }
@@ -101,6 +103,37 @@ async function main() {
 
   const launch = await chromium();
   const browser = await launch.launch({ args: LAUNCH_ARGS });
+
+  /* ── CHECK THE SCENES FIRST, IN A CONTEXT THAT IS NOT BEING RECORDED ───────────
+     The line-break check used to reach video only through slides.mjs, which is a 9:16-only path,
+     so a landscape piece skipped it in silence — and nobody reviews a video frame by frame.
+
+     ⚠️ It has to happen in its OWN context. Playwright records from the moment the recording
+     context exists, so stepping the scenes inside it films ~1.3s per scene of pre-roll before the
+     piece even starts. The start marker still cuts correctly, but the head of the raw file grows
+     with the scene count, and `markerEnd` only scans the first 12 seconds — so a longer piece
+     would fail with "no magenta frame found", pointing at sync when the real cause was this. */
+  {
+    const checkCtx = await browser.newContext({
+      viewport: { width: fmt.w, height: fmt.h },
+      deviceScaleFactor: 1,
+    });
+    const check = await checkCtx.newPage();
+    await check.goto(pathToFileURL(piece).href + `?render=1${slidesFrame ? '&slides=1' : ''}`);
+    await check.waitForFunction(() => window.__ready === true, null, { timeout: 30000 });
+    await check.evaluate(() => document.fonts.ready);
+    const sceneCount = await check.evaluate(() => window.__sceneCount());
+    const settleMs = await check.evaluate(() => window.__settleMs ?? 1400);
+    for (let i = 0; i < sceneCount; i++) {
+      await check.evaluate((n) => window.__showScene(n), i);
+      await check.waitForTimeout(settleMs);
+      const { wraps, upscales } = await inspect(check);
+      assertNoWraps(`scene ${i + 1}`, wraps, allowWrap);
+      reportUpscales(`scene ${i + 1}`, upscales);
+    }
+    await checkCtx.close();
+  }
+
   const context = await browser.newContext({
     viewport: { width: fmt.w, height: fmt.h },
     deviceScaleFactor: 1,
@@ -213,7 +246,15 @@ async function main() {
   console.log(
     `\nsound: ${silent ? 'none (silent, to pick an in-app audio)' : noMusic ? 'game sounds only' : 'game sounds + music bed'}`,
   );
-  console.log(`framing: ${slidesFrame ? 'INSET (TikTok photo mode)' : 'OVERLAID (Reels / Stories / Shorts)'}`);
+  console.log(
+    `framing: ${
+      slidesFrame
+        ? 'INSET (TikTok photo mode)'
+        : video.format === 'reels'
+          ? 'OVERLAID (Reels / Stories / Shorts)'
+          : `${fmt.where} — shown whole, no interface band to dodge`
+    }`,
+  );
 }
 
 main().catch((e) => {

@@ -351,6 +351,20 @@ function videoHtml(v) {
     })
     .join('\n');
 
+  /* PIECE-LEVEL BACKGROUND, and it is mostly a landscape concern.
+     On a 9:16 piece the copy fills the frame, so per-scene art is enough. On a 16:9 the copy sits
+     in the left half by design, which leaves the right half empty on every scene that has no art
+     of its own — four scenes out of five, reading as dead black rather than as space. A plate that
+     persists behind every scene fixes that without making the video jumpy, which is what adding
+     a different image per scene would do. Scene art still draws on top when present. */
+  const bg = v.bg
+    ? `<div class="bg-art art-band" style="--art-x:${attr(v.bg.x ?? '50%')};--art-y:${attr(
+        v.bg.y ?? '50%',
+      )};--art-zoom:${attr(v.bg.zoom ?? 1)};--art-veil:${attr(v.bg.veil ?? 0.3)};--art-render:${attr(
+        v.bg.render ?? 'pixelated',
+      )}"><img src="${art(v.bg.src)}" alt=""></div>`
+    : '';
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>${attr(v.id)} · ${attr(campaign.slug ?? slug)}</title>
@@ -358,6 +372,9 @@ function videoHtml(v) {
 
 body { background:#0b0b12; }
 .art { width:${fmt.w}px; height:${fmt.h}px; }
+
+/* Behind every scene, and behind the copy. Full-bleed, never a top band. */
+.bg-art { position:absolute; inset:0; height:auto; z-index:0; }
 
 .scene { position:absolute; inset:0; opacity:0; z-index:3; }
 .scene.active { opacity:1; }
@@ -397,11 +414,42 @@ body.reels .mark { top:37cqw; left:8cqw; }  /* 400px = 20.8% */
 body.slides .copy { bottom:28cqw; }  /* inset allows to 86%: 302px = 84.3% */
 body.slides .mark { top:35cqw; left:8cqw; } /* 378px = 19.7%, inset floor is 19% */
 .art-band { position:absolute; left:0; right:0; top:0; height:46%; }
+
+/* ── LANDSCAPE (X, YouTube, the site) ────────────────────────────────────────
+   The same reading axis the x16 STILL uses, for the same reason: on a wide board the copy sits in
+   the LEFT HALF and the veil comes in from the left, because reusing the portrait layout's bottom
+   gradient is exactly what makes a 16:9 look squashed. Art is full-bleed here rather than a top
+   band, since a landscape plate finally fits a landscape board.
+
+   ⚠️ X is an INSET surface for video: the timeline shows a 16:9 whole and draws no interface over
+   the frame, so there is no band to dodge. What it does add is a mute control and a duration chip
+   in the BOTTOM CORNERS, which is why nothing here reaches the last ~12% of the height. */
+body.wide .art-band, body.square .art-band { position:absolute; inset:0; height:auto; }
+body.wide .art-band::before, body.square .art-band::before {
+  background: linear-gradient(90deg,
+    var(--color-void) 0%, var(--color-void) 34%,
+    color-mix(in oklab, var(--color-void) 55%, transparent) 62%, transparent 100%);
+}
+body.wide .copy { left:4.4cqw; right:48%; top:26cqw; bottom:auto; gap:2.2cqw; }
+body.wide .mark { top:4.4cqw; left:4.4cqw; }
+body.wide .headline { font-size:3.8cqw; line-height:1.38; }
+body.wide .sub { font-size:2.8cqw; }
+body.wide .kicker { font-size:1.3cqw; }
+body.wide .chips { gap:1cqw; }
+body.wide .chips .chip { font-size:1.25cqw; }
+body.wide .stat b { font-size:7cqw; }
+/* The progress bar is kept on a landscape video: X draws a scrubber only on hover, so unlike a
+   Story there is no second ruler competing with it. */
+
+body.square .copy { left:7cqw; right:7cqw; bottom:12cqw; top:auto; gap:2.8cqw; }
+body.square .mark { top:6cqw; left:7cqw; }
+body.square .headline { font-size:5cqw; }
 </style>
 </head>
-<body class="reels">
+<body class="${v.format}">
 <div class="stage">
   <div class="art space-ground edge-vignette">
+    ${bg}
     <div class="progress"></div>
     ${sceneMarkup}
     <div class="mark"><img src="${art('monk-coin.png')}" alt=""><span>SPACE STROKER</span></div>
@@ -430,7 +478,11 @@ window.__done = false;
 window.__noSfx = ${JSON.stringify(!sfxNames.length)};
 window.__startMarker = 200; // ms of magenta at t=0; must outlast several frames at 30 fps
 
-if (isSlides) { document.body.classList.remove('reels'); document.body.classList.add('slides'); }
+/* The slideshow cut only makes sense for the vertical format — it exists to be swiped in TikTok
+   photo mode or Stories, which are 9:16 surfaces. On a landscape piece it is refused rather than
+   silently producing wrongly-framed stills. */
+window.__slidesOk = ${JSON.stringify(v.format === 'reels')};
+if (isSlides && window.__slidesOk) { document.body.classList.remove('reels'); document.body.classList.add('slides'); }
 if (isRender) document.body.classList.add('render');
 
 const els = [...document.querySelectorAll('.scene')];

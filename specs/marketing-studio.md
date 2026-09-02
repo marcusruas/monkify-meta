@@ -171,10 +171,37 @@ gamble race "is separated by **rounds played**, not bet size". Nobody can buy th
 because there is no bet-sizing dimension to buy it with. In a category where leaderboards belong to
 whoever deposits most, that is the honest differentiator — and it is checkable in the code.
 
-**Delivered:** 5 stills (feed / 2× square / X 16:9 / story), a **14.2s** 1080×1920 MP4, a 5-slide
-slideshow cut, safe-zone proofs, a contact sheet and `CAPTIONS.md`. Every still passed the
-line-break and nominal-size checks; the video's five scenes were confirmed by sampling a frame in
-each.
+**It ships as a single X post** (owner's call). That set the format: the video is **16:9
+`wide` at 1920×1080**, because X's timeline shows a 16:9 whole and crops taller media hard — the
+same reason the `x16` still board exists. Three consequences are written into the campaign and the
+posting sheet: X **autoplays muted**, so every beat is on-screen type and the soundtrack is only for
+whoever unmutes; X takes **one video per post**; and there is **no slideshow cut**, because swiping
+stills is a 9:16 idea.
+
+The post copy obeys `marketing/twitter-launch-campaign.md`: **259 characters of 280**, **one
+hashtag** (§4.5 — three or more reads as spam and reduces reach), and **no raw app link in the main
+body** (§6 — it goes in the first reply). ⚠️ That doc is **stale on currency**: it still says the
+game settles in USDC, which the SOL cutover replaced on 2026-08-20.
+
+**Delivered:** the 14.2s 1920×1080 MP4 plus a silent cut, 5 stills (feed / 2× square / X 16:9 /
+story) kept as parked alternatives, safe-zone proofs, a contact sheet and `CAPTIONS.md` with the
+post text, character count and first reply. Every still passed the line-break and nominal-size
+checks; the video's five scenes were confirmed by sampling a frame in each.
+
+**Three tool changes the X format forced**, all of them general rather than one-offs:
+
+1. **Landscape and square video framing.** `FORMATS.wide`/`square` existed in `boards.mjs` but the
+   video template only had `reels`/`slides` margins, so a `wide` video would have been drawn with
+   9:16 margins. It now mirrors the `x16` still: copy in the left half, veil from the left,
+   full-bleed art.
+2. **A piece-level `bg` plate**, persisting behind every scene — without it, a 16:9 shows dead
+   black on every scene that carries no art of its own.
+3. ⚠️ **The line-break check now runs inside `render.mjs`.** It previously reached video only via
+   `slides.mjs`, which is a 9:16-only path, so a landscape piece skipped it in silence. It runs in
+   its **own, unrecorded** browser context: stepping scenes inside the recording context filmed
+   ~1.3s of pre-roll per scene, which pushed the start marker from 1.07s to 7.87s and would have
+   run past `markerEnd`'s 12-second scan window on a longer piece — failing as a sync error whose
+   real cause was the check itself.
 
 ⚠️ **No fabricated leaderboard was drawn.** A piece showing invented ranks and wallet names is a
 fake metric with extra steps, and `references/compliance.md` §3 forbids it. The pieces are

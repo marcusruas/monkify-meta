@@ -21,6 +21,39 @@ node tools/slides.mjs <slug>     the piece    ->  PNG per scene (slideshow)
 
 **Ten to twenty seconds.** Short converts. The example runs 13.8s across five scenes.
 
+### X wants the landscape one
+
+⚠️ **For an X post the format is `wide`, not `reels`.** X's timeline shows a 16:9 whole and crops
+taller media hard — the same reason the `x16` *still* board exists rather than re-cropping the feed
+piece. Three more things decide how an X video is written:
+
+- **It autoplays MUTED.** The video has to land with the sound off, so every beat belongs on screen
+  as type. Sound is for whoever unmutes, never load-bearing.
+- **One video per post.** X takes a single video, so there is no carousel to lean on and no second
+  piece to carry the caption's weight.
+- **No slideshow cut.** Swiping stills is a 9:16 idea; `slides.mjs` refuses a landscape piece rather
+  than emitting correctly-sized, wrongly-framed images.
+
+The landscape layout mirrors the `x16` still on purpose: copy in the **left half**, veil coming in
+from the left, art full-bleed behind it. A landscape plate finally fits a landscape board, so it is
+not a top band here.
+
+**Give a landscape piece a `bg`.** On a 9:16 the copy fills the frame, but at 16:9 it occupies the
+left half, and every scene without art of its own leaves the right half reading as dead black. One
+persistent plate behind all the scenes fixes that; a different image per scene instead just makes
+the video jumpy. Scene art still draws on top when a scene has it.
+
+```js
+export const video = {
+  format: 'wide',
+  bg: { src: 'space-bg.png', x: '62%', y: '50%', zoom: 1, veil: 0.12 },
+  // ...
+};
+```
+
+⚠️ **Keep the plate's veil low.** `space-bg.png` is already a dark starfield; at `0.34` it went
+completely black behind the gradient and the plate may as well not have been there.
+
 ## 2. Scenes
 
 Four to six scenes, two to four seconds each:
