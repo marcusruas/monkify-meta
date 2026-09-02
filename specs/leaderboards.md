@@ -23,11 +23,16 @@ This card adds one public read that returns three ranked boards, and the UI to s
 | --- | --- | --- | --- | --- |
 | **Wager race** (default slide) | `Σ` paid stake | rolling 7 days | **yes** | yes (token-native) |
 | **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | rolling 7 days | **yes** | yes (token-native) |
-| **Hall of Fame** | `max(credit ÷ own stake)`, one row per player | **all time** | **no** — see §3 decision 9 | **never** |
+| **Hall of Fame** ⚠️ *flagged off, not in phase 1* | `max(credit ÷ own stake)`, one row per player | **all time** | **no** — see §3 decision 9 | **never** |
 
 Each board is filterable by game type (All types / one `GameParameters`), shows the top **10** in the
 home-page section and the top **25** on `/leaderboard`, and pins the caller's own row below the list
 when they rank outside the visible slice.
+
+⚠️ **Phase 1 ships TWO of the three.** The Hall of Fame is built end to end but hidden behind
+`VUE_APP_HALL_OF_FAME_ENABLED` (fail-closed, default `false`), so the carousel renders two chips —
+see §3 decision 19. ⚠️ **Each board owns its own treatment of the top three** (§3 decision 20), so the
+board component is per-board, not one generic table.
 
 **What this is NOT:** there is no prize, no pool, no season, no freeze, no payout. The rejected
 alternative — a `LeaderboardSeason` / `LeaderboardAward` pair with a `PayLeaderboardPrizeConsumer` —
@@ -78,6 +83,9 @@ From `monkify-meta/constraints.md` (full list there):
 | 16 | **Tie-break is deterministic**: score descending, ties by **earliest qualifying bet** ascending. Never by wallet string (a permanent alphabetical advantage) and never unordered. |
 | 17 | **No SignalR and no polling.** Fetch on mount and on `visibilitychange` focus, the pattern `specs/home-dashboard.md` decision 32 settled. `useGameHub` keeps its one-connection / one-group invariant. |
 | 18 | **5 mockup variants of the whole carousel** (not 5 per board), one chosen and pinned on the card before implementation. The three boards are one component with different columns. ⚠️ The Claude Design MCP was **not connected** during refinement (`FIRST_PARTY_AUTH_REJECTED`) — run `/design-login` first. |
+| 19 | ⚠️ **The Hall of Fame is FEATURE-FLAGGED OFF and does NOT ship in phase 1** (owner, 2026-09-01). It is built in full — endpoint, aggregate, tests — but hidden behind **`VUE_APP_HALL_OF_FAME_ENABLED`**, read through `src/constants/featureFlags.ts` with the same **fail-closed** `=== 'true'` test `orbitEnabled` uses, and **default false**. With the flag off the carousel renders **two** chips and the slide does not exist. The board is still returned by the API — the flag is frontend-only, as specified. |
+| 20 | ⚠️ **Each board keeps its OWN treatment of the top three** — this supersedes the earlier assumption that one geometry serves all three. The **wager race** takes the *champion band* (rank 1 full width with a labelled figure, 2 and 3 paired beneath); the **Weekly PNL** takes the *stepped plinths* (height carries rank, sign carries direction, each plinth showing `IN` / `OUT`); the Hall of Fame takes the plinths plus a mode-and-date meta line. Type and colour ARE shared. Consequence: `LeaderboardBoard.vue` is **not** one generic table — it is a per-board component behind a shared row/chrome vocabulary. |
+| 21 | ⚠️ **A bare figure is not acceptable on the wager race** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). The score is labelled **three** ways: a one-line explainer under the head (*"Ranked by total SOL wagered in the last 7 days"*), a `TOTAL WAGERED` label over the champion's figure, and a **column header** above the list. Every board carries its own explainer line and column header — the PNL board reads `NET` and shows `1.84 IN · 2.78 OUT` per plinth, because a net figure without the working is unreadable. |
 
 ---
 
@@ -537,6 +545,13 @@ by design — do not.
     `/game/stats`.
   - **Not** an `isPlayerRoute()` in `App.vue` — it renders no display name of its own and its state
     comes from `useLeaderboards`. Matches `/orbit`, `/partner` and `/responsible-gaming`.
+- New flag `hallOfFameEnabled` in **`src/constants/featureFlags.ts`**, beside `orbitEnabled`:
+  `export const hallOfFameEnabled = process.env.VUE_APP_HALL_OF_FAME_ENABLED === 'true';`
+  ⚠️ **Fail-closed by construction** — the `=== 'true'` test is what makes empty, absent, `"false"` and
+  a typo all resolve to OFF, which is the discipline `orbitEnabled` and `token.ts` already document.
+  `VUE_APP_HALL_OF_FAME_ENABLED=false` goes in `.env.example` with a comment, and a `frontBuild` key in
+  `deploy/secrets.example.json`. ⚠️ `VUE_APP_*` is baked in at **BUILD** time — switching it on is a
+  frontend rebuild + redeploy, not a config toggle.
 - Add `'Leaderboard'` to **`EMBED_REDIRECT_ROUTES`** in `src/main.ts`. ⚠️ `'Home'` is **already** in
   that set, so the home-page section needs no separate embed guard — do not add a redundant
   `isEmbedded` check there.
@@ -560,9 +575,12 @@ by design — do not.
 
 | File | Role |
 | --- | --- |
-| `LeaderboardCarousel.vue` | The three slides + the tab/dot control. Default slide = **Wager race**. |
-| `LeaderboardBoard.vue` | One board's table. Formats `Score` from `board` / `scoreIsMultiplier`. |
-| `LeaderboardRow.vue` | One row: rank, identity, score. `IsYou` gets the same treatment as the `YOU` label elsewhere. |
+| `LeaderboardCarousel.vue` | The slides + the chip control. Default slide = **Wager race**. ⚠️ Renders **two** chips unless `hallOfFameEnabled`. |
+| `LeaderboardWagerRace.vue` | The **champion band**: rank 1 full width with a `TOTAL WAGERED` label, 2 and 3 paired beneath, then the list. |
+| `LeaderboardPnl.vue` | The **stepped plinths**: height carries rank, `--color-live` / `--color-magenta` carry the sign, each plinth shows `IN` / `OUT`. |
+| `LeaderboardHallOfFame.vue` | Plinths + a mode-and-date meta line. ⚠️ Only mounted when `hallOfFameEnabled`. |
+| `LeaderboardList.vue` | The shared tail: column header strip, compact rows, the pinned `YOU` row. Used by all three. |
+| `LeaderboardRow.vue` | One row: rank, identity, score. `IsYou` takes the same treatment as the `YOU` label elsewhere. |
 | `LeaderboardTypeFilter.vue` | All types / one type, from `availableTypes`. Defaults to All. |
 
 - Swiping between slides costs **no request** — all three arrive in one response (decision 14).
@@ -572,6 +590,10 @@ by design — do not.
 - Money renders **token-native** through the shared `useAmountFormatter` / `formatSol`.
   ⚠️ **The Hall of Fame slide renders `×n` and no amount, ever** — read `scoreIsMultiplier` and never
   append the token symbol on that board.
+- ⚠️ **No bare figures.** Every board carries a one-line explainer under the head, and the list carries a
+  **column header strip** naming the figure — `WAGERED`, `NET`, `MULTIPLIER`. The wager race additionally
+  labels the champion's number `TOTAL WAGERED`, and the PNL plinths show the working (`1.84 IN · 2.78 OUT`)
+  because a net figure without it is unreadable (§3 decision 21).
 - Empty board → the `> no rounds yet` empty state, never a row of zeros.
 
 ### 7.4 Data
@@ -663,7 +685,7 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/pages/LeaderboardPage.vue` | **New.** Top-25 carousel + type filter |
-| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardBoard.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` | **New.** Shared by the page and the home section |
+| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardWagerRace.vue` · `LeaderboardPnl.vue` · `LeaderboardHallOfFame.vue` · `LeaderboardList.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` | **New.** Per-board treatments over a shared list/row/chrome vocabulary; used by the page and the home section |
 | 3 | `src/components/home/HomeLeaderboard.vue` | **New.** Top-10 `HomeSection` (must pass `title`), links through |
 | 4 | `src/pages/HomePage.vue` | Render `<home-leaderboard>` between player stats and the floor |
 | 5 | `src/hooks/useLeaderboards.ts` | **New.** Fetch on mount + `visibilitychange`; no hub, no interval |
@@ -673,6 +695,8 @@ sequenceDiagram
 | 9 | `src/main.ts` | Add `'Leaderboard'` to `EMBED_REDIRECT_ROUTES` |
 | 10 | `src/constants/icons.ts` | New `leaderboard` pixel mark |
 | 11 | `src/pages/GameStatsPage.vue` | A link through to `/leaderboard` (the second entry point) |
+| 12 | `src/constants/featureFlags.ts` | **New flag** `hallOfFameEnabled` — fail-closed `=== 'true'`, beside `orbitEnabled` |
+| 13 | `.env.example` | `VUE_APP_HALL_OF_FAME_ENABLED=false` + the "build-time, rebuild to switch on" comment |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -680,7 +704,8 @@ sequenceDiagram
 | --- | --- | --- |
 | 1 | `specs/leaderboards.md` | **New.** This document |
 | 2 | `INDEX.md` | Map row + "Feature currently in flight" |
-| 3 | `features/leaderboards.md` | **At ship time** (`/monkify-ship-feature`) — `Level: Feature` |
+| 3 | `deploy/secrets.example.json` | A `frontBuild` key for `VUE_APP_HALL_OF_FAME_ENABLED` (mock/placeholder only) |
+| 4 | `features/leaderboards.md` | **At ship time** (`/monkify-ship-feature`) — `Level: Feature`; must record that the Hall of Fame ships DARK |
 | 4 | `features/legal.md` | **At ship time** — record that self-excluded players are hidden from the boards |
 
 ---
@@ -721,6 +746,12 @@ Monte Carlo suite).
 | | The response carries **no `ReferralCode`** and no partner field | Contract check |
 | `UnitTests/Contracts/LeaderboardRowDtoTests.cs` | `ClonePublic()` clears `IsYou` / `Rank` | The cache-poisoning guard |
 | | A hall-of-fame row exposes **no money field** | Decision 9's hard constraint, structurally |
+
+⚠️ **The Hall-of-Fame flag is FRONTEND-ONLY**, so no backend test asserts on it: the endpoint keeps
+returning all three boards whatever the flag says. That is deliberate (the flag was specified as a
+frontend flag), and the cost is that phase 1 pays for one aggregate nobody sees — bounded, cached for
+120 s with the other two, and it makes switching the board on a rebuild rather than a deploy of both
+hosts. `monkify-front` has no test runner, so the flag is covered by manual QA step 8 instead.
 
 ### 11.2 Integration test — `SpaceStroker.Tests.Integration/LeaderboardsFlowTests.cs`
 
@@ -778,6 +809,9 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 21. Given the app is running embedded in an iframe, when the home page renders, then the leaderboard section is absent and `/leaderboard` redirects like the other embed-excluded routes.
 22. Given the leaderboard section on the home page and the `/leaderboard` page, when both render for the same filter, then the home section shows the top 10 and the page shows the top 25, and the header menu still has exactly nine cells.
 23. Given any leaderboard response, when it is inspected, then it carries no `ReferralCode` and no referral-partner information of any kind.
+24. Given `VUE_APP_HALL_OF_FAME_ENABLED` is unset, empty, `false` or misspelled, when the leaderboard renders, then the carousel shows exactly **two** chips, the Hall of Fame slide does not exist, and no route or link reaches it.
+25. Given `VUE_APP_HALL_OF_FAME_ENABLED=true` in the build, when the leaderboard renders, then a third chip appears and the Hall of Fame slide is reachable.
+26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head and a column header naming the figure (`WAGERED` / `NET` / `MULTIPLIER`) — and the wager race additionally labels the champion's number `TOTAL WAGERED`.
 
 ---
 
@@ -797,6 +831,10 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
    with a rank matching where you would appear.
 7. Load the app embedded (`?embed=1` or an iframe) — the home section is gone and `/leaderboard`
    redirects to the lobby.
+8. **The flag.** With the default build, confirm the carousel shows **two** chips and nothing reaches the
+   Hall of Fame. Then rebuild the front with `VUE_APP_HALL_OF_FAME_ENABLED=true` and confirm a third chip
+   appears. ⚠️ `VUE_APP_*` is baked in at build time — restarting the container is not enough, the
+   frontend image has to be rebuilt.
 
 ---
 
@@ -817,4 +855,5 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
 | Date | Change |
 | --- | --- |
+| 2026-09-01 | Owner review of the design mockups: Hall of Fame **flagged off for phase 1** (decision 19), **per-board top-three treatments** rather than one shared geometry (decision 20), and **no bare figures** — explainer line + column headers + a labelled champion figure (decision 21). §1, §7, §10, §11, §12, §13 updated to match. |
 | 2026-09-01 | Initial spec from the refined card (#182) + the refinement conversation. Code touchpoints verified against `GlobalStatsService`, `PlayerStatsService`, `StatsWindowExtensions`, `CacheHelper`, `Player`, the four `*Settings` public keys, `routes.ts` and `main.ts`. |
