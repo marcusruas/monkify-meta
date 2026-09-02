@@ -28,8 +28,8 @@ This card adds one public read that returns three ranked boards, and the UI to s
 
 | Board | Metric | Window | Cutover floor | Money shown |
 | --- | --- | --- | --- | --- |
-| **Gamble race** (default slide) | `Σ` paid stake | rolling 7 days, with a fallback (§3 decision 22) | **yes** | yes — `Σ` gambled |
-| **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | rolling 7 days, same fallback | **yes** | yes — net, signed |
+| **Gamble race** (default slide) | `Σ` paid stake | the current leaderboard **week** — anchored, resets Wed 19:00 BRT (§3 decision 24) | **yes** | yes — `Σ` gambled |
+| **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | same anchored week | **yes** | yes — net, signed |
 | **Hall of Fame** ⚠️ *flagged off, not in phase 1* | `max(credit ÷ own stake)`, one row per player | **all time** (no 7-day window) | **yes** — see §3 decision 9 | yes — the SOL won on that bet |
 
 Each board is filterable by game type (All types / one `GameParameters`), shows the top **10** in the
@@ -74,7 +74,7 @@ From `monkify-meta/constraints.md` (full list there):
 | --- | --- |
 | 1 | **Card #178 is not merged in.** #182 was refined standalone by owner decision; #178's rake-funded pool, floor/ceiling and anti-farm positions are explicitly **not** carried in. |
 | 2 | **No prizes, no payouts, no money movement.** Chosen over hand-paid prizes and over an automated payout consumer. The ranking logic is the valuable, testable part; a prize can be added later as its own card without changing any of it. Consequence: no season/freeze table, no prize wallet, no payout consumer, no solvency guard. |
-| 3 | **"Weekly" means rolling 7 days**, reusing the shipped `StatsWindow.Week` / `StatsWindowExtensions.EffectiveCutoff`. A UTC calendar week was rejected: with no prize there is nothing to freeze and pay, it would be the system's **first** calendar-week and week-start/timezone decision, and the board reads near-empty every Monday morning. |
+| 3 | ⚠️ **SUPERSEDED by decision 24** — kept for the reasoning, which still explains why the fallback and the cutover floor are shaped as they are. Originally: **"Weekly" means rolling 7 days**, reusing the shipped `StatsWindow.Week` / `StatsWindowExtensions.EffectiveCutoff`. A UTC calendar week was rejected: with no prize there is nothing to freeze and pay, it would be the system's **first** calendar-week and week-start/timezone decision, and the board reads near-empty every Monday morning. |
 | 4 | **Three metric slides + a game-type filter**, not a slide per type. Delivers the "Cosmic Sprint leaderboard" the card asked for without the carousel growing with the catalogue. Filter defaults to **All types**. |
 | 5 | **House-controlled wallets are excluded by configured public key**, never by a marker column. The house seed bet is deliberately an ordinary bet with *"no marker column, no DTO field, no flag, no branch anywhere"* (`features/games.md` §14) and a `Player.IsHouse` column would break that. All four house accounts already publish a `PublicKey` in config (§6.4), so this needs no key derivation and no migration. |
 | 6 | **The shipped money predicate is reused verbatim** — only `RewardForWinnersCompleted` rounds; free bets (`Amount == 0`) excluded from money; refunded / `NotEnoughPlayersToStart` / `ErrorWhenProcessingRewards` / `GameEndedAbruptely` excluded; `SettlementCutoverUtc` as a floor on the two weekly boards. A board whose numbers do not reconcile with the Stats page for the same player is a defect. |
@@ -92,8 +92,9 @@ From `monkify-meta/constraints.md` (full list there):
 | 18 | **5 mockup variants of the whole carousel** (not 5 per board), one chosen and pinned on the card before implementation. The three boards are one component with different columns. ⚠️ The Claude Design MCP was **not connected** during refinement (`FIRST_PARTY_AUTH_REJECTED`) — run `/design-login` first. |
 | 19 | ⚠️ **The Hall of Fame is FEATURE-FLAGGED OFF and does NOT ship in phase 1** (owner, 2026-09-01). It is built in full — endpoint, aggregate, tests — but hidden behind **`VUE_APP_HALL_OF_FAME_ENABLED`**, read through `src/constants/featureFlags.ts` with the same **fail-closed** `=== 'true'` test `orbitEnabled` uses, and **default false**. With the flag off the carousel renders **two** chips and the slide does not exist. The board is still returned by the API — the flag is frontend-only, as specified. |
 | 20 | **All three boards take the SAME layout: the stepped plinths.** Height carries rank; the meta line under each plinth's figure names it. (A per-board treatment — a champion band on the gamble race — was drawn, reviewed and **rejected** by the owner on 2026-09-02: *"gamble race must be in the same format as the others"*.) What varies per board is only **colour** (amber / green-magenta / cyan), the **meta line** content, and the **column header** word. Consequence: the board stays **ONE generic component** configured per board, not three — which is also the cheaper thing to build and the easier thing to keep consistent. |
-| 22 | ⚠️ **A quiet week does not empty the board** (owner, 2026-09-02). If the last 7 days contain no qualifying round **for the applied filter**, the board does **not** render empty: it anchors on the **most recent qualifying round** and shows the **7 days ending there**, and the response says so. Two sub-decisions, both deliberate: the fallback window is **rolling from the anchor**, not "the last calendar week that had data" — a calendar week would reintroduce the week-start/timezone decision §3 decision 3 exists to avoid; and it resolves **per filter**, so a game type nobody played this week shows that type's last active week, not the deployment's. ⚠️ The fallback window is **still floored at the cutover** — `anchor − 7d` may not reach past it. The genuine empty state (`no rounds yet`) now means only "this filter has never had a completed round". |
+| 22 | ⚠️ **NARROWED BY DECISION 24 — this now applies only to the UNANCHORED (legacy rolling) mode, which production does not run.** ⚠️ **A quiet week does not empty the board** (owner, 2026-09-02). If the last 7 days contain no qualifying round **for the applied filter**, the board does **not** render empty: it anchors on the **most recent qualifying round** and shows the **7 days ending there**, and the response says so. Two sub-decisions, both deliberate: the fallback window is **rolling from the anchor**, not "the last calendar week that had data" — a calendar week would reintroduce the week-start/timezone decision §3 decision 3 exists to avoid; and it resolves **per filter**, so a game type nobody played this week shows that type's last active week, not the deployment's. ⚠️ The fallback window is **still floored at the cutover** — `anchor − 7d` may not reach past it. The genuine empty state (`no rounds yet`) now means only "this filter has never had a completed round". |
 | 23 | **The window is a BADGE, not a caption, and every amount carries the SOL mark.** The two weekly boards must not be mistakable for all-time ones, so the window renders as an accent-bordered chip beside the type filter — `LAST 7 DAYS` / `ALL TIME` / the real dates on a fallback (`18–24 AUG`). ⚠️ It must **never** read "LAST 7 DAYS" when the data is not from the last 7 days. Money uses the existing **`src/assets/sol.svg`** brand mark, sized in `em` so it tracks the figure beside it — ⚠️ **deliberately NOT in the pixel registry**: `constants/icons.ts` states in as many words that `sol.svg` stays an `<img>`-style brand asset at `image-rendering: auto` while everything else is crisped pixel art. |
+| 24 | ⚠️ **THE WEEKLY BOARDS RESET ON A FIXED WEEKLY ANCHOR — Wednesday 19:00 BRT** (owner, 2026-09-02), **superseding decision 3**. The two weekly boards rank the slot `{anchor + k*7d}` that contains `now`, so the race restarts on a schedule instead of sliding with the clock. **Stored as a single UTC instant** (`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-02T22:00:00Z`) and stepped by whole weeks — ⚠️ **deliberately NOT a weekday + IANA timezone**: resolving `America/Sao_Paulo` at runtime would make the boards depend on the tz database being present and identically named in the Cloud Run image and on a Windows dev box, for a country that has had **no DST since 2019**. Only the **weekday and time-of-day** matter, not the date; editing the anchor **re-cuts every live week at once**. It lives in the deploy file's **`appConfig`** block beside `SettlementCutoverUtc`, **not** `secrets` — it is a public schedule, and `appConfig` reaches Cloud Run without the hand-added `base_secret_ids`/`base_secret_env` binding (`SecretBindingCheck` documents the split). ⚠️ **NULL = the legacy rolling 7 days**, fallback and all, which is the fail-soft default and what a local box and the integration suite run. ⚠️ **THE ANCHORED MODE NEVER FALLS BACK** (narrowing decision 22): a hard reset makes "empty" a true, self-explaining state, so a quiet board is shown as quiet and the client says *"no rounds yet this week"*. Falling back here would display **last week's winners** for the minutes between the reset and the first bet and then silently swap them out — hiding the very event the reset exists to stage. Accepted cost: a game type nobody has played this week shows an empty board rather than its last active week. ⚠️ The window is **still floored at `SettlementCutoverUtc`**. ⚠️ **The Redis key gains the period start**, or the reset would land up to a full 120 s TTL late — on the single most-watched moment the boards have. |
 | 21 | ⚠️ **A bare figure is not acceptable** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). Every board labels its score **three** ways: a one-line **explainer** under the head (*"Ranked by total SOL gambled in the last 7 days"*), a **meta line under each plinth figure** naming the unit (`SOL GAMBLED` on the gamble race, `SOL` + the working `1.84 IN · 2.78 OUT` on the PNL board, game type + date on the Hall of Fame), and a **column header** above the list (`GAMBLED` / `NET` / `MULTIPLIER`). The PNL board shows the working specifically because a net figure without it is unreadable. |
 
 ---
@@ -199,6 +200,36 @@ the caller-resolution step copied from `GetGamesHistoryHandler.ResolveCallerPlay
    x.ExternalPlayerId == wallet)`, null when blank/unknown. **Null is not an error.**
 4. `_leaderboardService.GetLeaderboards(typeIds, request.ParametersId, callerPlayerId, request.Size, ct)`.
 5. `LeaderboardsDto.From(result, _settings.Operator.Token, activeTypes)`.
+
+### 6.2.1 The weekly reset grid — `Domain/Leaderboards/Services/LeaderboardSchedule.cs`
+
+Pure: no `DbContext`, no ambient clock, no `TimeZoneInfo`. Deliberately mirrors `LotterySchedule`,
+which already solved "fixed grid, not a rolling offset" for lottery draws.
+
+```csharp
+public static readonly TimeSpan Period = TimeSpan.FromDays(7);
+
+// The slot containing nowUtc; null when unanchored (=> caller keeps the rolling window).
+public static DateTime? CurrentPeriodStart(DateTime nowUtc, DateTime? anchorUtc);
+
+// CurrentPeriodStart + Period; null when unanchored. This is what the client gets as `resetsAt`.
+public static DateTime? NextReset(DateTime nowUtc, DateTime? anchorUtc);
+```
+
+⚠️ **Integer ticks only**, for the reason `LotterySchedule` documents: ticks since year 1 (~6.4e17)
+exceed `double`'s exact-integer range (~9e15), so a floating-point quotient lands on the wrong slot.
+
+⚠️ **THE DIVISION MUST FLOOR, NOT TRUNCATE.** C# integer division rounds **toward zero**, so for an
+instant *before* the anchor a naive `elapsed / period` yields `0` and hands back a period that has not
+started — a window running into the **future**, with every completed round outside it and both weekly
+boards silently empty, no error anywhere. This is **not** a hypothetical branch: the anchor shipped as
+"today at 19:00 BRT", so every read before that instant took it on day one. Pinned by
+`LeaderboardScheduleTests`, five of whose cases fail if the floor is removed.
+
+⚠️ **The anchor's `Kind` is normalised, never converted.** The configuration binder hands back
+`Unspecified` (or `Local`); the value is *read as* UTC so a dev box in BRT and a Cloud Run box in UTC
+land on the same grid, and so Npgsql never sees a non-UTC `DateTime` on a `timestamptz` parameter.
+`StatsWindowExtensions.EffectiveCutoff` and `ReferralEarningsService` carry the identical guard.
 
 ### 6.3 `ILeaderboardService` / `LeaderboardService` — `Services/Leaderboards/`
 
@@ -318,7 +349,7 @@ private IQueryable<BetPayout> WonByBet()
         .Select(perBet => new BetPayout { BetId = perBet.Key, Won = perBet.Sum(x => x.Amount) });
 ```
 
-#### 6.3.2 Board 1 — Gamble race (rolling 7 days, cutover floored)
+#### 6.3.2 Board 1 — Gamble race (the anchored week, cutover floored)
 
 ```csharp
 var window = await ResolveWeeklyWindow(typeIds, cancellationToken);   // §6.3.1 — may be a fallback
@@ -346,7 +377,7 @@ var scores = paidBets
 Ordered `Score` desc, then `FirstQualifyingAt` asc, then `.Take(size)`. **One row per player, bounded
 by `size`** — the `GROUP BY` runs in Postgres and the `LIMIT` is in the same statement.
 
-#### 6.3.3 Board 2 — Weekly PNL (rolling 7 days, cutover floored)
+#### 6.3.3 Board 2 — Weekly PNL (the anchored week, cutover floored)
 
 Net is `Σ credits − Σ paid stakes` over the same rounds, in **one** statement via a left join:
 

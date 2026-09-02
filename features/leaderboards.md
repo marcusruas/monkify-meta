@@ -10,9 +10,9 @@
 ## What it does
 
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
-rolling-7-day **gamble race** (Σ paid stake), a rolling-7-day **weekly PNL** (net, signed), and an
-all-time **hall of fame** of biggest win multipliers — on a section of the home page and on a
-shareable `/leaderboard` route.
+weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
+**hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
+`/leaderboard` route. The two weekly boards **reset every Wednesday 19:00 BRT**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -47,22 +47,50 @@ season table, no prize wallet, no payout consumer and no solvency guard. Adding 
   or silently fall back to client evaluation over every `Player` row. A theory test pins the two
   against each other across all four combinations; **keep them in step by hand**.
 
-### The windows — and the quiet-week fallback
+### The windows — the anchored weekly reset
 
-- The two weekly boards take a **rolling 7 days**, not a calendar week. With no prize there is nothing
-  to freeze and pay, and a calendar week would be the system's first week-start/timezone decision.
-- ⚠️ **A quiet week does not empty a board.** If the last 7 days hold no qualifying round **for the
-  applied filter**, the board anchors on the most recent qualifying round and shows the 7 days ending
-  there, flagging `window.isFallback`. Resolved **per filter**, so a game type nobody played this week
-  shows that type's last active week rather than the deployment's.
+There are **two modes**, and which one is live depends only on whether an anchor is configured.
+Production is anchored; a local box with no override is not.
+
+**Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
+`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-02T22:00:00Z`, which
+is **Wednesday 19:00 BRT**. The race restarts on a schedule instead of sliding with the clock.
+
+- ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
+  runtime — that would make the boards depend on the tz database being present and identically named in
+  the Cloud Run image and on a Windows dev box, for a country with **no DST since 2019**. Only the
+  **weekday and time-of-day** matter, not the date. Re-pointing it **re-cuts every live week at once**,
+  and also re-labels the UI with no frontend build (the client renders the instant the API sends).
+- ⚠️ **`LeaderboardSchedule`'s division must FLOOR, not truncate.** C# integer division rounds toward
+  zero, so for an instant *before* the anchor a naive quotient returns a period that has not started —
+  a window into the future, both weekly boards silently empty, no error. Not hypothetical: the anchor
+  shipped as "today at 19:00 BRT". Five `LeaderboardScheduleTests` cases fail if the floor is removed.
+- ⚠️ **THE ANCHORED MODE NEVER FALLS BACK.** A hard reset makes "empty" a true and self-explaining
+  state, so a quiet board is shown as quiet and the client says *"no rounds yet this week"*. Falling
+  back would show **last week's winners** between the reset and the first bet, then silently swap them
+  — hiding the event the reset exists to stage. Cost, accepted: a type nobody played this week shows an
+  empty board, not its last active week.
+- ⚠️ **`window.resetsAt` is the client's MODE FLAG** — non-null means anchored. Never infer the mode
+  from `window.from`.
+- ⚠️ **The Redis key carries the period start**, or the reset would land up to a full 120 s TTL late,
+  on the most-watched moment the boards have.
+- ⚠️ **The integration fixture unanchors the suite** (`SetWeeklyResetAnchor(null)`), because the
+  leaderboard tests back-date rounds by a few days: left anchored, whether a 3-day-old round is inside
+  "this week" would depend on **which weekday the suite ran** — green Thursday, red Monday. The
+  anchored path has its own test that sets the anchor explicitly and restores it in a `finally`.
+
+**Unanchored (null anchor — local, and the integration suite).** The legacy **rolling 7 days**, with
+the quiet-week fallback intact:
+
+- If the last 7 days hold no qualifying round **for the applied filter**, the board anchors on the most
+  recent qualifying round and shows the 7 days ending there, flagging `window.isFallback` (**only ever
+  true in this mode**). Resolved per filter.
 - ⚠️ The fallback anchor is the **later of `MAX(EndDate)` and `MAX(CreatedDate)`**, deliberately not
   `MAX(EndDate ?? CreatedDate)` — the COALESCE is unsargable and would forfeit the covering index.
   `CreatedDate <= EndDate` on a completed round, so the later value is only ever the `CreatedDate` when
   the newest round carries a null `EndDate`, which is precisely the row the fallback wants.
-- ⚠️ **The fallback window is still clamped at the cutover** — `anchor − 7d` may not reach past it, or
-  a quiet week would quietly sum two settlement currencies.
-- The genuine empty state (`> no rounds yet`) now means only "this filter has never had a completed
-  round".
+
+**Both modes** are floored at `SettlementCutoverUtc`, or a window would sum two settlement currencies.
 
 ### The hall of fame
 
@@ -139,8 +167,12 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   header and plinth meta line — so there is **one** board component driven by a config map, not three.
   A per-board champion band was drawn, reviewed and rejected.
 - ⚠️ **No bare figures.** Every board carries an explainer naming the period **read from the response**
-  (so a fallback week names its real dates and can never claim "the last 7 days"), a unit-naming meta
-  line under each plinth figure, and a column header. The gamble race adds asterisked fine print:
+  (anchored: *"this week"* plus a `RESETS WEDNESDAYS 7:00 PM BRT` line derived from `window.resetsAt`;
+  unanchored: *"in the last 7 days"*, or a fallback week's real dates — it can never claim a period the
+  rows do not cover), a unit-naming meta line under each plinth figure, and a column header.
+  ⚠️ The reset is rendered in **BRT and explicitly labelled**, never the viewer's local time: it is one
+  weekly event the whole board shares, and localising it would give viewers near midnight a different
+  weekday and quietly break the shared reference. The gamble race adds asterisked fine print:
   *"Total gambled, not deposited — Orbit re-bets what it wins, so this climbs past what you put in."*
   Turnover routinely exceeds deposits and that was read as a bug on first sight.
 - ⚠️ **The word is "gamble", never "wager"** — owner decision, applied to the copy AND the wire
@@ -164,9 +196,11 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
 | `SpaceStroker.Infrastructure/Handlers/Leaderboards/GetLeaderboards/` | Active-type resolve, vague not-found, caller resolve |
 | `SpaceStroker.Infrastructure/Services/Leaderboards/LeaderboardService.cs` | The three aggregates, `ResolveWeeklyWindow`, own rank, clone-before-stamp |
 | `.../Services/Leaderboards/HouseWallets.cs` | The four configured public keys; skips blank/`MOCK_` |
-| `.../Services/Leaderboards/LeaderboardModels.cs` | `LeaderboardEntry` (+ `ClonePublic`), `LeaderboardWindow` |
+| `.../Services/Leaderboards/LeaderboardModels.cs` | `LeaderboardEntry` (+ `ClonePublic`), `LeaderboardWindow` (+ `ResetsAt`) |
+| `SpaceStroker.Domain/Leaderboards/Services/LeaderboardSchedule.cs` | ⚠️ The weekly reset grid — pure, integer ticks, **floors** |
+| `SpaceStroker.Domain/Configs/Entities/LeaderboardSettings.cs` | `WeeklyResetAnchorUtc`; null => rolling 7 days |
 | `.../Contracts/Leaderboards/LeaderboardsDto.cs` | Response DTOs; wire names `gambleRace`/`weeklyPnl`/`hallOfFame` |
-| `.../Services/Cache/CacheHelper.cs` | `GenerateLeaderboardsCacheSettings` — 120 s, filter-keyed |
+| `.../Services/Cache/CacheHelper.cs` | `GenerateLeaderboardsCacheSettings` — 120 s, keyed on filter **+ period start** |
 
 **Frontend (`monkify-front`)** — `src/pages/LeaderboardPage.vue`, `src/components/leaderboard/*`,
 `src/components/home/HomeLeaderboard.vue`, `src/hooks/useLeaderboards.ts`,
