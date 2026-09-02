@@ -56,11 +56,16 @@ export const campaign = {
   handle: '@SpaceStroker',
   url: 'https://app.spacestroker.com/leaderboard',
   notes: [
-    'Built from features/leaderboards.md (#182, 2026-09-02), NOT Trello #178.',
-    'NO PRIZE exists. Every piece here sells status, never money.',
-    'Only the gamble race is visible; PNL and hall of fame are dark behind build-time flags.',
-    'Vocabulary: "gamble" not "wager"; "round" not "game"; SOL not USDC; "rolling 7 days" not "week".',
-    'Accent: amber for the announcement beats, cyan for the fairness/can-not-be-bought beat.',
+    'STATE AS OF 2026-09-02, from the owner. This SUPERSEDES the knowledge base:',
+    '  - Project is LAUNCHED and the token is LIVE on pump.fun. The old no-token rule is void.',
+    '  - Leaderboard is merged and starts soon. It is NOT yet deployed to production.',
+    '  - There IS a prize, run by the team: 3 SOL a week, 2 SOL 1st, 0.6 SOL + 3M STROKE 2nd,',
+    '    0.4 SOL + 2M STROKE 3rd. The shipped feature moves no money, so the payout is MANUAL.',
+    '    Never describe it as automatic or on-chain.',
+    '  - Weekly, and this cycle runs until Wednesday.',
+    'Vocabulary: gamble not wager, round not game. Settlement is SOL, never the token.',
+    'The shot in ui/ is a MOCKED render of the real page (owner call). Never caption it as live',
+    'standings, and never quote a figure off it.',
   ],
 };
 
@@ -92,20 +97,6 @@ export const stills = [
       "Rank is rounds, not bet size.\n\nStakes are fixed per game type and it is one bet per player per round, so there is no bet-sizing dimension at all. The board separates people by rounds played, not by who bet biggest.\n\napp.spacestroker.com/leaderboard",
     hashtags: ['solana', 'provablyfair', 'web3gaming', 'leaderboard'],
     when: 'T+1',
-  },
-  {
-    // Saying the quiet part first. A straight voice on an unusual position reads better than
-    // dressing it up, and it prevents the disappointment of an implied prize.
-    id: 's1-03-no-prize',
-    board: 'square',
-    accent: 'amber',
-    kicker: 'Straight up',
-    headline: 'No prize.<br>Just the top<br>of <em>the board</em>.',
-    sub: 'Bragging rights. That is the whole offer.',
-    caption:
-      'No prize. Just the top of the board.\n\nThere is no pool, no payout and no season. The leaderboard exists so you can see where you stand against everyone else, and so can they.\n\napp.spacestroker.com/leaderboard',
-    hashtags: ['solana', 'web3gaming', 'leaderboard'],
-    when: 'T+3',
   },
   {
     // Born 16:9. The X timeline crops a tall piece hard enough to eat the mark and half the
@@ -141,62 +132,80 @@ export const stills = [
 export const video = {
   id: 'x-01-leaderboard',
   format: 'wide',   // X: the one shape the timeline never crops (tools/boards.mjs)
-  music: 'game_starting.mp3',
-  musicGain: 0.4,
+  /* CONSTANT MUSIC. The active-round track, looped for the whole piece and faded only at the tail.
+     A promo that goes silent between beats reads as a broken file, and X gives you no second
+     chance once someone has scrolled past. */
+  music: 'game_running_1.mp3',
+  musicGain: 0.62,
   accent: 'amber',
-  // Persistent plate behind every scene. 1920x1080, so nothing is enlarged, and it stops the
-  // right half reading as dead black on the four scenes that carry no art of their own.
-  bg: { src: 'space-bg.png', x: '62%', y: '50%', zoom: 1, veil: 0.12 },
-  /* THE X POST ITSELF. Written against marketing/twitter-launch-campaign.md:
-     · §4.5 — ONE hashtag. Three or more reads as spam to the algorithm and REDUCES reach.
-     · §6 — no raw app link in the main tweet body. The link lives in the bio and the first reply.
-     · 280 characters hard cap; tools/captions.mjs counts it and flags an overrun.
-     ⚠️ That doc still says the game settles in USDC. It predates the SOL cutover (2026-08-20) and
-     is stale on that point; this campaign says SOL, or says nothing about currency. */
-  caption:
-    'The board is live.\n\nEvery completed round counts toward a rolling 7-day ranking. Top 25, and your own row stays pinned even when you are nowhere near it.\n\nStakes are fixed, so rank is rounds played, not bet size.\n\nNo prize. Just the top of the board.',
+  /* The starfield sits behind every scene, so nothing is ever a black rectangle. */
+  bg: { src: 'space-bg.png', x: '55%', y: '50%', zoom: 1.04, veil: 0.1 },
+
+  /* THE X POST. One hashtag, link in the first reply, 280 cap — twitter-launch-campaign.md
+     §4.5/§6. A template literal, so the line breaks are real and nothing has to be escaped. */
+  caption: `THE LEADERBOARD IS LIVE.
+
+3 SOL + $STROKE on the line every week.
+
+1st — 2 SOL
+2nd — 0.6 SOL + 3M $STROKE
+3rd — 0.4 SOL + 2M $STROKE
+
+Ranked by total SOL gambled. This week runs until Wednesday.
+
+Start stroking.`,
   hashtags: ['Solana'],
   reply: 'Board: app.spacestroker.com/leaderboard',
 
   scenes: [
     {
-      // The hook is a question the product can now answer and could not before. `features/
-      // leaderboards.md` §1: "Nothing puts two players next to each other."
       id: 'hook',
       ms: 2600,
-      art: { src: 'cards/cosmicsprint-poster.png', x: '50%', y: '18%', zoom: 1, veil: 0.24 },
-      kicker: 'New',
-      headline: "Who's played<br>the most?",
+      art: { src: 'edson-ship-typing.gif', x: '50%', y: '42%', zoom: 1, veil: 0.18 },
+      kicker: 'Now live',
+      headline: 'THE<br><em>LEADERBOARD</em>',
+      sub: 'Everyone ranked. Every week.',
       sfx: 'button_press.mp3',
     },
     {
-      id: 'answer',
-      ms: 2400,
-      headline: "Now there's<br>a <em>board</em>.",
-      sub: 'Rolling 7 days.',
-      sfx: 'button_press.mp3',
-    },
-    {
-      id: 'rules',
-      ms: 3400,
-      headline: 'The rules.',
-      chips: ['ROLLING 7 DAYS', 'TOP 25', 'YOUR ROW PINNED'],
+      /* THE PRODUCT, not a description of it: a real screenshot of /leaderboard, shown whole
+         (`fit: contain`) in its own framed panel on the right, so the copy never covers the
+         interface it is pointing at. */
+      id: 'ui',
+      ms: 3000,
+      art: { src: 'leaderboard-page.png', fit: 'contain', frame: 'right', veil: 0, render: 'auto', zoom: 1 },
+      kicker: 'The board',
+      headline: 'Ranked by<br>SOL <em>gambled</em>.',
       sfx: 'phone_beep.mp3',
     },
     {
-      // The differentiator, and the only cyan scene: this is the fairness beat.
-      id: 'fair',
-      ms: 3000,
+      /* THE PRIZE, which is the reason for the post. Full frame: a three-column ranking squeezed
+         into the left half reads as three chips, not as a podium. */
+      id: 'prize',
+      ms: 4200,
+      layout: 'full',
+      kicker: 'Weekly prize pool',
+      headline: '3 SOL<br>+ <em>$STROKE</em>',
+      podium: [
+        { place: 1, sol: '2 SOL' },
+        { place: 2, sol: '0.6 SOL', stroke: '+ 3M $STROKE' },
+        { place: 3, sol: '0.4 SOL', stroke: '+ 2M $STROKE' },
+      ],
+      sfx: 'victory.mp3',
+    },
+    {
+      id: 'timing',
+      ms: 2600,
       accent: 'cyan',
-      headline: 'Rank is<br>rounds, not<br><em>bet size</em>.',
-      sub: 'Stakes are fixed. Only rounds count.',
+      headline: 'Every week.',
+      sub: 'This one runs until Wednesday.',
       sfx: 'button_press.mp3',
     },
     {
-      // Closing on the honest position rather than on a call to win something.
-      id: 'close',
-      ms: 2800,
-      headline: 'No prize.<br>Just <em>rank</em>.',
+      id: 'cta',
+      ms: 2600,
+      art: { src: 'monk-coin-main.png', fit: 'contain', frame: 'right', zoom: 1, veil: 0, render: 'auto' },
+      headline: 'Start<br><em>stroking</em>.',
       sub: 'app.spacestroker.com/leaderboard',
       sfx: 'victory.mp3',
     },

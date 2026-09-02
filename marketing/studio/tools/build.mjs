@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { BOARDS, FORMATS } from './boards.mjs';
-import { art, audio, brandCss, fontFaceCss, sizeKb } from './assets.mjs';
+import { addArtRoot, art, audio, brandCss, fontFaceCss, sizeKb } from './assets.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CAMPAIGNS = join(here, '..', 'campaigns');
@@ -36,6 +36,9 @@ const OUT = join(DIR, 'pieces');
 if (!existsSync(join(DIR, 'content.mjs'))) {
   throw new Error(`no campaign at ${DIR}\nexpected ${join(DIR, 'content.mjs')}`);
 }
+
+// A campaign has its own captured UI shots in ui/; resolve them by filename like any asset.
+addArtRoot(join(DIR, 'ui'));
 
 const content = await import(pathToFileURL(join(DIR, 'content.mjs')).href);
 const campaign = content.campaign ?? {};
@@ -221,7 +224,7 @@ function stillHtml(piece) {
   const artBlock = piece.art
     ? `<div class="art-band" style="--art-x:${attr(piece.art.x ?? '50%')};--art-y:${attr(
         piece.art.y ?? '50%',
-      )};--art-zoom:${attr(piece.art.zoom ?? 1)};--art-veil:${attr(piece.art.veil ?? 0.28)};--art-render:${attr(piece.art.render ?? 'pixelated')}">
+      )};--art-zoom:${attr(piece.art.zoom ?? 1)};--art-veil:${attr(piece.art.veil ?? 0.28)};--art-render:${attr(piece.art.render ?? 'pixelated')};--art-fit:${attr(piece.art.fit ?? 'cover')}">
       <img src="${art(piece.art.src)}" alt="">
     </div>`
     : '';
@@ -326,12 +329,23 @@ function videoHtml(v) {
     .map((s, i) => {
       const accent = accentVar(s.accent ?? v.accent, `${v.id} scene ${i + 1}`);
       const artBlock = s.art
-        ? `<div class="art-band" style="--art-x:${attr(s.art.x ?? '50%')};--art-y:${attr(
+        ? `<div class="art-band ${s.art.frame === 'right' ? 'art-band--right' : ''}" style="--art-x:${attr(s.art.x ?? '50%')};--art-y:${attr(
             s.art.y ?? '50%',
-          )};--art-zoom:${attr(s.art.zoom ?? 1)};--art-veil:${attr(s.art.veil ?? 0.28)};--art-render:${attr(s.art.render ?? 'pixelated')}">
+          )};--art-zoom:${attr(s.art.zoom ?? 1)};--art-veil:${attr(s.art.veil ?? 0.28)};--art-render:${attr(s.art.render ?? 'pixelated')};--art-fit:${attr(s.art.fit ?? 'cover')}">
           <img src="${art(s.art.src)}" alt=""></div>`
         : '';
-      const body = s.stat
+      const body = s.podium
+        ? `<div class="podium">${s.podium
+            .map(
+              (pl, j) =>
+                `<div class="place place--${pl.place}" style="--d:${j * 160}ms">` +
+                `<span class="rank">${pl.label ?? pl.place + (['st','nd','rd'][pl.place - 1] ?? 'th')}</span>` +
+                `<span class="sol">${pl.sol}</span>` +
+                (pl.stroke ? `<span class="stroke">${pl.stroke}</span>` : '') +
+                `</div>`,
+            )
+            .join('')}</div>`
+        : s.stat
         ? `<div class="stat"><b>${s.stat.value}</b><span>${s.stat.label}</span></div>`
         : s.chips
           ? `<div class="chips">${s.chips
@@ -340,7 +354,7 @@ function videoHtml(v) {
           : s.sub
             ? `<p class="sub">${s.sub}</p>`
             : '';
-      return `<section class="scene" data-at="${s.at}" data-ms="${s.ms}" style="--accent:${accent}">
+      return `<section class="${s.layout === 'full' ? 'scene scene--full' : 'scene'}" data-at="${s.at}" data-ms="${s.ms}" style="--accent:${accent}">
         ${artBlock}
         <div class="copy">
           ${s.kicker ? `<div class="kicker">${s.kicker}</div>` : ''}
@@ -376,7 +390,9 @@ body { background:#0b0b12; }
 /* Behind every scene, and behind the copy. Full-bleed, never a top band. */
 .bg-art { position:absolute; inset:0; height:auto; z-index:0; }
 
-.scene { position:absolute; inset:0; opacity:0; z-index:3; }
+.scene { position:absolute; inset:0; opacity:0; z-index:3; transition: opacity 520ms ease; }
+/* ⚠️ The OUTGOING scene has to keep painting while it fades, so it cannot be display:none. Both
+   scenes are composited for half a second; that is the cross-fade. */
 .scene.active { opacity:1; }
 .scene.active .copy > *, .scene.active .stat, .scene.active .chips {
   animation: rise .62s var(--ease-out-expo) both;
@@ -385,6 +401,7 @@ body { background:#0b0b12; }
 .scene.active .headline { animation-delay: .12s; }
 .scene.active .sub, .scene.active .stat, .scene.active .chips { animation-delay: .24s; }
 .scene.active .chip { animation: pop .42s var(--ease-arcade) both; animation-delay: calc(.3s + var(--d)); }
+.scene.active .place { animation: pop .5s var(--ease-arcade) both; animation-delay: calc(.34s + var(--d)); }
 @keyframes rise { from { opacity:0; transform: translateY(26px); } to { opacity:1; transform:none; } }
 @keyframes pop { from { opacity:0; transform: scale(.82); } to { opacity:1; transform:none; } }
 
@@ -415,6 +432,37 @@ body.slides .copy { bottom:28cqw; }  /* inset allows to 86%: 302px = 84.3% */
 body.slides .mark { top:35cqw; left:8cqw; } /* 378px = 19.7%, inset floor is 19% */
 .art-band { position:absolute; left:0; right:0; top:0; height:46%; }
 
+/* ── PODIUM ─────────────────────────────────────────────────────────────────
+   ⚠️ A NAMED EXCEPTION to the one-accent rule (brand/tokens.css). A podium is medal metal, not
+   brand accent: gold, silver and bronze are what the shape means to everyone who has ever seen
+   one, and forcing all three places into a single accent throws away the ranking the block
+   exists to show. It is licensed HERE ONLY, for a prize breakdown. */
+.podium { display:flex; align-items:flex-end; gap:1.6cqw; }
+.podium .place {
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:0.5cqw;
+  padding:1.4cqw 1cqw; border-radius:var(--radius-arcade);
+  border:2px solid color-mix(in oklab, var(--medal) 55%, var(--color-line));
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--medal) 16%, transparent) 0%,
+    color-mix(in oklab, var(--color-void) 92%, transparent) 100%);
+  box-shadow: 0 0 26px -8px color-mix(in oklab, var(--medal) 60%, transparent);
+}
+.podium .place--1 { --medal: var(--color-primary);      transform: translateY(-1.6cqw); }
+.podium .place--2 { --medal: oklch(0.86 0.02 250); }
+.podium .place--3 { --medal: var(--color-primary-deep); }
+.podium .rank {
+  font-family:var(--font-display); font-size:2.4cqw; color:var(--medal); line-height:1;
+}
+.podium .sol {
+  font-family:var(--font-display); font-size:2.9cqw; color:var(--color-ink); line-height:1.1;
+  white-space:nowrap;
+}
+.podium .stroke { font-size:2cqw; color:var(--medal); letter-spacing:0.04em; white-space:nowrap; }
+body.wide .podium .rank { font-size:1.5cqw; }
+body.wide .podium .sol { font-size:2cqw; }
+body.wide .podium .stroke { font-size:1.35cqw; }
+
+
 /* ── LANDSCAPE (X, YouTube, the site) ────────────────────────────────────────
    The same reading axis the x16 STILL uses, for the same reason: on a wide board the copy sits in
    the LEFT HALF and the veil comes in from the left, because reusing the portrait layout's bottom
@@ -444,6 +492,27 @@ body.wide .stat b { font-size:7cqw; }
 body.square .copy { left:7cqw; right:7cqw; bottom:12cqw; top:auto; gap:2.8cqw; }
 body.square .mark { top:6cqw; left:7cqw; }
 body.square .headline { font-size:5cqw; }
+
+/* A SHOT SCENE. When the art IS the message — a screenshot of our own UI — the copy must not sit
+   on top of it, which is what the default full-bleed band produces. The band is inset to the right
+   and the fusing gradient is dropped, because there is no longer any text over the picture to
+   protect. */
+body.wide .art-band--right {
+  left: 41%; right: 2.5%; top: 9%; bottom: 9%;
+  border-radius: var(--radius-arcade);
+  box-shadow: 0 0 40px -10px color-mix(in oklab, var(--color-primary) 45%, transparent);
+}
+body.wide .art-band--right::before { display: none; }
+body.wide .art-band--right::after { opacity: var(--art-veil, 0); }
+
+/* A FULL-WIDTH SCENE. The podium is a three-column block; squeezed into the left half it reads as
+   three chips rather than as a ranking. This scene gets the whole frame. */
+body.wide .scene--full .copy { left: 5cqw; right: 5cqw; top: 20cqw; }
+body.wide .scene--full .headline { font-size: 4.4cqw; }
+body.wide .scene--full .podium { margin-top: 1cqw; }
+body.wide .scene--full .podium .rank { font-size: 1.9cqw; }
+body.wide .scene--full .podium .sol { font-size: 2.6cqw; }
+body.wide .scene--full .podium .stroke { font-size: 1.6cqw; }
 </style>
 </head>
 <body class="${v.format}">
@@ -490,7 +559,7 @@ window.__sceneCount = () => els.length;
 window.__showScene = (n) => { els.forEach((e,i)=>e.classList.toggle('active', i===n)); };
 /* How long the exporter must wait before photographing a scene: the longest entry animation plus
    its delay. A slide shot too early catches a chip halfway in. */
-window.__settleMs = 1300;
+window.__settleMs = 1500;
 
 /* ── audio ────────────────────────────────────────────────────────────────
    ONE scheduling function, used by the live preview and by the offline render alike. The moment

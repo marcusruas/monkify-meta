@@ -36,6 +36,16 @@ function findWorkspaceRoot() {
 
 export const ROOT = findWorkspaceRoot();
 
+/**
+ * Register another folder to search for art, ahead of the repos.
+ * Used for a campaign's own `ui/` folder, so a screenshot captured out of the running app is
+ * referenced from content.mjs by filename exactly like any shipped asset.
+ * (Safe despite `ART_ROOTS` being declared below: this runs at call time, not at module init.)
+ */
+export function addArtRoot(dir) {
+  if (dir && !ART_ROOTS.includes(dir)) ART_ROOTS.unshift(dir);
+}
+
 /* WHERE ART COMES FROM, in priority order. The LP and the app hold overlapping sets under
    different names (the LP's `edson-ship-typing.gif` is the app's `hero/ship-orbit.gif` family),
    so a shorthand is resolved against every root and the first hit wins. Ambiguity is reported

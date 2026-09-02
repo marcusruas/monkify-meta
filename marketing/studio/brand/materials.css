@@ -221,6 +221,9 @@
      logo) stays `auto`. Pixel-snapping a logo is not our call to make. Set `render: 'auto'` on
      the art in content.mjs for those. */
   image-rendering: var(--art-render, pixelated);
+  /* `cover` fills the band and crops; `contain` shows the whole image. A photograph of our own UI
+     has to be `contain` — cropping a screenshot cuts the interface you are trying to show. */
+  object-fit: var(--art-fit, cover);
   /* Per-piece framing. still.md requires THREE variables, not one:
      where the image sits horizontally, how far in it is zoomed, and the
      focus point that stays put while it zooms. Defaults are no-ops. */

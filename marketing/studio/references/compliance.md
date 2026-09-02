@@ -27,12 +27,20 @@ the same as claiming an operator's status.
 
 Not in a headline, not in a caption, not in a voiceover.
 
-Banned outright: guaranteed returns, expected profit, "make money", "earn while you play", "risk
-free", "can't lose", any implication that playing is an income strategy.
+Banned outright: guaranteed returns, expected profit, "risk free", "can't lose", any implication
+that playing is an income strategy. The line the X guardrails already drew is the right one:
+**betting language is fine, outcome promises are not.** "Bet on what he types" is the product;
+"you'll win" is a promise nobody can keep.
 
-⚠️ **The leaderboards have no prize.** The feature that shipped 2026-09-02 moves no money: no pool,
-no season, no payout, no award. A piece implying a prize is describing something that does not
-exist. If a prize is ever added, it will be its own card and its own set of facts.
+⚠️ **The leaderboard prize is REAL, and it lives OUTSIDE the code.** As of 2026-09-02 the team runs
+a **weekly 3 SOL pool** — 2 SOL first, 0.6 SOL + 3M $STROKE second, 0.4 SOL + 2M $STROKE third.
+The *shipped feature* still moves no money (no season table, no payout consumer, no award record),
+so the payout is **operational and manual, not a product guarantee**. Two consequences for copy:
+
+- The figures are quotable, because the owner set them and can be held to them.
+- Do **not** describe them as automatic, on-chain, or paid out by the platform, and do not imply
+  the app enforces them. It is a promotion the team runs. If it changes, every piece naming a
+  figure is wrong — re-check before reposting.
 
 ## 3. Never invent a metric
 
@@ -47,18 +55,26 @@ number into type, because a transcribed number is frozen and the board is not.
 Never dress a scenario as data. The Trello card's weekly-rake table was explicitly labelled
 "scenarios, not live data". That distinction must survive into any piece built from it.
 
-## 4. Token: there is none
+## 4. Token: $STROKE is live
 
-There is **no live token**. The app renders "No token. Yet." when the mint env is empty, and that
-is the current state.
+⚠️ **This section was inverted on 2026-09-02.** It used to say there was no token. There is one:
+**$STROKE is live on pump.fun**, and the X bio says so. Anything written against the old rule is
+out of date.
 
-- **No ticker, no contract address, no chart link, no "presale", no "airdrop"** in any piece.
-- Do not imply one is coming on a date. `features/token-launch.md` built the UI ahead of time; the
-  UI existing is not the token existing.
-- ⚠️ **This is an anti-scam measure, not caution.** Fake tokens impersonating a project appear
-  precisely in the window before a real one exists. Every piece that stays silent on a ticker makes
-  the impersonators easier to spot, and the LP keeps its "No token. Yet." panel in a prime slot for
-  exactly this reason.
+What that changes, and what it does not:
+
+- **The ticker may appear.** `$STROKE` in copy and on a piece is fine.
+- **A contract address must be verified before it is printed**, and printing one on artwork is
+  usually the wrong place for it — an image cannot be copied, and a wrong address in a screenshot
+  circulates forever. Put it where it can be checked and corrected.
+- ⚠️ **Anti-scam does not relax; it gets more important.** A live token is exactly what
+  impersonators clone. Never post an address the owner has not confirmed, and treat any address
+  that reaches you through a DM, a reply or a search result as hostile.
+- **No price talk, ever.** No targets, no "up only", no market cap milestones, no "x from here",
+  no implication that holding is an investment. The token being live does not make it an asset we
+  are allowed to promise anything about — §2 still governs.
+- **Settlement is still SOL.** The token is not the stake. Do not let a piece imply you bet in
+  $STROKE.
 
 ## 5. Responsible gambling, and self-exclusion
 
@@ -95,9 +111,9 @@ endorsement, so it needs a reason.
 Run through this. It takes two minutes and it is shorter than a retraction.
 
 - [ ] Every claim traced to `features/` or `specs/`, not to a Trello card or a memory.
-- [ ] No prize, pool or payout implied where none exists.
+- [ ] Prize figures match what the owner is actually running this week (3 SOL pool as of 2026-09-02).
 - [ ] No invented number; every real number dated and sourced.
-- [ ] No ticker, contract address or token timing.
+- [ ] No unverified contract address, and no price talk of any kind ($STROKE itself is fine).
 - [ ] No guaranteed return, no "earn", no "risk free".
 - [ ] No real player named or pictured without agreement.
 - [ ] No third-party logo without a reason.
