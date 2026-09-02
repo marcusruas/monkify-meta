@@ -21,9 +21,9 @@ This card adds one public read that returns three ranked boards, and the UI to s
 
 | Board | Metric | Window | Cutover floor | Money shown |
 | --- | --- | --- | --- | --- |
-| **Wager race** (default slide) | `Σ` paid stake | rolling 7 days | **yes** | yes (token-native) |
-| **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | rolling 7 days | **yes** | yes (token-native) |
-| **Hall of Fame** ⚠️ *flagged off, not in phase 1* | `max(credit ÷ own stake)`, one row per player | **all time** | **no** — see §3 decision 9 | **never** |
+| **Wager race** (default slide) | `Σ` paid stake | rolling 7 days, with a fallback (§3 decision 22) | **yes** | yes — `Σ` wagered |
+| **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | rolling 7 days, same fallback | **yes** | yes — net, signed |
+| **Hall of Fame** ⚠️ *flagged off, not in phase 1* | `max(credit ÷ own stake)`, one row per player | **all time** (no 7-day window) | **yes** — see §3 decision 9 | yes — the SOL won on that bet |
 
 Each board is filterable by game type (All types / one `GameParameters`), shows the top **10** in the
 home-page section and the top **25** on `/leaderboard`, and pins the caller's own row below the list
@@ -73,7 +73,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 6 | **The shipped money predicate is reused verbatim** — only `RewardForWinnersCompleted` rounds; free bets (`Amount == 0`) excluded from money; refunded / `NotEnoughPlayersToStart` / `ErrorWhenProcessingRewards` / `GameEndedAbruptely` excluded; `SettlementCutoverUtc` as a floor on the two weekly boards. A board whose numbers do not reconcile with the Stats page for the same player is a defect. |
 | 7 | **Orbit bets count.** They are ordinary paid bets carried on the real player's `Player` row (`Bet.PlayerId`), so this needs no special handling at all. The **Orbit custody account is never a leaderboard entity** — it signs, it does not own the bet. |
 | 8 | **No minimum participation on any board.** One qualifying bet is enough. With no prize there is nothing to farm, and a lucky one-round result is the same shareable asset the Hall of Fame exists for. |
-| 9 | **The Hall of Fame is EXEMPT from `SettlementCutoverUtc` and shows NO amounts.** A multiplier is `credit ÷ stake` with **both sides in the same era's asset**, so it is dimensionless and a pre-cutover 47× is directly comparable to a post-cutover one. A board that only reaches back to 2026-08-20 is not "permanent". **Hard constraint:** the row carries `×n` + player + date + game type and **never a SOL figure** — otherwise a USDC-era amount ships wearing a SOL symbol, which is the exact class of bug the cutover exists to prevent. This is the **only** read in the system that reaches past the cutover; it needs a comment saying why and a test pinning that no amount is exposed. |
+| 9 | ⚠️ **The Hall of Fame is ALL-TIME *and* floored at `SettlementCutoverUtc` — the two are not in conflict.** "All time" means it takes **no 7-day window**, which is what distinguishes it from the other two boards. The cutover floor is the separate money-correctness rule every money read obeys, and it applies here **because the board states an amount**: the row shows the multiplier **and the SOL won** (owner, 2026-09-02), and a pre-cutover amount would print a USDC-era figure wearing a SOL mark — roughly a 200× misstatement, the exact class of bug the cutover exists to prevent. ⚠️ *An earlier revision EXEMPTED this board from the cutover, on the grounds that a multiplier is dimensionless. That reasoning was sound for a multiplier-only board and is **void now that the board carries money** — do not reinstate the exemption without also removing the amount.* Ranking stays on the **multiplier**, not the amount: a Space Jackpot ticket is 10× a Cosmic Sprint one, so the biggest multiplier is routinely not the biggest payout. |
 | 10 | **Hall of Fame ranks people, not moments** — one row per player, their single best multiplier ever. One row per winning bet was rejected: a single hot streak would fill the board. |
 | 11 | **Identity is `Player.DisplayName` falling back to a truncated wallet, with no opt-out.** A `Player.HideFromLeaderboard` column was rejected — it is a migration plus a signature-gated write, and it makes the board quietly not the real top N. Accepted cost: the board makes the biggest wallets discoverable in one click, which per-wallet stats today do not. |
 | 12 | **Self-excluded players are hidden from all three boards while the exclusion is active.** Putting a self-excluded person's name on a gambling leaderboard uses their identity to promote a product they formally asked to be kept away from. Reuses `Player.SelfExcludedAt` / `SelfExcludedUntil`; they reappear when it lapses. Belongs in `features/legal.md` at ship time. |
@@ -85,6 +85,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 18 | **5 mockup variants of the whole carousel** (not 5 per board), one chosen and pinned on the card before implementation. The three boards are one component with different columns. ⚠️ The Claude Design MCP was **not connected** during refinement (`FIRST_PARTY_AUTH_REJECTED`) — run `/design-login` first. |
 | 19 | ⚠️ **The Hall of Fame is FEATURE-FLAGGED OFF and does NOT ship in phase 1** (owner, 2026-09-01). It is built in full — endpoint, aggregate, tests — but hidden behind **`VUE_APP_HALL_OF_FAME_ENABLED`**, read through `src/constants/featureFlags.ts` with the same **fail-closed** `=== 'true'` test `orbitEnabled` uses, and **default false**. With the flag off the carousel renders **two** chips and the slide does not exist. The board is still returned by the API — the flag is frontend-only, as specified. |
 | 20 | **All three boards take the SAME layout: the stepped plinths.** Height carries rank; the meta line under each plinth's figure names it. (A per-board treatment — a champion band on the wager race — was drawn, reviewed and **rejected** by the owner on 2026-09-02: *"wager race must be in the same format as the others"*.) What varies per board is only **colour** (amber / green-magenta / cyan), the **meta line** content, and the **column header** word. Consequence: the board stays **ONE generic component** configured per board, not three — which is also the cheaper thing to build and the easier thing to keep consistent. |
+| 22 | ⚠️ **A quiet week does not empty the board** (owner, 2026-09-02). If the last 7 days contain no qualifying round **for the applied filter**, the board does **not** render empty: it anchors on the **most recent qualifying round** and shows the **7 days ending there**, and the response says so. Two sub-decisions, both deliberate: the fallback window is **rolling from the anchor**, not "the last calendar week that had data" — a calendar week would reintroduce the week-start/timezone decision §3 decision 3 exists to avoid; and it resolves **per filter**, so a game type nobody played this week shows that type's last active week, not the deployment's. ⚠️ The fallback window is **still floored at the cutover** — `anchor − 7d` may not reach past it. The genuine empty state (`no rounds yet`) now means only "this filter has never had a completed round". |
+| 23 | **The window is a BADGE, not a caption, and every amount carries the SOL mark.** The two weekly boards must not be mistakable for all-time ones, so the window renders as an accent-bordered chip beside the type filter — `LAST 7 DAYS` / `ALL TIME` / the real dates on a fallback (`18–24 AUG`). ⚠️ It must **never** read "LAST 7 DAYS" when the data is not from the last 7 days. Money uses the existing **`src/assets/sol.svg`** brand mark, sized in `em` so it tracks the figure beside it — ⚠️ **deliberately NOT in the pixel registry**: `constants/icons.ts` states in as many words that `sol.svg` stays an `<img>`-style brand asset at `image-rendering: auto` while everything else is crisped pixel art. |
 | 21 | ⚠️ **A bare figure is not acceptable** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). Every board labels its score **three** ways: a one-line **explainer** under the head (*"Ranked by total SOL wagered in the last 7 days"*), a **meta line under each plinth figure** naming the unit (`SOL WAGERED` on the wager race, `SOL` + the working `1.84 IN · 2.78 OUT` on the PNL board, game type + date on the Hall of Fame), and a **column header** above the list (`WAGERED` / `NET` / `MULTIPLIER`). The PNL board shows the working specifically because a net figure without it is unreadable. |
 
 ---
@@ -206,37 +208,36 @@ Postgres and every result set is bounded by a `Take`.
 
 ```csharp
 /// <summary>
-/// Completed rounds of these types.
+/// Completed rounds of these types, between two optional bounds. The BOUNDS are the only thing that
+/// differs between the three boards, and each resolves its own:
 ///
-/// ⚠️ <paramref name="applyCutover"/> is the ONE asymmetry in this service. The two weekly boards sum
-/// MONEY, so they take the rolling-7-day window floored at SettlementCutoverUtc — otherwise a total
-/// would add USDC-era figures to SOL-era ones and report a number in no currency at all. The hall of
-/// fame ranks a RATIO (credit / own stake, both sides in the same era's asset), which is
-/// dimensionless and therefore comparable across the cutover, so it applies no bound at all and is
-/// deliberately the only read in the system that reaches past it. See specs/sol-settlement.md §6.4
-/// and decision 9 above. The hall of fame row carries NO amount, which is what makes this safe.
+///  - the two WEEKLY boards pass what ResolveWeeklyWindow returns — the last 7 days floored at
+///    SettlementCutoverUtc, or the fallback week when that is empty (decision 22);
+///  - the HALL OF FAME passes (cutover, null) — no 7-day window, which is what "all time" means here,
+///    but STILL the cutover floor, because that board states a SOL amount (decision 9).
 ///
-/// ⚠️ The date bound is NOT written as (EndDate ?? CreatedDate) >= cutoff. A COALESCE is unsargable
-/// and would forfeit IX_Games_ParametersId_Status_EndDate_CreatedDate. Both arms below are
-/// index-usable — the identical predicate GlobalStatsService uses.
+/// ⚠️ Every one of them is floored at the cutover. Summing across it would add USDC-era figures to
+/// SOL-era ones and report a number in no currency at all. See specs/sol-settlement.md §6.4.
+///
+/// ⚠️ Neither bound is written as (EndDate ?? CreatedDate). A COALESCE is unsargable and would forfeit
+/// IX_Games_ParametersId_Status_EndDate_CreatedDate. Both arms below are index-usable — the identical
+/// predicate GlobalStatsService uses.
 /// </summary>
-private IQueryable<Game> CompletedRounds(List<Guid> typeIds, bool applyCutover)
+private IQueryable<Game> CompletedRounds(List<Guid> typeIds, DateTime? from, DateTime? to)
 {
     var completed = _context.Games
         .Where(round => typeIds.Contains(round.ParametersId)
                      && round.Status == GameStatus.RewardForWinnersCompleted);
 
-    if (!applyCutover)
-        return completed;
+    if (from != null)
+        completed = completed.Where(round => round.EndDate >= from
+                                          || (round.EndDate == null && round.CreatedDate >= from));
 
-    var cutoff = StatsWindowExtensions.EffectiveCutoff(
-        StatsWindow.Week, _settlementCutoverUtc, DateTime.UtcNow);
+    if (to != null)
+        completed = completed.Where(round => round.EndDate <= to
+                                          || (round.EndDate == null && round.CreatedDate <= to));
 
-    if (cutoff == null)
-        return completed;
-
-    return completed.Where(round => round.EndDate >= cutoff
-                                 || (round.EndDate == null && round.CreatedDate >= cutoff));
+    return completed;
 }
 
 /// <summary>
@@ -255,6 +256,53 @@ private IQueryable<Player> EligiblePlayers(DateTime now)
         && (player.SelfExcludedAt == null
             || (player.SelfExcludedUntil != null && player.SelfExcludedUntil <= now)));
 
+/// <summary>
+/// The window a WEEKLY board actually covers — and the reason it is resolved rather than assumed.
+///
+/// Primary: the last 7 days, floored at the settlement cutover, exactly as every other stats read.
+/// ⚠️ FALLBACK (§3 decision 22): if that window holds no qualifying round FOR THIS FILTER, the board
+/// does not go empty — it anchors on the most recent qualifying round and covers the 7 days ending
+/// there. A quiet week showing an empty leaderboard reads as a broken feature, which is what this
+/// exists to prevent.
+///
+/// ⚠️ The anchor is found as the LATER of MAX(EndDate) and MAX(CreatedDate), deliberately NOT as
+/// MAX(EndDate ?? CreatedDate): the COALESCE is unsargable and would scan, and two bounded MAXes are
+/// both index-usable. CreatedDate <= EndDate on a completed round, so the later of the two is only
+/// ever the CreatedDate when the newest round carries a null EndDate — which is precisely the row the
+/// fallback wants.
+///
+/// ⚠️ The fallback window is STILL FLOORED AT THE CUTOVER: `anchor - 7d` is clamped, or a quiet week
+/// would quietly reach back into the previous settlement asset and sum two currencies together.
+///
+/// Returns null bounds and IsFallback=false when the filter has never had a completed round — the
+/// genuine empty state.
+/// </summary>
+private async Task<LeaderboardWindow> ResolveWeeklyWindow(List<Guid> typeIds, CancellationToken ct)
+{
+    var now = DateTime.UtcNow;
+    var floor = StatsWindowExtensions.EffectiveCutoff(StatsWindow.Week, _settlementCutoverUtc, now);
+
+    if (await CompletedRounds(typeIds, floor, null).AnyAsync(ct))
+        return new LeaderboardWindow(floor, now, IsFallback: false);
+
+    // Nothing this week. Find the newest qualifying round, bounded only by the cutover.
+    var cutoverOnly = StatsWindowExtensions.EffectiveCutoff(StatsWindow.All, _settlementCutoverUtc, now);
+    var all = CompletedRounds(typeIds, cutoverOnly, null);
+
+    var maxEnd = await all.MaxAsync(round => (DateTime?)round.EndDate, ct);
+    var maxCreated = await all.MaxAsync(round => (DateTime?)round.CreatedDate, ct);
+
+    var anchor = maxEnd is { } e && maxCreated is { } c ? (e > c ? e : c) : (maxEnd ?? maxCreated);
+    if (anchor == null)
+        return new LeaderboardWindow(floor, now, IsFallback: false);   // never had a round
+
+    var from = anchor.Value.AddDays(-7);
+    if (cutoverOnly is { } bound && from < bound)
+        from = bound;
+
+    return new LeaderboardWindow(from, anchor, IsFallback: true);
+}
+
 /// <summary>Credits summed per bet — the shipped payout source (TransactionLogType.Credit).</summary>
 private IQueryable<BetPayout> WonByBet()
     => _context.TransactionLogs
@@ -266,7 +314,8 @@ private IQueryable<BetPayout> WonByBet()
 #### 6.3.2 Board 1 — Wager race (rolling 7 days, cutover floored)
 
 ```csharp
-var rounds = CompletedRounds(typeIds, applyCutover: true);
+var window = await ResolveWeeklyWindow(typeIds, cancellationToken);   // §6.3.1 — may be a fallback
+var rounds = CompletedRounds(typeIds, window.From, window.To);
 
 var paidBets = _context.GameBets
     .Where(bet => bet.Amount > 0m && bet.PlayerId != null)
@@ -325,7 +374,12 @@ var scores = perBet
 
 ```csharp
 // STEP 1 — one row per player, bounded by size.
-var roundsAllTime = CompletedRounds(typeIds, applyCutover: false);   // ← no bound at all. Decision 9.
+// ⚠️ ALL-TIME means NO 7-DAY WINDOW — it does NOT mean no cutover floor. This board states a SOL
+// amount (decision 9), so it obeys the money rule like every other money read: the only bound is the
+// cutover. An earlier revision passed no bound at all here; that was correct while the board showed
+// a bare multiplier and is WRONG now that it shows what was won.
+var cutoverOnly = StatsWindowExtensions.EffectiveCutoff(StatsWindow.All, _settlementCutoverUtc, DateTime.UtcNow);
+var roundsAllTime = CompletedRounds(typeIds, cutoverOnly, null);
 
 var winningBets =
     from bet in _context.GameBets.Where(b => b.Amount > 0m && b.PlayerId != null)
@@ -333,7 +387,7 @@ var winningBets =
                                        (b, r) => new { b.Id, b.PlayerId, b.Amount,
                                                        r.ParametersId, At = r.EndDate ?? r.CreatedDate })
     join won in WonByBet() on bet.Id equals won.BetId         // INNER join: only bets that were paid
-    select new { bet.PlayerId, bet.ParametersId, bet.At, Multiplier = won.Won / bet.Amount };
+    select new { bet.PlayerId, bet.ParametersId, bet.At, won.Won, Multiplier = won.Won / bet.Amount };
 
 var scores = winningBets
     .Join(EligiblePlayers(now), …)
@@ -341,9 +395,14 @@ var scores = winningBets
     .Select(perPlayer => new LeaderboardEntry
     {
         …,
-        Score = perPlayer.Max(x => x.Multiplier),
+        Score = perPlayer.Max(x => x.Multiplier),   // the RANK is the multiplier, never the amount
         FirstQualifyingAt = perPlayer.Min(x => x.At),
     });
+
+// ⚠️ The amount is carried for DISPLAY only and must not touch the ordering. A Space Jackpot ticket
+// is 10x a Cosmic Sprint one, so the biggest multiplier is routinely not the biggest payout —
+// ranking on the amount would quietly turn this into a "biggest win" board, which is a different
+// feature and one the ticket prices would decide rather than the players.
 
 // STEP 2 — for those <= 25 player ids only, the single best winning bet, for the date + type columns.
 var topIds = top.Select(x => x.PlayerId).ToList();
@@ -352,6 +411,8 @@ var best = await winningBets
     .GroupBy(x => x.PlayerId!.Value)
     .Select(g => g.OrderByDescending(x => x.Multiplier).ThenBy(x => x.At).First())
     .ToListAsync(cancellationToken);
+// That row supplies the display columns for each of the top N: Won, ParametersId (→ game type name)
+// and At (→ the date).
 ```
 
 - Step 2 is deliberately a **second query over a fixed id list** rather than a lateral subquery folded
@@ -453,12 +514,27 @@ public class LeaderboardsDto
     public int? TokenDecimals { get; set; }
 }
 
+public class LeaderboardWindowDto
+{
+    /// <summary>"week" | "all" — which KIND of window this board takes.</summary>
+    public string Kind { get; set; }
+    /// <summary>Inclusive bounds actually applied (UTC), null on an all-time board with no cutover.</summary>
+    public DateTime? From { get; set; }
+    public DateTime? To { get; set; }
+    /// <summary>
+    /// True when the last 7 days were empty and the board fell back to the most recent week that had
+    /// results (§3 decision 22). ⚠️ The client MUST caption from From/To when this is set — rendering
+    /// "LAST 7 DAYS" over a fallback window is the one thing decision 23 forbids.
+    /// </summary>
+    public bool IsFallback { get; set; }
+}
+
 public class LeaderboardBoardDto
 {
     /// <summary>"wagerRace" | "weeklyPnl" | "hallOfFame" — how the client formats Score.</summary>
     public string Board { get; set; }
-    /// <summary>"week" | "all" — the window APPLIED to this board. The two are deliberately different.</summary>
-    public string Window { get; set; }
+    /// <summary>The window applied to THIS board — the three are deliberately not the same.</summary>
+    public LeaderboardWindowDto Window { get; set; }
     /// <summary>True on the hall of fame only: Score is a ratio, so the client must not append a symbol.</summary>
     public bool ScoreIsMultiplier { get; set; }
     public IList<LeaderboardRowDto> Rows { get; set; }
@@ -473,9 +549,12 @@ public class LeaderboardRowDto
     public string Wallet { get; set; }          // the client truncates; same as every other identified surface
     public decimal Score { get; set; }
     public bool IsYou { get; set; }
-    /// <summary>Hall of fame only — when the best win happened, and on which type. Null on the others.</summary>
+    /// <summary>Hall of fame only — when the best win happened, on which type, and what it paid.
+    /// Null on the other two boards. `Won` is the SOL credited for that single bet (owner, 2026-09-02);
+    /// it is DISPLAY ONLY and never participates in the ordering — see §6.3.4.</summary>
     public DateTime? AchievedAt { get; set; }
     public string? GameTypeName { get; set; }
+    public decimal? Won { get; set; }
 
     /// <summary>
     /// A copy with the caller-specific fields cleared. ⚠️ Cached rows MUST be cloned before IsYou is
@@ -487,9 +566,11 @@ public class LeaderboardRowDto
 }
 ```
 
-⚠️ **No money field exists on a hall-of-fame row.** `Score` there is the multiplier and `AchievedAt` /
-`GameTypeName` are the only extra columns. The DTO has no place to put a SOL amount, which is how
-decision 9's hard constraint is enforced structurally rather than by remembering it.
+⚠️ **`Score` on the hall of fame is the MULTIPLIER, and `Won` is the amount** — two different numbers
+in two different columns, never conflated. `Won` exists because the owner asked the board to state what
+was actually won (decision 9); it is display-only, and the ordering reads `Score`. ⚠️ That amount is
+exactly why the board is floored at the cutover — if `Won` is ever removed again, the exemption may be
+reinstated, and not before.
 
 ⚠️ **No `ReferralCode` and no partner field anywhere on this response.**
 
@@ -501,7 +582,8 @@ decision 9's hard constraint is enforced structurally rather than by remembering
 | `parametersId` unknown, inactive, or malformed | `ErrorMessages.ParameterNotFound` — the same vague message `GetGameTypeStatsHandler` and `GetGamesHistoryHandler` return. Existence and status are never revealed. |
 | `size` out of `[1,25]` | Clamped, **200** |
 | `wallet` absent / blank / unknown / never bet | 200, boards populated, `you: null` on each |
-| A type with no qualifying rounds | 200, that board's `Rows` is **empty** — an empty state, never a row of zeros and never an error |
+| The last 7 days are empty for this filter | 200, the board falls back to the most recent week with results and sets `window.isFallback` with the real `from`/`to` (§3 decision 22) |
+| A filter that has NEVER had a completed round | 200, that board's `Rows` is **empty** — the genuine empty state, never a row of zeros and never an error |
 
 ### 6.8 Caching
 
@@ -596,6 +678,16 @@ The per-board config is a small literal map — the only thing that differs betw
 - Money renders **token-native** through the shared `useAmountFormatter` / `formatSol`.
   ⚠️ **The Hall of Fame slide renders `×n` and no amount, ever** — read `scoreIsMultiplier` and never
   append the token symbol on that board.
+- **The window badge** (`LeaderboardWindowBadge.vue`) renders beside the type filter from
+  `board.window`: `LAST 7 DAYS` when `kind == "week"` and not a fallback, `ALL TIME` when
+  `kind == "all"`, and the real `from–to` dates when `isFallback`. ⚠️ **Caption from the response,
+  never from what was requested** — the same rule `GlobalStatsDto.Window` already carries. On a
+  fallback the board also renders a strip above the plinths: *"No rounds this week — showing the most
+  recent week that had results."*
+- **Money carries the SOL mark** — the existing `src/assets/sol.svg`, sized in `em` beside the figure.
+  ⚠️ It is a **brand asset, not a pixel glyph**: it does not go in `constants/icons.ts` (which says so
+  explicitly) and it renders at `image-rendering: auto` while the arcade face crisps everything else.
+  The Hall of Fame's multiplier takes **no** mark — it is a ratio, not money.
 - ⚠️ **No bare figures.** Every board carries a one-line explainer under the head, a **meta line under
   each plinth figure** naming the unit, and a **column header strip** over the list — `WAGERED`, `NET`,
   `MULTIPLIER`. The PNL plinths additionally show the working (`1.84 IN · 2.78 OUT`) because a net
@@ -678,8 +770,8 @@ sequenceDiagram
 | 4 | `src/SpaceStroker.Infrastructure/Services/Leaderboards/ILeaderboardService.cs` | **New.** `GetLeaderboards(typeIds, parametersId, callerPlayerId, size, ct)` |
 | 5 | `src/SpaceStroker.Infrastructure/Services/Leaderboards/LeaderboardService.cs` | **New.** The three bounded aggregates, the cutover asymmetry, eligibility, own rank |
 | 6 | `src/SpaceStroker.Infrastructure/Services/Leaderboards/HouseWallets.cs` | **New.** Resolves the four configured public keys; skips blank/`MOCK_` |
-| 7 | `src/SpaceStroker.Infrastructure/Services/Leaderboards/Leaderboards.cs` · `LeaderboardEntry.cs` | **New.** Plain result models (the `GlobalStats` shape) |
-| 8 | `src/SpaceStroker.Infrastructure/Contracts/Leaderboards/LeaderboardsDto.cs` · `LeaderboardBoardDto.cs` · `LeaderboardRowDto.cs` · `LeaderboardGameTypeDto.cs` | **New.** Response DTOs + `ClonePublic()` |
+| 7 | `src/SpaceStroker.Infrastructure/Services/Leaderboards/Leaderboards.cs` · `LeaderboardEntry.cs` · `LeaderboardWindow.cs` | **New.** Plain result models (the `GlobalStats` shape); `LeaderboardWindow(From, To, IsFallback)` is what `ResolveWeeklyWindow` returns |
+| 8 | `src/SpaceStroker.Infrastructure/Contracts/Leaderboards/LeaderboardsDto.cs` · `LeaderboardBoardDto.cs` · `LeaderboardWindowDto.cs` · `LeaderboardRowDto.cs` · `LeaderboardGameTypeDto.cs` | **New.** Response DTOs + `ClonePublic()`; the row carries `Won` for the hall of fame |
 | 9 | `src/SpaceStroker.Infrastructure/Services/Cache/CacheHelper.cs` | Add `GenerateLeaderboardsCacheSettings(parametersId, size)` — 120 s, filter-keyed |
 | 10 | `src/SpaceStroker.Infrastructure/DependencyInjection.cs` | Register `ILeaderboardService` |
 | 11 | `src/SpaceStroker.Api/Program.cs` (CORS/route wiring only if the controller needs it) | Verify the new controller is covered by the existing convention; no new policy |
@@ -691,7 +783,7 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/pages/LeaderboardPage.vue` | **New.** Top-25 carousel + type filter |
-| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardBoard.vue` · `LeaderboardPlinth.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` | **New.** ONE generic board driven by a per-board config map (§7.3); used by the page and the home section |
+| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardBoard.vue` · `LeaderboardPlinth.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` · `LeaderboardWindowBadge.vue` | **New.** ONE generic board driven by a per-board config map (§7.3); the badge captions from `board.window`, including the fallback dates |
 | 3 | `src/components/home/HomeLeaderboard.vue` | **New.** Top-10 `HomeSection` (must pass `title`), links through |
 | 4 | `src/pages/HomePage.vue` | Render `<home-leaderboard>` between player stats and the floor |
 | 5 | `src/hooks/useLeaderboards.ts` | **New.** Fetch on mount + `visibilitychange`; no hub, no interval |
@@ -699,7 +791,7 @@ sequenceDiagram
 | 7 | `src/types/index.ts` | `Leaderboards`, `LeaderboardBoard`, `LeaderboardRow`, `LeaderboardGameType` |
 | 8 | `src/routes.ts` | `Leaderboard` → `/leaderboard`, with the unlisted-route comment |
 | 9 | `src/main.ts` | Add `'Leaderboard'` to `EMBED_REDIRECT_ROUTES` |
-| 10 | `src/constants/icons.ts` | New `leaderboard` pixel mark |
+| 10 | `src/constants/icons.ts` | New `leaderboard` pixel mark. ⚠️ The SOL mark is **not** added here — `src/assets/sol.svg` is reused as-is, per its own comment |
 | 11 | `src/pages/GameStatsPage.vue` | A link through to `/leaderboard` (the second entry point) |
 | 12 | `src/constants/featureFlags.ts` | **New flag** `hallOfFameEnabled` — fail-closed `=== 'true'`, beside `orbitEnabled` |
 | 13 | `.env.example` | `VUE_APP_HALL_OF_FAME_ENABLED=false` + the "build-time, rebuild to switch on" comment |
@@ -736,6 +828,15 @@ Monte Carlo suite).
 | | Ties resolve by earliest qualifying bet, and twice identically | Deterministic |
 | | Own rank uses the **same** comparison as the ordering | Pinned rank matches list position |
 | | Own rank is null for a caller who never bet | Not an error |
+| `UnitTests/Services/LeaderboardWindowTests.cs` | A week with data returns that week, `IsFallback` false | The normal path |
+| | An empty week falls back to the 7 days ending at the newest round | The core of decision 22 |
+| | The fallback anchor is the newest round even when its `EndDate` is NULL | The two-MAX rule, not a COALESCE |
+| | The fallback window is clamped at the cutover — `anchor − 7d` never reaches past it | Or a quiet week sums two currencies |
+| | A filter that has never had a round returns empty with `IsFallback` false | The genuine empty state |
+| | The fallback resolves **per filter** — a quiet type falls back independently of the deployment | Decision 22 |
+| `UnitTests/Services/LeaderboardHallOfFameTests.cs` | Ranks on the multiplier, not on the amount won | A 10× ticket price must not decide the board |
+| | The row carries the SOL won for **that** bet | Decision 9's amount |
+| | Pre-cutover wins are **excluded** now that the board states an amount | ⚠️ The reversal of the old exemption |
 | `UnitTests/Services/LeaderboardEligibilityTests.cs` | The house seed wallet is excluded | Absent from all three boards |
 | | Treasury / Orbit / referral-payout wallets are excluded | Absent |
 | | A changed `HouseSeed:PublicKey` is what gets excluded | Reads config, not a literal |
@@ -819,6 +920,12 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 25. Given `VUE_APP_HALL_OF_FAME_ENABLED=true` in the build, when the leaderboard renders, then a third chip appears and the Hall of Fame slide is reachable.
 26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head, a `SOL WAGERED` / `SOL` / game-type meta line under each plinth figure, and a column header naming the figure (`WAGERED` / `NET` / `MULTIPLIER`).
 27. Given all three boards render, when their layouts are compared, then they are the same stepped-plinth layout, differing only in accent colour, explainer, column header and plinth meta line.
+28. Given the last 7 days contain no completed round for the applied filter, when a weekly board is read, then it returns the 7 days ending at the most recent qualifying round, flags the response as a fallback, and the badge shows those real dates rather than "LAST 7 DAYS".
+29. Given a filter that has never had a completed round, when a weekly board is read, then it returns empty with no fallback flag — the genuine empty state.
+30. Given a fallback window whose anchor is less than 7 days after `SettlementCutoverUtc`, when the board is read, then the window is clamped at the cutover and no pre-cutover round contributes.
+31. Given the Hall of Fame renders, when a row is inspected, then it shows the multiplier as the rank and the SOL won beside it, and a pre-cutover win does not appear at all.
+32. Given the Hall of Fame is read, when a player with a lower multiplier but a larger payout exists, then they rank **below** the higher multiplier — the board never orders by the amount.
+33. Given any money figure renders on any board, when it is inspected, then it carries the `sol.svg` brand mark; and the Hall of Fame's multiplier carries no mark, because it is a ratio and not money.
 
 ---
 
@@ -838,7 +945,12 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
    with a rank matching where you would appear.
 7. Load the app embedded (`?embed=1` or an iframe) — the home section is gone and `/leaderboard`
    redirects to the lobby.
-8. **The flag.** With the default build, confirm the carousel shows **two** chips and nothing reaches the
+8. **The quiet-week fallback.** Stop placing bets and move the local clock forward (or backdate the
+   seeded rounds) so nothing falls inside the last 7 days. Reload: the board must still show results,
+   the badge must show the real dates, and the "no rounds this week" strip must appear. Then filter to
+   a game type that HAS had a round this week and confirm the badge flips back to `LAST 7 DAYS` —
+   the fallback is per filter.
+9. **The flag.** With the default build, confirm the carousel shows **two** chips and nothing reaches the
    Hall of Fame. Then rebuild the front with `VUE_APP_HALL_OF_FAME_ENABLED=true` and confirm a third chip
    appears. ⚠️ `VUE_APP_*` is baked in at build time — restarting the container is not enough, the
    frontend image has to be rebuilt.
@@ -862,6 +974,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
 | Date | Change |
 | --- | --- |
+| 2026-09-02 | Design **approved**. Folded in: the window is a **badge** not a caption and money carries the **`sol.svg` mark** (decision 23); the Hall of Fame is **all-time but floored at the cutover** and now states the **SOL won** beside the multiplier, which **voids** the old cutover exemption (decision 9 rewritten); and a **quiet week falls back** to the most recent week with results rather than rendering empty (decision 22, new `ResolveWeeklyWindow` in §6.3.1, `LeaderboardWindowDto` in §6.6, AC 28–33). |
 | 2026-09-02 | Second design pass: the per-board champion band was **rejected** — all three boards take the SAME stepped-plinth layout, so the board is one generic component driven by a per-board config map (decision 20 rewritten, §7.3 config table added, §10.2 and AC 26–27 updated). |
 | 2026-09-01 | Owner review of the design mockups: Hall of Fame **flagged off for phase 1** (decision 19), per-board top-three treatments (decision 20, since reversed), and **no bare figures** — explainer line + column headers (decision 21). §1, §7, §10, §11, §12, §13 updated to match. |
 | 2026-09-01 | Initial spec from the refined card (#182) + the refinement conversation. Code touchpoints verified against `GlobalStatsService`, `PlayerStatsService`, `StatsWindowExtensions`, `CacheHelper`, `Player`, the four `*Settings` public keys, `routes.ts` and `main.ts`. |
