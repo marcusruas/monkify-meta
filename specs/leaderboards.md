@@ -5,7 +5,7 @@
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
 > **Purpose:** give players a way to see how they compare to everyone else. Three read-only boards in
-> one carousel — a rolling-7-day **Wager race**, a rolling-7-day **Weekly PNL**, and an all-time
+> one carousel — a rolling-7-day **Gamble race**, a rolling-7-day **Weekly PNL**, and an all-time
 > **Hall of Fame** of biggest win multipliers — on the home page and on a shareable `/leaderboard`
 > route. Status and distribution only: **this feature moves no money and writes nothing.**
 
@@ -21,7 +21,7 @@ This card adds one public read that returns three ranked boards, and the UI to s
 
 | Board | Metric | Window | Cutover floor | Money shown |
 | --- | --- | --- | --- | --- |
-| **Wager race** (default slide) | `Σ` paid stake | rolling 7 days, with a fallback (§3 decision 22) | **yes** | yes — `Σ` wagered |
+| **Gamble race** (default slide) | `Σ` paid stake | rolling 7 days, with a fallback (§3 decision 22) | **yes** | yes — `Σ` gambled |
 | **Weekly PNL** | `Σ` credits − `Σ` paid stakes (may be negative) | rolling 7 days, same fallback | **yes** | yes — net, signed |
 | **Hall of Fame** ⚠️ *flagged off, not in phase 1* | `max(credit ÷ own stake)`, one row per player | **all time** (no 7-day window) | **yes** — see §3 decision 9 | yes — the SOL won on that bet |
 
@@ -84,10 +84,10 @@ From `monkify-meta/constraints.md` (full list there):
 | 17 | **No SignalR and no polling.** Fetch on mount and on `visibilitychange` focus, the pattern `specs/home-dashboard.md` decision 32 settled. `useGameHub` keeps its one-connection / one-group invariant. |
 | 18 | **5 mockup variants of the whole carousel** (not 5 per board), one chosen and pinned on the card before implementation. The three boards are one component with different columns. ⚠️ The Claude Design MCP was **not connected** during refinement (`FIRST_PARTY_AUTH_REJECTED`) — run `/design-login` first. |
 | 19 | ⚠️ **The Hall of Fame is FEATURE-FLAGGED OFF and does NOT ship in phase 1** (owner, 2026-09-01). It is built in full — endpoint, aggregate, tests — but hidden behind **`VUE_APP_HALL_OF_FAME_ENABLED`**, read through `src/constants/featureFlags.ts` with the same **fail-closed** `=== 'true'` test `orbitEnabled` uses, and **default false**. With the flag off the carousel renders **two** chips and the slide does not exist. The board is still returned by the API — the flag is frontend-only, as specified. |
-| 20 | **All three boards take the SAME layout: the stepped plinths.** Height carries rank; the meta line under each plinth's figure names it. (A per-board treatment — a champion band on the wager race — was drawn, reviewed and **rejected** by the owner on 2026-09-02: *"wager race must be in the same format as the others"*.) What varies per board is only **colour** (amber / green-magenta / cyan), the **meta line** content, and the **column header** word. Consequence: the board stays **ONE generic component** configured per board, not three — which is also the cheaper thing to build and the easier thing to keep consistent. |
+| 20 | **All three boards take the SAME layout: the stepped plinths.** Height carries rank; the meta line under each plinth's figure names it. (A per-board treatment — a champion band on the gamble race — was drawn, reviewed and **rejected** by the owner on 2026-09-02: *"gamble race must be in the same format as the others"*.) What varies per board is only **colour** (amber / green-magenta / cyan), the **meta line** content, and the **column header** word. Consequence: the board stays **ONE generic component** configured per board, not three — which is also the cheaper thing to build and the easier thing to keep consistent. |
 | 22 | ⚠️ **A quiet week does not empty the board** (owner, 2026-09-02). If the last 7 days contain no qualifying round **for the applied filter**, the board does **not** render empty: it anchors on the **most recent qualifying round** and shows the **7 days ending there**, and the response says so. Two sub-decisions, both deliberate: the fallback window is **rolling from the anchor**, not "the last calendar week that had data" — a calendar week would reintroduce the week-start/timezone decision §3 decision 3 exists to avoid; and it resolves **per filter**, so a game type nobody played this week shows that type's last active week, not the deployment's. ⚠️ The fallback window is **still floored at the cutover** — `anchor − 7d` may not reach past it. The genuine empty state (`no rounds yet`) now means only "this filter has never had a completed round". |
 | 23 | **The window is a BADGE, not a caption, and every amount carries the SOL mark.** The two weekly boards must not be mistakable for all-time ones, so the window renders as an accent-bordered chip beside the type filter — `LAST 7 DAYS` / `ALL TIME` / the real dates on a fallback (`18–24 AUG`). ⚠️ It must **never** read "LAST 7 DAYS" when the data is not from the last 7 days. Money uses the existing **`src/assets/sol.svg`** brand mark, sized in `em` so it tracks the figure beside it — ⚠️ **deliberately NOT in the pixel registry**: `constants/icons.ts` states in as many words that `sol.svg` stays an `<img>`-style brand asset at `image-rendering: auto` while everything else is crisped pixel art. |
-| 21 | ⚠️ **A bare figure is not acceptable** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). Every board labels its score **three** ways: a one-line **explainer** under the head (*"Ranked by total SOL wagered in the last 7 days"*), a **meta line under each plinth figure** naming the unit (`SOL WAGERED` on the wager race, `SOL` + the working `1.84 IN · 2.78 OUT` on the PNL board, game type + date on the Hall of Fame), and a **column header** above the list (`WAGERED` / `NET` / `MULTIPLIER`). The PNL board shows the working specifically because a net figure without it is unreadable. |
+| 21 | ⚠️ **A bare figure is not acceptable** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). Every board labels its score **three** ways: a one-line **explainer** under the head (*"Ranked by total SOL gambled in the last 7 days"*), a **meta line under each plinth figure** naming the unit (`SOL GAMBLED` on the gamble race, `SOL` + the working `1.84 IN · 2.78 OUT` on the PNL board, game type + date on the Hall of Fame), and a **column header** above the list (`GAMBLED` / `NET` / `MULTIPLIER`). The PNL board shows the working specifically because a net figure without it is unreadable. |
 
 ---
 
@@ -159,7 +159,7 @@ New `SpaceStroker.Api/Controllers/LeaderboardsController.cs`, following `Players
 
 ```csharp
 /// <summary>
-/// The three public leaderboards in one read: the rolling-7-day wager race, the rolling-7-day PNL
+/// The three public leaderboards in one read: the rolling-7-day gamble race, the rolling-7-day PNL
 /// board, and the all-time hall of fame of biggest win multipliers. Public and wallet-keyed exactly
 /// like GET /players/stats — it ranks facts that are already publicly readable by address. An
 /// unknown wallet gets the boards with no own-rank row, never an existence-revealing error.
@@ -311,7 +311,7 @@ private IQueryable<BetPayout> WonByBet()
         .Select(perBet => new BetPayout { BetId = perBet.Key, Won = perBet.Sum(x => x.Amount) });
 ```
 
-#### 6.3.2 Board 1 — Wager race (rolling 7 days, cutover floored)
+#### 6.3.2 Board 1 — Gamble race (rolling 7 days, cutover floored)
 
 ```csharp
 var window = await ResolveWeeklyWindow(typeIds, cancellationToken);   // §6.3.1 — may be a fallback
@@ -448,7 +448,7 @@ One shared helper, **not four inline literals**, resolved once from `GeneralSett
 ///
 /// ⚠️ The HouseSeed wallet is the one that actually matters: it places one ordinary paid bet in EVERY
 /// newly created round on every type (specs/house-seed-bet.md), so without this filter it would
-/// permanently own the top of the wager race. The other three are excluded on principle — they are
+/// permanently own the top of the gamble race. The other three are excluded on principle — they are
 /// house money and could bet.
 ///
 /// ⚠️ A marker column was REJECTED. The seeded bet's defining property is that it has "no marker
@@ -499,7 +499,7 @@ have been removed from.
 ```csharp
 public class LeaderboardsDto
 {
-    public LeaderboardBoardDto WagerRace { get; set; }
+    public LeaderboardBoardDto GambleRace { get; set; }
     public LeaderboardBoardDto WeeklyPnl { get; set; }
     public LeaderboardBoardDto HallOfFame { get; set; }
 
@@ -531,7 +531,7 @@ public class LeaderboardWindowDto
 
 public class LeaderboardBoardDto
 {
-    /// <summary>"wagerRace" | "weeklyPnl" | "hallOfFame" — how the client formats Score.</summary>
+    /// <summary>"gambleRace" | "weeklyPnl" | "hallOfFame" — how the client formats Score.</summary>
     public string Board { get; set; }
     /// <summary>The window applied to THIS board — the three are deliberately not the same.</summary>
     public LeaderboardWindowDto Window { get; set; }
@@ -657,7 +657,7 @@ by design — do not.
 
 | File | Role |
 | --- | --- |
-| `LeaderboardCarousel.vue` | The slides + the chip control. Default slide = **Wager race**. ⚠️ Renders **two** chips unless `hallOfFameEnabled`. |
+| `LeaderboardCarousel.vue` | The slides + the chip control. Default slide = **Gamble race**. ⚠️ Renders **two** chips unless `hallOfFameEnabled`. |
 | `LeaderboardBoard.vue` | **One generic board**, used by all three: explainer line, the stepped-plinth top three, the column header strip, the list, and the pinned `YOU` row. Takes a per-board config (see below) — there is no per-board component. |
 | `LeaderboardPlinth.vue` | One plinth: rank numeral, name, figure, meta line. Height comes from its rank. |
 | `LeaderboardRow.vue` | One list row: rank, identity, score. `IsYou` takes the same treatment as the `YOU` label elsewhere. |
@@ -667,8 +667,8 @@ The per-board config is a small literal map — the only thing that differs betw
 
 | Board | Accent | Explainer | Column header | Plinth meta line |
 | --- | --- | --- | --- | --- |
-| Wager race | `--color-primary` | "Ranked by total SOL wagered in the last 7 days" | `WAGERED` | `SOL WAGERED` / `<n> BETS` |
-| Weekly PNL | `--color-live` / `--color-magenta` by sign | "Ranked by net profit — won minus wagered — in the last 7 days" | `NET` | `SOL` / `<in> IN · <out> OUT` |
+| Gamble race | `--color-primary` | "Ranked by total SOL gambled in the last 7 days" | `GAMBLED` | `SOL GAMBLED` / `<n> BETS` |
+| Weekly PNL | `--color-live` / `--color-magenta` by sign | "Ranked by net profit — won minus gambled — in the last 7 days" | `NET` | `SOL` / `<in> IN · <out> OUT` |
 | Hall of Fame | `--color-cyan` | "Ranked by biggest win multiplier — payout divided by your own stake — all time" | `MULTIPLIER` | `<game type>` / `<date>` |
 
 - Swiping between slides costs **no request** — all three arrive in one response (decision 14).
@@ -689,7 +689,7 @@ The per-board config is a small literal map — the only thing that differs betw
   explicitly) and it renders at `image-rendering: auto` while the arcade face crisps everything else.
   The Hall of Fame's multiplier takes **no** mark — it is a ratio, not money.
 - ⚠️ **No bare figures.** Every board carries a one-line explainer under the head, a **meta line under
-  each plinth figure** naming the unit, and a **column header strip** over the list — `WAGERED`, `NET`,
+  each plinth figure** naming the unit, and a **column header strip** over the list — `GAMBLED`, `NET`,
   `MULTIPLIER`. The PNL plinths additionally show the working (`1.84 IN · 2.78 OUT`) because a net
   figure without it is unreadable (§3 decision 21).
 - Empty board → the `> no rounds yet` empty state, never a row of zeros.
@@ -728,7 +728,7 @@ sequenceDiagram
     alt hit
         R-->>API: three public board slices
     else miss
-        API->>PG: wager race  (7d, cutover floor, GROUP BY player, LIMIT size)
+        API->>PG: gamble race  (7d, cutover floor, GROUP BY player, LIMIT size)
         API->>PG: weekly PNL  (7d, cutover floor, GROUP BY player, LIMIT size)
         API->>PG: hall of fame (ALL TIME, no cutover, GROUP BY player, LIMIT size)
         API->>PG: hall of fame detail for the <=25 top ids
@@ -817,12 +817,12 @@ Monte Carlo suite).
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
-| `UnitTests/Services/LeaderboardServiceTests.cs` | Wager race ranks by summed paid stake, desc | Highest staker first |
+| `UnitTests/Services/LeaderboardServiceTests.cs` | Gamble race ranks by summed paid stake, desc | Highest staker first |
 | | Weekly PNL returns a **negative** score for a losing player | Not clamped, ranked below zero |
 | | Weekly PNL keeps a player who won nothing on the board | The `DefaultIfEmpty` left join — an inner join would drop them |
 | | Hall of Fame returns **one row per player**, their max multiplier | A player with three big wins appears once |
 | | Hall of Fame includes a pre-`SettlementCutoverUtc` win | Cutover-exempt (decision 9) |
-| | Wager race and PNL **exclude** pre-cutover rounds | Cutover floor applied |
+| | Gamble race and PNL **exclude** pre-cutover rounds | Cutover floor applied |
 | | Free bets (`Amount == 0`) contribute to neither weekly board | Score unchanged |
 | | Rounds not `RewardForWinnersCompleted` contribute nothing | Refunded / under-subscribed / errored / abrupt |
 | | Ties resolve by earliest qualifying bet, and twice identically | Deterministic |
@@ -893,17 +893,17 @@ a house-seed public key to exclude.
 
 Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
-1. Given completed rounds in the last 7 days, when a player opens the Leaderboard, then the Wager race is the default slide and ranks players by total paid stake descending over that rolling window.
+1. Given completed rounds in the last 7 days, when a player opens the Leaderboard, then the Gamble race is the default slide and ranks players by total paid stake descending over that rolling window.
 2. Given a player whose credits are less than their stakes over the window, when the Weekly PNL board is read, then their net is ranked as a negative value and is never clamped to zero.
 3. Given a player with several big wins, when the Hall of Fame is read, then they appear exactly once with their single best multiplier rendered as `×n`, and no SOL amount appears in the row or anywhere in that board's payload.
-4. Given rounds that completed before `SettlementCutoverUtc`, when the Wager race or Weekly PNL board is read, then those rounds contribute nothing to either total.
+4. Given rounds that completed before `SettlementCutoverUtc`, when the Gamble race or Weekly PNL board is read, then those rounds contribute nothing to either total.
 5. Given a winning bet in a round that completed before `SettlementCutoverUtc`, when the Hall of Fame is read, then its multiplier is included in the ranking, because the ratio carries no currency.
 6. Given the house seed wallet has placed a bet in every round, when any of the three boards is read, then the house wallet appears on none of them.
 7. Given the house seed wallet is changed in `GeneralSettings`, when any board is read, then the newly configured address is excluded and no address is special-cased outside that configuration.
 8. Given a bet placed by the Orbit engine on a player's behalf, when the boards are read, then it counts toward that player's row and the Orbit custody account never appears as an entry.
 9. Given a player whose self-exclusion is currently active, when any of the three boards is read, then that player is absent from all of them; and given the exclusion has lapsed, when the boards are next read uncached, then they appear again.
 10. Given a round that was refunded or ended `NotEnoughPlayersToStart`, `ErrorWhenProcessingRewards` or `GameEndedAbruptely`, when any board is read, then its bets contribute nothing to any ranking.
-11. Given a free bet with `Amount == 0`, when the Wager race or Weekly PNL board is read, then it contributes nothing to either total.
+11. Given a free bet with `Amount == 0`, when the Gamble race or Weekly PNL board is read, then it contributes nothing to either total.
 12. Given a ranked player with a `DisplayName`, when a board renders, then the display name is shown; and given a ranked player with none, then a truncated wallet address is shown instead.
 13. Given two players with an identical score on a board, when that board is read twice, then both reads return them in the same order, tied on earliest qualifying bet and never on wallet string or at random.
 14. Given a connected wallet that ranks outside the visible slice, when a board is read, then the caller's own row is returned with their true rank and is pinned below the list.
@@ -918,7 +918,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 23. Given any leaderboard response, when it is inspected, then it carries no `ReferralCode` and no referral-partner information of any kind.
 24. Given `VUE_APP_HALL_OF_FAME_ENABLED` is unset, empty, `false` or misspelled, when the leaderboard renders, then the carousel shows exactly **two** chips, the Hall of Fame slide does not exist, and no route or link reaches it.
 25. Given `VUE_APP_HALL_OF_FAME_ENABLED=true` in the build, when the leaderboard renders, then a third chip appears and the Hall of Fame slide is reachable.
-26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head, a `SOL WAGERED` / `SOL` / game-type meta line under each plinth figure, and a column header naming the figure (`WAGERED` / `NET` / `MULTIPLIER`).
+26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head, a `SOL GAMBLED` / `SOL` / game-type meta line under each plinth figure, and a column header naming the figure (`GAMBLED` / `NET` / `MULTIPLIER`).
 27. Given all three boards render, when their layouts are compared, then they are the same stepped-plinth layout, differing only in accent colour, explainer, column header and plinth meta line.
 28. Given the last 7 days contain no completed round for the applied filter, when a weekly board is read, then it returns the 7 days ending at the most recent qualifying round, flags the response as a fallback, and the badge shows those real dates rather than "LAST 7 DAYS".
 29. Given a filter that has never had a completed round, when a weekly board is read, then it returns empty with no fallback flag — the genuine empty state.
@@ -933,7 +933,7 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
 1. Bring up the local stack (`setup_local_environment.bat`) and fill a few rounds — `/fill-crypto-clash`
    is the fastest way to get completed rounds with several distinct players.
-2. Open `/` → the leaderboard section renders below your own record, showing the top 10, Wager race
+2. Open `/` → the leaderboard section renders below your own record, showing the top 10, Gamble race
    selected.
 3. Swipe/tab across all three slides — **no network request fires** (check devtools). Change the type
    filter — exactly one request fires.
@@ -985,7 +985,7 @@ a *silent* failure — the code compiled and read correctly in every case.
    `PlayerId != null` first, but the provider does not reliably order that filter before the key
    selector. Every join now goes through the **nullable side** (`bet => bet.PlayerId` against
    `player => (Guid?)player.Id`).
-3. ⚠️ **Stakes are FIXED per game type**, so a wager race cannot be separated by bet size — a player's
+3. ⚠️ **Stakes are FIXED per game type**, so a gamble race cannot be separated by bet size — a player's
    total is `stake × rounds played`. The first integration test varied `Amount` to tell two players
    apart and every bet was refused with *"Requested bet amount is invalid for this game"*. The test
    now drives **two rounds** instead.
@@ -1004,6 +1004,7 @@ clone can protect anything — a DTO-level clone would have been dead code.
 
 | Date | Change |
 | --- | --- |
+| 2026-09-02 | Owner rejected the word **"wager"** throughout. Renamed to **gamble** in every user-visible string AND in the wire contract (`wagerRace` -> `gambleRace`, `LeaderboardBoard.WagerRace` -> `GambleRace`), which is free precisely because nothing outside this branch consumes the endpoint yet. Two neighbouring surfaces were relabelled for consistency — `HomePlayerStats` and `GameStatsPage` sit beside the board and said "Wagered". ⚠️ The API FIELD names `totalWagered` / `totalVolumeWagered` are deliberately NOT renamed: they are shipped contract from the stats features and out of scope here. |
 | 2026-09-02 | **Implemented** on `feature/leaderboards` — 1196 unit + 152 integration green. §14b records the three silent failures the build turned up (the `DefaultIfEmpty` null-check, the `.Value` join key, and fixed stakes defeating the first integration test) and the one deviation from §6.6 (`ClonePublic` sits on the service model, not the DTO). |
 | 2026-09-02 | Design **approved**. Folded in: the window is a **badge** not a caption and money carries the **`sol.svg` mark** (decision 23); the Hall of Fame is **all-time but floored at the cutover** and now states the **SOL won** beside the multiplier, which **voids** the old cutover exemption (decision 9 rewritten); and a **quiet week falls back** to the most recent week with results rather than rendering empty (decision 22, new `ResolveWeeklyWindow` in §6.3.1, `LeaderboardWindowDto` in §6.6, AC 28–33). |
 | 2026-09-02 | Second design pass: the per-board champion band was **rejected** — all three boards take the SAME stepped-plinth layout, so the board is one generic component driven by a per-board config map (decision 20 rewritten, §7.3 config table added, §10.2 and AC 26–27 updated). |
