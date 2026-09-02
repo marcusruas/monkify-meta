@@ -130,6 +130,21 @@ newest first, public. Rendered at `/game/history`.
   with its two survivors (History + Settings), not an alternate layout. See
   [`frontend-ux.md`](frontend-ux.md).
 
+## 3b. Leaderboards (a separate read, same rules)
+
+The ranked boards added by #182 live in [`leaderboards.md`](leaderboards.md), not here — but they
+reuse **this document's money predicate verbatim** (completed rounds only, free bets excluded,
+`SettlementCutoverUtc` as a floor) and the same "no new table, bounded Postgres aggregate" decision.
+Two differences worth knowing before you touch either:
+
+- ⚠️ Leaderboard windows have a **fallback** these reads do not: a weekly board with nothing in the
+  last 7 days shows the most recent week that had results rather than rendering empty.
+- ⚠️ Their cache is keyed on the **filter only**, with the caller's own row joined live and the cached
+  rows cloned before stamping — the same discipline games history uses for its own-bet columns.
+
+A figure that disagrees between a leaderboard and this page for the same player is a defect in one of
+them; they are meant to reconcile.
+
 ## 4. Analytics (GA4)
 
 Both public properties — the LP (`www.spacestroker.com`) and the app (`app.spacestroker.com`) — report

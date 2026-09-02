@@ -88,6 +88,13 @@ feature.
 - **Expiry needs no scheduled job** — `IsSelfExcluded(now)` is evaluated per bet and per preferences
   read, so a lapsed block lifts itself.
 - An excluded player **can still watch** the round; only betting is closed.
+- ⚠️ **They are also hidden from every leaderboard while the exclusion is active** (#182), and reappear
+  when it lapses. Putting a self-excluded person's name on a gambling leaderboard — on the home page
+  and a shareable URL — uses their identity to promote a product they formally asked to be kept away
+  from. They get no own-rank row either, which is the same answer a wallet that never bet gets.
+  ⚠️ The board's predicate is a **hand-written inline negation** of `IsSelfExcluded(now)`, because EF
+  Core cannot translate that method; a theory test pins the two together. Change one, change the
+  other. See [`leaderboards.md`](leaderboards.md).
 - Bets **already placed** when the exclusion is set settle and pay out normally. Refusing an owed
   payout would be taking the player's money.
 
