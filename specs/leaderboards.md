@@ -970,10 +970,41 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
 ---
 
+## 14b. Implementation findings
+
+Three things the build turned up that the design did not predict. All are recorded because each was
+a *silent* failure — the code compiled and read correctly in every case.
+
+1. ⚠️ **`DefaultIfEmpty()` over a PROJECTED type does not null-check.** The PNL board was specced as a
+   left join onto a per-bet payout projection with a `payout == null` guard. That guard never fires:
+   the provider yields a **non-null instance whose members are null**, so reading `payout.Won` throws
+   *"Nullable object must have a value"*. Both payout lookups are now **correlated subqueries**
+   (`.Sum(log => (decimal?)log.Amount) ?? 0m`), which have no empty side to guard. ⚠️ Do not
+   "simplify" them back into a left join.
+2. ⚠️ **Joining on `bet.PlayerId.Value` evaluates `.Value` on nulls.** `PaidBetsIn` filters
+   `PlayerId != null` first, but the provider does not reliably order that filter before the key
+   selector. Every join now goes through the **nullable side** (`bet => bet.PlayerId` against
+   `player => (Guid?)player.Id`).
+3. ⚠️ **Stakes are FIXED per game type**, so a wager race cannot be separated by bet size — a player's
+   total is `stake × rounds played`. The first integration test varied `Amount` to tell two players
+   apart and every bet was refused with *"Requested bet amount is invalid for this game"*. The test
+   now drives **two rounds** instead.
+
+Two naming collisions worth knowing about, both compile-time: `LeaderboardWindowDto`'s factory is
+`Of(...)` because `From` is already a property on it, and the `Leaderboards` service model must be
+**aliased** inside `Contracts.Leaderboards` because the namespace's own last segment shadows the type.
+
+One deviation from §6.6 as written: **`ClonePublic()` lives on `LeaderboardEntry`** (the service
+model), not on the row DTO. That is where the cached object actually is, so it is the only place the
+clone can protect anything — a DTO-level clone would have been dead code.
+
+---
+
 ## 15. Revision log
 
 | Date | Change |
 | --- | --- |
+| 2026-09-02 | **Implemented** on `feature/leaderboards` — 1196 unit + 152 integration green. §14b records the three silent failures the build turned up (the `DefaultIfEmpty` null-check, the `.Value` join key, and fixed stakes defeating the first integration test) and the one deviation from §6.6 (`ClonePublic` sits on the service model, not the DTO). |
 | 2026-09-02 | Design **approved**. Folded in: the window is a **badge** not a caption and money carries the **`sol.svg` mark** (decision 23); the Hall of Fame is **all-time but floored at the cutover** and now states the **SOL won** beside the multiplier, which **voids** the old cutover exemption (decision 9 rewritten); and a **quiet week falls back** to the most recent week with results rather than rendering empty (decision 22, new `ResolveWeeklyWindow` in §6.3.1, `LeaderboardWindowDto` in §6.6, AC 28–33). |
 | 2026-09-02 | Second design pass: the per-board champion band was **rejected** — all three boards take the SAME stepped-plinth layout, so the board is one generic component driven by a per-board config map (decision 20 rewritten, §7.3 config table added, §10.2 and AC 26–27 updated). |
 | 2026-09-01 | Owner review of the design mockups: Hall of Fame **flagged off for phase 1** (decision 19), per-board top-three treatments (decision 20, since reversed), and **no bare figures** — explainer line + column headers (decision 21). §1, §7, §10, §11, §12, §13 updated to match. |
