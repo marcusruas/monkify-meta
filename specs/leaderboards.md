@@ -31,8 +31,8 @@ when they rank outside the visible slice.
 
 ⚠️ **Phase 1 ships TWO of the three.** The Hall of Fame is built end to end but hidden behind
 `VUE_APP_HALL_OF_FAME_ENABLED` (fail-closed, default `false`), so the carousel renders two chips —
-see §3 decision 19. ⚠️ **Each board owns its own treatment of the top three** (§3 decision 20), so the
-board component is per-board, not one generic table.
+see §3 decision 19. ⚠️ **All three boards share ONE layout** — the stepped plinths (§3 decision 20) —
+varying only in colour, meta line and column header, so the board is one generic component.
 
 **What this is NOT:** there is no prize, no pool, no season, no freeze, no payout. The rejected
 alternative — a `LeaderboardSeason` / `LeaderboardAward` pair with a `PayLeaderboardPrizeConsumer` —
@@ -84,8 +84,8 @@ From `monkify-meta/constraints.md` (full list there):
 | 17 | **No SignalR and no polling.** Fetch on mount and on `visibilitychange` focus, the pattern `specs/home-dashboard.md` decision 32 settled. `useGameHub` keeps its one-connection / one-group invariant. |
 | 18 | **5 mockup variants of the whole carousel** (not 5 per board), one chosen and pinned on the card before implementation. The three boards are one component with different columns. ⚠️ The Claude Design MCP was **not connected** during refinement (`FIRST_PARTY_AUTH_REJECTED`) — run `/design-login` first. |
 | 19 | ⚠️ **The Hall of Fame is FEATURE-FLAGGED OFF and does NOT ship in phase 1** (owner, 2026-09-01). It is built in full — endpoint, aggregate, tests — but hidden behind **`VUE_APP_HALL_OF_FAME_ENABLED`**, read through `src/constants/featureFlags.ts` with the same **fail-closed** `=== 'true'` test `orbitEnabled` uses, and **default false**. With the flag off the carousel renders **two** chips and the slide does not exist. The board is still returned by the API — the flag is frontend-only, as specified. |
-| 20 | ⚠️ **Each board keeps its OWN treatment of the top three** — this supersedes the earlier assumption that one geometry serves all three. The **wager race** takes the *champion band* (rank 1 full width with a labelled figure, 2 and 3 paired beneath); the **Weekly PNL** takes the *stepped plinths* (height carries rank, sign carries direction, each plinth showing `IN` / `OUT`); the Hall of Fame takes the plinths plus a mode-and-date meta line. Type and colour ARE shared. Consequence: `LeaderboardBoard.vue` is **not** one generic table — it is a per-board component behind a shared row/chrome vocabulary. |
-| 21 | ⚠️ **A bare figure is not acceptable on the wager race** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). The score is labelled **three** ways: a one-line explainer under the head (*"Ranked by total SOL wagered in the last 7 days"*), a `TOTAL WAGERED` label over the champion's figure, and a **column header** above the list. Every board carries its own explainer line and column header — the PNL board reads `NET` and shows `1.84 IN · 2.78 OUT` per plinth, because a net figure without the working is unreadable. |
+| 20 | **All three boards take the SAME layout: the stepped plinths.** Height carries rank; the meta line under each plinth's figure names it. (A per-board treatment — a champion band on the wager race — was drawn, reviewed and **rejected** by the owner on 2026-09-02: *"wager race must be in the same format as the others"*.) What varies per board is only **colour** (amber / green-magenta / cyan), the **meta line** content, and the **column header** word. Consequence: the board stays **ONE generic component** configured per board, not three — which is also the cheaper thing to build and the easier thing to keep consistent. |
+| 21 | ⚠️ **A bare figure is not acceptable** (owner, 2026-09-01: *"it must show clearly what that 1.84 SOL means"*). Every board labels its score **three** ways: a one-line **explainer** under the head (*"Ranked by total SOL wagered in the last 7 days"*), a **meta line under each plinth figure** naming the unit (`SOL WAGERED` on the wager race, `SOL` + the working `1.84 IN · 2.78 OUT` on the PNL board, game type + date on the Hall of Fame), and a **column header** above the list (`WAGERED` / `NET` / `MULTIPLIER`). The PNL board shows the working specifically because a net figure without it is unreadable. |
 
 ---
 
@@ -576,12 +576,18 @@ by design — do not.
 | File | Role |
 | --- | --- |
 | `LeaderboardCarousel.vue` | The slides + the chip control. Default slide = **Wager race**. ⚠️ Renders **two** chips unless `hallOfFameEnabled`. |
-| `LeaderboardWagerRace.vue` | The **champion band**: rank 1 full width with a `TOTAL WAGERED` label, 2 and 3 paired beneath, then the list. |
-| `LeaderboardPnl.vue` | The **stepped plinths**: height carries rank, `--color-live` / `--color-magenta` carry the sign, each plinth shows `IN` / `OUT`. |
-| `LeaderboardHallOfFame.vue` | Plinths + a mode-and-date meta line. ⚠️ Only mounted when `hallOfFameEnabled`. |
-| `LeaderboardList.vue` | The shared tail: column header strip, compact rows, the pinned `YOU` row. Used by all three. |
-| `LeaderboardRow.vue` | One row: rank, identity, score. `IsYou` takes the same treatment as the `YOU` label elsewhere. |
+| `LeaderboardBoard.vue` | **One generic board**, used by all three: explainer line, the stepped-plinth top three, the column header strip, the list, and the pinned `YOU` row. Takes a per-board config (see below) — there is no per-board component. |
+| `LeaderboardPlinth.vue` | One plinth: rank numeral, name, figure, meta line. Height comes from its rank. |
+| `LeaderboardRow.vue` | One list row: rank, identity, score. `IsYou` takes the same treatment as the `YOU` label elsewhere. |
 | `LeaderboardTypeFilter.vue` | All types / one type, from `availableTypes`. Defaults to All. |
+
+The per-board config is a small literal map — the only thing that differs between the three:
+
+| Board | Accent | Explainer | Column header | Plinth meta line |
+| --- | --- | --- | --- | --- |
+| Wager race | `--color-primary` | "Ranked by total SOL wagered in the last 7 days" | `WAGERED` | `SOL WAGERED` / `<n> BETS` |
+| Weekly PNL | `--color-live` / `--color-magenta` by sign | "Ranked by net profit — won minus wagered — in the last 7 days" | `NET` | `SOL` / `<in> IN · <out> OUT` |
+| Hall of Fame | `--color-cyan` | "Ranked by biggest win multiplier — payout divided by your own stake — all time" | `MULTIPLIER` | `<game type>` / `<date>` |
 
 - Swiping between slides costs **no request** — all three arrive in one response (decision 14).
 - Changing the type filter refetches once.
@@ -590,10 +596,10 @@ by design — do not.
 - Money renders **token-native** through the shared `useAmountFormatter` / `formatSol`.
   ⚠️ **The Hall of Fame slide renders `×n` and no amount, ever** — read `scoreIsMultiplier` and never
   append the token symbol on that board.
-- ⚠️ **No bare figures.** Every board carries a one-line explainer under the head, and the list carries a
-  **column header strip** naming the figure — `WAGERED`, `NET`, `MULTIPLIER`. The wager race additionally
-  labels the champion's number `TOTAL WAGERED`, and the PNL plinths show the working (`1.84 IN · 2.78 OUT`)
-  because a net figure without it is unreadable (§3 decision 21).
+- ⚠️ **No bare figures.** Every board carries a one-line explainer under the head, a **meta line under
+  each plinth figure** naming the unit, and a **column header strip** over the list — `WAGERED`, `NET`,
+  `MULTIPLIER`. The PNL plinths additionally show the working (`1.84 IN · 2.78 OUT`) because a net
+  figure without it is unreadable (§3 decision 21).
 - Empty board → the `> no rounds yet` empty state, never a row of zeros.
 
 ### 7.4 Data
@@ -685,7 +691,7 @@ sequenceDiagram
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/pages/LeaderboardPage.vue` | **New.** Top-25 carousel + type filter |
-| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardWagerRace.vue` · `LeaderboardPnl.vue` · `LeaderboardHallOfFame.vue` · `LeaderboardList.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` | **New.** Per-board treatments over a shared list/row/chrome vocabulary; used by the page and the home section |
+| 2 | `src/components/leaderboard/LeaderboardCarousel.vue` · `LeaderboardBoard.vue` · `LeaderboardPlinth.vue` · `LeaderboardRow.vue` · `LeaderboardTypeFilter.vue` | **New.** ONE generic board driven by a per-board config map (§7.3); used by the page and the home section |
 | 3 | `src/components/home/HomeLeaderboard.vue` | **New.** Top-10 `HomeSection` (must pass `title`), links through |
 | 4 | `src/pages/HomePage.vue` | Render `<home-leaderboard>` between player stats and the floor |
 | 5 | `src/hooks/useLeaderboards.ts` | **New.** Fetch on mount + `visibilitychange`; no hub, no interval |
@@ -811,7 +817,8 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 23. Given any leaderboard response, when it is inspected, then it carries no `ReferralCode` and no referral-partner information of any kind.
 24. Given `VUE_APP_HALL_OF_FAME_ENABLED` is unset, empty, `false` or misspelled, when the leaderboard renders, then the carousel shows exactly **two** chips, the Hall of Fame slide does not exist, and no route or link reaches it.
 25. Given `VUE_APP_HALL_OF_FAME_ENABLED=true` in the build, when the leaderboard renders, then a third chip appears and the Hall of Fame slide is reachable.
-26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head and a column header naming the figure (`WAGERED` / `NET` / `MULTIPLIER`) — and the wager race additionally labels the champion's number `TOTAL WAGERED`.
+26. Given any board renders, when a figure is shown, then it is labelled — an explainer line under the head, a `SOL WAGERED` / `SOL` / game-type meta line under each plinth figure, and a column header naming the figure (`WAGERED` / `NET` / `MULTIPLIER`).
+27. Given all three boards render, when their layouts are compared, then they are the same stepped-plinth layout, differing only in accent colour, explainer, column header and plinth meta line.
 
 ---
 
@@ -855,5 +862,6 @@ Mapped 1:1 from the Trello **Acceptance Criteria** checklist (23 items).
 
 | Date | Change |
 | --- | --- |
-| 2026-09-01 | Owner review of the design mockups: Hall of Fame **flagged off for phase 1** (decision 19), **per-board top-three treatments** rather than one shared geometry (decision 20), and **no bare figures** — explainer line + column headers + a labelled champion figure (decision 21). §1, §7, §10, §11, §12, §13 updated to match. |
+| 2026-09-02 | Second design pass: the per-board champion band was **rejected** — all three boards take the SAME stepped-plinth layout, so the board is one generic component driven by a per-board config map (decision 20 rewritten, §7.3 config table added, §10.2 and AC 26–27 updated). |
+| 2026-09-01 | Owner review of the design mockups: Hall of Fame **flagged off for phase 1** (decision 19), per-board top-three treatments (decision 20, since reversed), and **no bare figures** — explainer line + column headers (decision 21). §1, §7, §10, §11, §12, §13 updated to match. |
 | 2026-09-01 | Initial spec from the refined card (#182) + the refinement conversation. Code touchpoints verified against `GlobalStatsService`, `PlayerStatsService`, `StatsWindowExtensions`, `CacheHelper`, `Player`, the four `*Settings` public keys, `routes.ts` and `main.ts`. |
