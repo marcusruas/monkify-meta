@@ -22,6 +22,7 @@ node tools/render.mjs      <slug>        # video piece  ->  MP4 (H.264 + AAC)
 node tools/slides.mjs      <slug>        # video scenes ->  PNG, for a slideshow post
 node tools/proof.mjs       <slug> tiktok-photo   # draw the app's safe zones over the exports
 node tools/contact-sheet.mjs <slug>      # every piece side by side, for review
+node tools/captions.mjs    <slug>        # CAPTIONS.md: the posting sheet
 ```
 
 Output lands in `out/<slug>/` and is **gitignored**: sources are the truth, and every image and
@@ -48,8 +49,8 @@ references/     the instructions. Read these before writing a campaign.
   compliance.md   money, token and player-safety guardrails. Outranks the rest
 
 brand/          tokens.css · materials.css · fonts/ · assets.md (what art exists, how big)
-templates/      reserved; the builder currently emits markup directly
 tools/          the pipeline (see runbook above)
+                build - export-png - render - slides - proof - contact-sheet - captions
 campaigns/      one folder per campaign, each with a content.mjs
 out/            rendered output (gitignored)
 ```

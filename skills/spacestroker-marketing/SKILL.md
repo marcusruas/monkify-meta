@@ -48,6 +48,7 @@ skill: no promised money, no invented metric, no token ticker, no named player w
    node tools/slides.mjs <slug>          # slideshow cut, if it suits the content
    node tools/proof.mjs <slug> <surface> # safe zones, for the surface it is going to
    node tools/contact-sheet.mjs <slug>   # review the set, not the piece
+   node tools/captions.mjs <slug>        # CAPTIONS.md, the posting sheet
    ```
 6. **Verify, do not assert.** Read the PNGs. Pull frames from the middle of each video scene and
    check they are the right scenes. Run the pre-publish checklist at the end of `compliance.md`.

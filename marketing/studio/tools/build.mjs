@@ -179,9 +179,9 @@ body.no-art.story .copy { top: 46%; }
 /* STORY MARGINS ARE NOT THE FEED'S. Instagram draws its interface OVER the piece: roughly the
    top 250px and bottom 350px of a 1080x1920 are covered. Content lives between 20% and 78% of
    the height. platforms.md holds the measured numbers and the method for the rest. */
-body.story .mark { top: 22cqw; left: 8cqw; }
-body.story .handle { bottom: 34cqw; left: 8cqw; }
-body.story .copy { left: 8cqw; right: 8cqw; bottom: 46cqw; gap: 3.4cqw; }
+body.story .mark { top: 37cqw; left: 8cqw; }        /* 400px = 20.8% of 1920 */
+body.story .handle { bottom: 44cqw; left: 8cqw; }   /* 475px: top edge at 74.2% */
+body.story .copy { left: 8cqw; right: 8cqw; bottom: 52cqw; gap: 3.4cqw; }  /* 562px = 70.7% */
 body.story .headline { font-size: 5.6cqw; }
 
 /* ── LANDSCAPE: copy in the LEFT HALF, veil from the left ───────────────────
@@ -392,10 +392,10 @@ body.render .marker.on { display:block; }
    mode) place interface BELOW the piece, where the same reserved band becomes a dead gap.
    platforms.md carries the measurements and which is which. */
 .copy { left:8cqw; right:8cqw; gap:3.4cqw; }
-body.reels .copy { bottom:30cqw; }
-body.reels .mark { top:20cqw; left:8cqw; }
-body.slides .copy { bottom:18cqw; }
-body.slides .mark { top:19cqw; left:8cqw; }
+body.reels .copy { bottom:46cqw; }   /* 497px: block foot at 74.1% of 1920 */
+body.reels .mark { top:37cqw; left:8cqw; }  /* 400px = 20.8% */
+body.slides .copy { bottom:28cqw; }  /* inset allows to 86%: 302px = 84.3% */
+body.slides .mark { top:35cqw; left:8cqw; } /* 378px = 19.7%, inset floor is 19% */
 .art-band { position:absolute; left:0; right:0; top:0; height:46%; }
 </style>
 </head>

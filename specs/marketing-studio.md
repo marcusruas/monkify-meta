@@ -81,7 +81,9 @@ marketing/studio/
     slides.mjs             video scenes -> slideshow PNG, two framings
     proof.mjs              safe-zone overlay
     contact-sheet.mjs      review grid
+    captions.mjs           CAPTIONS.md posting sheet: caption + hashtags + day per piece
   campaigns/_example/      a working campaign, used as the smoke test
+  campaigns/leaderboard-launch/  the first real campaign (see §8)
   package.json .gitignore
 
 skills/spacestroker-marketing/SKILL.md   (mirrored to .claude/ and .cursor/)
@@ -120,11 +122,15 @@ No test suite exists or is applicable. The bar was a real end-to-end render, all
 - `slides.mjs _example` → 5 slides at 1080×1920, all passing the wrap check.
 - `proof.mjs`, `contact-sheet.mjs` → ran clean.
 
-**Five defects were found and fixed by this verification**, which is the argument for having done
+**Six defects were found and fixed by this verification**, which is the argument for having done
 it: Playwright's named export not surviving import-by-path; display type not calibrated for a
 monospaced face (three boards wrapped); chips ignoring the piece accent; the recorder filming page
-padding and the toolbar into the MP4; and a 200ms marker being needed because two animation frames
-did not survive 30fps sampling.
+padding and the toolbar into the MP4; a 200ms marker being needed because two animation frames did
+not survive 30fps sampling; and — caught by `proof.mjs` on the first real campaign — the **story,
+reels and slides margins being written in `cqw` as though they were height percentages**, which put
+the mark at 12% and the handle at 81% of a 1080x1920 board, i.e. inside both interface bands. `cqw`
+is a percent of the WIDTH, so 20% of 1920 is 35.6cqw, not 20cqw. Corrected at the layout level, so
+every future piece inherits the fix.
 
 ⚠️ Two consecutive renders of the same piece measured head slack at **0.97s** and **1.03s** —
 direct confirmation that cutting from the end of the file would drift.
@@ -134,28 +140,42 @@ direct confirmation that cutting from the end of the file would drift.
 - **Only one safe zone is measured**, and it was measured for another product on one Android device.
   Every Space Stroker surface is marked unmeasured and uses the conservative fallback. Measure on
   first publication and record it in `platforms.md` §3.
-- **`templates/` is empty.** The builder emits markup directly; the folder is reserved rather than
-  used. Harmless, but it is a promise the layout makes and does not keep.
 - **`menu_lobby.mp3` provenance** is unconfirmed for use outside the app.
 - **TTS narration** deferred (decision 10).
-- **No leaderboard campaign yet** — deliberately. See §8.
+- **Only the gamble race can be advertised** until the other two boards are switched on; those are
+  build-time flags, so it is a frontend rebuild, not a toggle. See §8.
 
-## 8. Follow-up: the leaderboard campaign
+## 8. The leaderboard campaign (delivered on the same branch)
 
-The trigger for this work. ⚠️ **Do not build it from Trello card #178.** That card describes a
-weekly wager race with real prizes and a hall of fame. What shipped is
+The trigger for this work, built once the leaderboard code reached `main` in `monkify-front` and
+`monkify-backend` (2026-09-02). Lives at `marketing/studio/campaigns/leaderboard-launch/`.
+
+⚠️ **It was NOT built from Trello card #178.** That card describes a weekly wager race with a real
+prize pool and a hall of fame. What shipped is
 [`specs/leaderboards.md`](leaderboards.md) / [`features/leaderboards.md`](../features/leaderboards.md)
-(card #182, merged 2026-09-02), and it differs in ways that decide the entire campaign:
+(card #182), and it differs in ways that decided the entire campaign:
 
-- **No prize, no pool, no season, no payout.** It moves no money. The paying half was cut by the
-  owner during refinement.
+- **No prize, no pool, no season, no payout.** It moves no money; the owner cut the paying half
+  during refinement. So the campaign sells **status**, and says so outright: *"No prize. Just the
+  top of the board."*
 - **Only one of three boards renders.** The gamble race is live; weekly PNL and hall of fame sit
   behind `VUE_APP_WEEKLY_PNL_ENABLED` and `VUE_APP_HALL_OF_FAME_ENABLED`, both fail-closed `false`
-  and both **build-time**. ⚠️ The hall of fame — the board card #178 called "the shareable asset for
-  X/Telegram" — is the one that is currently invisible.
-- **"gamble", not "wager"**, in the copy and in the wire contract, by owner request.
+  and both **build-time**. ⚠️ The hall of fame — the board #178 called "the shareable asset for
+  X/Telegram" — is the one that is currently invisible, so **no piece references it**.
+- **"gamble", not "wager"**, in the copy and the wire contract, by owner request.
 - **Rolling 7 days, not a calendar week**, so "the race ends Sunday" would be false.
-- `/leaderboard` is a shareable route, unlisted in the ☰ menu.
 
-This is precisely the failure mode `references/voice.md` §1 is built around, and it is why that
-section exists.
+**The campaign's hook is a real product property, not a claim.** `RequiredAmount` is fixed per game
+type and it is one bet per player per round, so the feature doc's own trap list records that a
+gamble race "is separated by **rounds played**, not bet size". Nobody can buy the top of this board,
+because there is no bet-sizing dimension to buy it with. In a category where leaderboards belong to
+whoever deposits most, that is the honest differentiator — and it is checkable in the code.
+
+**Delivered:** 5 stills (feed / 2× square / X 16:9 / story), a **14.2s** 1080×1920 MP4, a 5-slide
+slideshow cut, safe-zone proofs, a contact sheet and `CAPTIONS.md`. Every still passed the
+line-break and nominal-size checks; the video's five scenes were confirmed by sampling a frame in
+each.
+
+⚠️ **No fabricated leaderboard was drawn.** A piece showing invented ranks and wallet names is a
+fake metric with extra steps, and `references/compliance.md` §3 forbids it. The pieces are
+typographic and state only facts traceable to `features/leaderboards.md`.
