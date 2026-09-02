@@ -1,6 +1,13 @@
 # Space Stroker — "Leaderboards" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: SHIPPED** — merged via `feature/leaderboards` to `main` on 2026-09-02. Distilled into
+> [`../features/leaderboards.md`](../features/leaderboards.md), which is the doc to read on an
+> ordinary task; this spec stays the deep-design archive.
+>
+> ⚠️ Two boards ship **dark** behind fail-closed flags — see the feature doc before assuming one is
+> broken. ⚠️ §14b records three silent failures the build hit; read it before touching the queries.
+>
+> Originally: refined via Trello card
 > [Leaderboards (#182)](https://trello.com/c/80OsGlGn/182-leaderboards) (2026-09-01).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
