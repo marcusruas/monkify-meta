@@ -181,7 +181,8 @@ knowledge-base updates as part of shipping the feature, not optional follow-up w
 | `features/admin-and-ops.md` | The admin portal at `/admin`: an admin-scoped RS256 token (`X-Admin-Token`) validated against the **configured** keypair, create/list/deactivate game types across all three modes (**deactivate-or-create, no in-place edit** — which is why recreating a type resets its stats and why an un-won lottery pot must be **transferred**), the bet-refund panel, and `POST /dev/admin-token` outside production. The operator half was reworked away by `remove-operators`. | Living |
 | `features/legal.md` | Legal documentation and **per-wallet self-exclusion**. The legal pages, and the exclusion state (`SelfExcludedAt` / `SelfExcludedUntil`) that lives on the `Player` row and is evaluated **per bet**, so an expiry needs no scheduled job. Uses the same purpose-scoped signed-nonce mechanism as preferences — ⚠️ a challenge minted for one purpose cannot be replayed against the other. | Living |
 | `features/remove-operators.md` | **The deployment is the operator.** Deleted the whole multi-tenant apparatus — `Operator`/`OperatorToken`/`OperatorPlayer`, the `X-Launch-Token` surface, the off-chain `Standard` payment method + `PaymentMethod` enum, the per-operator RG pre-bet hook, `ISecretProtector`, operator branding and the FX/display-currency stack. Everything token/game/admin reads from **`GeneralSettings:Operator`**; player endpoints are **public** and identity is the **connected wallet**. **One ledger:** `CryptoTransactionLog` merged into `TransactionLog`. Greenfield migration. ⚠️ **Kept as its own doc on purpose — it is the only place today's operator-free architecture is explained.** | Living |
-| [`specs/typer-refactoring.md`](specs/typer-refactoring.md) | **`Feature`, `monkify-backend` + `monkify-meta` — `monkify-front` NOT affected (same SignalR contract; the FAIR verifiers consume the published `characterPool` verbatim):** cut the ~21s round to **~10s avg / 15s max** and reduce fallback-decided winners. Config retune (race mean 8–12s, p95 15s; lottery draw run likewise) + `MaxTyperCharacters` 5M → **500K**; terminal batching → **time-based flush 50/40/30ms keyed to `DisplaySpeed`** (~25K SignalR msgs/round → hundreds, every char still delivered for the `N AWAY!` row); free-text **race** pool = union of bet-choice chars + the ⌊alphabet/5⌋ floor (lottery pool untouched — money behavior); persist **`Game.CharacterPool` + `Game.MaxCharacters`** at run end (migration `TyperRunSnapshot`, NULL ⇒ legacy derivation with pinned constants) so historical verification never breaks. Fallback stays count-triggered/deterministic. Trello #181 ([Xim01Mvw](https://trello.com/c/Xim01Mvw)). | Ready |
+| [`specs/typer-refactoring.md`](specs/typer-refactoring.md) | **`Feature`, `monkify-backend` + `monkify-meta` — `monkify-front` NOT affected (same SignalR contract; the FAIR verifiers consume the published `characterPool` verbatim):** cut the ~21s round to **~10s avg / 15s max** and reduce fallback-decided winners. Config retune (race mean 8–12s, p95 15s; lottery draw run likewise) + `MaxTyperCharacters` 5M → **500K**; terminal batching → **time-based flush 50/40/30ms keyed to `DisplaySpeed`** (~25K SignalR msgs/round → hundreds, every char still delivered for the `N AWAY!` row); free-text **race** pool = union of bet-choice chars + the ⌊alphabet/5⌋ floor (lottery pool untouched — money behavior); persist **`Game.CharacterPool` + `Game.MaxCharacters`** at run end (migration `TyperRunSnapshot`, NULL ⇒ legacy derivation with pinned constants) so historical verification never breaks. Fallback stays count-triggered/deterministic. Distilled into [`features/typer-refactoring.md`](features/typer-refactoring.md). Trello #181 ([Xim01Mvw](https://trello.com/c/Xim01Mvw)). | Shipped |
+| [`features/typer-refactoring.md`](features/typer-refactoring.md) | **Fast rounds + honest verification.** Round mean ~10s / p95 15s (config retune + `MaxTyperCharacters` 5M → 500K); free-text **race** pool = union of bet-choice chars + ⌊alphabet/5⌋ floor (lottery pool untouched — money behavior); terminal flush 50/40/30ms keyed to `DisplaySpeed` (~hundreds of SignalR msgs/round, every char still delivered); `Game.CharacterPool` + `Game.MaxCharacters` persisted at run end — verification publishes persisted values, NULL ⇒ pinned legacy derivation, so historical recomputes never break. ⚠️ ~43% of 2-bet races still fallback-decide (pool 10–11 ≈ the cap); ceiling is the config lever. ⚠️ Integration tests must quiesce Orbit enrollments (`DisableAllOrbitEnrollmentsAsync`) or fast-round churn flakes unrelated suites. | Living |
 | `skills/`                   | Agent Skills that power the SpaceStroker task pipeline (see below)                            | Drafted              |
 
 
@@ -203,15 +204,29 @@ see "Skills — ensure installed" in `AGENTS.md`.
 
 ## Feature currently in flight
 
-**Space Stroker typer refactoring** ([#181](https://trello.com/c/Xim01Mvw/181-space-stroker-typer-refactoring)) —
-**spec ready, not yet implemented.** Spec: [`specs/typer-refactoring.md`](specs/typer-refactoring.md).
-Branch `feature/typer-refactoring` in `monkify-backend` and `monkify-meta` (worktrees at
-`.worktrees/typer-refactoring/<repo>`); `monkify-front` NOT affected. Level **`Feature`**. Cuts the
-~21s round to ~10s avg / 15s max (config retune + character ceiling 5M → 500K), replaces count-based
-terminal batching with a `DisplaySpeed`-keyed 50/40/30ms time flush, derives the free-text **race**
-pool from bet-choice characters (fewer fallback winners; lottery pool untouched), and persists
-`Game.CharacterPool` + `Game.MaxCharacters` (migration `TyperRunSnapshot`) so verification of
-historical rounds keeps reproducing — NULL columns take a pinned legacy derivation.
+**Space Stroker typer refactoring** ([#181](https://trello.com/c/Xim01Mvw/181-space-stroker-typer-refactoring)) — **merged
+to `main` on 2026-09-02** in `monkify-backend` and `monkify-meta` (`monkify-front` NOT affected — same
+SignalR contract, verifiers consume the published payload). Verified on the branch before the merge:
+**1140 unit / 141 integration, all green.** Level **`Feature`** ⇒ the dedicated
+[`features/typer-refactoring.md`](features/typer-refactoring.md) was written; the mandatory happy-path
+integration test is `TyperRefactoringFlowTests.HappyPath_LowBetFreeTextRace_ResolvesNaturallyWithBetDerivedPool`.
+Spec: [`specs/typer-refactoring.md`](specs/typer-refactoring.md).
+
+Rounds land at ~10s mean / 15s scheduled max (was ~21s deployed): pacing config retuned (race + lottery
+8–12s / p95 15s), `MaxTyperCharacters` 5M → **500K**, and the free-text **race** pool now derives from
+the placed bets' characters (+ the ⌊alphabet/5⌋ floor) so low-bet rounds win naturally — measured 2-bet
+fallback share fell from ~100% to **~43%** (owner-accepted; raising the ceiling is the config-only lever).
+Terminal batching is a **50/40/30ms `DisplaySpeed`-keyed time flush** (~25K SignalR messages/round →
+hundreds; every character still delivered for the `N AWAY!` row). ⚠️ **Verification inputs are now
+persisted** — `Game.CharacterPool` + `Game.MaxCharacters` written with the winner (migration
+`TyperRunSnapshot`); the verification endpoint publishes persisted values and NULL rows take a **pinned
+legacy derivation**, so historical recomputes never break and settings drift can no longer shift a
+settled round's published inputs. ⚠️ No `deploy/secrets.*.json` change — no env file names a
+`GeneralSettings:Games` key; per-env pacing tuning goes through the deploy `appConfig` block (wholesale
+env-var injection, no Terraform binding). ⚠️ Ship-time test-infra rule: integration suites seeding
+funded Orbit enrollments must quiesce them (`IAsyncLifetime.DisposeAsync ⇒
+DisableAllOrbitEnrollmentsAsync`) — fast rounds turn a leftover enrollment into continuous background
+churn that flakes unrelated suites.
 
 **Improve UX in game mode** ([#180](https://trello.com/c/GAVPRzf1/180-improve-ux-in-game-mode)) — **merged
 to `main` on 2026-08-24** in `monkify-backend`, `monkify-front` and `monkify-meta`. Spec:

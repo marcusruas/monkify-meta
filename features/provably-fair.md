@@ -67,9 +67,16 @@ returned.
   a round across, so the cache is read first.)* One indexed `GetGameById` stays on the cached path; the
   cache eliminates the bets query, the typer construction and the DTO rebuild. Unknown games keep the
   vague `GameNotValidForBets` message on both paths.
-- **`MaxCharacters` drift is accepted, not fixed:** the cap comes from the same read-time typer that
-  publishes `maxCharacters`, so a settings change between run and verification shifts both together —
-  the flag can never contradict what the client replays against.
+- **Pool + cap are PERSISTED, not re-derived** (since `typer-refactoring`, 2026-09-02): a finished
+  run writes `Game.CharacterPool` + `Game.MaxCharacters` in the same `SaveChanges` as
+  `WinningChoice`, and the endpoint publishes those verbatim — a later derivation or settings change
+  can never shift a settled round's published inputs. A finished round with **NULL** columns
+  predates the `TyperRunSnapshot` migration and reproduces the **pinned legacy derivation** (full
+  alphabet / old cap math: race 8/18/30, lottery 10/30/45, ceiling 5M, safety 0.9 —
+  `GetGameVerificationHandler.LegacyCharacterPool`/`LegacyMaxCharacters`). A not-yet-run round
+  publishes the live derivation, which is what its run will use. The fallback flag derives against
+  the same published cap, so it can never contradict the client's replay. (This replaced the old
+  "MaxCharacters drift is accepted" caveat — drift is now impossible for settled rounds.)
 
 ## 3. The in-app FAIR panel
 
@@ -138,7 +145,7 @@ no in-app replay on the history page**.
 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/*` | Commit on first bet, persist `Nonce` |
 | `SpaceStroker.Infrastructure/Handlers/Games/GetGameVerification/*` | Derived flag, cache read/write |
 | `SpaceStroker.Infrastructure/Contracts/Games/GameVerificationDto.cs` · `ActiveGameDto.cs` | Payload + `ServerSeedHash` |
-| `Migrations/*_ProvablyFair.cs` · `*_GameCharactersTyped.cs` | Applied only by `SpaceStroker.Consumers` |
+| `Migrations/*_ProvablyFair.cs` · `*_GameCharactersTyped.cs` · `*_TyperRunSnapshot.cs` | Applied only by `SpaceStroker.Consumers` |
 
 **Frontend (`monkify-front`)** — `src/utils/provablyFair.ts` (portable core, mirrors the C#),
 `src/hooks/useClientSeed.ts`, `src/components/game/GameFairPanel.vue`,

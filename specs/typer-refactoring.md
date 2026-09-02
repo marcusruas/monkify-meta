@@ -1,6 +1,8 @@
 # SpaceStroker — "Typer Refactoring" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` via `feature/typer-refactoring` on 2026-09-02
+> (backend 1140 unit / 141 integration, all green; distilled into
+> [`../features/typer-refactoring.md`](../features/typer-refactoring.md)). Refined via Trello card
 > [Space Stroker typer refactoring](https://trello.com/c/Xim01Mvw/181-space-stroker-typer-refactoring) (2026-09-01).
 > Repos affected: `monkify-backend` and this doc in `monkify-meta` — **`monkify-front` is NOT affected**
 > (no SignalR contract change, no verifier change; see §7).
@@ -451,3 +453,4 @@ Project: `monkify-backend/src/SpaceStroker.Tests` (xUnit + Shouldly + Moq + Bogu
 | Date | Change |
 | --- | --- |
 | 2026-09-01 | Initial spec from refined card #181 + same-session refinement decisions |
+| 2026-09-02 | Shipped. `MaxTyperCharacters` default landed at 500 000 (top of the agreed range); measured 2-bet fallback share ~43% (owner-accepted, raising the ceiling is the config lever). Ship-time extra: integration suites quiesce leftover Orbit-enrollment churn (fast rounds made it a cross-suite flake source). No `deploy/secrets.*.json` change needed — no env file names a `GeneralSettings:Games` key; per-env tuning goes through the deploy `appConfig` block (wholesale env-var injection, no TF binding). |

@@ -277,9 +277,13 @@ only after the round Ends; `SHA256(ServerSeed) == ServerSeedHash` proves it wasn
 count 0. `QueueLength` = the longest choice length (the rolling-window size).
 - **Character pool (`SetCharactersOnTyper`):** chosen from, in priority order:
   - preset-choice characters (if presets exist), else
-  - the full `AllowedCharacters` pool.
-  - A **minimum diversity** rule tops the pool up to ≥ `allowedChars.Length / 5` distinct characters;
-  the pool is sorted.
+  - for a **lottery**: the full `AllowedCharacters` pool (⚠️ deliberately never narrowed — a smaller
+  lottery pool raises how often *anyone* wins, which is pot-payout/money behavior), else
+  - for a **free-text race**: the union of the **placed bets' choices' characters** (shipped by
+  [`typer-refactoring.md`](typer-refactoring.md) so few-bet rounds win naturally inside the cap; the
+  pool always contains every bet character and stays a pure function of the committed inputs).
+  - A **minimum diversity** rule tops the pool up to ≥ `allowedChars.Length / 5` distinct characters
+  in alphabet order; the pool is sorted.
 - **Generation loop (`GenerateNextCharacter`):** emits one random character per tick into a rolling
 queue of size `QueueLength`; after each char, `CheckForWinners` compares the concatenated window to
 the bet map. On a hit: `HasWinners = true`, records `FirstChoiceTyped` and the number of winners.
@@ -287,15 +291,18 @@ If no natural win by the character cap, `DecideFallbackWinner` picks from ordina
 a dedicated `HMAC-SHA256(ServerSeed, prefix + "|fallback")` draw (`WinnerDecidedByFallback = true`) —
 reproducible from the same published inputs.
 - **Pacing/speed:** `CalculatePacing` schedules a constant ms-per-character from mode targets
-(race mean 8–18 s / p95 ≤ 30 s; lottery mean 10–30 s / p95 ≤ 45 s) and horizon
-`min(poolSize^QueueLength / numChoices, MaxTyperCharacters)`. `ApplyPacingDelay` sleeps only when
-ahead of the Stopwatch schedule (hardware/load independent). `CurrentTypingSpeed` ramps 1→2→3 at ⅓
-and ⅔ of target mean elapsed time (visual only; UI via `DisplaySpeed`). See
-`features/typer-pacing-scalability.md`.
+(race **and** lottery mean 8–12 s / p95 ≤ 15 s since [`typer-refactoring.md`](typer-refactoring.md))
+and horizon `min(poolSize^QueueLength / numChoices, MaxTyperCharacters)` (ceiling **500,000**).
+`ApplyPacingDelay` sleeps only when ahead of the Stopwatch schedule (hardware/load independent).
+`CurrentTypingSpeed` ramps 1→2→3 at ⅓ and ⅔ of target mean elapsed time (visual only; UI via
+`DisplaySpeed`). See `specs/typer-pacing-scalability.md` + `specs/typer-refactoring.md`.
 
-`GameService.RunGame` consumes the typer: it batches characters to `TerminalBatchLimit` before
-sending each batch to `…/Terminal`, emits `…/DisplaySpeed` on speed changes, and loops until
-`HasWinners`.
+`GameService.RunGame` consumes the typer: it appends characters to a buffer and flushes it to
+`…/Terminal` on a **time cadence keyed to the display speed** (`TerminalFlushSpeed1/2/3Ms`, defaults
+50/40/30 ms — variable batch sizes, every character delivered in order; a fallback-bound round emits
+hundreds of messages, not the old ~25K fixed-size batches), emits `…/DisplaySpeed` on speed changes,
+and loops until `HasWinners`. When the run ends it persists `Game.CharacterPool` + `Game.MaxCharacters`
+alongside the winner (see [`provably-fair.md`](provably-fair.md)).
 
 ---
 
@@ -586,13 +593,19 @@ someone wins.
 
 ## 17. Typer pacing
 
-Spec: [`../specs/typer-pacing-scalability.md`](../specs/typer-pacing-scalability.md).
+Specs: [`../specs/typer-pacing-scalability.md`](../specs/typer-pacing-scalability.md) (the
+time-budget design) + [`../specs/typer-refactoring.md`](../specs/typer-refactoring.md) (the 2026-09
+retune + bet-derived pool; distilled in [`typer-refactoring.md`](typer-refactoring.md)).
 
 ⚠️ **Pacing-only: the same seed + bets produce the same character stream and the same winner.** Only
 wall-clock timing changes.
 
-- **Targets:** race mean **8–18 s**, p95 ≤ 30 s; lottery draw run mean **10–30 s**, p95 ≤ 45 s. **No
-  minimum duration** — instant natural wins are allowed.
+- **Targets:** race **and** lottery draw run mean **8–12 s**, p95 ≤ 15 s (retuned from 8–18/30 and
+  10–30/45 by `typer-refactoring`). **No minimum duration** — instant natural wins are allowed.
+- **Character ceiling 500,000** (was 5M). ⚠️ For small pools the time-derived cap binds *below* the
+  ceiling, so persisted `Game.MaxCharacters` values like 358,723 or 79,414 are expected. With the
+  bet-derived race pool, ~43% of 2-bet free-text rounds still resolve by fallback (pool 10–11 sits
+  at/past the cap); raising `MaxTyperCharacters` is the config-only lever for a lower share.
 - **Time-budget pacing:** ms-per-character is scheduled from the mode target and a search-space horizon
   (`min(expectedCharsToWin, MaxTyperCharacters)`). A `Stopwatch` drives delays — ⚠️ **sleep only when
   ahead of schedule (≥ 4 ms surplus), never slow further when behind**, which is what makes it hardware-
