@@ -119,7 +119,10 @@ the user works in both tools):
 > `monkify-meta/skills/`.
 
 Current skills: `monkify-refine-tasks`, `monkify-create-spec`, `monkify-implement-feature`,
-`monkify-ship-feature` (see `INDEX.md` → "Skills (the task pipeline)").
+`monkify-ship-feature` (see `INDEX.md` → "Skills (the task pipeline)"), plus
+`spacestroker-marketing`, which is **not** part of that pipeline and moves no Trello card: it builds
+marketing images and videos out of `monkify-meta/marketing/studio/`. It needs `ffmpeg`/`ffprobe` on
+`PATH` and a `npm install` in that folder; it needs no Trello and no Docker.
 Pipeline: **Backlog → Refined → Specs created → Implemented → Shipped**
 (refine → create-spec → implement → ship). `monkify-implement-feature` also deploys the feature to the
 local Docker stack for the user to test before the card advances.

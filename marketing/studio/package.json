@@ -1,0 +1,17 @@
+{
+  "name": "spacestroker-marketing-studio",
+  "private": true,
+  "type": "module",
+  "description": "Builds and renders Space Stroker marketing pieces. Not deployed, not part of any app build.",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "png": "node tools/export-png.mjs",
+    "video": "node tools/render.mjs",
+    "slides": "node tools/slides.mjs",
+    "proof": "node tools/proof.mjs",
+    "sheet": "node tools/contact-sheet.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

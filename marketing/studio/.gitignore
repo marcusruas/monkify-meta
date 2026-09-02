@@ -1,0 +1,9 @@
+# Rendered output. Sources (content.mjs, the templates, the tools) are the truth; every PNG and
+# MP4 here is regenerable with one command, and committing them would add tens of MB per campaign
+# to a knowledge-base repo that is already large.
+out/
+
+# Built pieces are generated from content.mjs by tools/build.mjs and are never hand-edited.
+campaigns/*/pieces/
+
+node_modules/

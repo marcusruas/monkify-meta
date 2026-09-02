@@ -1,0 +1,103 @@
+/* ============================================================
+   Space Stroker — marketing brand tokens
+   ============================================================
+   Transcribed from the app's own single source of truth:
+     monkify-front/src/assets/styles/colors.css   (:root)
+     monkify-lp/src/styles/global.css             (@theme)
+
+   Those two agree by construction (the front's file says "Ported
+   from the landing page's arcade design system"), so a piece built
+   on these tokens is the same colour as the product it advertises.
+
+   WHAT WAS LEFT OUT, and why: the app file also carries control
+   heights, z-index layers, practice-console geometry and Tailwind
+   opacity aliases. None of them mean anything in a 1080x1350 poster,
+   and copying them would invite someone to "sync" a marketing file
+   against app internals that have no business changing a banner.
+
+   ⚠️ THIS FILE IS A COPY, NOT AN IMPORT. Marketing pieces are
+   self-contained single files that must open from disk in three
+   years, long after any build tooling has moved. The cost is that a
+   brand change in the app does not reach here automatically. If the
+   product's amber ever changes, change it here too, and say so in
+   the campaign's content file so the divergence is dated.
+   Checked against colors.css on 2026-09-02.
+   ============================================================ */
+
+:root {
+  /* — Brand amber: the coin. The one colour people recognise. — */
+  --color-primary: #ffa214;
+  --color-primary-bright: oklch(0.88 0.155 82);
+  --color-primary-deep: oklch(0.585 0.135 52);
+
+  /* — CRT cyan: the screen-glow accent. Scarce by rule (see brand.md). — */
+  --color-cyan: oklch(0.83 0.125 205);
+  --color-cyan-deep: oklch(0.52 0.09 215);
+
+  /* — Hot magenta: live/bet pulse. In the app it MEANS lottery. — */
+  --color-magenta: oklch(0.66 0.23 350);
+
+  /* — "Happening right now" green. Semantic, not decorative. — */
+  --color-live: oklch(0.79 0.19 145);
+
+  /* — Phosphor green: QUOTED TERMINAL OUTPUT ONLY —
+     The exact green GameTerminal.vue paints. Licensed only for text the
+     monkey typed, drawn on a black screen, in the display face. A headline
+     in this colour is wrong, not stylish. */
+  --color-phosphor: #4ade80;
+
+  /* — Orbit violet: the custodial wallet's identity, and nothing else. — */
+  --color-orbit: oklch(0.72 0.17 292);
+
+  /* — Deep-space surfaces — */
+  --color-void-deep: oklch(0.09 0.014 280);  /* black panel fill */
+  --color-void: oklch(0.115 0.018 280);      /* darkest pit */
+  --color-bg: oklch(0.158 0.022 280);        /* page background */
+  --color-surface: oklch(0.215 0.026 280);   /* cabinet panel */
+  --color-surface-2: oklch(0.275 0.03 282);  /* raised panel */
+  --color-surface-bar: oklch(0.175 0.024 280);
+  --color-surface-inset: oklch(0.17 0.02 280);
+  --color-line: oklch(0.4 0.035 282);        /* hairline / pixel edge */
+
+  /* — Ink ramp — */
+  --color-ink: oklch(0.975 0.012 85);        /* primary text, warm near-white */
+  --color-ink-dim: oklch(0.855 0.02 245);
+  --color-ink-mute: oklch(0.715 0.022 258);
+
+  /* — Geometry and motion — */
+  --radius-arcade: 4px;
+  --radius-chip: 3px;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-arcade: cubic-bezier(0.3, 1.3, 0.6, 1);
+
+  /* — Faces —
+     Press Start 2P for display, VT323 for everything the eye reads in
+     quantity. Two faces, no third. The @font-face rules are injected by
+     the builder as base64 so a piece is one file; these vars name them. */
+  --font-display: 'Press Start 2P', 'Courier New', monospace;
+  --font-text: 'VT323', 'Courier New', monospace;
+
+  /* — The scanline tint the cabinet is lit by — */
+  --color-scanline: color-mix(in oklab, var(--color-cyan) 12%, transparent);
+  --color-shadow-orange: color-mix(in oklab, var(--color-primary) 60%, transparent);
+  --color-shadow-blue: color-mix(in oklab, var(--color-cyan) 45%, transparent);
+}
+
+/* ============================================================
+   THE ACCENT RULE, because it is the one that keeps pieces on-brand
+   ============================================================
+   Amber is the brand. Cyan, magenta, green, violet and phosphor are
+   each SCARCE and each MEAN something in the product:
+
+     cyan      the screen glow / focus. One per grey panel.
+     magenta   LIVE, and in the lobby it means the lottery mode.
+     green     something is happening right now.
+     violet    Orbit, the custodial wallet. Identity only.
+     phosphor  text the monkey typed, on black, in the display face.
+
+   A piece picks amber plus AT MOST ONE of the others, and it picks the
+   one that matches what the piece is about. A leaderboard piece is not
+   magenta because magenta looked good; magenta already says "lottery"
+   to anyone who has opened the lobby.
+   ============================================================ */
