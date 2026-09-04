@@ -12,7 +12,7 @@
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
 weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
 **hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
-`/leaderboard` route. The two weekly boards **reset every Wednesday 19:00 BRT**.
+`/leaderboard` route. The two weekly boards **reset every Friday 12:00 BRT**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -53,8 +53,8 @@ There are **two modes**, and which one is live depends only on whether an anchor
 Production is anchored; a local box with no override is not.
 
 **Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
-`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-02T22:00:00Z`, which
-is **Wednesday 19:00 BRT**. The race restarts on a schedule instead of sliding with the clock.
+`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-04T15:00:00Z`, which
+is **Friday 12:00 BRT**. The race restarts on a schedule instead of sliding with the clock.
 
 - ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
   runtime — that would make the boards depend on the tz database being present and identically named in
@@ -64,7 +64,7 @@ is **Wednesday 19:00 BRT**. The race restarts on a schedule instead of sliding w
 - ⚠️ **`LeaderboardSchedule`'s division must FLOOR, not truncate.** C# integer division rounds toward
   zero, so for an instant *before* the anchor a naive quotient returns a period that has not started —
   a window into the future, both weekly boards silently empty, no error. Not hypothetical: the anchor
-  shipped as "today at 19:00 BRT". Five `LeaderboardScheduleTests` cases fail if the floor is removed.
+  shipped as "today at 12:00 BRT". Five `LeaderboardScheduleTests` cases fail if the floor is removed.
 - ⚠️ **THE ANCHORED MODE NEVER FALLS BACK.** A hard reset makes "empty" a true and self-explaining
   state, so a quiet board is shown as quiet and the client says *"no rounds yet this week"*. Falling
   back would show **last week's winners** between the reset and the first bet, then silently swap them
