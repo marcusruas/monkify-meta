@@ -1,11 +1,15 @@
 # Space Stroker — "Leaderboards" Feature — Implementation Spec
 
-> **Status: SHIPPED** — merged via `feature/leaderboards` to `main` on 2026-09-02. Distilled into
-> [`../features/leaderboards.md`](../features/leaderboards.md), which is the doc to read on an
-> ordinary task; this spec stays the deep-design archive.
+> **Status: SHIPPED** — merged via `feature/leaderboards` to `main` on 2026-09-02, then extended by
+> `feature/leaderboard-weekly-reset` (the anchored weekly reset, §3 decision 24) on 2026-09-04.
+> Distilled into [`../features/leaderboards.md`](../features/leaderboards.md), which is the doc to
+> read on an ordinary task; this spec stays the deep-design archive.
 >
 > ⚠️ Two boards ship **dark** behind fail-closed flags — see the feature doc before assuming one is
 > broken. ⚠️ §14b records three silent failures the build hit; read it before touching the queries.
+> ⚠️ **Decision 3 (rolling 7 days) is SUPERSEDED by decision 24** — the weekly boards reset on a fixed
+> Friday 12:00 BRT anchor. Decision 3 is kept only for the reasoning behind the cutover floor and the
+> unanchored fallback; do not implement from it.
 >
 > Originally: refined via Trello card
 > [Leaderboards (#182)](https://trello.com/c/80OsGlGn/182-leaderboards) (2026-09-01).
