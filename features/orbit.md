@@ -40,7 +40,14 @@
   player, over **all** rows with **no status filter**. A failed cash-out stays at `−X` and is cancelled
   by an appended compensating row — never by deleting or filtering one.
 - Deposits are **free-form** within a published bound — ladder `0.05 / 0.1 / 0.5` SOL, minimum
-  **0.05**, maximum **5 per transaction**, minimum cash-out **0.05**. ⚠️ **DECIMALS ARE LEGAL:** the
+  **0.05**, maximum **5 per transaction**, minimum **partial** cash-out **0.05**. ⚠️ **THE MINIMUM
+  CASH-OUT DOES NOT GATE EMPTYING THE BALANCE:** a request for the *whole* remaining balance is always
+  accepted, however small. As an unconditional gate it trapped funds — only the automatic sources
+  (threshold, floor, forced) skip the check, so anyone left under it by a losing run, a deposit below
+  it, or a floor that never fired had **no path to their own money at all**, and the front disabled the
+  button outright. Enforced in `OrbitCashOutReserver` (`amount < MinimumCashOut && amount != available`)
+  and mirrored in `OrbitMoneyTab.vue`, which sends **no amount** for a full withdrawal so the escape
+  hatch cannot miss by a float hair. ⚠️ **DECIMALS ARE LEGAL:** the
   whole-number rule was policy inherited from the USDC ladder and in SOL meant a minimum deposit worth
   a few hundred dollars. What replaces it is a **precision** check against the asset's decimals —
   crediting an amount finer than the chain can move would write a balance no cash-out could pay back
@@ -120,6 +127,20 @@ are their own thing. **The only cool-off left in Orbit is the rolling manual cas
 
 Also available: **partial cash-out**, a **cash-out floor**, a **stop-loss trigger**, and a per-player
 **bet log**.
+
+⚠️ **The floor fires STRICTLY BELOW itself, never at it** (changed 2026-09-07; it was `<=`). At the
+floor is still playing. The old boundary made a floor set *equal to* the balance — deposit 0.05, stop
+loss 0.05 — read as "already stopped", so `CashOutFloorStoppedPlayers` withdrew the deposit at the next
+round's planning and the player never played a game. That sweep runs for **every** enrolled player with
+a floor, bet or not, which is why it fired without a round being played. The comparison is duplicated in
+three places and they must never disagree: `OrbitBetSettlementService.EvaluateFloor` (`balance >= floor`
+⇒ keep playing), `OrbitBetPlacementService.ResolveCandidates` (`Amount >= CashOutFloor` ⇒ still a
+candidate) and `CashOutFloorStoppedPlayers` (`Amount < CashOutFloor` ⇒ send it home).
+
+**Accepted cost:** a floor that is an exact multiple of the stake can be stepped straight over —
+`0.10 → 0.05 → 0` with a 0.05 stake and a 0.05 floor never fires with anything left to send. At the
+stake sizes the game actually runs, landing exactly on the floor is the rare case and setting a floor
+you are already at is the common one.
 
 ## 4. Notifications
 

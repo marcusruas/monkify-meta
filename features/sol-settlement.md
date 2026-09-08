@@ -115,7 +115,7 @@ no mint, no associated token account, nothing to unwrap.
   and in SOL meant a minimum deposit worth a few hundred dollars.
 - What replaces it is a **precision** check: an amount finer than the asset's decimals is refused,
   because crediting one would write a ledger balance the chain can never pay back out.
-- **Bounds:** ladder `0.05 / 0.1 / 0.5` SOL, max **5 SOL** per transaction, minimum cash-out **0.05**.
+- **Bounds:** ladder `0.05 / 0.1 / 0.5` SOL, max **5 SOL** per transaction, minimum **partial** cash-out **0.05** (emptying the balance is always allowed, however small — see `features/orbit.md` §2).
   `MinimumDeposit` is configured now (it was a hard-coded `1`).
 - ⚠️ The published bound message stays the **sanctioned exception** to vague messaging
   (`constraints.md` §6) and therefore has to stay *accurate*: it reads

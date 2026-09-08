@@ -327,7 +327,7 @@ Notes for the implementer:
 `OrbitBetSettlementService.cs:333-358`. Replace the `_ledger.ResolveBalance` call at line 340 with
 `_ledger.ResolveSettledBalance`. Both guards then evaluate on the settled number:
 
-- `if (balance > floor) return;` — strictly above the floor is still playing (unchanged semantics).
+- ~~`if (balance > floor) return;` — strictly above the floor is still playing (unchanged semantics).~~ ⚠️ **SUPERSEDED 2026-09-07:** the boundary moved to `if (balance >= floor) return;` — **at** the floor is still playing, only **strictly below** it stops. A floor set equal to the balance (deposit 0.05, stop loss 0.05) made a player "already stopped" before a single round, so Orbit withdrew the deposit and never played. Accepted cost: a floor that is an exact multiple of the stake can be stepped straight over without firing.
 - `if (balance <= 0) return;` — nothing to send home.
 
 Update the log line to say which number it is. `Reserve(playerId, OrbitCashOutSource.Floor, enforceLimits: false, ...)`
@@ -389,10 +389,10 @@ testing; see §3.2 for the observed run that motivated it.
    predicate after the existing `Amount >= RequiredAmount` filter:
 
    ```csharp
-   .Where(x => x.CashOutFloor == null || x.Amount > x.CashOutFloor)
+   .Where(x => x.CashOutFloor == null || x.Amount >= x.CashOutFloor)   // >= since 2026-09-07 (see §above)
    ```
 
-   Strictly above the floor is still playing — the same comparison `EvaluateFloor` makes. Keep them
+   At or above the floor is still playing — the same comparison `EvaluateFloor` makes. Keep them
    identical: if they ever disagree, a player stops either a round early or a round late.
 
    The materialized column is read here, exactly as the surrounding planning read does and for the
@@ -527,12 +527,12 @@ Project: `monkify-backend/src/SpaceStroker.Tests`. Run with **`scripts/run_tests
 | `Consumers/RewardGameConsumerTests.cs` *(new)* | `NoWinners_StillEvaluatesTheOrbitStopRules` | Game with Orbit bets, none `NeedsRewarding` ⇒ status `RewardForWinnersCompleted` **and** `EvaluateFloor` + `EvaluateZeroOut` called once per distinct Orbit player. |
 | ″ | `NoWinners_WithNoOrbitBets_EvaluatesNothing` | Only wallet-funded bets ⇒ no calls on `IOrbitBetSettlementService`. |
 | ″ | `NoBets_EvaluatesNothing` | Empty `Bets` ⇒ early return, no calls. |
-| `Services/OrbitBetPlacementServiceTests.cs` | `NotACandidate_OnceTheBalanceHasReachedTheStopLoss` (Theory: 8, 5) | Balance at **and** under a floor of 8 ⇒ `ResolveCandidates` is empty. |
-| ″ | `StillACandidate_WhileStillAboveTheStopLoss` | Balance 9, floor 8 ⇒ still dispatched (strictly above). |
+| `Services/OrbitBetPlacementServiceTests.cs` | `NotACandidate_OnceTheBalanceHasFallenUnderTheStopLoss` | Balance 5, floor 8 ⇒ `ResolveCandidates` is empty. ⚠️ **Renamed 2026-09-07** — was a Theory over (8, 5); the `8` case moved to the test below when the boundary changed. |
+| ″ | `StillACandidate_WhileAtOrAboveTheStopLoss` (Theory: 9, 8) | Balance above **and** exactly at a floor of 8 ⇒ still dispatched. |
 | ″ | `StillACandidate_WithNoStopLossSet` | `CashOutFloor` null ⇒ untouched by the gate. |
-| ″ | `CashesOutAPlayerWhoseStopLossHasBeenReached_EvenWithNothingLeftInFlight` | Balance 5, floor 8, nothing riding ⇒ `EvaluateFloor` called once. |
+| ″ | `CashesOutAPlayerWhoseStopLossHasBeenBrokenThrough_EvenWithNothingLeftInFlight` | Balance 5, floor 8, nothing riding ⇒ `EvaluateFloor` called once. |
 | ″ | `DoesNotReCashOutAnAlreadyEmptiedBalance` | Balance 0 ⇒ never called (idempotence). |
-| ″ | `DoesNotCashOutAPlayerStillAboveTheirStopLoss` | Balance 9, floor 8 ⇒ never called. |
+| ″ | `DoesNotCashOutAPlayerAtOrAboveTheirStopLoss` (Theory: 9, 8) | Balance 9 **and** 8 against a floor of 8 ⇒ never called. The `8` case is the one this sweep used to get wrong: it runs for every enrolled player with a floor, bet or not, so as `<=` it was the code that actually executed the "floor equal to the deposit" withdrawal. |
 
 ⚠️ **Assert eligibility through `ResolveCandidates`, not `PlanPlacements`.** Both of
 `PlanPlacements`' exits that reach a dispatch decision write the gate with `ExecuteUpdateAsync`,
