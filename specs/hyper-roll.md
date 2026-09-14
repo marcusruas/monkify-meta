@@ -381,14 +381,15 @@ A pure static class (unit-testable, no EF):
 - `int WeightFor(decimal multiplier)` → `100_000_000 / (int)decimal.Round(multiplier * 100)` (integer
   division). Throws for a multiplier with more than 2 decimal places or outside `[MinMultiplier, MaxMultiplier]`.
 - `decimal RtpPercentOf(IReadOnlyList<decimal> ladder)` → `100 / Σ(1/m)`.
-- `HouseEdgeValidation Validate(GameParameters parameters, IReadOnlyCollection<PresetChoice> activePool, GameCharacterType charset)`
-  — returns `IsValid` + a reason. Rules:
+- `HouseEdgeValidation Validate(GameParameters parameters, IReadOnlyCollection<PresetChoice> activePool)`
+  — returns `IsValid` + a reason. Shipped as a two-parameter method (no separate `charset` argument): the
+  alphabet comes from `parameters.AllowedCharacters.StringValueOf()`. Rules:
   1. `IsHouseEdge`, `MaximumStake`, `RtpPercent`, `BoardLadder` all set; ladder length ≥ `BoardSizeMin`.
   2. Every ladder value within `[1.01, 10.00]` with ≤ 2 decimals.
   3. `|RtpPercentOf(ladder) − RtpPercent| ≤ RtpTolerancePercent`.
   4. `RequiredAmount ≥ NativeSol` rent-exempt floor (in SOL) and `MaximumStake ≥ RequiredAmount`.
-  5. Every active word: length 6–8, all characters in `charset`, unique; its multiplier is a value that
-     appears in the ladder.
+  5. Every active word: length 6–8, all characters in `parameters.AllowedCharacters`, unique; its
+     multiplier is a value that appears in the ladder.
   6. For each distinct ladder value `v` occurring `c` times, the pool has **≥ c** active words with
      multiplier `v`.
 
@@ -804,7 +805,7 @@ flowchart TD
 | 8 | `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` | `IsHouseEdge`; board in `SetBets`/`SetCharactersOnTyper`; no-op `CheckForWinners`; weighted `DecideFallbackWinner` |
 | 9 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `HouseEdgeChoiceIsValid`; ordered winners + board multipliers; house-edge reward branch |
 | 10 | `SpaceStroker.Domain/Configs/Entities/OperatorSettings.cs` | `DefaultGameSettings.HouseEdge`, `HouseEdgeSettings`, `HouseEdgeWordSettings` |
-| 11 | `SpaceStroker.Common/Resources/ErrorMessages.resx` (+ Designer) | `TyperStartedWithoutBoard`, `HouseEdgeBoardEntryMissing`, `HouseEdgeTreasuryShort`, `HouseEdgePoolCannotFillBoard` |
+| 11 | `SpaceStroker.Common/Resources/ErrorMessages.resx` (+ Designer) | `TyperStartedWithoutBoard`, `HouseEdgeBoardEntryMissing`. The treasury-short and pool-shortfall conditions did not get resource strings — they are logged at `Log.Error` with inline messages (`RewardGameConsumer.cs`'s manual-analysis branch and `GameService.cs`'s board-fill check), not `ErrorMessages.resx` entries. |
 | 12 | `SpaceStroker.Common/spacestrokersettings.json` | Remove Beast Mode; add Hyper Roll (§5.1) |
 | 13 | `SpaceStroker.Infrastructure/Data/Context/SpaceStrokerDbContext.cs` | Inline mapping (§4.2) |
 | 14 | `SpaceStroker.Infrastructure/Migrations/*_HyperRoll.cs` | Generated migration |
@@ -1030,3 +1031,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | --- | --- |
 | 2026-09-14 | Initial spec from the refined card (#183) and the same-session refinement; code exploration findings §3.2; spec-time decisions S1–S14; weighted-draw known-answer vector computed. |
 | 2026-09-14 | Owner picked mockup **A6** and approved §3.1: decisions 17 and 20 revised, 21–22 added; §7.0 marked passed; §7.2, §7.4 and AC 14 rewritten for A6; code finding 11 corrected (`:614`/`:661` are embedded signals, not the deep-link resume); §11.2 gains `HyperRollStakeChips.vue`, `GamePage.vue`, `utils/houseEdge.ts`. |
+| 2026-09-14 | Final-review alignment pass: INDEX.md map row + "Feature currently in flight" entry updated to reflect implementation done (stake field wording corrected to the console visor + bump chips, status set to "Implemented — awaiting ship"); §11.1 item 11 corrected to the two `ErrorMessages.resx` entries actually shipped; §6.1's `Validate` signature corrected to the shipped two-parameter form. |
