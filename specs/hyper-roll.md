@@ -98,10 +98,12 @@ From the refined card (short mode) — authoritative.
 | 14 | **No house commission** on this type — a 10× tile pays exactly 10×. |
 | 15 | **One bet per player per round** (existing `OneBetPerPresetRound`). |
 | 16 | **Beast Mode is deactivated** (`Active = false`) by a `deploy/sql/` script shipped with the feature; its history stays reachable. Hyper Roll is a fresh row. Trello #169 is archived. |
-| 17 | **Stake entry = free input + chips**, reusing `OrbitAmountField`. Lobby card shows "from <min> SOL". |
+| 17 | **Stake entry = the console's green visor + bump chips** (owner picked mockup **A6**, 2026-09-14): `+0.01 / +0.05 / +0.1 / MAX`, no SET step — the lever places the bet. Lobby card shows "from <min> SOL". *(Refined as "reuse `OrbitAmountField`"; superseded by the mockup choice — only its validation rules carry over.)* |
 | 18 | **Copy states the RTP**: "95% RTP" where other types show the house cut, a terms clause for house-edge games, a `/how-to-play` mode card with the ladder. |
 | 19 | **The draw stays count-triggered** (`CharactersTypedCount >= MaxCharacters`), never wall-clock. |
-| 20 | **Implementation gate:** before any frontend component code, produce **3 Claude Design mockups** of the board + stake component; the owner picks one. |
+| 20 | **Implementation gate — passed 2026-09-14.** The owner reviewed mockup rounds A/B/C, A1–A3 and A4/A5 and picked **A6** (https://claude.ai/code/artifact/6db62365-7929-4135-80cd-571802ac7ab0). |
+| 21 | **Console + terminal = A6.** The terminal keeps today's screen line for line: `> CHOICES:` stays one `> word` per line in key order, and each line gains MULT · CHANCE · WIN (at the player's stake) under a dim header; 10× lines use the terminal's existing hot yellow + glow (`.result-win`), bold, with `< TOP` on desktop. `> BET` shows the stake; `> POT` becomes `> RTP: 95%`. The console keeps Option A's bottom: the stake typed in the visor, bump chips, the lever, and the 8 numbered keys each tagged with its multiplier (10× tags solid yellow). |
+| 22 | **Spec §3.1 (S1–S14) approved by the owner, 2026-09-14.** |
 
 ### 3.1 Spec-time decisions (made while writing this spec — flag to the owner at implementation start)
 
@@ -144,8 +146,10 @@ From the refined card (short mode) — authoritative.
 10. **`DefaultGameSeedingTests.ConsumersStartup_SeedsBeastModeAsComingSoon_AndLeavesTheOthersPlayable`**
     asserts Beast Mode is seeded — invalid after S10.
 11. **Frontend:** `GameConsole.vue` builds its 8-key keypad from `selectedGame.presetChoices` (`:275`,
-    `:292`); `useGame.ts` uses `requiredAmount` as the stake at **four** sites (`:614` and `:661` mobile
-    deep-link resume bodies, `:836` fee-headroom check, `:889` transfer amount); the near-miss hook is fed
+    `:292`); `useGame.ts` uses `requiredAmount` as the stake at `:836` (fee-headroom check) and `:889` (transfer
+    amount) — the mobile deep-link resume already reuses that `amount` via `MobilePendingBet.amount`;
+    `:614` and `:661` are embedded `postToParent` signals, of which only `bet-settled` (`:661`) should
+    report the player's own stake *(corrected 2026-09-14)*; the near-miss hook is fed
     at `:247` and `:581`; `verifyRound` in `utils/provablyFair.ts` and `public/verify.html` replays the
     stream looking for natural matches and uses the uniform fallback.
 12. **Positive finding — no change needed:** `SolanaService.ValidateBetPayment` validates the on-chain
@@ -612,6 +616,9 @@ longer lists Beast Mode. No `GameTypeDeactivatedEvent` is needed: a `ComingSoon`
 
 ### 7.0 Gate — mockups before code
 
+**Passed 2026-09-14 — the owner picked A6** (decisions 20–21). The paragraph below is kept as the record
+of what the gate required.
+
 Before writing any component code, use the **`design`** skill to produce **3 Claude Design mockups** of the
 **board + stake component** (8 word tiles with multipliers, the stake field with chips/MAX, the lever
 state), at desktop and 360 px. The owner picks one; implement that layout. Record the choice on the Trello
@@ -627,18 +634,21 @@ card.
 
 All optional — an older payload or a mock without them behaves as a non-house-edge type.
 
-### 7.2 Game console — `src/components/game/GameConsole.vue`
+### 7.2 Game console — `src/components/game/GameConsole.vue` (A6)
 
 For `selectedGame.isHouseEdge`:
 
-- The keypad reads **`gameInstance.boardChoices`** (label + `N×`), not `selectedGame.presetChoices`
-  (`presetButtons` `:275`, `isKeySelected` `:287`, `selectPresetButton` `:290`).
-- The stake field is **`OrbitAmountField`** (`src/components/orbit/OrbitAmountField.vue`): `min =
-  requiredAmount`, `max = maximumStake`, `available = wallet balance − 0.001` (the existing
-  `NATIVE_FEE_HEADROOM_SOL`), `decimals = tokenDecimals ?? 9`, `unit = 'SOL'`, `quickAmounts` = chips at
-  `0.01 / 0.05 / 0.1` filtered to `≤ max`. Its `confirm` sets the stake; the lever stays disabled until a
-  word **and** a valid stake are set.
-- Final visual layout = the chosen mockup (§7.0). Other types are unchanged.
+- **Keypad:** the 8 numbered key sprites read **`gameInstance.boardChoices`** (Position order = key order),
+  not `selectedGame.presetChoices`. Each key carries a multiplier tag over its bottom edge; the 10× tags
+  are solid yellow (`#fde047` on black) and one step larger.
+- **Visor:** the green visor input is the **stake** (`inputmode="decimal"`, placeholder `min–max`), not a
+  word. The chosen word is shown by the lit key and the terminal.
+- **Bump chips:** `+0.01 / +0.05 / +0.1 / MAX` (steps above `maximumStake` are hidden). Desktop and the
+  600–1023 px band render them in the left plate where the keyboard image sits; on phones they render in a
+  row directly above the console band (`HyperRollStakeChips.vue`, mounted by `GamePage.vue`). MAX is
+  `min(maximumStake, balance − 0.001)`.
+- **Lever:** refuses (error twitch) until a board word **and** a valid stake are set. No SET step.
+- Other types are unchanged.
 
 ### 7.3 Bet flow — `src/hooks/useGame.ts`
 
@@ -652,11 +662,20 @@ For `selectedGame.isHouseEdge`:
 - `myPayout` computed: from `statusData.result.payouts` matching the connected wallet; `maybeFireWinToast`
   (`:400`) uses `myPayout` for house-edge (still gated on the loaded bet, `!viaOrbit`, `amount > 0`).
 
-### 7.4 Terminal — `src/components/game/GameTerminal.vue`
+### 7.4 Terminal — `src/components/game/GameTerminal.vue` (A6)
 
-For house-edge: the near-miss dock (`:483`) is not rendered; the `> POT:` line is not rendered; `> PAID:`
-(`:445`) renders `formatPayout(myPayout)` **only when the viewer won** (omitted otherwise, never `0`). The
-end-of-round winning-word reveal is unchanged.
+For house-edge rounds, pre-run block — same lines, same order, same type as today:
+
+- `> GAME: <name>`
+- `> BET: <stake> SOL` (the typed stake, or the minimum while none is typed), glowing like `> POT` today.
+- `> RTP: 95% · BIGGER MULTIPLIER, RARER WORD` on desktop, `> RTP: 95%` on phones — **replaces `> POT:`**.
+- `> CHOICES:` followed by one line per board word **in key order**: `> word`, multiplier, chance, and
+  what the current stake wins, in aligned columns under a dim `MULT · CHANCE · WIN` header. 10× lines use
+  `.result-win` (hot yellow + glow), bold, and end in `< TOP` on desktop.
+- `> BETS PLACED:` unchanged.
+
+Running/result block: no `> POT:` line; `> PAID:` renders the viewer's own payout from `result.payouts`
+only when they won (omitted otherwise, never `0`); the near-miss dock is not rendered.
 
 ### 7.5 Lobby card, art, guide, stats
 
@@ -810,7 +829,7 @@ flowchart TD
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/types/index.ts` | §7.1 |
-| 2 | `src/components/game/GameConsole.vue` | Board keypad + `OrbitAmountField` stake (per chosen mockup) |
+| 2 | `src/components/game/GameConsole.vue` | A6: board-driven keypad with multiplier tags, stake in the visor, chips in the left plate |
 | 3 | `src/hooks/useGame.ts` | `stakeAmount`, four stake sites, near-miss skip, `myPayout`, toast |
 | 4 | `src/components/game/GameTerminal.vue` | Hide near-miss + POT; own-payout PAID line |
 | 5 | `src/components/game-selection/GameTypeCard.vue` | `from <min>` |
@@ -822,6 +841,9 @@ flowchart TD
 | 11 | `src/utils/provablyFair.ts` | Weighted draw + house-edge verify branch |
 | 12 | `public/verify.html` | Same, inline |
 | 13 | `src/components/game/GameFairPanel.vue` | Copy for the weighted draw |
+| 14 | `src/components/game/HyperRollStakeChips.vue` (new) | `+0.01 / +0.05 / +0.1 / MAX` stake chips |
+| 15 | `src/pages/GamePage.vue` | Mount the chips above the phone console band |
+| 16 | `src/utils/houseEdge.ts` (new) | Stake parsing, chance, payout, top-multiplier helpers |
 
 ### 11.3 Landing page (`monkify-lp`)
 
@@ -937,9 +959,12 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 13. Given free-bet mode is allowed (backend + frontend flags + `AllowFreeBet`), when a bet with amount 0 and
     no signature is placed on Hyper Roll, then it runs the full lifecycle, a free winner is marked `Rewarded`
     with no transfer, and it never affects a paid winner's payout.
-14. Given the player is on a Hyper Roll round in the SPA, when the console renders, then it shows the 8 word
-    tiles with multipliers and the reused `OrbitAmountField` stake input (free entry + chips + MAX), refuses
-    an amount outside `[min, max]` or below balance + fee headroom before signing, and shows no `N AWAY!` row.
+14. Given the player is on a Hyper Roll round in the SPA, when the console and terminal render, then the 8
+    numbered keys each show their multiplier (10× tags solid yellow), the terminal lists every board word in
+    key order with multiplier, chance and win at the current stake (10× lines in the hot yellow with
+    `< TOP`), the stake is typed in the visor with `+0.01 / +0.05 / +0.1 / MAX` chips, an amount outside
+    `[min, max]` or below balance + fee headroom is refused before signing, and neither an `N AWAY!` row nor
+    a `> POT:` line is shown.
 15. Given the lobby, STATS, `/how-to-play` and the LP terms, when Hyper Roll is live, then the lobby card reads
     "from <min> SOL", STATS shows "95% RTP" (no house-cut badge) for this type, `/how-to-play` has a Hyper
     Roll mode card with the ladder, and the terms carry a house-edge clause — Beast Mode appears on none of
@@ -1003,3 +1028,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | Date | Change |
 | --- | --- |
 | 2026-09-14 | Initial spec from the refined card (#183) and the same-session refinement; code exploration findings §3.2; spec-time decisions S1–S14; weighted-draw known-answer vector computed. |
+| 2026-09-14 | Owner picked mockup **A6** and approved §3.1: decisions 17 and 20 revised, 21–22 added; §7.0 marked passed; §7.2, §7.4 and AC 14 rewritten for A6; code finding 11 corrected (`:614`/`:661` are embedded signals, not the deep-link resume); §11.2 gains `HyperRollStakeChips.vue`, `GamePage.vue`, `utils/houseEdge.ts`. |
