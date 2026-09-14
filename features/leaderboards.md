@@ -12,7 +12,7 @@
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
 weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
 **hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
-`/leaderboard` route. The two weekly boards **reset every Friday 12:00 BRT**.
+`/leaderboard` route. The two weekly boards **reset every Friday 15:00 UTC**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -54,7 +54,7 @@ Production is anchored; a local box with no override is not.
 
 **Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
 `GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-04T15:00:00Z`, which
-is **Friday 12:00 BRT**. The race restarts on a schedule instead of sliding with the clock.
+is **Friday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
 
 - ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
   runtime — that would make the boards depend on the tz database being present and identically named in
@@ -167,10 +167,10 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   header and plinth meta line — so there is **one** board component driven by a config map, not three.
   A per-board champion band was drawn, reviewed and rejected.
 - ⚠️ **No bare figures.** Every board carries an explainer naming the period **read from the response**
-  (anchored: *"this week"* plus a `RESETS WEDNESDAYS 7:00 PM BRT` line derived from `window.resetsAt`;
+  (anchored: *"this week"* plus a `RESETS FRIDAYS 3 PM UTC` line derived from `window.resetsAt`;
   unanchored: *"in the last 7 days"*, or a fallback week's real dates — it can never claim a period the
   rows do not cover), a unit-naming meta line under each plinth figure, and a column header.
-  ⚠️ The reset is rendered in **BRT and explicitly labelled**, never the viewer's local time: it is one
+  ⚠️ The reset is rendered in **UTC and explicitly labelled**, never the viewer's local time: it is one
   weekly event the whole board shares, and localising it would give viewers near midnight a different
   weekday and quietly break the shared reference. The gamble race adds asterisked fine print:
   *"Total gambled, not deposited — Orbit re-bets what it wins, so this climbs past what you put in."*
