@@ -420,7 +420,7 @@ A pure static class (unit-testable, no EF):
   - `ExecuteUpdate` `Multiplier` on existing words whose value differs; set `Active = true` on words present
     in config, `Active = false` on pool words absent from config.
   - Returns the patched/inserted count. **No extra cache drop is needed** — the same startup block already
-    drops the `ActiveParameters` key unconditionally.
+    drops the `ActiveParameters:v2` key unconditionally.
   - Safe under a live round: the open round's board is already persisted on `GameBoardChoices`.
 - After reconciling, run `HouseEdgeRules.Validate` for each house-edge type and **`Log.Error`** (never
   throw — a Consumers crash before migrations is the 2026-08-05 incident) with the reason when invalid.
@@ -562,6 +562,15 @@ rewards, verification or `ActiveGameDto`:
 
 `RunGameConsumer` already goes through `GetGameById`.
 
+**The parameters cache key is bumped to `ActiveParameters:v2`** (`CacheHelper.GenerateActiveParametersCacheSettings`,
+same 12h TTL). The rollout runs Consumers first, then the API, and both read and write that shared Redis blob:
+under the old key the still-running old API revision could rewrite it without `IsHouseEdge`, `MaximumStake`,
+`RtpPercent`, `BoardLadder` or the pool's `Active`/`Multiplier`, and the new code would read that stale blob for
+up to 12h. The suffix is a schema version — any schema change to `GameParametersDto`/`GameParameters` must bump
+it. As a second guard, `GameService.CreateGame` (§6.6) takes the house-edge decision and every value `Validate`
+and `Draw` use from the **database row** (one query: the row plus its active pool), never from the caller's
+object, which may have been rebuilt from that cache.
+
 ### 6.9 Contracts
 
 - **`GameParametersDto`:** add `IsHouseEdge`, `MaximumStake`, `RtpPercent`; `CommissionPercentage =
@@ -607,7 +616,7 @@ WHERE p."Name" = 'Beast Mode'
   AND NOT EXISTS (SELECT 1 FROM "Games" g WHERE g."ParametersId" = p."Id" AND g."Status" IN (1, 3, 4));
 ```
 
-Footer: the 12h `ActiveParameters` blob must be dropped — **run this before the Consumers deploy that ships
+Footer: the 12h `ActiveParameters:v2` blob must be dropped — **run this before the Consumers deploy that ships
 Hyper Roll** (its boot drops the key), or restart Consumers afterwards. Verify `GET /games/active-types` no
 longer lists Beast Mode. No `GameTypeDeactivatedEvent` is needed: a `ComingSoon` type has no open round.
 
@@ -1008,6 +1017,17 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 - **Run `beast-mode-deactivation.sql` before the Consumers deploy** (or restart Consumers after it).
 - **Verify by observable state** (prod logs are Warning-only): `/games/active-types` shows Hyper Roll and no
   Beast Mode; one Hyper Roll round completes; `/games/{id}/verification` carries the board.
+- **Production runbook, in order:**
+  1. **Fund and confirm the treasury balance before opening Hyper Roll.** The reward check (§6.7) reads the
+     whole treasury wallet balance and does **not** reserve what other game types' open pots still owe, so the
+     buffer has to be there up front.
+  2. **Run `deploy/sql/beast-mode-deactivation.sql`** — its pre-check `SELECT` first, then the `UPDATE`.
+  3. **Deploy Consumers, then the API.**
+  4. **Verify `GET /games/active-types`:** Hyper Roll is listed with `isHouseEdge: true`,
+     `maximumStake: 0.2` and `commissionPercentage: 0`, and Beast Mode is not listed. If the payload is stale,
+     restart Consumers — it drops the `ActiveParameters:v2` cache key on boot.
+  5. **Watch** for rounds ending `ErrorWhenProcessingRewards` and for the Error log
+     "HOUSE EDGE — treasury cannot cover" (visible in prod, which logs Warning and above).
 - **Rollback lever without a migration:** set Hyper Roll `ComingSoon: true` in config and redeploy Consumers
   (existing #168 mechanism: the open `WaitingBets` round is cancelled and refunded, running rounds finish and
   pay). Beast Mode can be reactivated with the inverse `UPDATE` if needed.
@@ -1032,3 +1052,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | 2026-09-14 | Initial spec from the refined card (#183) and the same-session refinement; code exploration findings §3.2; spec-time decisions S1–S14; weighted-draw known-answer vector computed. |
 | 2026-09-14 | Owner picked mockup **A6** and approved §3.1: decisions 17 and 20 revised, 21–22 added; §7.0 marked passed; §7.2, §7.4 and AC 14 rewritten for A6; code finding 11 corrected (`:614`/`:661` are embedded signals, not the deep-link resume); §11.2 gains `HyperRollStakeChips.vue`, `GamePage.vue`, `utils/houseEdge.ts`. |
 | 2026-09-14 | Final-review alignment pass: INDEX.md map row + "Feature currently in flight" entry updated to reflect implementation done (stake field wording corrected to the console visor + bump chips, status set to "Implemented — awaiting ship"); §11.1 item 11 corrected to the two `ErrorMessages.resx` entries actually shipped; §6.1's `Validate` signature corrected to the shipped two-parameter form. |
+| 2026-09-14 | Final-review fix pass: §15 gains the ordered production runbook (treasury first — the reward check does not reserve other types' open pots; Beast Mode SQL; Consumers then API; `/games/active-types` check; the two signals to watch); the parameters cache key is bumped to `ActiveParameters:v2` (§6.3, §6.12 footer) and §6.8 records why, plus `CreateGame` reading the house-edge values from the database row. |
