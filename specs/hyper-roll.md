@@ -656,8 +656,9 @@ For `selectedGame.isHouseEdge`:
 - `bet()`: `const stake = selectedGame.isHouseEdge ? stakeAmount : requiredAmount` — used by the
   fee-headroom check (`:836`) and the transfer amount (`:889`). Refuse client-side, before signing, when the
   stake is outside `[requiredAmount, maximumStake]` (existing vague "that could not be accepted" style).
-- The mobile deep-link pending-bet record carries the chosen stake so the resume bodies (`:614`, `:661`)
-  POST the same amount that was signed.
+- The transfer `amount` (`:889`) is the chosen stake, so the mobile deep-link pending-bet record, which
+  already stores `amount`, resumes with the stake that was signed. The embedded `bet-settled` signal
+  (`:661`) reports the player's own stake; `game-started` (`:614`) keeps `requiredAmount` (it describes the type).
 - Near-miss: skip `nearMiss.trackChoice` (`:247`) and `nearMiss.feed` (`:581`) for house-edge.
 - `myPayout` computed: from `statusData.result.payouts` matching the connected wallet; `maybeFireWinToast`
   (`:400`) uses `myPayout` for house-edge (still gated on the loaded bet, `!viaOrbit`, `amount > 0`).
@@ -830,7 +831,7 @@ flowchart TD
 | --- | --- | --- |
 | 1 | `src/types/index.ts` | §7.1 |
 | 2 | `src/components/game/GameConsole.vue` | A6: board-driven keypad with multiplier tags, stake in the visor, chips in the left plate |
-| 3 | `src/hooks/useGame.ts` | `stakeAmount`, four stake sites, near-miss skip, `myPayout`, toast |
+| 3 | `src/hooks/useGame.ts` | `stakeAmount`, stake at `:836`/`:889`, `bet-settled` amount, near-miss skip, `myPayout`, toast |
 | 4 | `src/components/game/GameTerminal.vue` | Hide near-miss + POT; own-payout PAID line |
 | 5 | `src/components/game-selection/GameTypeCard.vue` | `from <min>` |
 | 6 | `src/utils/gameArt.ts` | House-edge → preset art |
