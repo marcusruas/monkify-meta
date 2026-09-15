@@ -105,6 +105,7 @@ From the refined card (short mode) — authoritative.
 | 21 | **Console + terminal = A6 (as adjusted by the owner on 2026-09-14).** The terminal keeps today's screen line for line: `> CHOICES:` stays one `> word` per line in key order with the key number (1–8) displayed left of the word (e.g. `> 1 stardust`), and each line gains MULT · ODDS · JACKPOT (at the current stake) under a dim header; 10× lines use the terminal's existing hot yellow + glow (`.result-win`), bold. The jackpot values, the header stake and the `> BET:` line update live on every keystroke; while no bet is placed, the display stake is the typed value clamped to [min stake, max stake]. `> POT` becomes `> RTP: 95%`. The console keeps Option A's bottom: the stake typed in the visor with enlarged 2×2 grid of bump chips under it, the lever, and the 8 numbered keys each tagged with its multiplier (10× tags solid yellow). |
 | 22 | **Spec §3.1 (S1–S14) approved by the owner, 2026-09-14.** |
 | 23 | **A6 terminal/console adjustments approved by the owner on 2026-09-14:** desktop stake chips enlarged to a 2×2 grid under the visor; each CHOICES row displays its key number (1–8) left of the word; jackpot values, header stake and BET line update live on every keystroke with the display stake clamped to [min, max]; column header CHANCE renamed to ODDS; column header WIN renamed to JACKPOT (desktop shows `JACKPOT @ <stake>`); the `< TOP` marker removed while top-tier rows retain hot-yellow styling. |
+| 24 | **Owner picked mockup C1 on 2026-09-15**, replacing A6's CHOICES layout and key tags. Terminal intro collapses to one line: desktop `> HYPER ROLL · BET <stake> SOL · RTP 95%`, phone `> BET <stake> SOL · RTP 95%`; the dim MIN/MAX STAKE line stays below it. Choices table one dim header `#  WORD  MULT  ODDS  JACKPOT` then one row per key, no `>` prefix, no bold/glow, no `< TOP`. Tier colours by multiplier: green `#16a34a` ≤ 4×, blue `#2563eb` ≤ 6×, red `#ef4444` ≤ 8×, yellow `#fde047` 9–10×; row text uses its colour. The 8 keys lose multiplier tags; each outlined in its tier colour; selected key thicker outline, brightens, glows. Player's pick turns terminal row to tier colour + black text, fading ~300 ms. |
 
 ### 3.1 Spec-time decisions (made while writing this spec — flag to the owner at implementation start)
 
@@ -645,13 +646,12 @@ card.
 
 All optional — an older payload or a mock without them behaves as a non-house-edge type.
 
-### 7.2 Game console — `src/components/game/GameConsole.vue` (A6 as adjusted by the owner on 2026-09-14)
+### 7.2 Game console — `src/components/game/GameConsole.vue` (C1, picked by the owner on 2026-09-15, replacing A6's CHOICES layout and key tags)
 
 For `selectedGame.isHouseEdge`:
 
 - **Keypad:** the 8 numbered key sprites read **`gameInstance.boardChoices`** (Position order = key order),
-  not `selectedGame.presetChoices`. Each key carries a multiplier tag over its bottom edge; the 10× tags
-  are solid yellow (`#fde047` on black) and one step larger.
+  not `selectedGame.presetChoices`. Each key is outlined in its tier colour (green `#16a34a` for ≤ 4×, blue `#2563eb` for ≤ 6×, red `#ef4444` for ≤ 8×, yellow `#fde047` for 9–10×); the selected key gets a thicker outline, brightens, and glows in its tier colour. The 8 keys lose their multiplier tags.
 - **Visor:** the green visor input is the **stake** (`inputmode="decimal"`, placeholder `min–max`), not a
   word. The chosen word is shown by the lit key and the terminal.
 - **Bump chips:** `+0.01 / +0.05 / +0.1 / MAX` in a 2×2 grid positioned under the visor (steps above
@@ -659,6 +659,7 @@ For `selectedGame.isHouseEdge`:
   keyboard image sits; on phones they render in a row directly above the console band
   (`HyperRollStakeChips.vue`, mounted by `GamePage.vue`). MAX is `min(maximumStake, balance − 0.001)`.
 - **Lever:** refuses (error twitch) until a board word **and** a valid stake are set. No SET step.
+- **Player's pick:** the key the player pressed (or their placed bet this round) turns its terminal row to the tier colour with black text, fading in (~300 ms; no animation under reduced motion).
 - Other types are unchanged.
 
 ### 7.3 Bet flow — `src/hooks/useGame.ts`
@@ -674,15 +675,14 @@ For `selectedGame.isHouseEdge`:
 - `myPayout` computed: from `statusData.result.payouts` matching the connected wallet; `maybeFireWinToast`
   (`:400`) uses `myPayout` for house-edge (still gated on the loaded bet, `!viaOrbit`, `amount > 0`).
 
-### 7.4 Terminal — `src/components/game/GameTerminal.vue` (A6 as adjusted by the owner on 2026-09-14)
+### 7.4 Terminal — `src/components/game/GameTerminal.vue` (C1, picked by the owner on 2026-09-15, replacing A6's CHOICES layout and key tags)
 
 For house-edge rounds, pre-run block — same lines, same order, same type as today:
 
 - `> GAME: <name>`
-- `> BET: <stake> SOL` (the typed stake, or the minimum while none is typed; updates live on every keystroke), glowing like `> POT` today.
+- Terminal intro collapses to one line: desktop `> HYPER ROLL · BET <stake> SOL · RTP 95%`, phone `> BET <stake> SOL · RTP 95%`; the dim MIN/MAX STAKE line stays below it.
 - A dim `> MAX STAKE: <max> SOL` / `> MIN STAKE: <min> SOL` line appears when the typed value is clamped.
-- `> RTP: 95% · BIGGER MULTIPLIER, RARER WORD` on desktop, `> RTP: 95%` on phones — **replaces `> POT:`**.
-- `> CHOICES:` followed by one line per board word **in key order** with the key number (1–8) displayed left (desktop `> 1 word`, phone `1 word`): multiplier, odds, and what the current stake wins, in aligned columns under a dim `MULT · ODDS · JACKPOT @ <stake>` header. 10× lines use `.result-win` (hot yellow + glow), bold. Changed values flash briefly (none under reduced motion).
+- `> CHOICES:` one dim header `#  WORD  MULT  ODDS  JACKPOT`, then one row per board word **in key order** with key number (1–8), word, multiplier, odds and what the current stake wins; no `>` prefix, no bold/glow, no `< TOP`. Row text uses its tier colour (green `#16a34a` for ≤ 4×, blue `#2563eb` for ≤ 6×, red `#ef4444` for ≤ 8×, yellow `#fde047` for 9–10×). Jackpot values, header stake and stake line update live on keystroke with display stake clamped to [min, max].
 - `> BETS PLACED:` unchanged.
 
 Running/result block: no `> POT:` line; `> PAID:` renders the viewer's own payout from `result.payouts`
@@ -840,7 +840,7 @@ flowchart TD
 | # | File | Change |
 | --- | --- | --- |
 | 1 | `src/types/index.ts` | §7.1 |
-| 2 | `src/components/game/GameConsole.vue` | A6 (adjusted by owner 2026-09-14): board-driven keypad with multiplier tags, stake in the visor, enlarged 2×2 chips grid under visor |
+| 2 | `src/components/game/GameConsole.vue` | C1 (picked by owner 2026-09-15, replacing A6): board-driven keypad outlined in tier colours (no tags), selected key thicker outline + glow, stake in visor, 2×2 chips grid under visor, picked row fade in tier colour |
 | 3 | `src/hooks/useGame.ts` | `stakeAmount`, stake at `:836`/`:889`, `bet-settled` amount, near-miss skip, `myPayout`, toast |
 | 4 | `src/components/game/GameTerminal.vue` | Hide near-miss + POT; own-payout PAID line |
 | 5 | `src/components/game-selection/GameTypeCard.vue` | `from <min>` |
@@ -970,13 +970,16 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 13. Given free-bet mode is allowed (backend + frontend flags + `AllowFreeBet`), when a bet with amount 0 and
     no signature is placed on Hyper Roll, then it runs the full lifecycle, a free winner is marked `Rewarded`
     with no transfer, and it never affects a paid winner's payout.
-14. Given the player is on a Hyper Roll round in the SPA, when the console and terminal render, then the 8
-    numbered keys each show their multiplier (10× tags solid yellow), the terminal lists every board word in
-    key order with its number (1–8), multiplier, odds and jackpot at the current stake (10× lines in the hot
-    yellow, bold), the stake is typed in the visor with `+0.01 / +0.05 / +0.1 / MAX` chips in a 2×2 grid,
-    the jackpot/header/stake values update live on keystroke with the display stake clamped to [min, max],
-    an amount outside `[min, max]` or below balance + fee headroom is refused before signing, and neither
-    an `N AWAY!` row nor a `> POT:` line is shown.
+14. Given the player is on a Hyper Roll round in the SPA, when the console and terminal render (C1,
+    picked by the owner on 2026-09-15, replacing A6's CHOICES layout and key tags), then the 8 numbered keys
+    each are outlined in their tier colour (green `#16a34a` ≤ 4×, blue `#2563eb` ≤ 6×, red `#ef4444` ≤ 8×,
+    yellow `#fde047` 9–10×), the selected key has a thicker outline and glows in its tier colour, the
+    terminal lists every board word in key order with header `#  WORD  MULT  ODDS  JACKPOT` and one row per
+    key (no `>` prefix, no bold/glow, no `< TOP`), row text in tier colour, jackpot/header/stake values
+    update live on keystroke with display stake clamped to [min, max], the player's pick turns its terminal
+    row to tier colour + black text fading in (~300 ms), the stake is typed in the visor with
+    `+0.01 / +0.05 / +0.1 / MAX` chips in a 2×2 grid, an amount outside `[min, max]` or below balance + fee
+    headroom is refused before signing, and neither an `N AWAY!` row nor a `> POT:` line is shown.
 15. Given the lobby, STATS, `/how-to-play` and the LP terms, when Hyper Roll is live, then the lobby card reads
     "from <min> SOL", STATS shows "95% RTP" (no house-cut badge) for this type, `/how-to-play` has a Hyper
     Roll mode card with the ladder, and the terms carry a house-edge clause — Beast Mode appears on none of
@@ -1055,3 +1058,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | 2026-09-14 | Final-review alignment pass: INDEX.md map row + "Feature currently in flight" entry updated to reflect implementation done (stake field wording corrected to the console visor + bump chips, status set to "Implemented — awaiting ship"); §11.1 item 11 corrected to the two `ErrorMessages.resx` entries actually shipped; §6.1's `Validate` signature corrected to the shipped two-parameter form. |
 | 2026-09-14 | Final-review fix pass: §15 gains the ordered production runbook (treasury first — the reward check does not reserve other types' open pots; Beast Mode SQL; Consumers then API; `/games/active-types` check; the two signals to watch); the parameters cache key is bumped to `ActiveParameters:v2` (§6.3, §6.12 footer) and §6.8 records why, plus `CreateGame` reading the house-edge values from the database row. |
 | 2026-09-14 | Owner review of the deployed build: numbered choices (1–8 left of each word), live jackpot/header/stake update with clamped display stake, ODDS/JACKPOT column headers (§3 row 23), enlarged desktop chips in 2×2 grid, `< TOP` marker removed. §7.2 and §7.4 rewritten for adjusted A6; AC 14 updated; §11.2 line 2 clarified. |
+| 2026-09-15 | Owner picked mockup C1: one-line intro, compact choices table, multiplier tier colours, outlined keys without tags, picked-row fade. §3 adds decision 24 recording the choice; §7.2, §7.4 and AC 14 rewritten for C1; §11.2 line 2 updated; console now uses outlined keys in tier colours (green `#16a34a` ≤ 4×, blue `#2563eb` ≤ 6×, red `#ef4444` ≤ 8×, yellow `#fde047` 9–10×) with no tags and selected-key glow, terminal uses compact table and one-line intro with tier-colour row highlights and picked-row fade animation. |
