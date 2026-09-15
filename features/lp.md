@@ -125,9 +125,11 @@ bottom-anchored. All three share one uniform square frame.
   in `src/constants.ts` and it is the **bare origin** — no `/space-stroker/game` path. Since the home
   dashboard dropped the route prefix, the origin resolves to the app's **starting page** rather than the
   bare lobby.
-- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/SpaceStroker`, YouTube
-  `https://www.youtube.com/@EdsonStroker`. **Discord was removed**; the grid is **3-up at `lg`** and
-  stacked below it (three columns inside that panel below ~1024px wrap the "TELEGRAM" label). Nav label
+- **Socials:** X `https://x.com/SpaceStroker`, Telegram `https://t.me/SpaceStroker`, Discord
+  `https://discord.gg/AGNbxgNhM`, YouTube `https://www.youtube.com/@EdsonStroker`. **Discord is back**
+  (2026-09-15, after Telegram) and also sits in the JSON-LD `sameAs`. The community grid is a **2×2 from
+  `sm`**, stacked below it. ⚠️ **Never four-up:** the panel caps at `max-w-4xl`, so four columns leave
+  ~200px per slot and wrap the "TELEGRAM" label (three-up already wrapped below ~1024px). Nav label
   stays **"Community"**; "gang" appears in CTAs as flavour. ⚠️ **`SOCIALS` in `src/constants.ts` is THE
   list** — the hero HUD and the community slots both iterate it, each mark is **one path on a 24×24 box**
   so each consumer builds its own `<svg>`, and the array's **order and length** drive the community
