@@ -109,6 +109,7 @@ From the refined card (short mode) — authoritative.
 | 25 | **Owner adjusted C1 on 2026-09-15.** Terminal intro drops RTP: desktop `> HYPER ROLL · BET <stake> SOL`, phone `> BET <stake> SOL`; RTP remains on STATS badge, `/how-to-play` card, and terms. Choices table header becomes `#  WORD  MULT  JACKPOT` (ODDS column removed). Key art is drawn in tier colour (filled, not outlined): green `#16a34a`, blue `#2563eb`, red `#ef4444`, yellow `#fde047`; new pixel-art variants for yellow generated from red by colour swap. Selected key brightens and glows in its tier colour. |
 | 26 | **Owner picked stake-button mockup S3 on 2026-09-15.** LCD-style soft keys replace the 2×2 bump-chip grid: buttons read `+.01 / +.05 / +.1 / MAX` in green LCD style (1px green outline, green text, no fill); MAX uses dashed yellow outline and yellow text. Desktop: keys sit inside the green stake visor, positioned below the stake number (which gains a dim "SOL" suffix), separated by a thin divider. Phone: keys appear in a grey bezel row (44px tall) positioned above the cabinet visor, which displays the stake with dim "SOL" suffix. A pressed key briefly inverts: solid green background + black text (solid yellow + black for MAX). |
 | 27 | **Owner picked mockup P1 on 2026-09-15** for the desktop stake-key placement: LCD soft keys move out of the visor into their own grey bezel directly below it, stacked as full-width rows (~24px tall, 9px labels). Phone: unchanged (grey bezel row of four keys above the cabinet). Each key reads `+.01 / +.05 / +.1 / MAX` in green LCD style (1px green outline, green text); MAX dashed yellow outline and yellow text; pressed key inverts to solid fill + black text. The visor now displays only the stake with dim "SOL" suffix. |
+| 28 | **Hyper Roll rounds skip the bet-gathering hold on the first bet.** As soon as a Hyper Roll round receives its first valid paid bet, it skips the global `MinimumWaitPeriodForBets` (15 s) and moves straight to `GameStarting` with a 5-second countdown (new config setting `GeneralSettings:Games:HouseEdgeTimeUntilGameStarts = 5`; falls back to `TimeUntilGameStarts` when 0 or missing). Other players can still join during those 5 seconds. Cosmic Sprint, Space Jackpot and other types keep today's timing (15 s hold + their configured `TimeUntilGameStarts`). Wallets are unchanged: every type, Hyper Roll included, receives bets into and pays winners from the single shared treasury wallet (`GeneralSettings:Operator:Token:TokenOwnerPublicKey`). |
 
 ### 3.1 Spec-time decisions (made while writing this spec — flag to the owner at implementation start)
 
@@ -350,6 +351,11 @@ public class DefaultGameSettings
     // ... existing ...
     // Non-null => a player-vs-house preset type (#183). PresetChoices must be empty when this is set.
     public HouseEdgeSettings? HouseEdge { get; set; }
+    
+    // House-edge only: seconds until a round moves to GameStarting after the first valid bet (decision 28).
+    // Hyper Roll rounds skip MinimumWaitPeriodForBets and use this instead. 0 or missing => fall back to
+    // TimeUntilGameStarts. Other types ignore this field.
+    public int? HouseEdgeTimeUntilGameStarts { get; set; }
 }
 
 public class HouseEdgeSettings
@@ -502,6 +508,8 @@ For `parameters.IsHouseEdge`:
    round until config is fixed and Consumers redeploys; §6.3 already logged why at boot.)
 4. Otherwise add the `Game` **and** its `BoardChoices` in the **same `SaveChanges`**, then continue exactly as
    today (seed commit, events).
+
+**House-edge round start timing (decision 28):** when the first valid paid bet arrives on a Hyper Roll round (via `BetPlacedEvent`), the round skips `MinimumWaitPeriodForBets` (15 s) and moves to `GameStarting` with a countdown of `parameters.HouseEdgeTimeUntilGameStarts` seconds (default 5; falls back to `TimeUntilGameStarts` if 0 or missing). Other players can still place bets during this countdown. Other game types keep today's behaviour (15 s hold, then their configured `TimeUntilGameStarts`).
 
 ### 6.7 Rewards — `BetDomainService` + `RewardGameConsumer`
 
@@ -946,8 +954,7 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
    is refunded via `RefundInvalidBetEvent`.
 5. Given a player already has a bet on the current Hyper Roll round, when they submit a second bet on any
    word, then it is refused (`OneBetPerPresetRound`) and a paid stake is refunded.
-6. Given a Hyper Roll round with one paid bet, when `MinimumWaitPeriodForBets` elapses, then the round starts
-   with a single player (no second player and no house seed bet required).
+6. Given a Hyper Roll round with one paid bet, when that bet is placed, then the round skips `MinimumWaitPeriodForBets` and moves to `GameStarting` with a 5-second countdown (from `HouseEdgeTimeUntilGameStarts` config, decision 28), starting the round with a single player (no second player and no house seed bet required); other players can still join during those 5 seconds.
 7. Given a Hyper Roll round runs, when the character cap is reached, then the winner is chosen by the weighted
    fallback draw (weights ∝ 1/multiplier) from `HMAC(serverSeed, prefix + "|fallback")`,
    `winnerDecidedByFallback` is true, and the round ends in ~10 s as other types do.
@@ -1065,3 +1072,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | 2026-09-15 | Owner review of C1: RTP dropped from the terminal line, ODDS column removed, keys drawn in tier colours instead of outlined. §3 adds decision 25 recording these adjustments; §7.2 updated to describe tier-coloured key art; §7.4 updated to drop RTP from terminal intro and ODDS from table header; AC 14 updated to match; §11.2 updated with asset rows for new key variants `button{1..8}-{green,blue,yellow}.png`. |
 | 2026-09-15 | Owner picked stake-button mockup S3: LCD soft keys inside the visor on desktop, a bezel row on phones. §3 adds decision 26 recording the S3 choice; §7.2 updated to describe LCD soft-key placement, styling and inversion; AC 14 updated to match. |
 | 2026-09-15 | Owner picked P1: desktop stake keys stacked as full-width rows in their own grey bezel directly below the visor; phone unchanged. §3 adds decision 27 recording the P1 choice; §7.2 updated to describe the new desktop bezel placement, stacked as full-width rows; AC 14 updated to match; §11.2 line 2 updated to reflect the LCD bezel keys. |
+| 2026-09-15 | Owner: Hyper Roll rounds start 5 seconds after the first bet (skip the 15 s bet-gathering hold); wallet confirmed as the shared treasury. §3 adds decision 28 recording the 5-second start and treasury wallet; §5.2 adds `HouseEdgeTimeUntilGameStarts` config field; §6.6 documents the round start timing behaviour; AC 6 updated to reflect the new start condition. |
