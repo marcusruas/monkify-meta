@@ -68,8 +68,17 @@ knowingly-accepted cost is that the most prominent section on the page says "the
 
 - ⚠️ **Both named mechanics are FUTURE TENSE, always.** The copy promises that the house **will** buy and
   burn from the existing 1% cut, and that Space Jackpot winners **will be rewarded** with the token from
-  the treasury. **Neither exists in code.** Present tense fails an on-chain check on day one. Each
-  mechanic is its own follow-up card.
+  the treasury. Present tense fails an on-chain check on day one. Each mechanic is its own follow-up
+  card.
+  ⚠️ **HALF OF THAT IS NOW STALE (2026-09-16).** The **jackpot mechanic SHIPPED** — every winner of a
+  Space Jackpot round is paid **100,000 $STROKE** by `JackpotRewardService`
+  ([`../specs/jackpot-stroke-reward.md`](../specs/jackpot-stroke-reward.md)). The copy's future tense
+  is now merely conservative rather than required. **Buyback-and-burn still does not exist in code**
+  and its future tense is still load-bearing.
+  ⚠️ **The copy says "from the Treasury Wallet" and the chain says otherwise.** The bonus is signed by
+  the **house settlement wallet** `CjAULxZV5…`, because the disclosed treasury `GqxFusRS…` is inside
+  the Streamflow lock (§5) and cannot sign ad-hoc transfers. Anyone checking Solscan sees a wallet
+  neither surface names. Unresolved — either the copy moves or the treasury funds the house visibly.
 - **The jackpot mechanic's wording (owner, 2026-08-12).** The heading is **`Space Jackpot earns you
   $STROKE`** and the body **`Every winner of Space Jackpot will be rewarded with $STROKE from the
   Treasury Wallet.`** It replaced *"Bigger jackpots"* / *"The daily Space Jackpot will carry a $STROKE
@@ -376,7 +385,11 @@ front-door card → guide → chart. See [`stats-and-history.md`](stats-and-hist
    it to Solscan as proof of the 10%, so deploying ahead of the transfer publishes a verifiable claim
    that verifies as empty. **Still open.**
 3. **Confirmation that buyback-and-burn and jackpot seeding are genuinely intended** — naming them in
-   copy makes them a public promise. **Still open**; both remain future tense (§4).
+   copy makes them a public promise. **Jackpot seeding: ANSWERED — it shipped 2026-09-16** at 100,000
+   $STROKE per winner ([`../specs/jackpot-stroke-reward.md`](../specs/jackpot-stroke-reward.md)).
+   ⚠️ It carries **~20 rounds of runway** (2,000,000 held ÷ 100,000, drawn daily), after which every
+   round pays nobody and logs an Error — **topping the house wallet up is an ops task with a
+   deadline**. **Buyback-and-burn: still open**, still future tense (§4).
 4. Whether the apex `spacestroker.com` or `www.` is canonical for any LP deep link. **Still open.**
 
 ## Key code touchpoints
