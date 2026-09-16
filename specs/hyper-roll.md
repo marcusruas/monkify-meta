@@ -14,7 +14,8 @@
 > **one** word and stakes **any SOL amount within a min/max**; one provably-fair **weighted draw** picks
 > the round's word, and every player who picked it is paid **`stake × that word's multiplier`** (max
 > **10×**) straight from the treasury — no pot, no split, no house cut. A bigger multiplier is a rarer
-> word, tuned so every word carries the same **95% RTP**.
+> word, tuned to a fixed board recipe where the best-paying words carry **up to 94.19% RTP** — words no
+> longer all pay back the same (decision 29).
 
 ---
 
@@ -36,15 +37,19 @@ SignalR, history, stats, the FAIR panel. What changes is the money model and how
 | Money source for a win | The round's own stakes | **The treasury balance** (pre-payout solvency check) |
 | Near-miss `N AWAY!` row / `> POT:` line | Shown | **Hidden** |
 | Orbit | Per `AllowOrbit` | **Never** (`AllowOrbit = false`) |
-| STATS badge | `N% HOUSE CUT` | **`95% RTP`** |
+| STATS badge | `N% HOUSE CUT` | **`up to 94.19% RTP`** |
 
-**The multiplier/probability rule.** A word's draw probability is `RTP ÷ multiplier`. For all 8 words
-to carry the same expected return, `Σ(1/m)` over the board must equal `1/RTP`. So the board is built to a
-**fixed recipe** (the *ladder*) whose multipliers already satisfy that; which words fill each slot is
-random, but the multipliers — and therefore the house edge — are identical every round.
+**The multiplier/probability rule (superseded by decision 29, 2026-09-16).** Each board slot carries its
+own **published weight**; a slot's draw probability is `weight ÷ 1,000,000` and its return is
+`weight/1,000,000 × multiplier`. The board is still built to a **fixed recipe** (the *ladder*, now
+`multiplier:weight` pairs) — which specific words fill each slot is random, but the recipe, and therefore
+every slot's odds and payback, are identical every round. Words no longer all pay back the same:
+`RtpPercent` is the **best** word's return, and every word's return sits within 0.25 points of it or below.
 
-Launch ladder: **`4× / 6× / 8× / 9× / 10× / 10× / 10× / 10×`** → win chances ≈ 24% / 16% / 12% / 11% /
-9.5% each for the four 10× slots. RTP = `1 / Σ(1/m)` = 94.99%.
+Launch ladder: **`10× / 10× / 2× / 5× / 7× / 8× / 9× / 9×`** with weights `50000 / 50000 / 250002 / 188384 /
+134560 / 117740 / 104657 / 104657` (Σ = 1,000,000) → win chances **5.00% / 5.00% / 25.00% / 18.84% / 13.46%
+/ 11.77% / 10.47% / 10.47%**. Pays back: the 2× and both 10× slots return **50.0%**; the 5×, 7×, 8× and both
+9× slots return **94.19%** — `RtpPercent = 94.19`, published as **"up to 94.19% RTP"**.
 
 ---
 
@@ -85,24 +90,25 @@ From the refined card (short mode) — authoritative.
 | 1 | **One card.** (Moot after #2/#3 — no settlement refactor remains.) |
 | 2 | **Settlement is native SOL**, through the same `TokenSettings` path as every other type. The card's original $STROKE line is superseded; the launch token stays information-only (`features/token-launch.md` is not reversed). |
 | 3 | **No per-game-type token seam.** Nothing consumes it; a second asset would be its own card with its own cutover runbook. |
-| 4 | **Fixed tiers, constant RTP.** Probability = `RTP ÷ multiplier`; the board recipe fixes `Σ(1/m)` so the edge never drifts with the draw. |
-| 5 | **House edge 5% (RTP 95%).** Publicly computable from the published weights — accepted. |
-| 6 | **Multiplier cap 10×, floor 1.01×.** With 8 options the board is squeezed to ~4×–10×. Worked ladder `4/6/8/9/10/10/10/10`. |
+| 4 | ~~**Fixed tiers, constant RTP.** Probability = `RTP ÷ multiplier`; the board recipe fixes `Σ(1/m)` so the edge never drifts with the draw.~~ **Superseded by decision 29** (2026-09-16): probability is now `weight ÷ 1,000,000` with a published per-slot weight; the recipe still never drifts round to round, but words no longer share one RTP. |
+| 5 | ~~**House edge 5% (RTP 95%).**~~ Publicly computable from the published weights — accepted. **Superseded by decision 29** (2026-09-16): the uniform 5% edge is replaced by a per-slot payback (50% on the 2× and 10× slots, 94.19% on the rest); `RtpPercent = 94.19` is now the best word's return, still publicly computable from the published weights. |
+| 6 | **Multiplier cap 10×, floor 1.01×** (unchanged). With 8 options the board is squeezed to ~4×–10×. ~~Worked ladder `4/6/8/9/10/10/10/10`.~~ **Worked ladder superseded by decision 29** (2026-09-16): `10/10/2/5/7/8/9/9` with weights `50000/50000/250002/188384/134560/117740/104657/104657`. |
 | 7 | **Stake bounds are fixed in config** (min + max), checked client-side before signing **and** on the backend. Accepted: a low treasury still accepts bets it cannot cover; those take the failed-payout path (#12). |
-| 8 | **The tier (multiplier) is stored per word**, not computed from the word's shape. |
+| 8 | **The tier (multiplier) is stored per word**, not computed from the word's shape. **Extended by decision 29** (2026-09-16, not superseded): the board now also stores a per-slot **weight** alongside the multiplier, since slots of the same multiplier can differ in payback across a board recipe. |
 | 9 | **The pool lives in a reworked `PresetChoice`** table, seeded from config create-only like `DefaultGames`; add/remove words = config + Consumers redeploy. No admin CRUD. |
 | 10 | **Shared round, one draw.** Everyone sees the same board and result; every winner is paid their own `stake × multiplier`. `MinimumNumberOfPlayers = 1`. |
 | 11 | **Keep the monkey terminal**, reveal the winning word at the end. **Natural matching is disabled** for this type and the **near-miss row is suppressed**. A roll animation was rejected. |
 | 12 | **Bankroll = the treasury (`TokenOwner`)** via the existing payout path. Pre-payout balance check; when short → bet `NeedsManualAnalysis`, round `ErrorWhenProcessingRewards`, a human resolves. |
-| 13 | **Board selection is ordinary randomness at round creation.** Only the winner draw is provably fair (all 8 words have identical EV, so there is nothing to exploit). |
+| 13 | **Board selection is ordinary randomness at round creation.** Only the winner draw is provably fair ~~(all 8 words have identical EV, so there is nothing to exploit)~~. **Reasoning revised by decision 29** (2026-09-16), conclusion unchanged: words no longer share one EV across the whole board, but every candidate word for a given slot still shares that slot's fixed weight — which specific word fills a slot never changes its EV, so ordinary randomness is still nothing to exploit. |
 | 14 | **No house commission** on this type — a 10× tile pays exactly 10×. |
 | 15 | **One bet per player per round** (existing `OneBetPerPresetRound`). |
 | 16 | **Beast Mode is deactivated** (`Active = false`) by a `deploy/sql/` script shipped with the feature; its history stays reachable. Hyper Roll is a fresh row. Trello #169 is archived. |
 | 17 | **Stake entry = the console's green visor + bump chips** (owner picked mockup **A6**, 2026-09-14): `+0.01 / +0.05 / +0.1 / MAX`, no SET step — the lever places the bet. Lobby card shows "from <min> SOL". *(Refined as "reuse `OrbitAmountField`"; superseded by the mockup choice — only its validation rules carry over.)* |
-| 18 | **Copy states the RTP**: "95% RTP" where other types show the house cut, a terms clause for house-edge games, a `/how-to-play` mode card with the ladder. |
+| 18 | **Copy states the RTP**: ~~"95% RTP"~~ **"up to 94.19% RTP"** (value superseded by decision 29, 2026-09-16) where other types show the house cut, a terms clause for house-edge games, a `/how-to-play` mode card with the ladder. |
 | 19 | **The draw stays count-triggered** (`CharactersTypedCount >= MaxCharacters`), never wall-clock. |
 | 20 | **Implementation gate — passed 2026-09-14.** The owner reviewed mockup rounds A/B/C, A1–A3 and A4/A5 and picked **A6** (https://claude.ai/code/artifact/6db62365-7929-4135-80cd-571802ac7ab0). |
-| 21 | **Console + terminal = A6 (as adjusted by the owner on 2026-09-14).** The terminal keeps today's screen line for line: `> CHOICES:` stays one `> word` per line in key order with the key number (1–8) displayed left of the word (e.g. `> 1 stardust`), and each line gains MULT · ODDS · JACKPOT (at the current stake) under a dim header; 10× lines use the terminal's existing hot yellow + glow (`.result-win`), bold. The jackpot values, the header stake and the `> BET:` line update live on every keystroke; while no bet is placed, the display stake is the typed value clamped to [min stake, max stake]. `> POT` becomes `> RTP: 95%`. The console keeps Option A's bottom: the stake typed in the visor with enlarged 2×2 grid of bump chips under it, the lever, and the 8 numbered keys each tagged with its multiplier (10× tags solid yellow). |
+| 21 | **Console + terminal = A6 (as adjusted by the owner on 2026-09-14).** The terminal keeps today's screen line for line: `> CHOICES:` stays one `> word` per line in key order with the key number (1–8) displayed left of the word (e.g. `> 1 stardust`), and each line gains MULT · ODDS · JACKPOT (at the current stake) under a dim header; 10× lines use the terminal's existing hot yellow + glow (`.result-win`), bold. The jackpot values, the header stake and the `> BET:` line update live on every keystroke; while no bet is placed, the display stake is the typed value clamped to [min stake, max stake]. `> POT` becomes `> RTP: 95%` *(this A6 detail was superseded first by decision 25, which drops RTP from the
+terminal entirely, and its numeral by decision 29 — 94.19% — 2026-09-16)*. The console keeps Option A's bottom: the stake typed in the visor with enlarged 2×2 grid of bump chips under it, the lever, and the 8 numbered keys each tagged with its multiplier (10× tags solid yellow). |
 | 22 | **Spec §3.1 (S1–S14) approved by the owner, 2026-09-14.** |
 | 23 | **A6 terminal/console adjustments approved by the owner on 2026-09-14:** desktop stake chips enlarged to a 2×2 grid under the visor; each CHOICES row displays its key number (1–8) left of the word; jackpot values, header stake and BET line update live on every keystroke with the display stake clamped to [min, max]; column header CHANCE renamed to ODDS; column header WIN renamed to JACKPOT (desktop shows `JACKPOT @ <stake>`); the `< TOP` marker removed while top-tier rows retain hot-yellow styling. |
 | 24 | **Owner picked mockup C1 on 2026-09-15**, replacing A6's CHOICES layout and key tags. Terminal intro collapses to one line: desktop `> HYPER ROLL · BET <stake> SOL · RTP 95%`, phone `> BET <stake> SOL · RTP 95%`; the dim MIN/MAX STAKE line stays below it. Choices table one dim header `#  WORD  MULT  ODDS  JACKPOT` then one row per key, no `>` prefix, no bold/glow, no `< TOP`. Tier colours by multiplier: green `#16a34a` ≤ 4×, blue `#2563eb` ≤ 6×, red `#ef4444` ≤ 8×, yellow `#fde047` 9–10×; row text uses its colour. The 8 keys lose multiplier tags; each outlined in its tier colour; selected key thicker outline, brightens, glows. Player's pick turns terminal row to tier colour + black text, fading ~300 ms. |
@@ -110,17 +116,18 @@ From the refined card (short mode) — authoritative.
 | 26 | **Owner picked stake-button mockup S3 on 2026-09-15.** LCD-style soft keys replace the 2×2 bump-chip grid: buttons read `+.01 / +.05 / +.1 / MAX` in green LCD style (1px green outline, green text, no fill); MAX uses dashed yellow outline and yellow text. Desktop: keys sit inside the green stake visor, positioned below the stake number (which gains a dim "SOL" suffix), separated by a thin divider. Phone: keys appear in a grey bezel row (44px tall) positioned above the cabinet visor, which displays the stake with dim "SOL" suffix. A pressed key briefly inverts: solid green background + black text (solid yellow + black for MAX). |
 | 27 | **Owner picked mockup P1 on 2026-09-15** for the desktop stake-key placement: LCD soft keys move out of the visor into their own grey bezel directly below it, stacked as full-width rows (~24px tall, 9px labels). Phone: unchanged (grey bezel row of four keys above the cabinet). Each key reads `+.01 / +.05 / +.1 / MAX` in green LCD style (1px green outline, green text); MAX dashed yellow outline and yellow text; pressed key inverts to solid fill + black text. The visor now displays only the stake with dim "SOL" suffix. |
 | 28 | **Hyper Roll rounds skip the bet-gathering hold on the first bet.** As soon as a Hyper Roll round receives its first valid paid bet, it skips the global `MinimumWaitPeriodForBets` (15 s) and moves straight to `GameStarting` with a 5-second countdown (new config setting `GeneralSettings:Games:HouseEdgeTimeUntilGameStarts = 5`; falls back to `TimeUntilGameStarts` when 0 or missing). Other players can still join during those 5 seconds. Cosmic Sprint, Space Jackpot and other types keep today's timing (15 s hold + their configured `TimeUntilGameStarts`). Wallets are unchanged: every type, Hyper Roll included, receives bets into and pays winners from the single shared treasury wallet (`GeneralSettings:Operator:Token:TokenOwnerPublicKey`). |
+| 29 | **Odds v2 — the board no longer pays back the same RTP per word (owner decision, 2026-09-16).** New launch board (slot order fixed, words drawn per slot as before): `10×, 10×, 2×, 5×, 7×, 8×, 9×, 9×` with published weights `50000, 50000, 250002, 188384, 134560, 117740, 104657, 104657` (Σ = 1,000,000 exactly; chance of a slot = weight ÷ 1,000,000). Each slot's return (`weight/total × multiplier`) is no longer uniform: the 2× and both 10× slots pay back **50.0%**, the 5×/7×/8× and both 9× slots pay back **94.19%**. `RtpPercent` is redefined as the **best** word's return — `94.19` — and the validation rule (`HouseEdgeRules.Validate`, §6.1) is replaced: a ladder is valid when `|maxReturnPercent − RtpPercent| ≤ 0.25`, where `maxReturnPercent = max over slots of (weight/total × multiplier × 100)`, instead of the old `Σ(1/m) = 1/RTP`. Weights are **published before betting** (`ActiveGameDto.BoardChoiceDto.Weight`, `GameVerificationDto.VerificationBoardChoiceDto.Weight`) and **stored per board** on a new `GameBoardChoices.Weight` (`int`, NOT NULL, filled from the slot the word was drawn for; a new migration backfills existing rows with the old formula `100000000 / round(Multiplier * 100)` so older local rounds still verify) — `HouseEdgeRules.WeightFor(multiplier)` and its TS (`weightForMultiplier`) and verify.html twins are **removed**; the typer, the reward path and both verifiers always read the stored/published weight, never a value recomputed from the multiplier, and the verifiers additionally check every published weight is a positive integer. `GameParameters.BoardLadder` now stores `multiplier:weight` pairs (`"10:50000,10:50000,2:250002,5:188384,7:134560,8:117740,9:104657,9:104657"`, slot order as above) and its column widens 64→256 via a **new** migration (the existing `20260914181542_HyperRoll` migration is never edited, and the model snapshot is never hand-edited). The word pool is retiered (content unchanged, tier labels move): `2×` = banana, cosmos, hubble, bonobo, meteor (were `4×`); `5×` = rocket, planet, comets, launch, orbits (were `6×`); `7×` = gorilla, nebulae, stellar, shuttle, eclipse (were `8×`); `8×` = asteroid, blastoff, galactic, mandrill, starship (were `10×`); `9×` = gravity, capsule, jupiter, voyager, cyborgs (unchanged); `10×` = universe, spaceman, stardust, wormhole, redshift, nebulous, rocketry, kilonova, sunspots, starfall, moonwalk (unchanged, 11 words). **Why:** the owner wants 10× to hit only 5% of the time, only two 10× words per board, and at least one 2× word; under the old rule (every word pays back the same, chance = RTP ÷ multiplier) that combination is impossible — 10× at 5% alone forces every word to a 50% return, and a 2× at 95% would take 47.5% of all chance, leaving the other five words under their 52.8% minimum. The fix is letting words pay back different amounts: the 7×–9× middle stays near today's deal (94.19%), while the 2× and the two 10× words pay back 50%. A player who always picks a middle word keeps a ~5.8% house edge. **Supersedes** decision 4 (probability = `RTP ÷ multiplier` / `Σ(1/m)` recipe), decision 5 (uniform 5% house edge across every word), and decision 6's worked ladder `4/6/8/9/10/10/10/10` (the 10×/1.01× cap/floor themselves are unchanged). **Amends the RTP numeral only** (95% → up to 94.19%) in decisions 18 and 21; the copy/layout decisions they record are otherwise unchanged. **Revises the reasoning, not the conclusion,** of decision 13: the board draw is still ordinary (non-provably-fair) randomness, because within any one ladder slot every candidate word shares that slot's fixed weight — which specific word fills a slot never changes its EV, even though different slots now pay different amounts. Decision 8 (tier stored per word) is **extended, not superseded**: the board now also stores a weight per word instance. |
 
 ### 3.1 Spec-time decisions (made while writing this spec — flag to the owner at implementation start)
 
 | # | Decision | Why |
 | --- | --- | --- |
 | S1 | A new **`GameParameters.IsHouseEdge`** flag selects the Hyper Roll behaviour. Preset types with `IsHouseEdge = false` keep today's pari-mutuel "the list IS the choices" behaviour. | Two test catalogues (`TestGameParameters`, `IntegrationGameParameters`) and the admin portal create legacy preset types; keying the rework on a flag keeps every fixed-price type byte-identical and avoids rewriting dozens of preset-race tests. After this card no *seeded* type uses the legacy preset path. |
-| S2 | The per-word tier is stored as the **multiplier itself** (`PresetChoice.Multiplier`), and the board recipe is a **`GameParameters.BoardLadder`** column (`"4,6,8,9,10,10,10,10"`). | One number per word, one recipe per type; no tier-index indirection to keep in sync. |
+| S2 | The per-word tier is stored as the **multiplier itself** (`PresetChoice.Multiplier`), and the board recipe is a **`GameParameters.BoardLadder`** column. **Updated by decision 29** (2026-09-16): the column now stores `multiplier:weight` pairs (e.g. `"10:50000,10:50000,2:250002,5:188384,7:134560,8:117740,9:104657,9:104657"`, widened 64→256 by a new migration) instead of bare multipliers, since slot weights are no longer derivable from the multiplier alone. | One number per word, one recipe per type; no tier-index indirection to keep in sync. |
 | S3 | **`RequiredAmount` is the minimum stake** for a house-edge type; a new **`MaximumStake`** column is the max. Both are **create-only** (like `RequiredAmount` today); words, ladder and RTP get a startup self-heal. | Reuses the column the lobby, the `from` price and the rent floor already read. Changing a bet bound on a live DB can refuse a stale SPA's bet *after* its SOL moved, which is exactly why `RequiredAmount` has no self-heal — changing them needs a hand-run SQL like `cosmic-sprint-reprice.sql`. The board-shaping fields carry no such risk (boards are persisted per round). |
 | S4 | **Launch values:** min **0.01 SOL**, max **0.2 SOL** (max single payout 2 SOL), and the 36-word initial pool in §5.1. | Needed to write a complete spec; not decided in refinement. The owner may edit config before ship — no code change. |
 | S5 | A round's board is persisted in a new **`GameBoardChoices`** child table. | Queryable and typed; the verification endpoint, bet validation, payouts and the DTO all read it. |
-| S6 | **Weighted draw algorithm:** integer weights `floor(10^8 / (multiplier×100))`, a uniform draw over their total by **32-bit rejection sampling** on the existing `"<prefix>|fallback"` HMAC block (§6.5). | Exact, portable integer maths — identical in C#, TypeScript and the offline HTML. Floor rounding moves any word's EV by < 5 ppm (94.9865%–94.9869%). |
+| S6 | **Weighted draw algorithm:** a uniform draw over the board's total weight by **32-bit rejection sampling** on the existing `"<prefix>|fallback"` HMAC block (§6.5) — this mechanism is unchanged by decision 29. ~~Weights `floor(10^8 / (multiplier×100))`~~ **superseded by decision 29** (2026-09-16): weights are no longer derived from the multiplier — they are **published, per-slot values** stored on `GameBoardChoices.Weight`; `HouseEdgeRules.WeightFor(multiplier)` is removed. | Exact, portable integer maths — identical in C#, TypeScript and the offline HTML. ~~Floor rounding moves any word's EV by < 5 ppm (94.9865%–94.9869%).~~ Moot after decision 29: weights are explicit, published values, not floor-derived. |
 | S7 | Per-player payouts go on the wire as **`result.payouts: [{ wallet, amount }]`** on `RewardForWinnersCompleted`; `netRewardPerWinner` stays **null** for house-edge rounds. | `netRewardPerWinner` is documented as uniform-by-construction and a unit test pins that; Hyper Roll payouts are not uniform. Each bet's wallet, choice and amount are already public on `{gameId}/Bets`, so `stake × multiplier` leaks nothing new. An old SPA simply prints no PAID line. |
 | S8 | **Treasury check = running balance, per winner, in bet order**, with a **0.001 SOL reserve per transfer**. A failed balance read (`null`) does not block — the transfer is attempted and fails on-chain the normal way. | Lets coverable winners still be paid when one is not (AC 11); "unknown is not empty" is the house convention (house seed, Orbit). |
 | S9 | `> POT:` is **hidden** for house-edge rounds; `> PAID:` shows **only the viewer's own payout** (omitted if they did not win). | Σ stakes is not a pot anyone can win in a player-vs-house round; a single PAID figure cannot describe several different payouts. |
@@ -337,9 +344,13 @@ erDiagram
 ```
 
 **Curation guideline for the initial pool** (not enforced in code — decision 8 stores the tier so the owner
-can override it): `4×` = 6 letters with a repeated letter · `6×` = 6 distinct letters · `8×` = 7 letters
-with a repeat · `9×` = 7 distinct letters · `10×` = 8 letters. The pool has 5 words for each single slot
-and 16 for the four `10×` slots, so boards vary round to round.
+can override it; **retiered by decision 29**, 2026-09-16 — word content unchanged, only the tier labels
+move): `2×` = 6 letters with a repeated letter (were `4×`) · `5×` = 6 distinct letters (were `6×`) · `7×` =
+7 letters with a repeat (were `8×`) · `9×` = 7 distinct letters (unchanged) · `8×` and `10×` = 8 letters,
+split from the old `10×` tier — `8×` = `asteroid`, `blastoff`, `galactic`, `mandrill`, `starship`; `10×`
+keeps the remaining eleven: `universe`, `spaceman`, `stardust`, `wormhole`, `redshift`, `nebulous`,
+`rocketry`, `kilonova`, `sunspots`, `starfall`, `moonwalk`. The pool has 5 words for each of the
+`2×`/`5×`/`7×`/`8×`/`9×` slots and 11 for the `10×` slot, so boards vary round to round.
 
 `ChoiceRequiredLength: 8` is the longest word; it is **not** used to validate house-edge bets (§6.4).
 
@@ -399,22 +410,31 @@ A pure static class (unit-testable, no EF):
 
 - Constants: `BoardSizeMin = 2`, `MinMultiplier = 1.01m`, `MaxMultiplier = 10.00m`,
   `RtpTolerancePercent = 0.25m`, `TreasuryFeeReservePerTransfer = 0.001m`, `WordMinLength = 6`,
-  `WordMaxLength = 8`.
-- `IReadOnlyList<decimal> ParseLadder(string boardLadder)` / `string FormatLadder(IEnumerable<decimal>)`
-  — invariant culture, `"0.##"`.
-- `int WeightFor(decimal multiplier)` → `100_000_000 / (int)decimal.Round(multiplier * 100)` (integer
-  division). Throws for a multiplier with more than 2 decimal places or outside `[MinMultiplier, MaxMultiplier]`.
-- `decimal RtpPercentOf(IReadOnlyList<decimal> ladder)` → `100 / Σ(1/m)`.
+  `WordMaxLength = 8`, `MaxTotalWeight = 4_294_967_296` (2^32, the draw's limit — added by decision 29).
+- `IReadOnlyList<(decimal Multiplier, int Weight)> ParseLadder(string boardLadder)` /
+  `string FormatLadder(IEnumerable<(decimal Multiplier, int Weight)>)` — invariant culture,
+  `multiplier:weight` pairs, multiplier formatted `"0.##"` (updated by decision 29, 2026-09-16 — was a bare
+  multiplier list).
+- `int WeightFor(decimal multiplier)` is **removed** (decision 29, 2026-09-16): weights are no longer
+  derivable from the multiplier — they are published, per-slot values stored on `GameBoardChoices.Weight`.
+- `decimal MaxReturnPercentOf(IReadOnlyList<(decimal Multiplier, int Weight)> ladder)` → the **best**
+  slot's return: `max over slots of (weight / total × multiplier × 100)`. Replaces `RtpPercentOf` (decision
+  29, 2026-09-16).
 - `HouseEdgeValidation Validate(GameParameters parameters, IReadOnlyCollection<PresetChoice> activePool)`
   — returns `IsValid` + a reason. Shipped as a two-parameter method (no separate `charset` argument): the
-  alphabet comes from `parameters.AllowedCharacters.StringValueOf()`. Rules:
-  1. `IsHouseEdge`, `MaximumStake`, `RtpPercent`, `BoardLadder` all set; ladder length ≥ `BoardSizeMin`.
-  2. Every ladder value within `[1.01, 10.00]` with ≤ 2 decimals.
-  3. `|RtpPercentOf(ladder) − RtpPercent| ≤ RtpTolerancePercent`.
-  4. `RequiredAmount ≥ NativeSol` rent-exempt floor (in SOL) and `MaximumStake ≥ RequiredAmount`.
-  5. Every active word: length 6–8, all characters in `parameters.AllowedCharacters`, unique; its
+  alphabet comes from `parameters.AllowedCharacters.StringValueOf()`. Rules (the `Σ(1/m)`-vs-`RtpPercent`
+  check is replaced by decision 29, 2026-09-16):
+  1. `IsHouseEdge`, `MaximumStake`, `RtpPercent`, `BoardLadder` all set; ladder length ≥ `BoardSizeMin`; each
+     slot parses as `multiplier:weight`.
+  2. Every ladder multiplier within `[1.01, 10.00]` with ≤ 2 decimals.
+  3. Every ladder weight is a positive integer; the ladder's total weight is > 0 and ≤ `MaxTotalWeight`.
+  4. `|MaxReturnPercentOf(ladder) − RtpPercent| ≤ RtpTolerancePercent` — the **best**-paying word's return
+     must sit within tolerance of `RtpPercent`, which also caps every word's return at `RtpPercent +
+     RtpTolerancePercent`.
+  5. `RequiredAmount ≥ NativeSol` rent-exempt floor (in SOL) and `MaximumStake ≥ RequiredAmount`.
+  6. Every active word: length 6–8, all characters in `parameters.AllowedCharacters`, unique; its
      multiplier is a value that appears in the ladder.
-  6. For each distinct ladder value `v` occurring `c` times, the pool has **≥ c** active words with
+  7. For each distinct ladder value `v` occurring `c` times, the pool has **≥ c** active words with
      multiplier `v`.
 
 ### 6.2 Board drawing — new `SpaceStroker.Domain/Games/Services/HouseEdgeBoard.cs`
@@ -478,8 +498,9 @@ reads the game via `GetGameById`, which gains the board include (§6.8).
 - **`SetCharactersOnTyper` (`:230`):** house-edge builds the pool from the **board words'** characters
   (same diversity top-up and sort).
 - **`CheckForWinners` (`:107`):** `if (IsHouseEdge) return;` — natural matching disabled (decision 11).
-- **`DecideFallbackWinner` (`:162`):** house-edge orders the board by `Choice` (ordinal), maps each to
-  `HouseEdgeRules.WeightFor(multiplier)`, and calls `ProvablyFair.WeightedFallbackIndex`. `NumberOfWinners
+- **`DecideFallbackWinner` (`:162`):** house-edge orders the board by `Choice` (ordinal), reads each word's
+  **stored `GameBoardChoice.Weight`** (never recomputed from the multiplier — `HouseEdgeRules.WeightFor` is
+  removed, decision 29, 2026-09-16), and calls `ProvablyFair.WeightedFallbackIndex`. `NumberOfWinners
   = Bets[winningChoice]`, which may be **0** (nobody picked it) — the existing "no winners" reward path
   then completes the round with nothing to pay.
 - **`CalculatePacing`:** unchanged. With the full search space unreachable the horizon is the character
@@ -498,7 +519,11 @@ beside `FallbackIndex`; KEEP-IN-SYNC with `provablyFair.ts` and `verify.html`):
    algorithm is total).
 4. Return the first index `i` whose running cumulative weight exceeds `r`.
 
-**Known-answer vector** (every implementation's unit test must reproduce it):
+**Known-answer vector** (every implementation's unit test must reproduce it — the HMAC / rejection-sampling
+math is unchanged by decision 29, 2026-09-16; only where the `weights` array comes from changes, from
+`WeightFor(multiplier)` to the stored/published per-slot weight. This vector predates the decision 29 retier
+and still uses the old `4×/6×/9×/10×` labels and formula-derived weights — it remains a valid algorithm
+check):
 
 - serverSeed `4f3c2a1b0e9d8c7b6a5f4e3d2c1b0a99887766554433221100ffeeddccbbaa00`
 - prefix `11111111-1111-1111-1111-111111111111|seedA|seedB`
@@ -602,13 +627,15 @@ object, which may have been rebuilt from that cache.
 - **`GameParametersDto`:** add `IsHouseEdge`, `MaximumStake`, `RtpPercent`; `CommissionPercentage =
   parameters.IsHouseEdge ? 0 : token.CommissionPercentage`; for house-edge `PresetChoices` publishes the
   **active** pool words (harmless — the board is what matters).
-- **`ActiveGameDto`:** add `IEnumerable<BoardChoiceDto>? BoardChoices` (`{ Choice, Multiplier }`, ordered by
-  `Position`); null for other types.
+- **`ActiveGameDto`:** add `IEnumerable<BoardChoiceDto>? BoardChoices` (`{ Choice, Multiplier, Weight }` —
+  `Weight` added by decision 29, 2026-09-16, published **before** betting; ordered by `Position`); null for
+  other types.
 - **`GameVerificationDto`:** add `bool IsHouseEdge` and
   `IEnumerable<VerificationBoardChoiceDto> BoardChoices` (`{ Choice, Multiplier, Weight }`, ordered by
-  `Choice` ordinal; empty for other types). `OrderedChoices`, `CharacterPool`, `QueueLength`,
-  `MaxCharacters` and the cache rule are unchanged; `WinnerDecidedByFallback` derives `true` because the run
-  always reaches the cap.
+  `Choice` ordinal; empty for other types). **`Weight` now returns the board row's stored
+  `GameBoardChoice.Weight`** (decision 29, 2026-09-16) — never a value recomputed from the multiplier.
+  `OrderedChoices`, `CharacterPool`, `QueueLength`, `MaxCharacters` and the cache rule are unchanged;
+  `WinnerDecidedByFallback` derives `true` because the run always reaches the cap.
 
 ### 6.10 House seed — `HouseSeedBetService.SeedRound`
 
@@ -716,23 +743,28 @@ only when they won (omitted otherwise, never `0`); the near-miss dock is not ren
 - **`src/utils/gameArchetype.ts`**: add a `'houseEdge'` archetype, checked **first**.
 - **`src/components/guide/GuideModeCards.vue`**: a `houseEdge` card — chip `MULTIPLIER`; copy "Pick 1 of 8
   words and set your stake. If the round lands on your word, the house pays your stake times its multiplier
-  — up to 10×. Bigger multiplier, rarer word. 95% RTP, no house cut."; price line `STAKE: <min>–<max> SOL`
-  (replaces `TICKET:` for this archetype); the ladder read from `rtpPercent` and the live copy only.
+  — up to 10×. Bigger multiplier, rarer word. Up to 94.19% RTP, no house cut." (RTP numeral per decision 29,
+  2026-09-16); price line `STAKE: <min>–<max> SOL` (replaces `TICKET:` for this archetype); the ladder read
+  from `rtpPercent` and the live copy only.
 - **`src/components/guide/sections/GuideWhatYouWin.vue`**: add one row stating Hyper Roll pays
-  `stake × multiplier` with **no** house cut and a 95% RTP shown on its STATS panel; the `5%` rows keep
-  describing the other modes.
+  `stake × multiplier` with **no** house cut and **up to 94.19% RTP** shown on its STATS panel (numeral per
+  decision 29, 2026-09-16); the `5%` rows keep describing the other modes.
 - **`src/components/game/GameStatsPanel.vue`** (`houseCutLabel` `:57`): for house-edge, label
-  `` `${rtpPercent}% RTP` `` and blurb "Every pick pays its multiplier. Every round is seed-verifiable."
+  `` `Up to ${rtpPercent}% RTP` `` (prefix added by decision 29, 2026-09-16 — `rtpPercent` is now the best
+  word's return, not every word's) and blurb "Every pick pays its multiplier. Every round is seed-verifiable."
 
 ### 7.6 Provably fair — the KEEP-IN-SYNC triad
 
-- **`src/utils/provablyFair.ts`**: add `weightForMultiplier(m)` and `weightedFallbackIndex(serverSeed,
-  prefix, weights)` mirroring §6.5 (use `bytes[i]*16777216 + (bytes[i+1]<<16) + (bytes[i+2]<<8) +
-  bytes[i+3]` for the unsigned read); extend `VerificationPayload`; `verifyRound`: when
-  `payload.isHouseEdge` **skip the stream replay** (the winner does not depend on it) and draw with the
-  published weights; report `typed = maxCharacters`.
-- **`public/verify.html`**: the same two functions inline + the same branch; the "last 1,000 characters"
-  download is hidden for house-edge rounds with a one-line note that the draw does not depend on the stream.
+- **`src/utils/provablyFair.ts`**: add `weightedFallbackIndex(serverSeed, prefix, weights)` mirroring §6.5
+  (use `bytes[i]*16777216 + (bytes[i+1]<<16) + (bytes[i+2]<<8) + bytes[i+3]` for the unsigned read).
+  `weightForMultiplier(m)` is **removed** (decision 29, 2026-09-16) — `weights` comes straight from the
+  published `boardChoices[i].weight`, never recomputed from the multiplier; extend `VerificationPayload`;
+  `verifyRound`: when `payload.isHouseEdge` **skip the stream replay** (the winner does not depend on it),
+  check every published weight is a positive integer, and draw with the published weights; report `typed =
+  maxCharacters`.
+- **`public/verify.html`**: the same function inline (`weightForMultiplier` dropped here too) + the same
+  branch, including the positive-integer weight check; the "last 1,000 characters" download is hidden for
+  house-edge rounds with a one-line note that the draw does not depend on the stream.
 - **`src/workers/verifyRound.worker.ts` / `GameFairPanel.vue`**: no logic change; the recompute completes
   instantly for house-edge and the panel copy says the winner was "picked by the weighted draw".
 - The three copies must reproduce the §6.5 known-answer vector.
@@ -902,7 +934,7 @@ flowchart TD
 
 | Test file | Test cases | Expected |
 | --- | --- | --- |
-| `UnitTests/Domain/Games/HouseEdgeRulesTests.cs` (new) | Launch ladder RTP; ladder parse/format round-trip; `WeightFor` for 4/6/8/9/10; `Validate`: valid config; RTP out of tolerance; multiplier > 10 or < 1.01 or 3 dp; min stake below rent floor; max < min; word too short/long/bad chars/duplicate; multiplier not in ladder; pool short for a slot | 94.99%; weights `250000/166666/125000/111111/100000`; each invalid case names its reason |
+| `UnitTests/Domain/Games/HouseEdgeRulesTests.cs` (new) | Launch ladder `MaxReturnPercentOf` (decision 29, 2026-09-16); ladder parse/format round-trip (`multiplier:weight` pairs); `WeightFor` is **removed** — no test; `Validate`: valid config; best-return out of tolerance; multiplier > 10 or < 1.01 or 3 dp; weight not a positive integer, zero, or total weight > `MaxTotalWeight`; min stake below rent floor; max < min; word too short/long/bad chars/duplicate; multiplier not in ladder; pool short for a slot | launch board `MaxReturnPercentOf` = 94.19%; weights `50000/50000/250002/188384/134560/117740/104657/104657`; each invalid case names its reason |
 | `UnitTests/Domain/Games/HouseEdgeBoardTests.cs` (new) | Draw follows the ladder multiset; 8 distinct words; only `Active` words; positions 0–7; seeded `Random` is reproducible; short pool → `null` | As stated |
 | `UnitTests/Domain/Games/ProvablyFairTests.cs` | `WeightedFallbackIndex` known-answer vector (§6.5); the block-extension message (block 1 is `prefix + "|fallback|1"`, asserted through the internal block builder); 50,000 seeded draws land within ±1pp of `w/T` per index | `rocket` (index 5); distribution matches weights |
 | `UnitTests/Domain/Games/SpaceStrokerTyperTests.cs` | House-edge: `Bets` keys are the 8 board words (not the pool); a run ends at `MaxCharacters` with `WinnerDecidedByFallback`; `CheckForWinners` never declares a natural win even when a board word is in the window (drive `GenerateNextCharacter` over a board whose words share the pool); empty board → throws; non-house-edge preset behaviour unchanged | As stated |
@@ -957,8 +989,10 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
    `comingSoon=false`, `allowOrbit=false`, `minimumNumberOfPlayers=1`, the stake min/max, the RTP (95%), and
    Beast Mode is absent (`Active=false` after the `deploy/sql` script).
 2. Given a new Hyper Roll round is created, when its instance is fetched, then it carries exactly 8 distinct
-   words from the active pool with their multipliers, the set follows the tier recipe (`Σ 1/m = 1/0.95`
-   within tolerance, every multiplier ≤ 10×), and the board is persisted on the Game row.
+   words from the active pool with their multipliers and published weights, the set follows the tier recipe
+   (the best-paying slot's return is within tolerance of `RtpPercent` = 94.19% — decision 29, 2026-09-16,
+   replacing `Σ 1/m = 1/0.95` — and every multiplier ≤ 10×), and the board and its weights are persisted on
+   the Game row.
 3. Given a paid bet with an amount inside `[min, max]` on a word that is on the round's board, when
    `POST /games/{id}/bets` is called, then the bet is accepted, a Debit ledger row is written, and the bet
    feed shows the chosen amount.
@@ -969,8 +1003,9 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
    word, then it is refused (`OneBetPerPresetRound`) and a paid stake is refunded.
 6. Given a Hyper Roll round with one paid bet, when that bet is placed, then the round skips `MinimumWaitPeriodForBets` and moves to `GameStarting` with a 5-second countdown (from `HouseEdgeTimeUntilGameStarts` config, decision 28), starting the round with a single player (no second player and no house seed bet required); other players can still join during those 5 seconds.
 7. Given a Hyper Roll round runs, when the character cap is reached, then the winner is chosen by the weighted
-   fallback draw (weights ∝ 1/multiplier) from `HMAC(serverSeed, prefix + "|fallback")`,
-   `winnerDecidedByFallback` is true, and the round ends in ~10 s as other types do.
+   fallback draw (using the round's **published, stored per-slot weights** — decision 29, 2026-09-16,
+   replacing weights ∝ 1/multiplier) from `HMAC(serverSeed, prefix + "|fallback")`, `winnerDecidedByFallback`
+   is true, and the round ends in ~10 s as other types do.
 8. Given a board word appears verbatim in the typed character stream before the cap, when the typer checks
    for winners, then it does NOT declare a natural win on a Hyper Roll round — the weighted draw alone decides
    (pinned by a unit test).
@@ -1087,3 +1122,4 @@ without a board. Add a separate `TestGameParameters.HouseEdge(...)` builder.
 | 2026-09-15 | Owner picked P1: desktop stake keys stacked as full-width rows in their own grey bezel directly below the visor; phone unchanged. §3 adds decision 27 recording the P1 choice; §7.2 updated to describe the new desktop bezel placement, stacked as full-width rows; AC 14 updated to match; §11.2 line 2 updated to reflect the LCD bezel keys. |
 | 2026-09-15 | Owner: Hyper Roll rounds start 5 seconds after the first bet (skip the 15 s bet-gathering hold); wallet confirmed as the shared treasury. §3 adds decision 28 recording the 5-second start and treasury wallet; §5.1.1 adds the global `GeneralSettings:Games:HouseEdgeTimeUntilGameStarts = 5` setting (on `GameSettings`, not per-game); §6.6 documents the round start timing behaviour; AC 6 updated to reflect the new start condition. |
 | 2026-09-15 | Corrected the location of HouseEdgeTimeUntilGameStarts: a global GeneralSettings:Games setting, not a per-game field. Removed from DefaultGameSettings in §5.2; added global section §5.1.1 showing the configuration in spacestrokersettings.json next to TimeUntilGameStarts. |
+| 2026-09-16 | Owner decision — odds v2: board slots no longer pay back the same RTP. New launch board `10×/10×/2×/5×/7×/8×/9×/9×` with published weights `50000/50000/250002/188384/134560/117740/104657/104657` (Σ = 1,000,000; the 2× and 10× slots pay back 50%, the 5×/7×/8×/9× middle keeps 94.19%); `RtpPercent` redefined as the best word's return; `HouseEdgeRules.Validate`'s rule replaced with `|maxReturnPercent − RtpPercent| ≤ 0.25`; weights published pre-bet (`ActiveGameDto.BoardChoiceDto.Weight`) and stored per board (`GameBoardChoices.Weight`, backfilled on older rounds); `BoardLadder` now `multiplier:weight` pairs, its column widened 64→256 by a new migration (existing `HyperRoll` migration untouched); `HouseEdgeRules.WeightFor` and its TS/verify.html twins removed; word pool retiered (content unchanged, tiers renumbered `2/5/7/8/9/10`). §3 adds decision 29, superseding decisions 4 and 5, decision 6's worked ladder, and revising decision 13's reasoning; amends the RTP numeral in decisions 18 and 21; extends (not supersedes) decision 8. §1, §3.1 (S2, S6), §5.1 curation guideline, §6.1, §6.5, §6.9, §7.5, §7.6, §12.1 and AC 2 / AC 7 updated to match. |
