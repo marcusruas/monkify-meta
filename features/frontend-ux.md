@@ -270,13 +270,15 @@ audio never affects bets, settlement, winners or game state.**
 
 ## 6. Chat
 
-A lightweight **per-game chat** on `/game` during the betting/waiting phase and the live run, in the
-right-side panel, attributed to each player's **display name** (the same identity as bets and winners).
+A lightweight chat on `/game`, in the right-side panel, attributed to each player's **display name**
+(the same identity as bets and winners). Full rules: [`game-chat.md`](game-chat.md).
 
-- ⚠️ **Reuses the existing `ActiveGamesHub` connection and game SignalR group — no third hub.**
-- DB audit persistence via event → consumer, with a daily purge (`Chat.RetentionDays`, default 7).
-- Client-side 200-char / 1 s limits. **No history replay** — late joiners see nothing. Read-only on end,
-  reset on rollover.
+- ⚠️ **One room per GAME TYPE, not per round** — the same tab connection, a separate group
+  (`chat:{gameTypeId}`). Rollover and `Ended` neither clear nor lock it; only a game-type switch does.
+- Opening or refreshing the game shows the **last 100 messages** of the type within `Chat.RetentionDays`
+  (committed 2), merged with live messages by server id. Only **live** messages light the mobile unread dot.
+- DB persistence via event → consumer (audit + history fallback), daily purge. Client-side 200-char / 1 s
+  limits; no wallet → read-only.
 - The side panel keeps its arcade-cabinet chrome (collapse / dock-rail / maximize) but is **chat-only**
   since Stats and Fair became menu destinations — see [`stats-and-history.md`](stats-and-history.md).
 

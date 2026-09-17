@@ -548,6 +548,37 @@ and stopped whenever that machine was off. The app is deleted.)*
 
 ## 15. Lottery draw time
 
+### The $STROKE bonus on a lottery win
+
+Spec: [`../specs/jackpot-stroke-reward.md`](../specs/jackpot-stroke-reward.md).
+
+Every **distinct winning player** of a **lottery** round also receives **100,000 $STROKE**, on top of
+their SOL winnings, signed by the house settlement wallet out of its own holding. It makes good on the
+promise the landing page and the app's home card already print (see
+[`token-launch.md`](token-launch.md) §4).
+
+- **Where:** `JackpotRewardService`, called by `RewardGameConsumer` **after** the round's status is
+  already settled.
+- **Who:** distinct wallets among the winners **credited in that pass**. Free bets and Orbit-funded
+  bets are excluded. Gated on `Parameters.LotteryParameters != null`, not on the type's name.
+- ⚠️ **It cannot fail the round.** It runs last, inside a `try`/`catch`, and never touches a
+  `GameStatus` or a `BetStatus`. `RewardForWinnersCompleted` is what the front reads to decide whether
+  it may print a PAID line, so a failed promotional bonus flipping it would **hide a SOL payout that
+  really happened**.
+- ⚠️ **All or nothing per round.** If the house cannot cover every winner, nobody is paid. A round's
+  winners are publicly comparable.
+- ⚠️ **No ledger row, deliberately.** `TransactionLog` is denominated in the settlement asset and feeds
+  pot maths, stats and the leaderboards. Idempotency comes from the consumer handing over only the
+  winners it credited **this pass** — a redelivered `RewardGameEvent` hands over an empty list.
+- ⚠️ **$STROKE is a TOKEN-2022 mint**, so none of the existing SPL helpers can move it: Solnet
+  hardcodes the classic program, including inside the associated-account derivation where the program
+  id is a **seed**. `Token2022Program` builds the instructions by hand. A classic derivation would
+  read the house's real balance as **zero** rather than erroring.
+- ⚠️ **Runway.** The house holds 2,000,000 $STROKE and the draw is daily, so this pays for roughly
+  **20 rounds** before it starts logging shortfalls.
+
+---
+
 Spec: [`../specs/lottery-draw-time.md`](../specs/lottery-draw-time.md).
 
 A lottery type can pin its draw to a **fixed UTC time of day** instead of drawing one period after

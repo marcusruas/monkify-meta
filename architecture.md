@@ -180,9 +180,15 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
     `result` on `RewardForWinnersCompleted` too, carrying `netRewardPerWinner`: the net a single **paid**
     winner received, captured from the payout loop by `RewardGameConsumer` and null when nothing was
     paid. Built in `SpaceStroker.Consumers`; the API gains nothing),
-  - `{gameId}/ChatMessage` — per-game chat (`SendChatMessage` on the same hub/group),
   - `{gameId}/Bets` — each new bet, published by `BetNotificationConsumer`,
   - and the `GameReceived` broadcast (`Clients.All`) announcing the next round.
+- **Game chat is a separate group keyed by the GAME TYPE, not the round** (since 2026-09-16,
+  `specs/chat-per-game-type.md`): clients `JoinChat(gameTypeId)` / `LeaveChat` the group
+  `chat:{gameTypeId}` and receive `{gameTypeId}/ChatMessage` `{ id, displayName, text, sentAt }`.
+  `SendChatMessage(gameTypeId, gameId, displayName, text)` validates the type against the cached active
+  catalogue, broadcasts, appends to the type's Redis history list (`ChatHistory:{gameTypeId}`, last 100,
+  TTL `Chat.RetentionDays`) and publishes `ChatMessagePersistedEvent`. Rollover does not touch the room;
+  `GET /games/{parametersId}/chat` serves the last 100 (Redis, DB fallback). See `features/game-chat.md`.
 - **A player holds one connection per browser tab.** It is opened lazily on the first game load and
   kept across round rollovers, game-type switches and trips back to the lobby — a round change swaps
   the group (`LeaveGame`/`JoinGame`) instead of reconnecting. See
@@ -211,8 +217,9 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   updating `StartDate` **and** rescheduling the job — which also re-arms a draw missed during
   downtime. See `features/lottery-draw-time.md`.
 - **Game chat purge:** daily recurring job `game-chat-purge` runs `ChatMessagePurgeJob`, deleting
-  `GameChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (default 7). See
-  `features/game-chat.md`.
+  `GameChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (class default 7; committed **2**).
+  The rows are also the fallback source of a game type's chat history, and the Redis history list expires
+  on the same retention. See `features/game-chat.md`.
 - **Pending-refund sweep:** 12-hourly recurring job `pending-refund-sweep` (cron `0 */12 * * *`) runs
   `PendingRefundSweepJob`, publishing a `RefundInvalidBetEvent` for every bet in `NeedsRefunding` so the
   refund consumer pays it back and clears it to `Refunded` (failures retry next run). See
@@ -544,7 +551,8 @@ another operator means **deploying the app again with a different `spacestrokers
   binding/unbinding `{gameId}/…` handlers over the same socket (`GameReceived` is bound once for the
   tab). `useGame` consumes it and renders the streamed terminal output,
   speed, status, incoming bets, and **game chat** (`GameChatPanel` + `useGameChat` on
-  `{gameId}/ChatMessage`). See `features/game-chat.md`. On `/game` the right-docked, collapsible cabinet
+  `{gameTypeId}/ChatMessage` — a per-game-type room joined via `attachToChat` that survives rollover, with
+  the last 100 messages loaded from `GET /games/{parametersId}/chat`). See `features/game-chat.md`. On `/game` the right-docked, collapsible cabinet
   (`GameSidePanel`) is now **chat-only** — the STATS and FAIR tabs moved to the header menu
   (`fair-stats-menu`). Per-game-type **stats** render on the dedicated **Stats page**
   (`GameStatsPage.vue`, `/game/stats`): a global section via `GET /games/stats` plus a
