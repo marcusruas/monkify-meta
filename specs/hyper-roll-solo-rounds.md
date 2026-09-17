@@ -154,7 +154,13 @@ failure (the lobby skips house-edge types anyway, §7.5). Legacy types unchanged
   1. **`HouseEdgeRoundTaken`** — the round has any bet → refuse (paid → refund; free → reject).
   2. **Choice still on the board** — re-validate `ChoiceIsValidForGame` against the board **as loaded
      under the lock** (a reroll can no longer interleave, but a stale client could still send an old word).
-  3. Coverage (paid bets only), unchanged math and read order (T2).
+  3. Coverage (paid bets only), unchanged math and read order (T2). *(As built, final fix wave: the exposure
+     query loads only the new bet's own round plus rounds holding at least one unsettled paid bet — an unbet
+     board adds zero exposure and zero transfers, so the decision is identical, but loading every open board
+     on every paid bet under the global lock was a denial-of-service lever. A missing coverage decision fails
+     closed: the paid bet is refunded with the maintenance message. Every refusal under the lock is decided
+     inside the error-handling blocks and refunded outside them, so a refund whose publish throws surfaces as
+     an error with its claim on record instead of being "refunded" a second time with no event.)*
   4. Insert the bet; `UPDATE "Games" SET "OwnerPlayerId" = @player, "BoardExpiresAt" = NULL WHERE "Id" =
      @round AND "OwnerPlayerId" IS NULL` — 0 rows affected → treat as taken (refund) and roll back.
 - **Free house-edge bets now take the lock** for steps 1, 2 and 4 (they still skip coverage).
@@ -179,7 +185,9 @@ failure (the lobby skips house-edge types anyway, §7.5). Legacy types unchanged
   (`BoardExpiresAt < now` **or** `BoardExpiresAt IS NULL`) — board rows cascade. Takes the coverage lock per
   batch so it can never race a bet claim. *(As built: the Hangfire cron is built from
   `HouseEdgeBoardCleanupIntervalMinutes` clamped to **1..59**, since an every-N-minutes cron can't express 0 or
-  60+.)*
+  60+. Final fix wave: an unlocked existence check runs first, so a run with nothing due never takes the
+  lock; then batches of 100, each its own lock → load → delete → commit, until a batch comes back short — the
+  lock is released between batches so bets interleave with a large backlog.)*
 - `GameTypeDeactivatedConsumer`: unchanged (already cancels every `WaitingBets` round of the type).
 
 ### 6.8 Availability pre-check — `POST /games/{gameTypeId}/availability`
@@ -226,7 +234,13 @@ Attach = the existing `hub.attachToGame(gameId, …)` path. A stored id that 404
 - **Word + valid stake** → bet (existing `placeBet`). Before the availability pre-check (which now sends
   `gameId`), the front re-reads its board with `GET /games/rounds/{id}` (this also refreshes the TTL); if that
   fails, or the round is no longer waiting and unbet, it opens a fresh board and prints
-  `> YOUR BOARD EXPIRED. HERE'S A FRESH ONE.` — **no transfer is started**.
+  `> YOUR BOARD EXPIRED. HERE'S A FRESH ONE.` — **no transfer is started**. *(As built, final fix wave: only a
+  400 refusal counts as "fails" — a 429, a 5xx or no response stops the bet with the generic failure line and
+  keeps the board and the typed stake. If the round is still waiting and unbet but the picked word is no longer
+  on it — another tab sharing the stored board rerolled it — the front shows the fetched board, clears the pick
+  and prints `> THE BOARD CHANGED. PICK A KEY AGAIN.`, again with no transfer. A reroll likewise opens a fresh
+  board only on a 400, and reports success only if the round id actually changed; any other failure keeps the
+  board and twitches the lever.)*
 - **Result shown** (`RewardForWinnersCompleted` / `ErrorWhenProcessingRewards`) → open a fresh board (§7.1
   step 3) and play the reel.
 - The automatic 9 s rollover (`armRollover`/`evaluateRollover`) is **disabled for house-edge**.
@@ -339,3 +353,4 @@ feed; Orbit/auto-bet on Hyper Roll (`AllowOrbit` stays false).
 |---|---|
 | 2026-09-17 | Spec written from the owner brainstorm (S1–S7, approach 1). Recorded as decision 35 in `hyper-roll.md`. |
 | 2026-09-17 | Implemented on feature/hyper-roll (backend + front); owner follow-up during implementation: ODDS column removed, vivid tier colours, rim + glow on every MULT square (see hyper-roll.md decision 34 note). As-built notes added to §6.1, §6.6, §6.7, §6.8, §6.9, §7.6, §10. |
+| 2026-09-17 | Final-review fix wave. Backend: the coverage exposure query skips unbet foreign boards (same decision, no DoS lever), a missing coverage decision fails closed, solo-round refusals refund outside the catch-alls so a failed refund publish can no longer be swallowed, and the board cleanup checks unlocked first and deletes in locked batches of 100. Front: only a 400 refusal replaces the board (reroll and pre-sign re-read); a board rerolled by another tab makes the player pick again. As-built notes added to §6.5, §6.7 and §7.2. `hyper-roll.md`'s stale 5 s start and per-round lock text corrected (T1), and `deploy/secrets.example.json` sets `HouseEdgeTimeUntilGameStarts` to 0. |
