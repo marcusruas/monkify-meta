@@ -5,12 +5,17 @@
 -- See monkify-meta/specs/referral-program.md §8 for the design.
 --
 -- ⚠️ THE BASIS IS THE HOUSE EDGE, NOT TURNOVER (house-edge-rework). A partner earns
---    SharePercentage of the COMMISSION their referred players' LOSING stakes produced:
---        owed = losing_stakes × CommissionPercentage/100 × SharePercentage/100
---    counting a loss only in a round where at least one PAID winner was paid (no winner ⇒ no
---    commission was charged). It used to be SharePercentage × everything wagered, which paid a
---    50% partner ~20x what the house earned from their traffic. Mirrors
---    ReferralEarningsService.ResolveCommissionableLosses — keep them in lockstep.
+--    SharePercentage of the COMMISSION on their referred players' commission base:
+--        commission_base = stake of every LOST bet + profit above own stake of every WON bet
+--        owed            = commission_base × CommissionPercentage/100 × SharePercentage/100
+--    counting only rounds where at least one PAID winner was paid (no winner ⇒ no commission was
+--    charged). It used to be SharePercentage × everything wagered, which paid a 50% partner ~20x
+--    what the house earned from their traffic. Mirrors ReferralEarningsService.ResolveCommissionBase
+--    — keep them in lockstep.
+--
+-- ⚠️ BOTH SIDES OF A ROUND COUNT (owner, 2026-09-17). When two referred players meet, the one
+--    commission is credited from the loss AND the win, so owed_sol can exceed share × the commission
+--    the house actually took on those rounds.
 --
 -- ⚠️ THE RATE IS READ FROM CURRENT CONFIG, NOT SNAPSHOTTED. The app re-prices a partner's whole
 --    history at today's CommissionPercentage, so params.commission_percentage must be TODAY's
@@ -61,7 +66,17 @@ qualifying_bets AS (
         r.share_percentage,
         p."ExternalPlayerId" AS wallet,
         p."ReferredAt"       AS first_seen,
-        b."Amount"           AS amount,
+        -- LOST: the whole stake. WON: Σ round stakes / paid winners − own stake (the profit
+        -- BetDomainService.CommissionForWinner taxes), floored at zero. House-funded lottery money is
+        -- never commissioned, so it is deliberately absent from the pot here.
+        CASE
+            WHEN b."Status" = 0 THEN b."Amount"
+            ELSE GREATEST(0,
+                (SELECT SUM(a."Amount") FROM "GameBets" a WHERE a."GameId" = b."GameId")
+                / (SELECT COUNT(*) FROM "GameBets" w
+                   WHERE w."GameId" = b."GameId" AND w."Status" = 2 AND w."Amount" > 0)
+                - b."Amount")
+        END                  AS commission_base,
         params.commission_percentage
     FROM "GameBets" b
         JOIN "Games"   g ON g."Id" = b."GameId"
@@ -75,9 +90,9 @@ qualifying_bets AS (
       -- ErrorWhenProcessingRewards and GameEndedAbruptely are excluded — the same rule every stats
       -- read applies (features/stats-and-history.md).
       AND g."Status" = 7                      -- GameStatus.RewardForWinnersCompleted
-      -- LOST, not merely placed: a losing bet is never re-statused and stays Made. This also drops
-      -- winners (2 = Rewarded) and every refunded or parked stake (3/4/5). BetStatus is ZERO-based.
-      AND b."Status" = 0                      -- BetStatus.Made
+      -- LOST (0 = Made, a losing bet is never re-statused) or WON (2 = Rewarded). This drops every
+      -- refunded or parked stake (3/4/5). BetStatus is ZERO-based.
+      AND b."Status" IN (0, 2)
       -- ...in a round where commission was actually CHARGED: at least one PAID winner was paid.
       AND EXISTS (
           SELECT 1 FROM "GameBets" w
@@ -97,11 +112,11 @@ SELECT
     code                                         AS referrer,
     COUNT(DISTINCT wallet)                       AS referred_wallets,
     COUNT(*)                                     AS bets,
-    ROUND(SUM(amount), 9)                        AS losing_stakes_sol,
-    ROUND(SUM(amount) * commission_percentage / 100, 9) AS house_edge_sol,
+    ROUND(SUM(commission_base), 9)               AS commission_base_sol,
+    ROUND(SUM(commission_base) * commission_percentage / 100, 9) AS house_edge_sol,
     share_percentage                             AS share_pct,
     -- Floored like the app (MidpointRounding.ToZero), never rounded to nearest.
-    TRUNC(SUM(amount) * commission_percentage / 100 * share_percentage / 100, 9) AS owed_sol
+    TRUNC(SUM(commission_base) * commission_percentage / 100 * share_percentage / 100, 9) AS owed_sol
 FROM qualifying_bets
 GROUP BY code, share_percentage, commission_percentage
 ORDER BY owed_sol DESC;
@@ -118,11 +133,11 @@ ORDER BY owed_sol DESC;
 --     wallet,
 --     first_seen,
 --     COUNT(*)                      AS bets,
---     ROUND(SUM(amount), 9)         AS losing_stakes_sol,
---     ROUND(100 * SUM(amount) / SUM(SUM(amount)) OVER (PARTITION BY code), 2) AS pct_of_referrer
+--     ROUND(SUM(commission_base), 9) AS commission_base_sol,
+--     ROUND(100 * SUM(commission_base) / NULLIF(SUM(SUM(commission_base)) OVER (PARTITION BY code), 0), 2) AS pct_of_referrer
 -- FROM qualifying_bets
 -- GROUP BY code, wallet, first_seen
--- ORDER BY code, losing_stakes_sol DESC;
+-- ORDER BY code, commission_base_sol DESC;
 
 
 -- ── 3. RECONCILIATION vs the /partner page (#177) ────────────────────────────────────
@@ -152,7 +167,7 @@ ORDER BY owed_sol DESC;
 --     ROUND(COALESCE(e.earned, 0) + COALESCE(c.settled, 0), 9)  AS payable_sol
 -- FROM referrers r
 --     LEFT JOIN (
---         SELECT code, TRUNC(SUM(amount) * commission_percentage / 100 * share_percentage / 100, 9) AS earned
+--         SELECT code, TRUNC(SUM(commission_base) * commission_percentage / 100 * share_percentage / 100, 9) AS earned
 --         FROM qualifying_bets
 --         GROUP BY code, share_percentage, commission_percentage
 --     ) e ON e.code = r.code
