@@ -146,10 +146,22 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
 
     // --- Steps -------------------------------------------------------------------
 
-    /// <summary>Push each secret value as a new Secret Manager version (create the secret if absent).</summary>
+    /// <summary>
+    /// Bring each secret's CURRENT value into Secret Manager, then trim its history to
+    /// <see cref="SecretVersionPruning.VersionsToKeep"/> versions.
+    ///
+    /// This used to push a new version unconditionally on every run, which is what produced a
+    /// R$118.77 half-month bill from 24 secrets: Secret Manager bills per enabled version, and 692 of
+    /// them had piled up, nearly all byte-identical duplicates. A value that has not changed is now
+    /// left alone, and anything past the retention window is destroyed — see
+    /// <see cref="SecretVersionPruning"/> for the full arithmetic.
+    /// </summary>
     public void SyncSecrets()
     {
         Console.WriteLine($"Syncing {_s.Secrets.Count} secret(s) to Secret Manager (project {_s.Gcp.ProjectId})…");
+
+        int pushed = 0, unchanged = 0, destroyed = 0;
+
         foreach (var (key, value) in _s.Secrets)
         {
             var secretId = _naming.SecretId(key);
@@ -157,9 +169,133 @@ public sealed class Deployer(SecretsFile secrets, RepoPaths paths)
             ProcessRunner.Run("gcloud",
                 $"secrets create {secretId} --project={_s.Gcp.ProjectId} --replication-policy=automatic");
 
-            // Add the value as a new version via a temp file (never echoed / never on the command line).
-            AddSecretVersionViaStdin(secretId, value);
-            Console.WriteLine($"  synced {secretId}");
+            if (SecretVersionPruning.IsAlreadyStored(value, ReadLatestPayload(secretId)))
+            {
+                unchanged++;
+                Console.WriteLine($"  unchanged {secretId}");
+            }
+            else
+            {
+                // Add the value as a new version via a temp file (never echoed / never on the command line).
+                AddSecretVersionViaStdin(secretId, value);
+                pushed++;
+                Console.WriteLine($"  synced {secretId}");
+            }
+
+            destroyed += PruneVersionsOf(secretId);
+        }
+
+        Console.WriteLine(
+            $"  {pushed} new version(s), {unchanged} unchanged, {destroyed} old version(s) destroyed.");
+    }
+
+    /// <summary>
+    /// Destroy every version outside the retention window on every secret of this environment —
+    /// the standalone cleanup behind `spacestroker-deploy prune-secrets`.
+    ///
+    /// Reads the live list from GCP rather than secrets.&lt;env&gt;.json on purpose: a key that drifted
+    /// out of the file still bills every month, and those orphans are exactly what this is for.
+    /// DESTROYING A VERSION IS IRREVERSIBLE — the payload cannot be recovered afterwards.
+    /// </summary>
+    public void PruneSecrets()
+    {
+        Console.WriteLine(
+            $"Pruning {_naming.NamePrefix}-* secrets to the newest {SecretVersionPruning.VersionsToKeep} " +
+            $"version(s) (project {_s.Gcp.ProjectId})…");
+
+        var ids = ListEnvironmentSecretIds();
+        if (ids.Count == 0)
+        {
+            Console.WriteLine("  no secrets found for this environment — nothing to prune.");
+            return;
+        }
+
+        var destroyed = ids.Sum(id => PruneVersionsOf(id));
+
+        Console.WriteLine($"  {destroyed} version(s) destroyed across {ids.Count} secret(s).");
+    }
+
+    /// <summary>The env-prefixed secret ids that actually exist in the project, oldest name first.</summary>
+    private List<string> ListEnvironmentSecretIds()
+    {
+        var (code, output) = ProcessRunner.Capture("gcloud",
+            $"secrets list --project={_s.Gcp.ProjectId} --format=\"value(name)\" --filter=\"name~{_naming.NamePrefix}-\"");
+
+        if (code != 0)
+            throw new DeployException(
+                $"Could not list Secret Manager secrets for {_naming.NamePrefix}-* (gcloud exited {code}).");
+
+        return output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim().Split('/').Last())
+            .Where(id => id.StartsWith(_naming.NamePrefix + "-", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Destroy this secret's versions outside the retention window and return how many went.
+    ///
+    /// Deliberately non-fatal: pruning is housekeeping that runs inside a deploy, and a single
+    /// permission error or API hiccup here must not abort the release it is attached to. A failure
+    /// costs storage, never availability.
+    /// </summary>
+    private int PruneVersionsOf(string secretId, int keep = SecretVersionPruning.VersionsToKeep)
+    {
+        var (code, output) = ProcessRunner.Capture("gcloud",
+            $"secrets versions list {secretId} --project={_s.Gcp.ProjectId} --format=\"csv[no-heading](name,state)\"");
+
+        if (code != 0)
+        {
+            Console.WriteLine($"  ! could not list versions of {secretId} (gcloud exited {code}) — nothing pruned.");
+            return 0;
+        }
+
+        var doomed = SecretVersionPruning.ToDestroy(SecretVersionPruning.Parse(output), keep);
+        var destroyed = 0;
+
+        foreach (var number in doomed)
+        {
+            var exit = ProcessRunner.Run("gcloud",
+                $"secrets versions destroy {number} --secret={secretId} --project={_s.Gcp.ProjectId} --quiet");
+
+            if (exit == 0)
+                destroyed++;
+            else
+                Console.WriteLine($"  ! could not destroy {secretId} version {number} (gcloud exited {exit}).");
+        }
+
+        if (destroyed > 0)
+            Console.WriteLine($"  pruned {destroyed} old version(s) of {secretId}");
+
+        return destroyed;
+    }
+
+    /// <summary>
+    /// The payload of the secret's current `latest`, or null when there is nothing to compare against
+    /// (secret just created, no enabled version, or the read failed).
+    ///
+    /// Written to a temp file rather than read from stdout so the plaintext never crosses a console —
+    /// `--format="value(payload.data)"` decodes and PRINTS the value, which would put private keys in
+    /// the deploy log. Null is the safe answer for every failure: the caller then pushes a new
+    /// version, which is exactly the old behaviour.
+    /// </summary>
+    private byte[]? ReadLatestPayload(string secretId)
+    {
+        var tmp = Path.GetTempFileName();
+        try
+        {
+            File.Delete(tmp); // gcloud writes the file itself; GetTempFileName only reserved the name.
+
+            var code = ProcessRunner.Run("gcloud",
+                $"secrets versions access latest --secret={secretId} --project={_s.Gcp.ProjectId} --out-file=\"{tmp}\"");
+
+            return code == 0 && File.Exists(tmp) ? File.ReadAllBytes(tmp) : null;
+        }
+        finally
+        {
+            if (File.Exists(tmp))
+                File.Delete(tmp);
         }
     }
 

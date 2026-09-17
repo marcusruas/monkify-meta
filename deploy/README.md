@@ -124,6 +124,42 @@ or in Terraform state), writes the non-secret Terraform variables to `production
 builds each static site (baking the `frontBuild` `VUE_APP_*` values) and syncs it to its GCS bucket +
 invalidates the CDN. **Consumers is released before the API** (it owns EF migrations/seeding).
 
+### Secret versions: unchanged values are skipped, history is trimmed to 2
+
+Secret Manager bills the *"Secret version replica storage"* SKU **per enabled version per month**
+(R$0.352219615, first 6 free) — **not** per secret. Access operations are free up to 10,000/month and
+this project uses ~1,800, so **versions are the entire Secret Manager bill**.
+
+Until 2026-09 the tool pushed a new version for *every* key on *every* deploy and destroyed nothing.
+24 secrets had grown to **692 live versions** — R$118.77 in the first 17 days of September, on a run
+rate of ~R$242/month that rose with each deploy and never came down. Nearly all of them were
+byte-identical duplicates, and nothing could read them anyway: Cloud Run mounts every secret with
+`version = "latest"`, which even a rolled-back revision re-resolves.
+
+`SyncSecrets` therefore now:
+
+1. reads the stored `latest` payload (to a temp file, never to stdout — `--format="value(payload.data)"`
+   *decodes and prints* the value, which would put private keys in the deploy log) and **skips the
+   `versions add` entirely when the value is unchanged**;
+2. destroys everything past the newest **2** versions (`SecretVersionPruning.VersionsToKeep`).
+
+Retention is 2 rather than 1 so a bad value can be rolled back from the cloud without depending on
+`secrets.<env>.json`, which is git-ignored and lives on one workstation.
+
+```bash
+dotnet run -- prune-secrets            # trim every spacestroker-<env>-* secret to the newest 2
+```
+
+`prune-secrets` is the standalone cleanup. `deploy` already prunes the secrets it syncs; the command
+also catches ones that **drifted out of `secrets.<env>.json`** and so are no longer touched by a
+deploy — the shape that left 8 `spacestroker-dev-*` secrets (192 versions, ~R$67/month) billing for
+months after the dev environment was torn down.
+
+> ⚠️ **Destroying a version is irreversible** — the payload cannot be recovered by anyone afterwards.
+> The pruner never touches the newest enabled version, orders numerically (a *text* sort puts `"9"`
+> above `"10"` and would destroy the live value), and works oldest-first so an interruption stops
+> short of the retention window rather than inside it.
+
 ### Static-site caching
 
 Each static site is uploaded in three tiers, so the entry point is always fresh and the hashed assets
