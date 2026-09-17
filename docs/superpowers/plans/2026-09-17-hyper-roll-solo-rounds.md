@@ -1043,6 +1043,7 @@ Keep the switch-off and free-bet early returns **before** this block (free bets:
 - Modify: `src/SpaceStroker.Infrastructure/Consumers/RunGame/RunGameConsumer.cs` (~50-61)
 - Modify: `src/SpaceStroker.Infrastructure/Consumers/GameParametersCreated/GameParametersCreatedConsumer.cs`
 - Modify: `src/SpaceStroker.Consumers/Program.cs` (`ReplanOpenRounds` ~684, `OpenNewGames` ~711)
+- Modify: `src/SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` (Ruling R1)
 - Test: the existing consumer tests (`grep -rln "RunGameConsumer\|GameParametersCreatedConsumer" src/SpaceStroker.Tests`)
 
 **Interfaces:** behaviour only.
@@ -1050,6 +1051,7 @@ Keep the switch-off and free-bet early returns **before** this block (free bets:
 - [ ] **Step 1: Write the failing tests**
 - `RunGameConsumer` test: a house-edge game that ends → `IGameService.CreateGame` is **never** called; a legacy game still calls it once (existing test).
 - `GameParametersCreatedConsumer` test: a new house-edge type → `CreateGame` never called.
+- `BetPlacedConsumer` test (ledger Ruling R1): a house-edge round whose type has `MinimumNumberOfPlayers = 8` and ONE bet → `TryStartGame` is called (the round starts); a legacy round with the same numbers still does not start (existing behaviour).
 
 - [ ] **Step 2: Run to verify they fail.**
 
@@ -1078,6 +1080,16 @@ Keep the switch-off and free-bet early returns **before** this block (free bets:
 ```
 
 `ReplanOpenRounds`: change the query to `.Where(x => Game.GameAcceptingBets.Contains(x.Status) && !x.Parameters.IsHouseEdge)`.
+
+`BetPlacedConsumer` (`src/SpaceStroker.Infrastructure/Consumers/BetPlaced/BetPlacedConsumer.cs` ~lines 100-107, where `playerCount` is compared with `MinimumNumberOfPlayers`) — Ruling R1: a solo round has exactly one bettor, so for a house-edge type the required count is 1 whatever the type row says:
+
+```csharp
+            // Solo rounds (specs/hyper-roll-solo-rounds.md): a house-edge round only ever has one bettor, so its one bet
+            // is always enough — a MinimumNumberOfPlayers above 1 on the type row would otherwise strand it forever.
+            var requiredPlayers = game.Parameters.IsHouseEdge ? 1 : game.Parameters.MinimumNumberOfPlayers;
+```
+
+and use `requiredPlayers` in that comparison (adapt the variable names to the consumer's actual code).
 
 - [ ] **Step 4: Run to verify they pass.**
 - [ ] **Step 5: Checkpoint** — `scripts\run_tests.bat` passes.
@@ -1689,6 +1701,72 @@ keeping the existing body (it already guards empty boards).
 
 - [ ] **Step 5: Verify** — `npx eslint --fix` on the four files, `yarn -s lint` passes.
 - [ ] **Step 6: Checkpoint.**
+
+---
+
+### Task 13b: Owner follow-up — no ODDS column, more vivid tiers, rim + glow on every MULT square
+
+Owner request (2026-09-17, mid-run): hide the ODDS column; make the tier colours more VIVID, especially green, blue and purple, on BOTH the terminal MULT squares and the key art; give every MULT square the rim + glow the gold 10× square has (gold keeps its sparkle). This reverses the earlier "flat, no gloss" note for the MULT box.
+
+**Files:**
+- Modify: `src/utils/houseEdge.ts` (`tierHexByName`), `src/components/game/GameTerminal.vue` (table head/rows + `.mult-box` styles + `.board-row` grid)
+- Regenerate: `src/assets/game/buttons/button{1..8}-green.png`, `-blue.png`, `-purple.png`
+
+**Interfaces:** `tierColor(multiplier)` keeps its signature; new exported `tierRim(multiplier): string`.
+
+- [ ] **Step 1: MULT fills and rims** — in `houseEdge.ts`:
+
+```ts
+// The MULT box: a vivid fill, a darker rim of the same hue and a glow of the fill (every tier, not only gold).
+const tierHexByName: Record<Tier, string> = {
+  gray: '#d3d9e4',
+  green: '#1dff6e',
+  blue: '#2f86ff',
+  purple: '#c24dff',
+  gold: '#ffc21a',
+};
+
+const tierRimByName: Record<Tier, string> = {
+  gray: '#7d8699',
+  green: '#0a8a3a',
+  blue: '#1747b8',
+  purple: '#6d1fb0',
+  gold: '#b86f00',
+};
+
+/** `tierName`'s MULT-box rim — derived from it so the two can never disagree. */
+export const tierRim = (multiplier: number): string => tierRimByName[tierName(multiplier)];
+```
+
+- [ ] **Step 2: Terminal table** — `GameTerminal.vue`: remove the ODDS header span and the chance cell on BOTH desktop and mobile (keep `formatChance` in `houseEdge.ts`; it still feeds the `LOCKED: … TO LAND` line). Desktop grid becomes `grid-template-columns: 34px 150px 64px minmax(0, 1fr)` (KEY, WORD, MULT, PAYS); mobile unchanged. Pass `'--rim': tierRim(multiplier)` next to `'--tier'` on each row. Replace the `.mult-box` / `.mult-box--gold` styles with:
+
+```css
+  /* MULT: vivid fill, dark ink, a darker rim of the same hue and a glow — every tier. 10× adds the sparkle. */
+  .mult-box {
+    position: relative;
+    display: inline-block;
+    padding: 0 6px;
+    background: var(--tier);
+    color: #0b0d14;
+    text-shadow: none;
+    line-height: 1.5;
+    box-shadow:
+      inset 0 0 0 2px var(--rim),
+      0 0 10px color-mix(in srgb, var(--tier) 55%, transparent);
+  }
+```
+
+(delete `.mult-box--gold`'s own box-shadow; keep the class only if the sparkle markup needs it). Under `html.light-graphics` the glow stays (static, not animated).
+
+- [ ] **Step 3: Key art** — regenerate the three key sets as exact palette swaps of the red source `button{n}.png` (`#571c27` dark, `#891e2b` mid, `#ea323c` main, `#fdd2ed` light) with these ramps (dark / mid / main / light), keeping the plate grays untouched:
+  - green: `#0b6b2e` / `#12b14a` / `#2dff72` / `#eafff0`
+  - blue: `#14338f` / `#1f5fff` / `#3d8cff` / `#e3efff`
+  - purple: `#3f0a78` / `#8a1fe0` / `#c04dff` / `#f6e6ff`
+
+  Use a small Node script (PNG decode → exact colour swap → encode; `zlib` only, no new dependencies; do not commit the script) and overwrite the 24 files. Verify one output of each colour by viewing it.
+
+- [ ] **Step 4: Verify** — `npx eslint --fix` on the changed files, `yarn -s lint` passes; in the browser (1440×900 and 390×844) the table has no ODDS column, every MULT square shows rim + glow, and the keys match the new greens/blues/purples.
+- [ ] **Step 5: Checkpoint.** Task 14's docs step also updates `specs/hyper-roll.md` decision 34's colour values and the "flat, no gloss" wording.
 
 ---
 

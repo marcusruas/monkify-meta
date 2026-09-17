@@ -1,6 +1,6 @@
 # SpaceStroker — "Hyper Roll Solo Rounds" — Implementation Spec
 
-> **Status: Ready for implementation** — designed with the owner on 2026-09-16/17 (in-session brainstorm,
+> **Status: Implemented on `feature/hyper-roll` (2026-09-17, not yet shipped)** — designed with the owner on 2026-09-16/17 (in-session brainstorm,
 > after the decision-34 UI redesign). Extends [`hyper-roll.md`](hyper-roll.md) as its **decision 35**.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/hyper-roll` → `.worktrees/hyper-roll/<repo>` (the unshipped Hyper Roll
@@ -103,7 +103,9 @@ unbet house-edge round in `WaitingBets` with `BoardExpiresAt IS NULL`** as expir
 ### 6.1 Opening a board — `POST /games/{gameTypeId:guid}/boards`
 
 New handler `Handlers/Games/OpenHouseEdgeBoard`. Refuses (generic not-found/unavailable, `constraints.md`
-§6) when the type is unknown, inactive, coming-soon or not house-edge. Maintenance does **not** block
+§6) when the type is unknown, inactive, coming-soon or not house-edge. *(As built: the API's standard 400
+validation-failure envelope with `ParameterNotFound`; `ParameterHasNoActiveGames` if the board could not be
+opened. Every solo-round refusal in §6.2, §6.3 and §6.8 uses the same envelope with `GameNotValidForBets`.)* Maintenance does **not** block
 opening (players can still look; betting is what the switch refuses).
 
 `GameService.CreateGame(parameters, carry, isSoloBoard: true)` — the existing method gains a flag that, for
@@ -160,7 +162,10 @@ failure (the lobby skips house-edge types anyway, §7.5). Legacy types unchanged
 ### 6.6 Start, run, reward
 
 - `BetPlacedConsumer`: unchanged code; `SecondsUntilGameStarts(isHouseEdge)` now returns 0, so
-  `TryStartGame` sets `StartDate = now` and the `Task.Delay` is zero.
+  `TryStartGame` sets `StartDate = now` and the `Task.Delay` is zero. *(As built — controller ruling R1: a
+  house-edge round starts on its single bet regardless of the type's `MinimumNumberOfPlayers`;
+  `BetPlacedConsumer` uses a required player count of 1 for house-edge, so a type row set above 1 can never
+  strand a solo round.)*
 - `RunGameConsumer`: **skip the successor `CreateGame` for house-edge** (the player opens the next board).
 - `RewardGameConsumer`, verification, typer: unchanged. The keystream prefix is `gameId|<the one bet seed>`.
 
@@ -172,7 +177,9 @@ failure (the lobby skips house-edge types anyway, §7.5). Legacy types unchanged
 - New recurring job `HouseEdgeBoardCleanupJob` (Hangfire, `ScheduleRecurringJobs`): deletes rounds that are
   house-edge, `OwnerPlayerId IS NULL`, have **no bets**, status `WaitingBets`, and
   (`BoardExpiresAt < now` **or** `BoardExpiresAt IS NULL`) — board rows cascade. Takes the coverage lock per
-  batch so it can never race a bet claim.
+  batch so it can never race a bet claim. *(As built: the Hangfire cron is built from
+  `HouseEdgeBoardCleanupIntervalMinutes` clamped to **1..59**, since an every-N-minutes cron can't express 0 or
+  60+.)*
 - `GameTypeDeactivatedConsumer`: unchanged (already cancels every `WaitingBets` round of the type).
 
 ### 6.8 Availability pre-check — `POST /games/{gameTypeId}/availability`
@@ -184,10 +191,16 @@ backstop. The maintenance switch and
 coverage refusals keep returning `{ available: false, message }` exactly as decision 33 defines. A found
 round's `BoardExpiresAt` is refreshed.
 
+*As built:* `gameId` is **optional** in the contract (`Guid? GameId`), not required — legacy types ignore it
+and still answer open; for a house-edge type a missing `gameId` is simply "not an open board"
+(`GameNotValidForBets`). The maintenance switch is checked **before** the board, so maintenance still answers
+`{ available: false }` whatever `gameId` is sent. The board check also requires the round to belong to the
+requested type. A free bet (amount 0) passes the board check and skips coverage.
+
 ### 6.9 Contracts
 
 - `ActiveGameDto`: + `BoardExpiresAt?` (informational; null once the round is owned).
-- `CheckBetAvailabilityRequest`: + `Guid GameId`.
+- `CheckBetAvailabilityRequest`: + `Guid? GameId` (optional; see §6.8).
 
 ### 6.10 Stats
 
@@ -239,8 +252,9 @@ House-edge: `JoinGame(<gameTypeId>)` alongside the round group; send with the ty
 
 ### 7.6 Stats panel
 
-`GameStatsPanel.vue`: for a house-edge type the biggest-pot row reads **BIGGEST WIN** and shows
-`biggestSinglePayout`.
+`src/pages/GameStatsPage.vue` (the stats screen actually shown): for a house-edge type the biggest-pot row reads
+**BIGGEST WIN** and shows `biggestSinglePayout`. `GameStatsPanel.vue` got the same change but is not mounted
+anywhere.
 
 ## 8. Out of scope
 
@@ -286,7 +300,7 @@ feed; Orbit/auto-bet on Hyper Roll (`AllowOrbit` stays false).
 | `Infrastructure/Handlers/Games/GetActiveGameForParameter/*` | house-edge by wallet |
 | `Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | §6.5 |
 | `Infrastructure/Handlers/Games/CheckBetAvailability/*` | `gameId` |
-| `Infrastructure/Services/Games/HouseEdgeCoverageService.cs` | balance before lock; load round by id |
+| `Infrastructure/Services/Games/HouseEdgeCoverageService.cs` | load round by id (balance read order unchanged, T2) |
 | `Infrastructure/Consumers/RunGame/RunGameConsumer.cs` | no successor for house-edge |
 | `Infrastructure/Consumers/GameParametersCreated/*` | skip house-edge |
 | `Consumers/Program.cs` | `OpenNewGames`/`ReplanOpenRounds` skip; schedule cleanup job |
@@ -304,7 +318,8 @@ feed; Orbit/auto-bet on Hyper Roll (`AllowOrbit` stays false).
 | `src/hooks/useGameChat.ts` / `useGameHub.ts` | per-type chat group |
 | `src/hooks/useLiveGames.ts` | skip house-edge |
 | `src/types/index.ts` | `boardExpiresAt?`, availability `gameId` |
-| `src/components/game/GameStatsPanel.vue` | BIGGEST WIN for house-edge |
+| `src/pages/GameStatsPage.vue` | BIGGEST WIN for house-edge (the stats screen shown) |
+| `src/components/game/GameStatsPanel.vue` | same change; the component is unused |
 
 ## 11. Acceptance criteria
 
@@ -323,3 +338,4 @@ feed; Orbit/auto-bet on Hyper Roll (`AllowOrbit` stays false).
 | Date | Change |
 |---|---|
 | 2026-09-17 | Spec written from the owner brainstorm (S1–S7, approach 1). Recorded as decision 35 in `hyper-roll.md`. |
+| 2026-09-17 | Implemented on feature/hyper-roll (backend + front); owner follow-up during implementation: ODDS column removed, vivid tier colours, rim + glow on every MULT square (see hyper-roll.md decision 34 note). As-built notes added to §6.1, §6.6, §6.7, §6.8, §6.9, §7.6, §10. |
