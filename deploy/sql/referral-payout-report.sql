@@ -4,18 +4,12 @@
 -- READ-ONLY. Run by hand through `spacestroker-db --db game --env production`.
 -- See monkify-meta/specs/referral-program.md §8 for the design.
 --
--- ⚠️ THE BASIS IS THE HOUSE EDGE, NOT TURNOVER (house-edge-rework). A partner earns
---    SharePercentage of the COMMISSION on their referred players' commission base:
---        commission_base = stake of every LOST bet + profit above own stake of every WON bet
---        owed            = commission_base × CommissionPercentage/100 × SharePercentage/100
---    counting only rounds where at least one PAID winner was paid (no winner ⇒ no commission was
---    charged). It used to be SharePercentage × everything wagered, which paid a 50% partner ~20x
---    what the house earned from their traffic. Mirrors ReferralEarningsService.ResolveCommissionBase
---    — keep them in lockstep.
---
--- ⚠️ BOTH SIDES OF A ROUND COUNT (owner, 2026-09-17). When two referred players meet, the one
---    commission is credited from the loss AND the win, so owed_sol can exceed share × the commission
---    the house actually took on those rounds.
+-- ⚠️ THE PARTNER IS PAID A COMMISSION ON THE HOUSE CUT (house-edge-rework, owner 2026-09-17).
+--        house_cut = what referred players BET (won or lost) × CommissionPercentage/100
+--        owed      = house_cut × SharePercentage/100
+--    A referred player bets 100 SOL → 2% house cut = 2 SOL → a 50% partner is owed 1 SOL. It used to
+--    be SharePercentage × the bets themselves, which owed that partner 50 SOL. Mirrors
+--    ReferralEarningsService — keep them in lockstep.
 --
 -- ⚠️ THE RATE IS READ FROM CURRENT CONFIG, NOT SNAPSHOTTED. The app re-prices a partner's whole
 --    history at today's CommissionPercentage, so params.commission_percentage must be TODAY's
@@ -66,17 +60,7 @@ qualifying_bets AS (
         r.share_percentage,
         p."ExternalPlayerId" AS wallet,
         p."ReferredAt"       AS first_seen,
-        -- LOST: the whole stake. WON: Σ round stakes / paid winners − own stake (the profit
-        -- BetDomainService.CommissionForWinner taxes), floored at zero. House-funded lottery money is
-        -- never commissioned, so it is deliberately absent from the pot here.
-        CASE
-            WHEN b."Status" = 0 THEN b."Amount"
-            ELSE GREATEST(0,
-                (SELECT SUM(a."Amount") FROM "GameBets" a WHERE a."GameId" = b."GameId")
-                / (SELECT COUNT(*) FROM "GameBets" w
-                   WHERE w."GameId" = b."GameId" AND w."Status" = 2 AND w."Amount" > 0)
-                - b."Amount")
-        END                  AS commission_base,
+        b."Amount"           AS amount,
         params.commission_percentage
     FROM "GameBets" b
         JOIN "Games"   g ON g."Id" = b."GameId"
@@ -90,16 +74,10 @@ qualifying_bets AS (
       -- ErrorWhenProcessingRewards and GameEndedAbruptely are excluded — the same rule every stats
       -- read applies (features/stats-and-history.md).
       AND g."Status" = 7                      -- GameStatus.RewardForWinnersCompleted
-      -- LOST (0 = Made, a losing bet is never re-statused) or WON (2 = Rewarded). This drops every
-      -- refunded or parked stake (3/4/5). BetStatus is ZERO-based.
-      AND b."Status" IN (0, 2)
-      -- ...in a round where commission was actually CHARGED: at least one PAID winner was paid.
-      AND EXISTS (
-          SELECT 1 FROM "GameBets" w
-          WHERE w."GameId" = b."GameId"
-            AND w."Status" = 2                -- BetStatus.Rewarded
-            AND w."Amount" > 0
-      )
+      -- A refunded stake came straight back to the player, so it earned nothing. 3/4/5 =
+      -- NeedsRefunding / Refunded / NeedsManualAnalysis (BetStatus is zero-based: Made = 0). A win and
+      -- a loss count the same — the cut is on what was bet.
+      AND b."Status" NOT IN (3, 4, 5)
       AND b."CreatedDate" >= params.from_utc
       AND b."CreatedDate" <  params.to_utc
       AND b."CreatedDate" >= params.settlement_cutover_utc
@@ -112,11 +90,11 @@ SELECT
     code                                         AS referrer,
     COUNT(DISTINCT wallet)                       AS referred_wallets,
     COUNT(*)                                     AS bets,
-    ROUND(SUM(commission_base), 9)               AS commission_base_sol,
-    ROUND(SUM(commission_base) * commission_percentage / 100, 9) AS house_edge_sol,
+    ROUND(SUM(amount), 9)                        AS turnover_sol,
+    ROUND(SUM(amount) * commission_percentage / 100, 9) AS house_cut_sol,
     share_percentage                             AS share_pct,
     -- Floored like the app (MidpointRounding.ToZero), never rounded to nearest.
-    TRUNC(SUM(commission_base) * commission_percentage / 100 * share_percentage / 100, 9) AS owed_sol
+    TRUNC(SUM(amount) * commission_percentage / 100 * share_percentage / 100, 9) AS owed_sol
 FROM qualifying_bets
 GROUP BY code, share_percentage, commission_percentage
 ORDER BY owed_sol DESC;
@@ -133,11 +111,11 @@ ORDER BY owed_sol DESC;
 --     wallet,
 --     first_seen,
 --     COUNT(*)                      AS bets,
---     ROUND(SUM(commission_base), 9) AS commission_base_sol,
---     ROUND(100 * SUM(commission_base) / NULLIF(SUM(SUM(commission_base)) OVER (PARTITION BY code), 0), 2) AS pct_of_referrer
+--     ROUND(SUM(amount), 9)         AS turnover_sol,
+--     ROUND(100 * SUM(amount) / SUM(SUM(amount)) OVER (PARTITION BY code), 2) AS pct_of_referrer
 -- FROM qualifying_bets
 -- GROUP BY code, wallet, first_seen
--- ORDER BY code, commission_base_sol DESC;
+-- ORDER BY code, turnover_sol DESC;
 
 
 -- ── 3. RECONCILIATION vs the /partner page (#177) ────────────────────────────────────
@@ -145,7 +123,7 @@ ORDER BY owed_sol DESC;
 -- halves — the page has no reporting window — so it deliberately IGNORES params.from_utc/to_utc.
 --
 -- ⚠️ Re-paste the CTE block above before this query; the REPL runs one statement at a time. Then
---    edit qualifying_bets' date filter to drop the window, or this reads windowed earnings
+--    edit qualifying_bets' date filter to drop the window, or this reads a windowed turnover
 --    against all-time payments and understates what is owed.
 --
 -- ⚠️ SUM(Amount) HAS NO STATUS FILTER, and must not grow one. A Failed withdrawal keeps its negative
@@ -157,8 +135,9 @@ ORDER BY owed_sol DESC;
 --    sum, never minus it.
 --
 -- A NEGATIVE payable is legitimate, not corruption: an admin refund can retroactively remove a
--- settled loss, and editing a partner's SharePercentage OR the CommissionPercentage re-prices their
--- whole history. The app carries that deficit rather than clamping it, so new earnings work it off.
+-- settled bet from turnover, and editing a partner's SharePercentage OR the CommissionPercentage
+-- re-prices their whole history. The app carries that deficit rather than clamping it, so new
+-- earnings work it off.
 --
 -- SELECT
 --     r.code                                                   AS referrer,
@@ -167,7 +146,7 @@ ORDER BY owed_sol DESC;
 --     ROUND(COALESCE(e.earned, 0) + COALESCE(c.settled, 0), 9)  AS payable_sol
 -- FROM referrers r
 --     LEFT JOIN (
---         SELECT code, TRUNC(SUM(commission_base) * commission_percentage / 100 * share_percentage / 100, 9) AS earned
+--         SELECT code, TRUNC(SUM(amount) * commission_percentage / 100 * share_percentage / 100, 9) AS earned
 --         FROM qualifying_bets
 --         GROUP BY code, share_percentage, commission_percentage
 --     ) e ON e.code = r.code

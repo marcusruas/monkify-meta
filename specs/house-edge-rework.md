@@ -12,9 +12,10 @@
 
 Three changes, shipped together because the first two share one number:
 
-1. **Referral earnings move from turnover to the house edge.** A partner earns `SharePercentage` of
-   the commission their referred players produced — on the stakes they **lost** and on the profit
-   they **won** — not `SharePercentage` of everything those players wagered.
+1. **Partners earn a commission on the house cut, not on the bets.** The house cut is
+   `CommissionPercentage` (2%) of what referred players bet, won or lost; the partner's
+   `SharePercentage` is their share **of that cut**. A referred player bets 100 SOL → 2 SOL house cut →
+   a 50% partner earns 1 SOL (previously 50 SOL).
 2. **House cut 5% → 2%** (`GeneralSettings:Operator:Token:CommissionPercentage`).
 3. **The house seed bet yields to Orbit.** When **2 or more** Orbit players are betting in a round, the
    house seed wallet does not place its bet.
@@ -23,9 +24,8 @@ Three changes, shipped together because the first two share one number:
 
 | | Before | After |
 |---|---|---|
-| Partner earnings | `floor(Σ paid stakes × Share/100)` | `floor(commission base × Commission/100 × Share/100)`, base = lost stakes + won profit above own stake |
-| A 50% partner, heads-up, 1 SOL each, referred player loses OR wins | 1.000 SOL (per 2 SOL of referred turnover, 20× the edge) | 0.010 SOL (half of the 0.02 SOL commission) |
-| Same, but BOTH players are referred to that partner | 1.000 SOL | 0.020 SOL — the one 0.02 commission is credited from both sides (§3.3) |
+| Partner earnings | `floor(Σ paid stakes × Share/100)` | `floor(Σ paid stakes × Commission/100 × Share/100)` |
+| Referred player bets 100 SOL, 50% partner | 50 SOL | 1 SOL (50% of the 2 SOL house cut) |
 | House cut | 5% of winnings above own stake | 2% of winnings above own stake |
 | House seed | one bet in every production round | skipped when ≥ 2 Orbit players bet in the round |
 
@@ -45,7 +45,7 @@ Three changes, shipped together because the first two share one number:
 
 | # | Question | Decision | Why |
 |---|---|---|---|
-| 1 | What "house edge" means for a partner | **A — the commission their losses generated. ⚠️ Revised in §3.3: wins count too.** `Share × Commission × Σ losing paid stakes`, only in rounds where at least one PAID winner was paid. | The only basis where "50% of house edge" is literally true and a share ≤ 100 can never pay more than the traffic earned. B (rate × turnover) still overpays ~2× heads-up. |
+| 1 | What "house edge" means for a partner | **A — the commission their losses generated. ⚠️ SUPERSEDED in §3.3: a share of the 2% house cut on everything referred players bet.** `Share × Commission × Σ losing paid stakes`, only in rounds where at least one PAID winner was paid. | The only basis where "50% of house edge" is literally true and a share ≤ 100 can never pay more than the traffic earned. B (rate × turnover) still overpays ~2× heads-up. |
 | 2 | Past earnings when the rate moves 5% → 2% | **A — re-price history at the current rate.** No per-round snapshot, no migration. | Production's only real partner is the 50% one whose history is the mistake being corrected. Consequence accepted: every future rate change re-prices partner history too, the same way a `SharePercentage` edit already does. |
 | 3 | What "2 or more people registered on Orbit" means | **A — Orbit players actually betting in THIS round.** Union of (players whose `FundedByOrbit` bet has landed) and (`IOrbitBetPlacementService.ResolveCandidates(parameters, gameId)`), checked after the placement delay. | Skips only when the round will start without the house, using the planner's own eligibility rule so the two cannot disagree. B (any enabled enrolment) counts empty balances; C (global) would stop seeding types Orbit does not play. |
 
@@ -62,27 +62,32 @@ for a round Orbit has fully filled, and the house would seed anyway.
 holds for **humans betting in person**. Orbit players are the single exception, pinned by
 `StillSeeds_WhenTwoHumansWhoAreNotOnOrbitHaveBet`.
 
-### 3.3 Revision of decision 1: wins count too (owner, 2026-09-17, after the first push)
+### 3.3 Decision 1 superseded: a share of the house cut on what referred players bet (owner, 2026-09-17)
 
-The shipped-to-branch version of decision 1 counted **losses only**, on the grounds that the
-commission on a win is levied on other players' losses and counting both would credit it twice. The
-owner overruled that: **"the partner earnings must also count player wins."**
+Decision 1 went through two branch revisions (losses only, then losses plus won profit) before the
+owner fixed the rule with a worked example:
 
-- A referred **win** contributes its taxed profit: `Σ round stakes / paid winners − own stake`,
-  floored at 0 — exactly the base `BetDomainService.CommissionForWinner` taxes (house-funded lottery
-  money excluded, as it is never commissioned). A win with nothing above its stake contributes 0.
-- ⚠️ **Accepted consequence:** when two referred players meet, the round's one commission is credited
-  from the loss AND the win — twice to one partner, or once to each of two partners. Above a 50%
-  share, a partner whose traffic mostly plays itself can be paid more than the house took on those
-  rounds. Documented on `ReferralSettings.SharePercentage`, not enforced in code.
+> Player referred by partner X spent 100 SOL in bets. House cut of that is 2 SOL. Partner has 50%
+> commission. Partner gets 1 SOL (50% of the house cut). The 2% is the house cut, not what the partner
+> gets. The partner gets a percentage of the house cut — that is the commission.
+
+- **Basis:** turnover — every paid bet by a referred player in a `RewardForWinnersCompleted` round, won
+  or lost, with the pre-existing exclusions (free, refunded/parked, pre-cutover, the partner's own
+  wallet). This is the #175 predicate, unchanged.
+- **Earnings:** `floor(turnover × CommissionPercentage/100 × SharePercentage/100)`.
+- ⚠️ **Accepted consequence:** the house does not actually keep 2% of every bet — it keeps 2% of a
+  winner's profit, i.e. of the LOSING stakes (≈1% of turnover heads-up, ~1.67% at six bets with one
+  winner). So a 50% partner is paid ≈100% of the cut the house really took on heads-up rounds, and a
+  share above ~50% can pay more than the house kept. The rule is the owner's stated model; the gap is
+  documented here, not enforced in code.
 
 ---
 
 ## 4. Data model
 
 **No change. No migration.** Earnings remain a derived aggregate over `GameBets` / `Games` /
-`Players` / `ReferralPartners` / `ReferralCashOuts`. `IX_GameBets_ReferralCode` still leads the query;
-the paid-winner check is an `EXISTS` on the same round.
+`Players` / `ReferralPartners` / `ReferralCashOuts`. `IX_GameBets_ReferralCode` still leads the query,
+which is the #175 predicate unchanged.
 
 ---
 
@@ -92,7 +97,7 @@ the paid-winner check is an `EXISTS` on the same round.
   Overridden by no deploy surface, so the committed file **is** the production rate (pinned by
   `CommissionRateTests`).
 - `ReferralPartners.SharePercentage` keeps its column and precision; its **meaning** changes from
-  "% of turnover" to "% of house edge". The production partner row set at `50` now means what the
+  "% of turnover" to "% of the house cut on turnover". The production partner row set at `50` now means what the
   partner was told. **No data change is required for it.**
 
 ---
@@ -101,14 +106,8 @@ the paid-winner check is an `EXISTS` on the same round.
 
 ### 6.1 `ReferralEarningsService`
 
-- `ResolveTurnover` → **`ResolveCommissionBase`**: same exclusions as before (free bets, non-
-  `RewardForWinnersCompleted` rounds, pre-`SettlementCutoverUtc`, the partner's own payout wallet,
-  exact code match) plus:
-  - `Status == Made || Status == Rewarded` — lost or won. This replaces the three
-    `!= NeedsRefunding/Refunded/NeedsManualAnalysis` clauses.
-  - `Game.Bets.Any(Status == Rewarded && Amount > 0)` — commission was actually charged in that round.
-  - Per bet: a loss contributes `Amount`; a win contributes
-    `max(0, Σ Game.Bets.Amount / count(paid Rewarded) − Amount)` (§3.3).
+- `ResolveTurnover` keeps its name and its #175 predicate unchanged (free, refunded/parked,
+  pre-cutover and self-referral bets excluded; wins and losses both count).
 - `ApplyShare` multiplies by `CommissionPercentage/100` then `SharePercentage/100`, and floors
   (`MidpointRounding.ToZero`) **once**, on the final product.
 
@@ -129,7 +128,7 @@ the paid-winner check is an `EXISTS` on the same round.
 
 ## 7. Frontend (`monkify-front`)
 
-- `PartnerPage.vue`: `N% OF REFERRED TURNOVER` → `N% OF THE HOUSE EDGE`.
+- `PartnerPage.vue`: `N% OF REFERRED TURNOVER` → `N% OF THE HOUSE CUT`.
 - The hand-written 5% copies → 2%: `GuideToken.vue` (title + body + rule comment),
   `GuideWhatYouWin.vue` (body + rule comment), `HomeTokenCard.vue`.
 - The STATS badges already read `commissionPercentage` live — no change.
@@ -193,13 +192,10 @@ the paid-winner check is an `EXISTS` on the same round.
 ## 11. Tests
 
 ### 11.1 Unit
-- `ReferralEarningsServiceTests` rewritten around a `Round` (referred bet + optional paid winner +
-  optional unreferred loser in the same game): losing stake counts; a win counts its profit above its
-  own stake, split across paid winners, not divided by a free-bet winner, zero when nobody lost; a
-  referred loss and a referred win in one round both count; no-winner round and free-bet-only winner
-  excluded; all
-  previous exclusions kept; `Earnings_AreTheShareOfTheHouseEdge_NotOfTheStakes` (the regression);
-  current-rate re-pricing; zero commission ⇒ zero earnings.
+- `ReferralEarningsServiceTests`: the #175 turnover tests are kept with the suite partner at 50% of a
+  2% cut; new `Turnover_CountsALosingBet_TheSameAsAWinningOne`, and
+  `Earnings_AreThePartnersShareOfTheHouseCut` (the owner's 100 → 2 → 1 example), a 25% share of the
+  same cut, current-rate re-pricing, and zero cut ⇒ zero earnings.
 - `CommissionRateTests.CommissionPercentage_IsTwoPercent`.
 - `HouseSeedBetServiceTests`: skip on 2 candidates, on 2 landed Orbit bets with no candidates, on 1
   landed + 1 candidate; seed on 1 Orbit player, on the same player landed and candidate, on 2 humans.
@@ -209,26 +205,23 @@ the paid-winner check is an `EXISTS` on the same round.
   real planner eligibility query. The class now disables Orbit enrolments on dispose (churn rule).
 - `ReferralCashOutFlowTests` happy path proves the new predicate translates on Postgres: the suite
   partner is now 50% (at 1% a heads-up round of 2 would earn 0.0008, under the 0.001 minimum), and
-  `EarnAsync` returns `4 × Commission × Share` — the lost stake of 2 plus the winner's profit of 2,
-  both referred.
+  `EarnAsync` returns `4 × Commission × Share` — two referred stakes of 2, won or lost alike.
 
 ---
 
 ## 12. Acceptance criteria
 
-1. A partner's `EarnedAllTime` equals `floor(commission base × CommissionPercentage/100 ×
-   SharePercentage/100)`, the base being referred lost stakes plus referred won profit in paid-winner
-   rounds.
-2. A referred player's winning bet adds the commission on its profit above its own stake — never on
-   the stake itself.
+1. A partner's `EarnedAllTime` equals `floor(Σ referred paid stakes × CommissionPercentage/100 ×
+   SharePercentage/100)`: 100 SOL bet at a 2% cut and a 50% share earns 1 SOL.
+2. A referred player's bets count the same whether they won or lost.
 3. The committed commission rate is 2%, and every hand-written rate in the app and LP says 2%.
-4. The partner page labels the share as a share of the house edge.
+4. The partner page labels the share as a share of the house cut.
 5. In production, a round with ≥ 2 Orbit players betting receives no house seed bet; a round with
    0–1 Orbit players is seeded exactly as before, whatever humans have bet.
 
 ## 13. Manual QA
 
-- `/partner` for the production partner after deploy: share reads `50% OF THE HOUSE EDGE`; Available
+- `/partner` for the production partner after deploy: share reads `50% OF THE HOUSE CUT`; Available
   drops to the house-edge figure (or 0 with a carried deficit).
 - Run section 3 of `referral-payout-report.sql` with `commission_percentage = 2.0` and compare with
   the page.
