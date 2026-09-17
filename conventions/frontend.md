@@ -86,8 +86,11 @@
   round rollovers, game-type switches and trips back to the lobby. A round change is a **group swap**
   (`attachToGame` → `JoinGame` + bind `{gameId}/…`; `detachFromGame` → unbind + `LeaveGame`), never a
   reconnect; `GameReceived` is bound **once** for the tab via `onBroadcast`. `useGame` consumes it and
-  handles `…/Terminal`, `…/DisplaySpeed`, `…/Status`, `…/Bets` and `{gameId}/ChatMessage` (game chat —
-  see `features/game-chat.md`). Rules when touching it: **unbind before joining** (a handler that
+  handles `…/Terminal`, `…/DisplaySpeed`, `…/Status` and `…/Bets` per round. **Game chat is a separate
+  channel keyed by game type** (`attachToChat(gameTypeId)` → `JoinChat` + bind `{gameTypeId}/ChatMessage`;
+  a call for the room already joined is a no-op, so rollover leaves chat alone; `onreconnected` re-joins it
+  and fires `onChatRejoined` so `useGame` backfills history — see `features/game-chat.md`). Rules when
+  touching it: **unbind before joining** (a handler that
   outlives its round double-pushes bets and double-counts the pot), `onreconnected` re-joins **only**
   the current `gameId`, and `ensureConnected` is single-flight so a rollover racing a mount cannot open
   two sockets. `useGameHub` also arms/stops the **idle watch**, because the connection outlives

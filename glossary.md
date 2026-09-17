@@ -217,9 +217,13 @@
   **purpose-scoped** — today `preferences` and `self-exclusion` — so a challenge minted for one flow
   cannot be replayed against the other. *(There is no preferred display currency and no FX rate table:
   every game settles in the one configured token, so there is nothing to convert.)*
-- **Game chat message** — a plain-text line broadcast within one game instance over
-  `ActiveGamesHub.SendChatMessage`; attributed by client-resolved **display name**; persisted to
-  `GameChatMessage` for audit/retention only (not replayed). See `features/game-chat.md`.
+- **Game chat message** — a plain-text line in a **chat room** sent over
+  `ActiveGamesHub.SendChatMessage(gameTypeId, gameId, displayName, text)`; attributed by client-resolved
+  **display name**; carries a server `id` and `sentAt`; persisted to `GameChatMessage` (with `GameTypeId` and
+  the sender's round `GameId`) for audit and as the history fallback. See `features/game-chat.md`.
+- **Chat room** — the chat of one **game type** (SignalR group `chat:{gameTypeId}`), not of a round: it
+  survives rollover and `Ended`, and on load shows the last 100 messages of the type within
+  `Chat.RetentionDays` (`GET /games/{parametersId}/chat`). See `features/game-chat.md`.
 - **Game-type stats** — all-time aggregated stats for one **game type** (`GameParameters`),
   served read-only by the public `GET /games/{parametersId}/stats`: biggest pot
   ever split, biggest single payout, rounds played, total paid out, and (preset types only) the

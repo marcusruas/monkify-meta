@@ -1,6 +1,10 @@
 # SpaceStroker — "Add chat" Feature — Implementation Spec
 
 > **Status: Shipped (v2)** — merged `feature/game-chat` → `main` on 2026-07-03.
+> ⚠️ **Partly superseded (2026-09-16) by [`chat-per-game-type.md`](chat-per-game-type.md):** decisions #1
+> (room = game instance), #8/#10 (no history, ephemeral list) and #11 (read-only on `Ended`, reset on
+> rollover) no longer hold — the room is the game type, the last 100 messages are served on load, and
+> rounds never clear or lock chat. Identity, limits, persistence and purge below still apply.
 > Trello: [Add chat](https://trello.com/c/7UnjEOom/4-add-chat). Distilled rules:
 > `../features/game-chat.md`.
 

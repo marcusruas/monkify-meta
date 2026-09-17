@@ -1,6 +1,11 @@
 # SpaceStroker — "Chat per game type" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged `feature/chat-per-game-type` → `main` on 2026-09-16 (monkify-backend,
+> monkify-front, monkify-meta). Distilled rules: [`../features/game-chat.md`](../features/game-chat.md).
+> One naming deviation from §6.1: the limit constant is `Services/Chat/ChatHistory.Limit`, not
+> `ActiveGamesHub.ChatHistoryLimit`.
+>
+> Refined via Trello card
 > [Fix chat per game type.](https://trello.com/c/11UnFT07/185-fix-chat-per-game-type) (#185, 2026-09-16).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 >
@@ -685,4 +690,5 @@ Run with `scripts/run_integration_tests.bat` (Docker required).
 
 | Date | Change |
 | --- | --- |
+| 2026-09-16 | **Shipped.** Implemented as specified (constant named `ChatHistory.Limit`); unit 1278 + integration 160 green; migration backfill verified against Postgres. |
 | 2026-09-16 | Initial spec from refined card #185 (short-mode refinement, 11 decisions) + code exploration: committed `Chat.RetentionDays` is 2; hub active-type check needs `InvalidateGlobalCaches` in integration tests; legacy queued persist events handled; existing `GameChatTests` must be rewritten. |
