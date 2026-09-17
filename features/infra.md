@@ -78,6 +78,22 @@ tooling now lives (card #167 moved the DB console out to `tools/`).
   a `path_rule` that omits a policy **inherits** the matcher default, which would apply it to the assets
   too. The **lp** sets `not_found_page = "404.html"` and **keeps** the 404 status.
 
+### Secret Manager — 2 versions per secret, and unchanged values are not re-pushed
+
+Secret Manager bills **per enabled version per month** (first 6 free), **not per secret**, and access
+operations are effectively free. So `deploy` **reads the stored `latest` and skips the `versions add`
+when the value has not changed**, then destroys everything past the newest **2** versions;
+`spacestroker-deploy prune-secrets` does the same standalone over the **live**
+`spacestroker-<envCode>-*` list, which is what catches a key that drifted out of `secrets.<env>.json`
+and would otherwise bill forever unnoticed.
+
+Retention is **2** because Cloud Run mounts every secret with `version = "latest"` — even a
+rolled-back revision re-resolves it, so only the newest is ever served, and the second exists purely
+as a cloud-side rollback for a bad value (`secrets.<env>.json` is git-ignored and lives on one
+workstation). ⚠️ **Destroying a version is irreversible.** Before this, 24 secrets had grown to 692
+near-identical versions costing ~R$242/month; see
+[`../specs/secret-version-retention.md`](../specs/secret-version-retention.md).
+
 ### Teardown
 
 `teardown` destroys workload → persistent (zone + state bucket, via a **local state migration**) →
