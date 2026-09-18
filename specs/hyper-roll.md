@@ -329,7 +329,7 @@ erDiagram
 ```json
 {
   "Name": "Hyper Roll",
-  "Description": "Pick 1 of 8 words and set your stake - land it and the house pays your multiplier, up to 10x.",
+  "Description": "Pick a word, set your stake - land it and the house pays up to 10x.",
   "AllowedCharacters": 2,
   "ChoiceRequiredLength": 10,
   "RequiredAmount": 0.01,

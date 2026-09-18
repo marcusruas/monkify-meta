@@ -1,6 +1,9 @@
 # SpaceStroker — "Hyper Roll: how to play" — Implementation Spec
 
-> **Status: Implemented on `feature/hyper-roll-howto` (2026-09-17, not yet shipped)** — designed with the
+> **Status: Shipped to `main` with Hyper Roll (#183) on 2026-09-18, via `feature/hyper-roll-handoff`.**
+> ⚠️ **The break-glass box (§2.2) was replaced before shipping** by a `HOW TO PLAY [?]` key in the
+> screen's corner (owner, 2026-09-18) — see §8, which also records the lobby-card changes made then.
+> Originally implemented on `feature/hyper-roll-howto` (2026-09-17) — designed with the
 > owner on 2026-09-17 from five mockups per point in Claude Design
 > ([project](https://claude.ai/design/p/ea8f9d0f-a5fa-4355-891b-7a064bb5affe)); the owner chose **1a**
 > and **2a**. Extends [`hyper-roll.md`](hyper-roll.md) and
@@ -26,7 +29,7 @@
 | Guide order | `how-the-game-works`, `what-you-win`, `the-modes`, `orbit`, … | **`the-modes`**, `how-the-game-works`, **`hyper-roll`**, `what-you-win`, `orbit`, … |
 | Round tutorial | One rail, six steps, written for a race | **Two rails**: four race steps and five Hyper Roll steps |
 | Hyper Roll art | None | Four crops of the live cabinet in `assets/guide/` |
-| Help from the game screen | None | A **break-glass box** on the console apron |
+| Help from the game screen | None | A **`HOW TO PLAY [?]` key** in the screen's bottom-right corner (§8.1; replaced the break-glass box) |
 | Practice round | Always a 6-letter race | `?mode=hyper-roll` runs a **solo board round** |
 | Practice engine | `usePracticeGame` | `usePracticeGame` (race) + **`usePracticeHyperRoll`** |
 
@@ -63,7 +66,11 @@ you are in: it is the only account there is") and in `WHAT YOU WIN` → `GETTING
 `GuideTip` moved to the Hyper Roll section, which keeps it the single consumer of
 `.arcade-frame--black` (`GuideTip`'s own rule: at most one per section, and the page has exactly one).
 
-### 2.2 Mockup 2a — break the glass, on the apron the console already has
+### 2.2 Mockup 2a — break the glass, on the apron the console already has (⚰️ REPLACED, see §8.1)
+
+> ⚰️ **Superseded 2026-09-18, before shipping.** The owner removed the box entirely and asked for the
+> help affordance to sit in a corner of the display instead. Kept below as the record of what was
+> built and why; none of it ships. The glass assets were deleted.
 
 Chosen over centred (2b), right (2c) and the broken-state variant (2d); 2e measured the band.
 
@@ -191,23 +198,13 @@ Every picture ships as a real file; nothing in the mockups was a sketch.
 | `assets/guide/hyper-roll-keys.png` | The keypad plate, tier colours and all |
 | `assets/guide/hyper-roll-visor.png` | The stake plate: visor, chips and MAX |
 | `assets/guide/hyper-roll-lever.png` | The lever plate with its `REROLL` tag |
-| `assets/game/glass-box.png` | The alarm box, pane down (14 × 9 art-pixels, 140 × 90) |
-| `assets/game/glass-box-open.png` | Pane lifted, manual behind it |
-| `assets/game/glass-box-broken.png` | Shards in the frame |
-| `assets/game/label-break-glass.png` | `BREAK GLASS`, engraved |
 
 The four guide crops were cut from a screenshot of the running cabinet at 2× nearest-neighbour, so the
 pixel grid survives. **If the console art or the board layout changes, they have to be re-cut** — that
 is the price of teaching with the game's own screen rather than a drawing of it.
 
-The glass box is drawn on the **same 10px art-pixel grid** as `button*.png` and the stake keys, in the
-**MAX key's own red ramp** (`#ea323c` over `#891e2b` over `#571c27`, sampled from `key-max.png`) with
-`glass.png`'s pale cyan for the pane. ⚠️ An earlier note in this feature's history claimed the palette
-had no red and that one would have to be introduced. **That was wrong** — `key-max.png` has shipped
-one since the round-3 console.
-
-The engraving uses the flat 5× pixel type of `stake/label-*.png` (single colour, no shading), in the
-light plate colour `#92a1b9` so it reads on the darker apron.
+The glass-box art (`assets/game/glass-box*.png`, `label-break-glass.png`) was deleted with the box
+(§8.1).
 
 ---
 
@@ -215,7 +212,7 @@ light plate colour `#92a1b9` so it reads on the darker apron.
 
 The owner's rule for this card: **no litotes and no em dashes** in anything a player reads. Say what a
 thing does, not what it fails to do ("the house takes no cut", never "the house does not take much of a
-cut"). It applies to both guide sections, Edson's Hyper Roll script and the break-glass label. The
+cut"). It applies to both guide sections and Edson's Hyper Roll script. The
 older guide rules still bind: never "animal", never a numeric choice cap, and **the word is "word"**.
 
 No RTP figure is written into the Hyper Roll section. It has moved three times in two weeks (decisions
@@ -236,7 +233,8 @@ catalogue.
 | `components/guide/sections/GuideHyperRoll.vue` | **New** — 5 steps plus the page's tip |
 | `components/guide/sections/GuideTheModes.vue` | Leads the page now, so it introduces Edson and the two kinds of table |
 | `pages/HowToPlayPage.vue` | Stale "six sections" comment |
-| `components/game/GameConsole.vue` | The break-glass box, its label, its CSS, and the chips wiring |
+| `components/game/GameConsole.vue` | The chips wiring (the break-glass box was removed again, §8.1) |
+| `components/game/GameTerminal.vue` | The `HOW TO PLAY [?]` key (§8.1) |
 | `components/game/HyperRollStakeChips.vue` | Presentational: props in, events out |
 | `components/practice/PracticeConsole.vue` | A second face: stake visor, chips, eight live board keys, lever tag |
 | `components/practice/PracticeTerminal.vue` | The board table, the solo lines, the result, the win FX |
@@ -246,7 +244,7 @@ catalogue.
 | `hooks/usePracticeTutorial.ts` | Per-mode script, the `board-locked` boundary, the shorter demo |
 | `pages/PracticePage.vue` | Reads `?mode=` |
 | `routes.ts` | Documents the query and the new entry point |
-| `assets/guide/hyper-roll-*.png`, `assets/game/glass-box*.png`, `assets/game/label-break-glass.png` | **New** art |
+| `assets/guide/hyper-roll-*.png` | **New** art |
 
 **`monkify-meta`**: this spec, plus the INDEX row.
 
@@ -254,10 +252,65 @@ catalogue.
 
 ## 7. Open questions for the owner
 
-1. **Does the glass stay broken?** Today it does not: the box resets with the cabinet on the next
-   visit. Remembering the break for the session is more fun and needs somewhere to keep it.
-2. **Mobile has no break-glass.** The phone cabinet crops the apron away, so the affordance would have
-   to be something other than a box on the plate (a row in the ☰ menu already reaches the guide).
-   Left out rather than invented.
-3. **Should the race practice round keep its own entry from the race consoles?** It does today: the
-   box is on every desktop console, and a race table's box links to the race round it always ran.
+All three were about the break-glass box and were closed when it was replaced (§8.1): nothing breaks
+any more, the key shows on the phone too, and a race table's key still opens the race practice round.
+
+---
+
+## 8. Owner changes before shipping (2026-09-18)
+
+Made on `feature/hyper-roll-handoff` and shipped with it. Front only, except the catalogue copy in §8.4.
+
+### 8.1 `HOW TO PLAY [?]` replaces the break-glass box
+
+`GameTerminal.vue`. A green `HOW TO PLAY` label beside a `[?]` key (`--color-phosphor`, the terminal's
+own green), pinned to the **screen's** bottom-right corner. On desktop the terminal container IS
+`bg.png` (1300 × 1320), whose black screen runs x 70–1219, y 90–809, so the key sits at
+`right: calc(6.15% + 18px)`, `bottom: calc(38.64% + 16px)`; on the phone the container is the screen,
+so `10px` from its corner. A click plays the button sound and routes to
+`/game/practice?mode=<hyper-roll|race>` (a SHAPE, never a gameTypeId), with no break animation.
+
+Shown only while **the round is taking bets** (`status === WaitingBets`, or no instance yet) **and the
+player has no bet in it** (`iHaveBetThisRound`, or any bet on a Hyper Roll board, which is one
+player's). So it vanishes on a bet and when the round starts, and returns with the next round. Never
+when embedded (`main.ts` redirects `/game/practice` out of a frame). Unlike the box it shows on every
+face, phone included.
+
+### 8.2 The Hyper Roll lobby card
+
+- **Own archetype.** `utils/gameArt.ts` gains `'hyper-roll'` (`isHouseEdge`), so it no longer borrows
+  Beast Mode's art and cyan accent. Art: `assets/types/hyperroll.gif` + a first-frame
+  `hyperroll-poster.png` (640 × 640, transparent, art only from row 160).
+- **Fit `zoom-bottom`**: `height: 150%`, `bottom: -12.5%` — pushes the empty top quarter out of the
+  frame so Edson's hair meets the top edge; only the bottom ~8% (torso) is cropped. Also used by the
+  guide's mode card.
+- **Accent pair** `--color-hyper: #2f86ff` / `--color-hyper-alt: #c24dff` (`colors.css`, tailwind
+  `hyper` / `hyper-alt`) — the cabinet's blue and purple, which are also the blue and purple
+  multiplier tiers. Name in blue; bevel and hover run blue → purple; a faint (9% / 7%) blue → purple
+  tint behind the transparent sprite. The guide's MULTIPLIER card uses `text-hyper` too.
+- **Mode badges**, top-right of the art, Hyper Roll only: `1P · VS HOUSE` and `4X–10X`, in the same
+  HUD plate as the TICKET/FROM chips (black scrim, hairline border, VT323); only the text is coloured
+  (lightened tints of the accent pair). A plain `X`, because VT323 draws `×` raised. The range is a
+  constant — `ActiveGame` carries no ladder — so keep it in step with the word-length ladder.
+- **Tag** is now `PICK 1 OF 8 · SET YOUR STAKE` (the 10× moved onto the badge).
+
+### 8.3 Which games show, and in what order
+
+`utils/gameCatalogue.ts → shownGameTypes()`, used by the lobby picker (`GameTypes.vue`) and the guide's
+mode cards (`GuideModeCards.vue`). **Gated types (`comingSoon`) are hidden** — today that is only Beast
+Mode — instead of rendering a COMING SOON card; front only, so the backend flag still brings a type
+back. **Hyper Roll (`isHouseEdge`) always goes last**; everything else keeps the catalogue's order
+(stable sort). Result: Cosmic Sprint → Space Jackpot → Hyper Roll.
+
+### 8.4 Catalogue description (backend copy)
+
+`spacestrokersettings.json`: `"Pick a word, set your stake - land it and the house pays up to 10x."`
+— two lines on the card, like the others. ⚠️ **The seeder never patches an existing row's
+`Description`**, so a database that already holds a Hyper Roll row keeps the old three-line text until
+it is updated by hand (and the `ActiveParameters:v2` Redis key is dropped or expires).
+
+### 8.5 Bet rockets fit their word
+
+`TorpedoSpawner.vue`. The bettor's word is boxed to the torpedo's fuselage (x 105–360 of the 590 × 170
+sprite) and shrunk from 16px to fit; below 10px the rocket grows instead. A 10-letter word lands at
+~10.8px; a 20-character choice grows the rocket to ~149px tall.
