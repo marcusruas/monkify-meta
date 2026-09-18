@@ -386,7 +386,23 @@ three of them move real money.
   show the architecture" above. `Domain/` stays IO-free, which is precisely what makes the
   money-safety rules unit-testable without a fake sender or a filesystem.
 - **Secrets never reach output.** Nothing beyond public addresses may appear in console output,
-  receipts or a report; a keyed RPC URL is masked to host-only wherever it is logged.
+  receipts or a report; a keyed RPC URL is masked to host-only wherever it is logged. ⚠️ In
+  `spacestroker-deploy` this is why the stored-value comparison reads the payload to a **temp file**
+  (`gcloud secrets versions access --out-file`) instead of `--format="value(payload.data)"`, which
+  **decodes and prints** the value — that one flag would put every private key in the deploy log.
+- **Secret Manager bills per VERSION, so the deploy tool keeps exactly 2 per secret.** The
+  *"Secret version replica storage"* SKU charges per **enabled version per month** (first 6 free),
+  **not** per secret, and access operations are effectively free (10,000/month against ~1,800 used).
+  `SyncSecrets` therefore **skips the `versions add` entirely when the value has not changed** and
+  trims each secret to its newest **2** versions; `spacestroker-deploy prune-secrets` does the same
+  standalone, over the **live** `spacestroker-<envCode>-*` list rather than the keys in
+  `secrets.<env>.json`, so a key that drifted out of that file cannot keep billing unnoticed.
+  Retention is 2 rather than 1 because the second version is the only cloud-side rollback for a bad
+  value — `secrets.<env>.json` is git-ignored and lives on one workstation. Before this, 24 secrets
+  had grown to 692 versions of near-identical duplicates (R$118.77 in half a month); see
+  [`specs/secret-version-retention.md`](../specs/secret-version-retention.md). ⚠️ **Destroying a
+  version is irreversible** — the newest enabled version is never touched, ordering is numeric (a
+  text sort puts `"9"` above `"10"`), and destroys run oldest-first.
 
 <!-- TODO: confirm naming conventions, file/folder rules, error-message/resource usage, and add
      concrete examples. -->

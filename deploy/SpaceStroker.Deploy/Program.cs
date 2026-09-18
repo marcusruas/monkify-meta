@@ -6,6 +6,8 @@ using SpaceStroker.Deploy;
 //   spacestroker-deploy teardown [--purge]                workload only (keeps DNS zone + state bucket);
 //                                                         --purge (non-production) also wipes the persistent layer
 //   spacestroker-deploy validate                          print every derived GCP id and check its length cap
+//   spacestroker-deploy prune-secrets                     destroy Secret Manager versions past the newest 2
+//                                                         (IRREVERSIBLE — a destroyed payload is unrecoverable)
 // Options:
 //   --env <name>          environment (default: production) → secrets.<name>.json
 //   --purge               teardown only: ALSO destroy the DNS zone + state bucket (non-production)
@@ -43,6 +45,9 @@ try
             break;
         case "validate":
             deployer.ValidateNaming();
+            break;
+        case "prune-secrets":
+            deployer.PruneSecrets();
             break;
         default:
             CliOptions.PrintUsage();
@@ -99,8 +104,9 @@ file sealed class CliOptions
             }
         }
 
-        if (o.Command is not ("deploy" or "teardown" or "validate"))
-            throw new DeployException($"Unknown command '{o.Command}'. Use 'deploy', 'teardown' or 'validate'.");
+        if (o.Command is not ("deploy" or "teardown" or "validate" or "prune-secrets"))
+            throw new DeployException(
+                $"Unknown command '{o.Command}'. Use 'deploy', 'teardown', 'validate' or 'prune-secrets'.");
 
         if (o.Purge && o.Command != "teardown")
             throw new DeployException("--purge is only valid with the 'teardown' command.");
@@ -129,6 +135,13 @@ file sealed class CliOptions
                                                                               destroy the DNS zone + state
                                                                               bucket + sweep secrets
               spacestroker-deploy validate                        print every derived GCP id + its length cap
+              spacestroker-deploy prune-secrets                   destroy every Secret Manager version past
+                                                                   the newest 2 of each secret in this env.
+                                                                   IRREVERSIBLE: a destroyed version's
+                                                                   payload cannot be recovered. `deploy`
+                                                                   already does this for the secrets it
+                                                                   syncs; this also catches ones that
+                                                                   drifted out of secrets.<env>.json.
 
             Options:
               --env <name>        environment (default: production) → secrets.<name>.json
