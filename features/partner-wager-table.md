@@ -166,10 +166,31 @@ have **no** app-side rule — a deliberate gap, not an oversight to "fix" withou
 - `SpaceStroker.Tests/UnitTests/Api/RateLimitSettingsTests.cs` — the rule is in the pinned exact set.
 - `PassThroughCacheService` moved to `UnitTests/Shared/`.
 
-## Known gaps
+## The commission basis is uniform, on purpose (owner, 2026-09-21)
 
-- ⚠️ **Hyper Roll earns a partner the same 2% house cut as the pooled games**, though its real margin
-  comes from its RTP. The referral basis predates Hyper Roll; nobody has decided whether that is
-  intended. Undecided, not designed.
+⚠️ **Every game type pays a partner the same `turnover × 2% × SharePercentage`, including Hyper Roll** —
+raised when this feature shipped, and **decided: keep it.** Do not "fix" it as a bug.
+
+What the house actually keeps differs sharply by type, so the same formula lands differently:
+
+| | House really keeps | A 50% partner is paid | Partner's share of the real take |
+| --- | --- | --- | --- |
+| Cosmic Sprint / Space Jackpot, heads-up | ~1% of turnover (2% of the winner's profit above their own stake, `BetDomainService.CommissionForWinner`) | 1% of turnover | ~100% |
+| Same, six bets one winner | ~1.67% | 1% | ~60% |
+| **Hyper Roll** | **~8.16%** (100 − `RtpPercent` 91.84; `CalculateHouseEdgeReward` takes **no** commission — the edge is in the multipliers) | 1% | **~12%** |
+
+The pooled-game half was already known and accepted (`specs/house-edge-rework.md` §3.3); Hyper Roll was
+simply not covered there, because that spec is a day older than Hyper Roll's merge.
+
+⚠️ **Why it is not being changed:** earnings are recomputed **all-time from CURRENT config, never
+snapshotted**, so moving the basis re-prices every past bet — a partner already paid under today's rule
+can be pushed into a carried deficit. The standing ops rule applies (`referral-cash-out.md`): **do not
+re-rate a live partner — issue a new code.** The accepted consequence is that Hyper Roll traffic is
+worth less to a partner than it is to the house.
+
+If this is ever revisited, the number that decides it is production Hyper Roll turnover carrying a
+referral code — a hand-run query, not something an agent may run.
+
+## Known gaps
 - The player filter is a `LIKE '%fragment%'`, so it cannot use an index — bounded by the partner's own
   row count, and only reachable at 30 requests/min.
