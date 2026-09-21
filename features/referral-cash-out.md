@@ -53,8 +53,9 @@ code — the platform's first automated outbound payment to someone who is not a
 - ⚠️ **Exact match on the code, never `lower()`** — that is what keeps the partial referral index
   (`WHERE "ReferralCode" IS NOT NULL`) usable. Normalization happens once, at write time.
   ⚠️ That index is now **`IX_GameBets_ReferralCode_CreatedDate_Id`** — widened (and the single-column
-  one dropped) by the wager table, with `ReferralCode` still leading, so this aggregate is unaffected
-  and measurably slightly faster. See [`partner-wager-table.md`](partner-wager-table.md).
+  one dropped) by the partner table, and widened again to `INCLUDE (Amount, PlayerId)` by the player
+  roster, with `ReferralCode` still leading, so this aggregate is unaffected and measurably slightly
+  faster. See [`partner-player-roster.md`](partner-player-roster.md).
 - ⚠️ `SettlementCutoverUtc` must have its `DateTimeKind` normalized to UTC before it reaches the
   query: the configuration binder hands back `Local`, and Npgsql refuses a non-UTC value for a
   `timestamptz`, which 500s the whole statement.
@@ -112,10 +113,11 @@ code — the platform's first automated outbound payment to someone who is not a
 - `GET /referrals/me` returns totals and cash-out history only: no referred-wallet identity, no
   wallet count, no bet count. A partner with one referred player would otherwise learn exactly what
   that player wagered. ⚠️ **The STATEMENT still holds that line; the partner page no longer does.**
-  `GET /referrals/me/wagers` lists the referred bets themselves — an owner decision of 2026-09-18 with
-  that exact trade-off on the table. Wallets leave the server **truncated** (`7Xf4…9kQa`) and the
-  statement itself stays totals-only (it is cached). See
-  [`partner-wager-table.md`](partner-wager-table.md).
+  `GET /referrals/me/wagers` lists the referred PLAYERS themselves, one row each — an owner decision
+  of 2026-09-18 with that exact trade-off on the table. Wallets leave the server **truncated**
+  (`7Xf4…9kQa`) and the statement itself stays totals-only (it is cached). ⚠️ The partner's own
+  `PayoutWallet` is **not** one of those rows, matching the self-referral guard the earnings predicate
+  has always carried. See [`partner-player-roster.md`](partner-player-roster.md).
 - `/partner` is unlisted: not in the header menu (a 3×3 icon pad that cannot take a tenth cell), and
   in `EMBED_REDIRECT_ROUTES`, because a commercial balance inside a casino's iframe is the same leak
   that put Orbit in that set. `robots.txt` already covers it via the app host's blanket `Disallow: /`.
@@ -157,8 +159,9 @@ code — the platform's first automated outbound payment to someone who is not a
 
 ## Tests
 
-- `SpaceStroker.Tests.Integration/ReferralWagersFlowTests.cs` — the wager table's happy path, its
-  session-less refusal and its live rate limit ([`partner-wager-table.md`](partner-wager-table.md)).
+- `SpaceStroker.Tests.Integration/ReferralPlayersFlowTests.cs` — the player roster's happy path, its
+  session-less refusal, its live rate limit, and the partner's own bets staying out of it
+  ([`partner-player-roster.md`](partner-player-roster.md)).
 - `SpaceStroker.Tests.Integration/ReferralCashOutFlowTests.cs` — the mandatory happy path
   (nonce → session → statement → signed cash-out → `Paid`) plus the reversal path.
 - `SpaceStroker.Tests.Integration/ReferralPartnerTableFlowTests.cs` — seeding, the `Active` split,
