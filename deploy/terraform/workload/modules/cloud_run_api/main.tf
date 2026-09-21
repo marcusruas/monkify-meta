@@ -37,7 +37,15 @@ resource "google_cloud_run_v2_service" "api" {
           cpu    = var.cpu
           memory = var.memory
         }
-        cpu_idle = true
+        # Instance-based billing (CPU always allocated). The API is NOT an idle service: the
+        # SignalR terminal stream keeps a request open, so Cloud Run reports the instance in the
+        # `active` state 92.6% of the time (7-day mean). Request-based billing charges active CPU
+        # at R$0.000140887/vCPU-s vs R$0.000105665 always-allocated, and the break-even is ~72%
+        # active — well below where this service runs, so `true` was paying the premium rate for
+        # a discount it never qualified for (~R$68/mo). Always-allocated is also strictly better
+        # for latency: no throttling of SignalR heartbeats or GC between requests.
+        # Revisit if sustained traffic ever drops the active fraction below ~72%.
+        cpu_idle = false
       }
 
       dynamic "env" {
