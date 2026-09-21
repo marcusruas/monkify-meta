@@ -34,7 +34,7 @@ variable "db_instance_suffix" {
 
 variable "db_tier" {
   type    = string
-  default = "db-custom-2-7680"
+  default = "db-custom-1-3840"
 }
 
 variable "db_availability_type" {

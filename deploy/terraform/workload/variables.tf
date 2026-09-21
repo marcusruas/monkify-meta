@@ -67,8 +67,16 @@ variable "db_instance_suffix" {
 }
 
 variable "db_tier" {
-  type    = string
-  default = "db-custom-2-7680"
+  type = string
+  # 1 vCPU / 3.75 GiB. The machine is ~98% of the Cloud SQL bill (vCPU + RAM are billed per
+  # hour whether or not anyone plays), so it is sized to the measured load, not to a guess:
+  # over 45 days prod averaged 6% CPU (peak 8.5%), 47 peak Postgres backends against
+  # max_connections = 200, and a 101 MB database on the 10 GiB disk. Resized 2026-09-21;
+  # db-custom-2-7680 cost ~R$589/mo, this is ~R$299/mo.
+  # NOTE: the deploy tool's EmitTfvars rewrites <env>.tfvars.json on every deploy and does NOT
+  # emit db_tier, so this default is the ONLY place the live tier is pinned — an override in
+  # production.tfvars.json would be clobbered on the next deploy.
+  default = "db-custom-1-3840"
 }
 
 variable "max_connections" {

@@ -19,7 +19,9 @@ consumer_count    = 1
 enable_deletion_protection = true
 # Bump when redeploying within ~7 days of destroying an instance (GCP reserves the name).
 db_instance_suffix = ""
-db_tier            = "db-custom-2-7680"
+# Sized to measured load (6% CPU, 47 peak backends, 101 MB DB); see variables.tf. The deploy
+# tool does not emit db_tier, so the live tier comes from the variables.tf default, not here.
+db_tier            = "db-custom-1-3840"
 max_connections    = 200
 db_app_user        = "spacestroker_app"
 db_app_password    = "REPLACE_ME_from_secrets_file"
