@@ -57,6 +57,11 @@ feature.
   referral program, #175) and points at the
   in-app STATS panel as the live figure, but **any rate change must still update
   `monkify-lp/src/pages/terms.astro`** (see `features/crypto-commission.md`).
+- **`/terms` carries a Hyper Roll clause** (2026-09-22, #183): the house cut applies to Cosmic Sprint and
+  Space Jackpot; Hyper Roll is played against the house, pays `stake × multiplier` up to 10× with no
+  house cut, and every word pays back **"currently 91.84%"**. ⚠️ That RTP is a second hardcoded number
+  that goes stale silently — an odds revision (`BoardLadder` / `RtpPercent`) must update
+  `terms.astro` too.
 - **`/terms` carries a numberless REFERRALS clause** (#175): we may compensate third parties for
   referring players, a referral link confers **no** player benefit or obligation and changes nothing
   about bets, odds, payouts or the house cut, and attribution is at our discretion. ⚠️ **No

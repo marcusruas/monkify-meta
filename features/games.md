@@ -89,12 +89,17 @@ ships — there is one catalogue and one deployment:
 | Name          | Charset | Len | Mode                                                                                 |
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
 | Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
-| Beast Mode    | Letters | 6   | Preset race (8 beasts: rabbit, monkey, jaguar, falcon, cougar, turtle, donkey, pigeon) — ⚠️ **`ComingSoon = true` since 2026-08-13: listed, not playable** (§19) |
+| Hyper Roll    | Letters | 10  | **Player-vs-house** (`IsHouseEdge`): solo round, pick 1 of 8 board words, free stake 0.002–0.1 SOL, paid `stake × multiplier` (4×–10×) from the treasury at a flat 91.84% RTP — see [`hyper-roll.md`](hyper-roll.md) |
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
-All: min 2 players, duplicates allowed, settled in the single configured asset — **native SOL** since
+⚠️ **Beast Mode is gone from `DefaultGames`** and was deactivated (`Active = false`) in prod on
+2026-09-18 by `deploy/sql/beast-mode-deactivation.sql`; Hyper Roll replaced it (#183). Its settled
+history stays reachable.
+
+All pooled types: min 2 players, duplicates allowed, settled in the single configured asset — **native SOL** since
 2026-08-20 (see [`sol-settlement.md`](sol-settlement.md)). Prices: **Cosmic Sprint 0.01** (re-priced
-from 0.02 on 2026-08-23), **Beast Mode 0.02**, **Space Jackpot 0.1**. ⚠️ Seeding is create-only by
+from 0.02 on 2026-08-23), **Space Jackpot 0.1**; Hyper Roll takes a **variable stake** (`RequiredAmount` = min 0.002, `MaximumStake`
+= max 0.1, both create-only — `deploy/sql/hyper-roll-min-stake.sql` moved the floor from 0.01). ⚠️ Seeding is create-only by
 name and there is **no `RequiredAmount` self-heal**, so a re-price reaches a FRESH install only; an
 existing database needs a hand-run script — `deploy/sql/cosmic-sprint-reprice.sql` for the
 2026-08-23 price, `deploy/sql/sol-settlement-cutover.sql` for the original SOL cutover. ⚠️ The DB
@@ -363,7 +368,7 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 different signature → refund (`DuplicateBetRefundedError`).
 - **Per-round bet limits** (paid, identified bets only — gate `!isFreeBet && PlayerId != null`),
 checked right after the duplicate check:
-  - **One bet per player per round in preset types** (non-empty `PresetChoices`, e.g. *Beast Mode*):
+  - **One bet per player per round in preset types** (non-empty `PresetChoices` — the legacy pari-mutuel preset path, `IsHouseEdge = false`, which only the test catalogues and the admin portal still create; a **house-edge** round (Hyper Roll) goes further and accepts exactly **one bet per round**, see [`hyper-roll.md`](hyper-roll.md)):
   a second bet is rejected whatever choice it picks → `OneBetPerPresetRound`. Free-text types are
   unaffected — choice exclusivity already stops two players sharing a sequence.
   - **No second bet while you are the round's only bettor** (every type): rejected with
@@ -464,7 +469,7 @@ Spec: [`../specs/choice-exclusivity.md`](../specs/choice-exclusivity.md).
 
 In **free-text** games (no `PresetChoices` — e.g. *Cosmic Sprint*) each typed sequence is **exclusive
 to the first player who bets it** in a round: a different player betting the same sequence is rejected
-and **auto-refunded** if they already paid on-chain. **Preset** games (e.g. *Beast Mode*) are
+and **auto-refunded** if they already paid on-chain. **Preset** games (the legacy pari-mutuel preset path) are
 unchanged — many players may share a preset choice. Because a free-text winning sequence maps to
 exactly one bet, free-text rounds are effectively **winner-takes-all**.
 
@@ -672,7 +677,10 @@ as a live `> N AWAY!` row docked at the bottom next to the `> POT:` line. Displa
 ## 19. Coming soon — published, not playable
 
 Spec: [`../specs/disable-beast-mode.md`](../specs/disable-beast-mode.md). Shipped 2026-08-13 with
-**Beast Mode** as the first (and today the only) gated type.
+**Beast Mode** as the first gated type. ⚠️ No seeded type is gated today: Beast Mode was later
+**deactivated outright** (`Active = false`, 2026-09-18) and replaced by Hyper Roll (#183), which also
+has its own softer gate — a **MAINTENANCE** badge driven by `GeneralSettings:Games:HouseEdgeEnabled`
+(the type stays clickable; only new bets are refused — see [`hyper-roll.md`](hyper-roll.md)).
 
 `GameParameters.ComingSoon` is **deactivation semantics without leaving the catalogue**: the type keeps
 its lobby card, its `/how-to-play` mode card and its whole settled history, but it accepts no bet and

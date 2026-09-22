@@ -167,7 +167,8 @@ running. Plus a module in the game cabinet and a resolved mobile-deeplink sign-i
 
 ### One eligible type ⇒ no dropdown
 
-With Beast Mode published as coming soon, exactly **one** eligible type is left (Cosmic Sprint —
+With Beast Mode gone and Hyper Roll `AllowOrbit: false` (a player-vs-house solo round has no place for
+an auto-bet), exactly **one** eligible type is left (Cosmic Sprint —
 Space Jackpot is `AllowOrbit: false`, because an auto-bet on a 24h draw would lock a player's funds for
 a day). A dropdown with one option is a control that cannot be used, so **`OrbitGameTab.vue` renders a
 read-only line** naming the game and its stake, plus *"More modes coming to Orbit soon."*, and

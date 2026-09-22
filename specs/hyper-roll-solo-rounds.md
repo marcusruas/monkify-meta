@@ -1,6 +1,8 @@
 # SpaceStroker — "Hyper Roll Solo Rounds" — Implementation Spec
 
-> **Status: Implemented on `feature/hyper-roll` (2026-09-17, not yet shipped)** — designed with the owner on 2026-09-16/17 (in-session brainstorm,
+> **Status: Shipped with Hyper Roll (#183)** — on `main` since 2026-09-18 (via `feature/hyper-roll-handoff`),
+> ship completed 2026-09-22; distilled into [`../features/hyper-roll.md`](../features/hyper-roll.md).
+> Originally implemented on `feature/hyper-roll` (2026-09-17) — designed with the owner on 2026-09-16/17 (in-session brainstorm,
 > after the decision-34 UI redesign). Extends [`hyper-roll.md`](hyper-roll.md) as its **decision 35**.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/hyper-roll` → `.worktrees/hyper-roll/<repo>` (the unshipped Hyper Roll

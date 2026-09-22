@@ -1,6 +1,13 @@
 # SpaceStroker — "Hyper Roll" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-09-22)** — code merged to `main` 2026-09-18 via `feature/hyper-roll-handoff` (live in
+> prod the same day); `monkify-lp` and the KB merged from `feature/hyper-roll` on 2026-09-22. Distilled into
+> [`../features/hyper-roll.md`](../features/hyper-roll.md) — this spec stays the design archive. The body
+> records every odds revision; **decision 37** (flat 91.84% RTP) and the solo rounds of
+> [`hyper-roll-solo-rounds.md`](hyper-roll-solo-rounds.md) (decision 35) are what runs. Min stake is now
+> **0.002 SOL** (`deploy/sql/hyper-roll-min-stake.sql`), not §3.1 S4's 0.01.
+>
+> Originally refined via Trello card
 > [Hyper roll game](https://trello.com/c/XtPzB6wZ/183-hyper-roll-game) (#183, refined 2026-09-14).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc (+ `deploy/sql/`) in
 > `monkify-meta`.

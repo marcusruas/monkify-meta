@@ -33,6 +33,10 @@ reproducible.
 - **Fallback winner** (character cap reached) is drawn from a dedicated
   `HMAC-SHA256(serverSeed, prefix + "|fallback")` label — reproducible regardless of how many characters
   streamed.
+- **Weighted fallback (house-edge types — Hyper Roll).** Natural matching is off, so the winner is
+  always the fallback, drawn by `WeightedFallbackIndex`: a uniform draw over the board's **published
+  integer weights** (32-bit rejection sampling on the same `|fallback` block). The weights ship in the
+  verification payload and are always read, never recomputed. See [`hyper-roll.md`](hyper-roll.md).
 - **Client seed + nonce (Stake-style).** Each player holds a persistent client seed (localStorage,
   rotatable in the header gear modal); each bet carries an incrementing `nonce` and sends
   `Bet.Seed = HMAC-SHA256(key = clientSeed, msg = String(nonce))`. ⚠️ **The raw `clientSeed` never leaves
@@ -139,7 +143,7 @@ no in-app replay on the history page**.
 
 | File | Role |
 | --- | --- |
-| `SpaceStroker.Domain/Games/Services/ProvablyFair.cs` | Keystream primitives (`GenerateServerSeed`, `HashServerSeed`, `BuildPrefix`, `Keystream`, `NextIndex`, `FallbackIndex`) |
+| `SpaceStroker.Domain/Games/Services/ProvablyFair.cs` | Keystream primitives (`GenerateServerSeed`, `HashServerSeed`, `BuildPrefix`, `Keystream`, `NextIndex`, `FallbackIndex`, `WeightedFallbackIndex` for house-edge boards) |
 | `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs` | Drives characters + fallback from the keystream |
 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | `EnsureServerSeedCommitted`; `UpdateGameStatus` writes `CharactersTypedCount` with `WinningChoice` |
 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/*` | Commit on first bet, persist `Nonce` |
