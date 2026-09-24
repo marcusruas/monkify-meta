@@ -84,8 +84,27 @@ Every round belongs to **one player** (solo rounds).
   is per game type. Completed rounds stay in the public feed and history. Per-type stats say
   "biggest win" rather than "biggest pot", and the lobby card has no live pill.
 - `MinimumNumberOfPlayers = 1`; the **house seed bet exits silently** for house-edge types (S13), because a
-  Warning every round would flood prod logs. **Orbit never** (`AllowOrbit = false`). Hyper Roll has no practice-mode
+  Warning every round would flood prod logs. **Orbit never auto-bets it** (`AllowOrbit = false`), but a
+  player can pay a manual Hyper Roll bet from their Orbit balance (see below). Hyper Roll has no practice-mode
   bet, but `/game/practice?mode=hyper-roll` runs a front-only demo (see `hyper-roll-howto.md`).
+
+### Manual Orbit-paid bets (#194)
+
+- A player can pay a Hyper Roll bet from their Orbit balance: the SPA opens the board as usual
+  (`POST /games/{typeId}/boards`, with the chosen mode) and sends the returned **round id** as `gameId`,
+  the board word and a variable stake to `POST /orbit/wagers`. The mode is the board's, so the
+  multipliers and RTP of AVERAGE / SUPER / HYPER apply unchanged.
+- The API pre-checks the stake bounds (`RequiredAmount ≤ stake ≤ MaximumStake`, 9 dp), the maintenance
+  switch, and board freshness: a board that is owned, already bet, or **expires within 10 s** is refused
+  before any money moves, because the asynchronous placement takes seconds.
+- The placement then runs `RegisterHouseEdgeBet` unchanged (coverage lock, solo-round validation, claim).
+  The Orbit claim is linked inside the coverage lock's transaction. A coverage refusal after the custody
+  transfer is returned on-chain to the Orbit account (case B), never credited ledger-only.
+- **Payout:** a winning Orbit-paid bet is credited `stake × multiplier` from the treasury to the **Orbit
+  account** (`CreditWin` + a `WinCredit` row). `AddHouseEdgePayout`'s wallet is only the display value on
+  the broadcast result.
+- `hyperRollBetInFlight` wraps the Orbit branch and its wallet fallback exactly as it wraps a wallet bet.
+  See [`orbit-wallet.md`](orbit-wallet.md).
 
 ### The draw
 

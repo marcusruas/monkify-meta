@@ -203,6 +203,41 @@ was never returned) and there was no way to force one.
   stateless `SpaceStroker.Api`.
 - **No schema change.** Both statuses already existed and `Bet.Signature` was already indexed.
 
+### Never refund what has not been verified
+
+Shipped as a production hotfix on 2026-09-23 (`main` 64383ee) and carried by `feature/orbit-wallet`
+([`../specs/orbit-wallet.md`](../specs/orbit-wallet.md) §6.5). Before it, anyone could post a fabricated,
+never-used signature with a large amount while self-excluded (or on a coming-soon type) and be "refunded"
+that amount from the treasury.
+
+- **The payment is validated before any refusal that refunds.** For a paid bet, `RegisterBetHandler` runs
+  `ValidatePayment()` first (the reuse guard plus on-chain validation: this signature, from this wallet,
+  to the treasury, for this amount), and only then self-exclusion → `ComingSoon` → the Orbit auto-play
+  block → `ValidateBetParameters`. An invalid payment ends with the existing validation failure and **no**
+  refund event. Free bets are not validated, and every free-bet refusal is reject-only. `FundedByOrbit`
+  bets skip only the on-chain half (the house made that transfer) and keep the reuse guard.
+- **A bet-less refund re-verifies the original payment on-chain and fails closed.**
+  `RefundInvalidBetConsumer.RefundWithoutBet` takes its `PaymentRefundClaim`, then re-runs
+  `ITokenSettlementService.ValidatePayment` on the detached bet (the event's signature, `message.Wallet` as
+  sender, the treasury as receiver, `message.Value`) before paying a **non-Orbit** refund. If it does not
+  verify, nothing is paid: the claim ends **`Failed`** (terminal, never retried) and `Log.Error` records
+  *"Bet-less refund refused: payment not verified"* with the signature and wallet. A human looks at it.
+- **Orbit refunds are custody → custody.** A `FundedByOrbit` refund goes through `RefundToOrbit`
+  (treasury → Orbit account + a `Refund` ledger row) and is not re-verified this way; the flag exists only
+  on the internal `RegisterBetRequest` and the event, never on the public request body.
+
+### Orbit stakes refused after they landed (case B)
+
+A manual or auto Orbit stake that reached the treasury and was then refused is **never** credited
+ledger-only. Its return is taken before it is published: `OrbitStakeClaimStore.TryClaimReturn` settles the
+Orbit claim and writes a `Requested` `PaymentRefundClaim` (`FundedByOrbit`) in one transaction, and only the
+caller that won publishes `RefundInvalidBetEvent(FundedByOrbit: true)`. `RefundToOrbit` then moves the
+lamports back to custody and credits the balance. `RegisterBetHandler`'s refusal path, the placer and the
+stake reconciler share this call, so a stake is returned at most once and never after a ledger credit. The
+reconciler republishes a taken return whose publish failed (between 2 minutes and 1 hour old). A stake that
+never left custody (case A) is credited ledger-only, exactly once. Full rules in
+[`orbit-wallet.md`](orbit-wallet.md).
+
 ---
 
 ## Key code touchpoints

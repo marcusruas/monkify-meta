@@ -1,6 +1,7 @@
 # SpaceStroker — "Orbit Wallet" (manual bets from the Orbit balance) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped — merged to main via feature/orbit-wallet on 2026-09-24.** Distilled in
+> [`../features/orbit-wallet.md`](../features/orbit-wallet.md). Refined via Trello card
 > [#194 Make orbit your wallet on the game.](https://trello.com/c/AXAtCEcN/194-make-orbit-your-wallet-on-the-game) (2026-09-23).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/orbit-wallet` → `.worktrees/orbit-wallet/<repo>`. Level: **`Feature`**.

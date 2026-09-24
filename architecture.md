@@ -224,6 +224,10 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   `PendingRefundSweepJob`, publishing a `RefundInvalidBetEvent` for every bet in `NeedsRefunding` so the
   refund consumer pays it back and clears it to `Refunded` (failures retry next run). See
   `features/refund-safeguards.md`.
+- **Orbit stake reconciliation:** every-minute recurring job `orbit-stake-reconciliation` runs
+  `OrbitStakeReconciliationJob` (`[DisableConcurrentExecution]`, no automatic retry, 45 s budget),
+  deciding Orbit placement claims left open by an in-doubt transfer against the chain. See §8c and
+  `features/orbit-wallet.md`.
 - **House-edge board cleanup:** recurring job `house-edge-board-cleanup` (every
   `GeneralSettings.Games.HouseEdgeBoardCleanupIntervalMinutes`, default 5) runs `HouseEdgeBoardCleanupJob`,
   deleting unbet Hyper Roll solo boards past `BoardExpiresAt` (30 min idle). House-edge rounds have no
@@ -320,9 +324,11 @@ The first place the platform holds player money rather than passing it straight 
 - Two new Hangfire jobs join the schedule (§7): an **hourly** cash-out sweep that re-drives stuck
   `Pending` rows and never touches `Executing` ones, and a **6-hourly** reconciliation that compares
   each player's ledger to their column and each pool's total to its on-chain balance, logging only.
-- Nine **public** `/orbit/*` endpoints (five here, the three Telegram routes #123 added, and
-  `GET /orbit/history` from #150), authorized by a stateless HMAC session for reads and a
-  fresh purpose-scoped wallet signature for anything that moves money.
+- Eleven **public** `/orbit/*` endpoints (five here, the three Telegram routes #123 added,
+  `GET /orbit/history` from #150, and `POST /orbit/wagers` + `GET /orbit/wagers/{requestId}` from #194),
+  authorized by a stateless HMAC session for reads and a fresh purpose-scoped wallet signature for
+  cash-outs. ⚠️ **Manual bets (`POST /orbit/wagers`) are the one money-moving call authorized by the
+  session alone** (#194 decision 2): the stake can only become a bet whose win returns to the same balance.
 - ⚠️ **The ledger's self-healing read takes one `REPEATABLE READ` snapshot** for both the ledger sum
   and the materialized column, and its correction is guarded on the column still holding the value it
   read. Two independent `READ COMMITTED` reads could straddle a commit and heal the column to a
@@ -362,6 +368,24 @@ What spends the custody above: the house bets on an enrolled player's behalf, on
   depending on who happened to be enrolled.
 - Wins and refunds on an Orbit-funded bet are routed to the **Orbit account**, never the player's
   personal wallet, each with its own ledger row. All of it runs in `SpaceStroker.Consumers`.
+
+### Manual Orbit wagers (#194, 2026-09-24)
+
+A second spender of the custody balance: the player, by hand, on any paid type. See
+`features/orbit-wallet.md`.
+
+- **API:** `POST /orbit/wagers` (session-only, rate-limited 30/min) runs cheap pre-checks, stores a
+  `Pending` result in Redis (`OrbitWager:{playerId}:{requestId}`, 15 min) and publishes
+  `PlaceManualOrbitBetEvent`. It never signs or debits. `GET /orbit/wagers/{requestId}` (120/min) reads the
+  result, with the ledger authoritative for `Placed`.
+- **Consumers:** `PlaceManualOrbitBetConsumer`, on **its own receive endpoint** so a burst of manual bets
+  never delays the auto engine. Both it and `PlaceOrbitBetConsumer` call the shared `OrbitStakePlacer`:
+  claim + debit (one transaction) → stamp signature + `LastValidBlockHeight` on the claim → house-signed
+  custody → treasury transfer (`TransferStakeWithMemo`, tri-state `NotSent` / `Confirmed` / `Unknown`) →
+  `RegisterBetHandler` with `FundedByOrbit` and the claim id, which links the claim inside the bet insert.
+- **`OrbitStakeReconciliationJob`** (Hangfire `orbit-stake-reconciliation`, every minute, no concurrent
+  runs, 45 s budget) decides claims left open by an unknown transfer outcome against the chain (primary
+  RPC, finalized only): ledger credit once, or an on-chain return to custody once.
 
 ## 8d. Telling the player: the Orbit notification channel and Telegram
 

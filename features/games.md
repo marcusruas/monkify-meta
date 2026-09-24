@@ -353,7 +353,8 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 
 1. `WrongChoiceLength` — empty, or length ≠ `ChoiceRequiredLength`.
 2. `UnacceptedDuplicateCharacters` — duplicates present when `AcceptDuplicatedCharacters == false`.
-3. `InvalidAmount` — paid: `bet.Amount != RequiredAmount`; free (`isFreeBet`): `bet.Amount != 0`.
+3. `InvalidAmount` — paid: fails `BetDomainService.PaidStakeIsValid` (`Amount == RequiredAmount`; for a
+   house-edge type `RequiredAmount ≤ Amount ≤ MaximumStake` at 9 dp); free (`isFreeBet`): `bet.Amount != 0`.
 4. `InvalidChoice` — presets exist and the choice isn't one of them.
 5. `InvalidCharacters` — choice contains characters outside `AllowedCharacters` (the alphabets are
    lowercase-only, so **uppercase letters**, **internal spaces**, and **symbols** all land here;
@@ -362,8 +363,23 @@ minus this bet's prior **`Refund`**-type `TransactionLog` amounts, rounded down;
 
 **Other guards in `RegisterBetHandler`:**
 
+- ⚠️ **Order: payment first.** For a paid bet, `ValidatePayment()` (reuse guard + on-chain validation) runs
+  **before** any refusal that refunds: then self-exclusion → `ComingSoon` → the Orbit auto-play block →
+  `ValidateBetParameters`. An unverified payment is never refunded. See [`money.md`](money.md) §2.
 - **Reused payment signature** → `PaymentSignatureHasBeenUsed`.
-- **On-chain payment invalid** (`ISolanaService.ValidateBetPayment`) → validation failure.
+- **On-chain payment invalid** (`ISolanaService.ValidateBetPayment`) → validation failure, no refund.
+- **Orbit auto-play block** (#194) — while the player's Orbit enrolment is `Enabled` on this game type,
+  every manual bet by that player on it is refused with *"Orbit is auto-playing this game — pause it to
+  bet manually."* (`OrbitAutoPlayActive`, a sanctioned clear message). A paid (already verified) stake is
+  refunded; a free bet is rejected with no refund. A **paused** enrolment does not block, and the engine's
+  own bets (`OrbitAutoPlaced`) are exempt. The same check (`OrbitAutoPlay.IsActive`) runs before any money
+  moves on the manual Orbit path. See [`orbit-wallet.md`](orbit-wallet.md).
+- **Claim-linked Orbit bets** (#194) — an Orbit-paid bet carries its placement claim id
+  (`RegisterBetRequest.OrbitClaimId`, internal, never bound from the body). The handler links the claim
+  **inside the bet insert's transaction** (`TryLinkBet`, conditional on the claim still being open with
+  this signature); if the stake reconciler already decided the claim, the insert rolls back and the bet is
+  refused `FailedToRegisterBet` with no refund event. A refused Orbit bet takes its return through
+  `TryClaimReturn` instead of publishing a plain refund. See [`orbit-wallet.md`](orbit-wallet.md).
 - **Duplicate bet** (same game+wallet+choice): same signature → `DuplicateBetError`;
 different signature → refund (`DuplicateBetRefundedError`).
 - **Per-round bet limits** (paid, identified bets only — gate `!isFreeBet && PlayerId != null`),
@@ -382,8 +398,8 @@ checked right after the duplicate check:
 - **Game not accepting bets / not found** → refund with the vague `GameNotValidForBets` (see
 `constraints.md` §6).
 - **Coming-soon type** (`Parameters.ComingSoon`) → the **same** vague `GameNotValidForBets`, checked
-  **with self-exclusion and ahead of payment validation**, so a transfer that already landed on-chain is
-  refunded rather than accepted. No `Bet` row, no `Debit` ledger row, no `BetPlacedEvent`. See §19.
+  **with self-exclusion, right after payment validation**, so a verified transfer that already landed
+  on-chain is refunded rather than accepted (an unverified one is never refunded). No `Bet` row, no `Debit` ledger row, no `BetPlacedEvent`. See §19.
 - Invalid bets refund via `RefundInvalidBetEvent` and surface a generic message + refund warning
   (**except free bets** — log only, no refund event; see `free-bet-mode.md`).
 
@@ -564,8 +580,9 @@ promise the landing page and the app's home card already print (see
 
 - **Where:** `JackpotRewardService`, called by `RewardGameConsumer` **after** the round's status is
   already settled.
-- **Who:** distinct wallets among the winners **credited in that pass**. Free bets and Orbit-funded
-  bets are excluded. Gated on `Parameters.LotteryParameters != null`, not on the type's name.
+- **Who:** distinct wallets among the winners **credited in that pass**. Free bets and Orbit
+  **auto-placed** bets (`OrbitAutoPlaced`) are excluded. A **manual** Orbit-paid winner (#194) gets the
+  bonus at their own wallet: $STROKE is never custodied. Gated on `Parameters.LotteryParameters != null`, not on the type's name.
 - ⚠️ **It cannot fail the round.** It runs last, inside a `try`/`catch`, and never touches a
   `GameStatus` or a `BetStatus`. `RewardForWinnersCompleted` is what the front reads to decide whether
   it may print a PAID line, so a failed promotional bonus flipping it would **hide a SOL payout that

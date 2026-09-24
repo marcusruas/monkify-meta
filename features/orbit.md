@@ -1,8 +1,12 @@
 # Domain — Orbit (custodial balance + auto-betting)
 
 > **What this covers.** Orbit is the platform's **first custody of real player money**: a house-held
-> balance a player funds with on-chain SOL deposits, out of which the house places **one real bet per
-> round** on their behalf, crediting winnings back and cashing out at a threshold they set.
+> balance a player funds with on-chain SOL deposits. It has **two spenders**: the **auto-bet engine**,
+> which places **one real bet per round** on the player's behalf and cashes out at a threshold they set,
+> and, since #194 (2026-09-24), **the player, by hand**: manual bets on any paid game, paid from the
+> balance with no per-bet signature. The SPA pays from Orbit first whenever it covers the stake. The
+> manual path is distilled in [`orbit-wallet.md`](orbit-wallet.md); this doc covers custody, the engine,
+> the stop rules and the surfaces.
 >
 > ⚠️ **Orbit is LIVE in production** (owner-confirmed 2026-09-02). It is still gated by
 > `VUE_APP_ORBIT_ENABLED` (`orbitEnabled`, fail-closed, build-time), but production builds now set
@@ -23,7 +27,8 @@
 > [`../specs/orbit-single-control.md`](../specs/orbit-single-control.md) ·
 > [`../specs/orbit-modal-improvements.md`](../specs/orbit-modal-improvements.md) ·
 > [`../specs/orbit-feedback-adjustments.md`](../specs/orbit-feedback-adjustments.md) ·
-> [`../specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md).
+> [`../specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md) ·
+> [`../specs/orbit-wallet.md`](../specs/orbit-wallet.md) (manual bets, #194).
 
 ---
 
@@ -58,6 +63,11 @@
   way to learn what is allowed. ⚠️ The **chips** on the field are derived from that published ladder,
   never hard-coded; the old literal `+10/+25/+50` survived a currency switch once and pinned a 5-SOL
   field to its ceiling on every tap.
+- **Depositing needs no enrolment** (#194). A player who never turned auto-bet on can fund Orbit and
+  spend it on manual bets; `CreditOrbitDepositHandler` no longer refuses with `OrbitNotEnabled`. A deposit
+  still never starts betting by itself: only an **Enabled** enrolment puts a player in front of the
+  planner, and the deposit re-plan finds no candidate without one. Self-excluded players are still
+  refused.
 - ⚠️ **The low-SOL guard is a SOLVENCY check, not a balance check.** With native settlement the stake
   and the gas are the same lamports, so player deposits sit in the very balance the guard reads: it
   requires `solBalance − Σ(the pool's owed player balances) ≥ MinimumSolBalance`. A flat floor would
@@ -96,9 +106,16 @@ human's.**
   is the one that protects money**, because a stale enrolment betting onto a type that refuses bets
   would land in a refund loop.
 - ⚠️ **`Bet.FundedByOrbit` exists solely because Orbit's custody account signs on behalf of a
-  DIFFERENT player's wallet**, which `SolanaService.ValidateBetPayment` would otherwise reject. It must
-  never be set on any other bet — see the house seed bet in [`games.md`](games.md) §14, where setting
-  it would discard a validation that genuinely passes **and** route a win into the custody account.
+  DIFFERENT player's wallet**, which `SolanaService.ValidateBetPayment` would otherwise reject. It is set
+  on **engine bets and manual Orbit-paid bets** (both are custody → treasury transfers) and must never be
+  set on any other bet — see the house seed bet in [`games.md`](games.md) §14, where setting it would
+  discard a validation that genuinely passes **and** route a win into the custody account.
+- ⚠️ **`Bet.OrbitAutoPlaced` means "the engine placed it"** (#194). `FundedByOrbit` now answers only
+  *where the money is* (skip on-chain validation, route the win or refund to custody). Every **auto**
+  reader uses `OrbitAutoPlaced`: the start gate, the planner's landed-bet count, the house-seed
+  viability count, the stop rules, the "Orbit won" toast, the $STROKE exclusion, `BetDto.ViaOrbit` and
+  the round-history "via Orbit" chip. The `AddOrbitManualBets` migration backfilled it `true` for every
+  earlier `FundedByOrbit` bet. See [`orbit-wallet.md`](orbit-wallet.md).
 - The engine is where the `BetDebit` / `WinCredit` / `Refund` ledger types are actually written.
 - ⚠️ **An engine-placed bet carries the player’s referral code** (#175) with no code in this path at
   all: the placement consumer sends an in-process `RegisterBetRequest`, and `RegisterBetHandler` stamps
@@ -126,7 +143,21 @@ testing read the flow as *"sign in → enable? → set up → then hit play (to 
 are their own thing. **The only cool-off left in Orbit is the rolling manual cash-out gap.**
 
 Also available: **partial cash-out**, a **cash-out floor**, a **stop-loss trigger**, and a per-player
-**bet log**.
+**bet log** that labels every bet **MANUAL** or **AUTO** (`OrbitBetLogDto.Source`, numeric `Auto = 1`,
+`Manual = 2`, from `Bet.OrbitAutoPlaced`).
+
+⚠️ **Threshold, floor and stop-loss apply to AUTO-bets only** (#194 decision 9). A manual Orbit-paid
+win or loss never triggers an automatic cash-out: `OrbitBetSettlementService.CreditWin` evaluates the
+threshold (and publishes the win notification) only for an `OrbitAutoPlaced` bet, and
+`RewardGameConsumer.EvaluateOrbitFloors` only looks at players with an auto bet in the round. Every
+place these settings appear says so (*"These rules only watch auto-bets…"*, *"AUTO CASHOUT — AUTO-BETS
+ONLY"*).
+
+⚠️ **An Enabled enrolment blocks manual play on that type.** While auto-bet is `Enabled` on a game type,
+every manual bet by that player on it, wallet **or** Orbit-paid, is refused with *"Orbit is
+auto-playing this game — pause it to bet manually."* (`OrbitAutoPlayActive`). A **paused** enrolment
+does not block. The game console disables the lever while the block holds. See
+[`orbit-wallet.md`](orbit-wallet.md).
 
 ⚠️ **The floor fires STRICTLY BELOW itself, never at it** (changed 2026-09-07; it was `<=`). At the
 floor is still playing. The old boundary made a floor set *equal to* the balance — deposit 0.05, stop
@@ -149,7 +180,8 @@ only showed up if they opened the modal, and money leaving custody, including fo
 never asked for, was **silent**.
 
 - A **private per-player realtime channel** on the existing `ActiveGamesHub` announcing every Orbit
-  win, wherever the player is in the app.
+  **auto-bet** win, wherever the player is in the app. A manual Orbit-paid win sends nothing there; it
+  gets the ordinary win toast, and the SPA re-reads the balance when the round settles.
 - **Telegram messages when money leaves custody** — every cash-out, linked with **no poller and no
   webhook**. Per-event toggles.
 - An honest **"paused" state** when Orbit stops betting for lack of funds.
@@ -165,16 +197,23 @@ It is now **two surfaces with one job each**: a compact **panel** for money move
 **`/orbit` page** that is the order you set Orbit up in and, once set up, the dashboard that says it is
 running. Plus a module in the game cabinet and a resolved mobile-deeplink sign-in.
 
+⚠️ **`/orbit` is wallet-first** (#194). The tabs are **WALLET** (the default; `?tab=money` still works as
+an alias) → **AUTO-BET** → **AUTO CASH-OUT** → RECOVER → TELEGRAM, and the pitch leads with *"your
+in-game wallet"*, with auto-bet as the optional extra. Depositing needs no game picked, and the panel no
+longer dims ADD MONEY until a word is saved. On the game screen the header pill that will pay the next
+bet is lit and the stake LCD takes its colour; the console itself carries no Orbit control (see
+[`orbit-wallet.md`](orbit-wallet.md)).
+
 ### One eligible type ⇒ no dropdown
 
 With Beast Mode gone and Hyper Roll `AllowOrbit: false` (a player-vs-house solo round has no place for
 an auto-bet), exactly **one** eligible type is left (Cosmic Sprint —
 Space Jackpot is `AllowOrbit: false`, because an auto-bet on a 24h draw would lock a player's funds for
 a day). A dropdown with one option is a control that cannot be used, so **`OrbitGameTab.vue` renders a
-read-only line** naming the game and its stake, plus *"More modes coming to Orbit soon."*, and
-**auto-commits it on mount** so the enrolment row is still created exactly as picking from the dropdown
-did (deposits need it to exist). ⚠️ Guard the auto-commit on the wallet **and** on the value actually
-differing, or every reload PATCHes. With **zero** eligible types the empty "Pick a game" select stays —
+read-only line** naming the game and its stake, plus *"More modes coming to Orbit soon."*, and an
+explicit **"Use Orbit auto-bet on Cosmic Sprint"** action that creates the enrolment. ⚠️ **It no longer
+auto-commits on mount** (#194): deposits do not need an enrolment any more, so creating one is a
+deliberate step rather than a side effect of opening the page. With **zero** eligible types the empty "Pick a game" select stays —
 that is a real condition, not a third state worth inventing.
 
 ⚠️ **`OrbitModal.vue` keeps its `<select>`** and must not be collapsed the same way: it is a
@@ -192,3 +231,7 @@ Orbit planning for the same round**), the cash-out job, and `SpaceStroker.Api/Co
 
 **Frontend (`monkify-front`)** — `src/pages/OrbitPage.vue`, the Orbit panel + cabinet module,
 `src/hooks/useOrbit.ts`, `src/services/orbitService.ts`, all behind `orbitEnabled`.
+
+**Manual Orbit bets** (`POST /orbit/wagers`, `PlaceManualOrbitBetConsumer`, the shared `OrbitStakePlacer`,
+`OrbitStakeReconciliationJob`, `useGame.nextBetSource`) are listed in
+[`orbit-wallet.md`](orbit-wallet.md).

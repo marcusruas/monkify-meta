@@ -330,8 +330,9 @@
   about — nothing in `monkify-backend` models a season.
 
 - **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
-  balance, funded by on-chain deposits, withdrawable on demand, and **auto-bet once per round**
-  on the game type the player chose. All three cards are done (custody + engine + notifications), so
+  balance, funded by on-chain deposits, withdrawable on demand, **auto-bet once per round**
+  on the game type the player chose, and (since #194, 2026-09-24) spendable **by hand** on any paid game
+  (see *manual Orbit wager*, `features/orbit-wallet.md`). All three cards are done (custody + engine + notifications), so
   shipped to `main` together as the `release/orbit` train on 2026-08-03; its player-facing surface was
   rebuilt by **#141** on 2026-08-06. See `features/orbit-custodial-wallet.md`,
   `features/orbit-auto-bet-engine.md`, `features/orbit-notifications.md` and
@@ -382,8 +383,23 @@
   on the `PlayerId` and never on the wallet: a wallet address is public on every bet list, so a
   wallet-keyed group would let anyone watch a stranger's wins and learn they use Orbit at all. Its
   payload carries the amount and the game type but **never a balance**.
+- **Manual Orbit wager** — a bet the player places by hand and pays from their Orbit balance
+  (`POST /orbit/wagers`, session-only, no per-bet signature; `PlaceManualOrbitBetConsumer`). Its `Bet` is
+  `FundedByOrbit = true`, `OrbitAutoPlaced = false`. Wins and refunds return to the Orbit balance; stop
+  rules, the "Orbit won" toast and the start gate ignore it. The outcome is polled by `requestId`
+  (numeric `Pending 1 / Placed 2 / Refused 3 / NotFound 4`). See `features/orbit-wallet.md`.
+- **`OrbitAutoPlaced`** — `Bet` flag: the Orbit **engine** placed this bet. Every auto-bet reader (start
+  gate, house-seed count, stop rules, win toast, $STROKE exclusion, `BetDto.ViaOrbit`) reads it, never
+  `FundedByOrbit`, which now only says the money is in custody.
+- **Orbit stake reconciler** — `OrbitStakeReconciliationJob` (Consumers, Hangfire
+  `orbit-stake-reconciliation`, every minute). It decides Orbit placement claims left `Open` by an
+  in-doubt transfer: never sent or failed/expired → ledger credit once; landed → on-chain return to
+  custody once; a bet carries it → link. Only a finalized chain answer decides.
 - **Orbit placement claim** — the `BetDebit` ledger row itself, made unique per `(pool, player,
-  round)` by `OrbitTransaction.GameId`. Written in the same transaction as the atomic debit and
+  round)` by `OrbitTransaction.GameId` for auto bets, and per request by `PlacementRequestId` for manual
+  wagers. Since #194 it has a `ClaimState` (`Open` / `Settled`) and carries the transfer's `Signature`
+  and `LastValidBlockHeight`, stamped **before** the send; every later decision on it is a conditional
+  update, and the bet that spends it links it inside its own insert transaction. Written in the same transaction as the atomic debit and
   **before** any transfer is signed, so a redelivered placement loses on `23505` having moved no
   money. Losing the claim is *not* a failure: someone else is placing that bet.
 - **Orbit start gate** — `Game.ExpectedOrbitBets` + `Game.OrbitGateExpiresAt`, which hold a round
@@ -391,7 +407,7 @@
   load-bearing** — if humans already meet `MinimumNumberOfPlayers`, nobody waits on a bot. A ceiling
   (45s), never a trap: a definitive placement failure decrements it and wakes the round immediately.
 - **Orbit-funded bet** — a `Bet` with `FundedByOrbit`, staked by the house out of the player's Orbit
-  balance. Indistinguishable from a human's to every other player, and it gets **no exemption** from
+  balance, either by the engine (`OrbitAutoPlaced`) or as a manual Orbit wager. Indistinguishable from a human's to every other player, and it gets **no exemption** from
   the per-round bet limits or choice exclusivity. Its win and its refund both go back to the Orbit
   account, never the personal wallet.
 - **Orbit pool** — the `(OrbitAccount, MintAddress)` pair a balance or ledger row belongs to. Rotating
