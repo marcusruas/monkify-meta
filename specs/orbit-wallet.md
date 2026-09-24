@@ -381,10 +381,12 @@ an open claim with no signature provably moved no money.
 
 **Claim state (new columns, same unshipped `AddOrbitManualBets` migration).** `OrbitTransaction.ClaimState`
 (`Open = 1`, `Settled = 2`, null on every other row and on claims written before this change) and
-`OrbitTransaction.LastValidBlockHeight` (`bigint`, nullable), plus a filtered index
+`OrbitTransaction.LastValidBlockHeight` (`bigint`, nullable), `OrbitTransaction.FirstSeenExpiredAt` (`timestamptz`,
+nullable: when the reconciler first saw the transfer expired), plus a filtered index
 `IX_OrbitTransactions_OpenClaims` on `CreatedDate` WHERE `"ClaimState" = 1`. The placer writes new claims as
 `Open`. Every decision about an open claim is a **conditional UPDATE** (`OrbitStakeClaimStore`): the stamp
-needs `Open`, no signature, no `BetId`; settling needs `Open`, no `BetId`. The case-A credit settles the claim
+needs `Open`, no signature, no `BetId`; settling and linking a bet need `Open`, no `BetId` (and, where the caller
+decided on a signature, that signature). The case-A credit settles the claim
 **inside the credit's transaction**, so the placer and the reconciler can each win it at most once, and a
 stake credited by the reconciler can never be stamped and sent by a slow placer afterwards. Legacy claims
 (null state) are never touched: whatever the code that wrote them decided still stands.
@@ -396,8 +398,10 @@ The GET ledger fallback already reads a `BetDebit` with no `BetId` and no `Refun
 **Reconciler — `OrbitStakeReconciliationJob`** (Consumers, Hangfire recurring `orbit-stake-reconciliation`,
 `Cron.Minutely()`, `[DisableConcurrentExecution]` with no automatic retry: a run that cannot take the lock is
 dropped and the next minute's run does the work). It reads open claims of the configured pool with no `BetId`,
-older than **2 minutes**, oldest first, in pages of 100, and walks **every** page on each run (keyset on
-`CreatedDate`), so a page of claims the chain cannot decide yet never starves the newer claims behind it.
+older than **2 minutes**, oldest first, in pages of 100, and walks the pages in order (keyset on `CreatedDate`),
+so a page of claims the chain cannot decide yet never starves the newer claims behind it. A run **stops taking
+new claims after 45 seconds** (`RunBudget`), so a run with a slow RPC can never outlive Hangfire's distributed
+lock; the claims it did not reach are the next run's.
 
 ⚠️ **Every decision is made from a snapshot, so every write re-checks the signature state it was decided on.**
 A slow placer can stamp its signature and send between the reconciler's read and its credit. The credit's
@@ -418,30 +422,58 @@ claim:
    with no fallback: "not found" credits the ledger, and a height from one node next to a status from another
    could call a landed stake expired. Only a **finalized** status decides.
    - **Landed**: the stake is in the treasury. Once the signature was stamped at least **5 minutes** ago
-     (so a registration still in flight is not refunded), publish
-     `RefundInvalidBetEvent(Guid.Empty, wallet, stake, reason, gameId, signature, FundedByOrbit: true)`,
-     which is the existing on-chain return to custody. Its `PaymentRefundClaim` dedupe makes it idempotent,
-     and `RefundToOrbit` credits the ledger when the money is back. Then settle. The reason is the per-round /
-     per-request compensation text, so the return also counts as the claim's compensation.
-   - **Failed** (finalized with an error, fees only) or **Expired** (not found, and the finalized height is
-     past `LastValidBlockHeight` **plus a safety margin of 150 blocks**, about a minute, so it can never land):
-     case A credit, exactly once. The margin (`SolanaService.StakeExpiryMarginBlocks`) was picked over "see it
-     expired on two runs" because it needs no extra state: a node that lags or disagrees right at the expiry edge
-     still answers Undetermined.
+     (so a registration still in flight is not refused needlessly), **take the return first, then publish**.
+     `TryClaimReturn` settles the claim (`Open`, no `BetId`, this signature) **and** writes the
+     `PaymentRefundClaim` (`Requested`, `FundedByOrbit`) in one transaction. Only if that won does it publish
+     `RefundInvalidBetEvent(Guid.Empty, wallet, stake, reason, gameId, signature, FundedByOrbit: true)`, which is
+     the existing on-chain return to custody; `RefundToOrbit` credits the ledger when the money is back. The reason
+     is the per-round / per-request compensation text, so the return also counts as the claim's compensation. If
+     the settle lost, the bet's link won (see "The bet and its claim are one transaction" below): nothing is
+     published, nothing is logged as landed, nothing is recorded as Refused. If a return was already requested for
+     the signature, the claim is settled and nothing is published.
+     Settle-then-publish was chosen over publish-then-settle: publishing first could return a stake whose bet
+     commits a moment later, because `RefundWithoutBet`'s "backs a persisted bet" guard is check-then-act. A crash
+     between the commit and the publish is recoverable instead: the `Requested` row is the marker (next step).
+   - **Failed** (finalized with an error, fees only): case A credit, exactly once.
+   - **Expired** (not found, and the finalized height is past `LastValidBlockHeight` **plus a safety margin of 150
+     blocks**, about a minute, so it can never land): **believed only on a second run.** The first run that sees it
+     records `FirstSeenExpiredAt` (conditional: `Open`, same signature) and decides nothing; a later run that sees
+     it expired again credits it (case A, exactly once). Both guards apply: the margin
+     (`SolanaService.StakeExpiryMarginBlocks`) keeps a node that lags at the edge answering Undetermined, and the
+     second sighting keeps one wrong "not found" from ever crediting a stake that landed.
    - **Undetermined** (RPC error, not yet finalized, or not found while the blockhash is still valid): skip it
      and retry next run.
 6. Manual claims: once resolved, record `Refused` with `FailedToRegisterBet`, or `Placed` for step 3. The store
    never downgrades a `Placed`.
 7. Any claim still unresolved **1 hour** after its creation is logged at `Error` on every run, for alerting.
+8. **Republish unpublished returns.** Every run first republishes the `RefundInvalidBetEvent` of each
+   `PaymentRefundClaim` that is `FundedByOrbit`, still `Requested`, between 2 minutes and 1 hour old, and whose
+   signature is on a `Settled` Orbit claim of the pool: a return that was taken but whose publish crashed or threw
+   (from the reconciler, the placer's case B or the handler's refusal). `RefundInvalidBetConsumer` moves
+   `Requested` → `Sending` exactly once, so a duplicate event moves no money. After an hour it is a human's (the
+   existing refund-failure alerts).
 
-**The placer's receipt never overwrites the reconciler.** After a registered bet, the placer links `BetId` with
-the same conditional update (`TryLinkBet`: `Open`, no `BetId`). If the reconciler already settled the claim, the
-link loses and is logged at `Error` ("was already settled by the stake reconciler"); the bet still rides.
+**The bet and its claim are one transaction.** ⚠️ `Confirmed` only means the RPC echoed our signature; the
+transfer can still be dropped. If the placer then stalls before registering, the reconciler can find the claim
+`Open`, see the transfer expired and credit it back (or see it landed and request its return). So the placer passes
+its claim id on `RegisterBetRequest.OrbitClaimId` (internal, `init`-only, never bound from the public body, like
+`FundedByOrbit`), and `RegisterBetHandler` links the claim **inside the bet insert's transaction**: a conditional
+`TryLinkBet` (`Open`, no `BetId`, `Signature` = the bet's signature). Pari-mutuel bets open their own transaction;
+house-edge bets join the coverage lock's. If the link matches no row, the insert is rolled back and the bet refused
+with `FailedToRegisterBet` and **no refund event**: whoever settled the claim owns the stake. Since every reconciler
+settle is conditional on the same row, **a stake can never both back a riding bet and be credited or returned**.
+The placer no longer links anything after registration; it only looks up the bet id for its result.
+
+A **refusal** of an Orbit bet that carries a claim takes the return the same way: `TryClaimReturn` (settle + the
+`Requested` refund row, one transaction), and only a win publishes. If the claim was already decided, the refusal
+answers the plain message and requests nothing. The placer's case B (a refusal that published nothing itself, or a
+registration that threw) uses the same call, so the handler, the placer and the reconciler can each take a stake's
+return at most once between them, and never after a ledger credit.
 
 **A landed stake whose on-chain return fails ends `Settled` and needs manual follow-up**, exactly as a case-B
-refund that fails today. The reconciler settles the claim once the `RefundInvalidBetEvent` is published; the
-return itself runs in `RefundInvalidBetConsumer`, so if that transfer fails, the ledger is not credited and the
-claim does not come back. Alert on these log lines:
+refund that fails today. The return is taken (claim settled, `Requested` row written) before the
+`RefundInvalidBetEvent` is published; the transfer itself runs in `RefundInvalidBetConsumer`, so if that transfer
+fails, the ledger is not credited and the claim does not come back. Alert on these log lines:
 
 | Level | Message (prefix) | Meaning |
 | --- | --- | --- |
@@ -449,8 +481,10 @@ claim does not come back. Alert on these log lines:
 | Error | `Orbit claim {ClaimId} has a signature but no last valid block height` | Cannot be decided automatically. |
 | Error | `Orbit claim {ClaimId} landed but has no player wallet or game` | A landed stake with nowhere to return it. |
 | Error | `Orbit stake reconciliation failed for claim` | One claim threw; retried next run. |
-| Error | `... was already settled by the stake reconciler; its bet ... was NOT linked` | A bet rides on a claim the reconciler settled. Check the bet against any on-chain return of that signature. |
+| Warning | `Orbit bet ... NOT registered: its claim was already decided by the stake reconciler` | The stalled-placer race was caught: the bet was rolled back and refused, the stake was credited or returned once by the reconciler. No action. A bet riding on a credited or returned stake is no longer possible (the link and every settle are conditional on the same claim row). |
 | Warning | `the in-doubt stake LANDED; requested its on-chain return` | Follow the refund to completion (the existing refund-failure alerts of `RefundInvalidBetConsumer` apply). |
+| Warning | `Republished the on-chain return of Orbit payment` | A taken return's publish had failed; it was sent again. Repeats for up to an hour mean the consumer is not taking it. |
+| Warning | `Orbit stake reconciliation stopped after ...: the run's time budget is spent` | Many claims or a slow RPC; the next run continues. Persistent means the RPC is degraded. |
 | Warning | `changed signature since it was judged unsent; NOT crediting` | The race above was caught. No action. |
 
 The reconciler also closes the earlier gap where a crash or throw after the claim committed skipped the
@@ -973,3 +1007,4 @@ real).
 | 2026-09-23 | Final-review fixes: **validate the payment before any refund** — the handler runs `ValidatePayment` before self-exclusion / `ComingSoon` / the auto-play block, and `RefundWithoutBet` re-verifies a non-Orbit payment on-chain before paying (claim `Failed` otherwise) (§6.5); the SPA re-reads the Orbit balance when a manual Orbit bet's round settles (§6.4, §7.4, §13 step 9); the wager `requestId` comes from a never-throwing `randomUuid` (§7.4); `Down()` is forward-only once manual bets exist (§4.4). |
 | 2026-09-23 | Owner decision: **check the chain before crediting** an in-doubt stake. New §6.3b: `TransferStakeWithMemo` signs locally and answers `NotSent` / `Confirmed` / `Unknown`; the signature and `LastValidBlockHeight` are stamped on the claim before the send; new `ClaimState` column (Open/Settled, conditional updates) and `LastValidBlockHeight` in the unshipped `AddOrbitManualBets` migration; placer outcome `InDoubt` (auto releases the gate, manual stays Pending); `OrbitStakeReconciliationJob` (every minute) credits unsigned / failed / expired claims once and returns landed stakes on-chain to custody. |
 | 2026-09-23 | §6.3b review fixes: every reconciler settle/credit is conditional on the signature state it decided on (`ExpectedSignature`: IS NULL for unsigned, = observed for signed), closing a snapshot-vs-late-stamp double pay; block height AND status read from the primary only, and Expired needs 150 blocks past `LastValidBlockHeight`; the job is `[DisableConcurrentExecution]` and walks every open claim in keyset pages; the placer's `BetId` link is conditional (`TryLinkBet`) and never overwrites a reconciler settle; documented the landed-return-fails manual follow-up and the alert log lines. No migration change. |
+| 2026-09-24 | §6.3b fix round 2: the claim → bet link moves **into the bet insert's transaction** (`RegisterBetRequest.OrbitClaimId`; `TryLinkBet` also requires the bet's signature; both `RegisterBet` and `RegisterHouseEdgeBet`), so a placer that stalls after a dropped "Confirmed" transfer can no longer register a bet on a stake the reconciler already credited or returned: the insert rolls back, the bet is refused, no refund event. Every Orbit on-chain return (reconciler Landed, placer case B, handler refusal) is **taken before it is published** (`TryClaimReturn`: settle + `Requested` `PaymentRefundClaim`, one transaction), and the reconciler republishes stale `Requested` rows of settled claims; a Landed claim whose bet link won publishes and logs nothing. Expired is only credited when **a second run** sees it again (new `FirstSeenExpiredAt` column, same unshipped `AddOrbitManualBets` migration, regenerated with the backfill kept). Runs stop taking claims after 45 s. |
