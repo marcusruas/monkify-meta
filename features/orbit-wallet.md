@@ -140,7 +140,8 @@ cannot also be played by hand.
 - **A landed stake whose on-chain return fails ends `Settled` and needs a human**, like any failed case-B
   refund (the existing `RefundInvalidBetConsumer` refund-failure alerts apply).
 
-<!-- MINORS: pending -->
+- **A refused Orbit bet is resolved by the chain, not returned on the spot.** When the handler or the placer refuses a bet whose stake transfer was only "Confirmed" (the RPC echoed the signature — not proof it landed), the claim stays Open with its signature and no bet. The manual wager reads Refused immediately (the handler's message) and the auto gate is released as before. The stake reconciler then checks the chain: a stake that landed goes back on-chain to custody once, after the 5-minute grace; one that failed, or was seen expired on two runs at least 30 s apart, is credited to the ledger once. Accepted cost: a refused stake reaches the Orbit balance after ~5-6 minutes instead of seconds. The reconciler records a manual Refused before publishing a landed return and never overwrites an existing Refused.
+- **An Orbit-funded bet request without its claim id is refused** (`FailedToRegisterBet`, `Log.Error`, no refund) — every legitimate Orbit-funded bet is claim-linked, so an unlinked one can only be a programming error.
 
 ### Alert log lines (set these up in Cloud Logging)
 
