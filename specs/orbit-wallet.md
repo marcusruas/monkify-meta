@@ -775,6 +775,20 @@ The Orbit pill (`OrbitLauncher.vue`) already shows the Orbit balance whenever
 take a `lit` prop from `GameHeader`, fed by `useGame().nextBetSource`; the shared `.btn-door.lit` rule lives
 in `arcade.css`.
 
+### 7.9 Out-of-funds signal (owner, 2026-09-24)
+
+The moment the Orbit balance **stops covering the current game's stake** — a transition where Orbit was
+covering it (or was the bet's source) and the server balance `orbit.value.balance` now reads below the
+stake, for the same wallet and game type — the header's Orbit pill flashes its `MoneyValue` digits red
+(the app's existing danger-red literal `oklch(0.8 0.16 25)`, no new token) for exactly **5s**, and a toast
+reads *"You've run out of Orbit funds. You can deposit more into Orbit or use your own wallet funds."*
+(~6s, click routes to `/orbit?tab=wallet`). `useGame.ts` registers a once-only watcher (alongside its other
+module-scope money watchers) that feeds `useOrbitOutOfFunds.ts`'s coverage state machine, keyed by
+`wallet:gameTypeId`; the race fallback (§7.4, `OrbitInsufficientBalance`) fires the same trigger, deduped
+against the watcher. Fires once per "ran out" episode, re-arms only once Orbit covers the stake again;
+never on first load, a wallet switch, leaving the game page, auto-play, or in embedded / free-bet mode
+(all behind `orbitEnabled`).
+
 ---
 
 ## 8. Flow diagrams
@@ -1043,3 +1057,4 @@ real).
 | 2026-09-23 | §6.3b review fixes: every reconciler settle/credit is conditional on the signature state it decided on (`ExpectedSignature`: IS NULL for unsigned, = observed for signed), closing a snapshot-vs-late-stamp double pay; block height AND status read from the primary only, and Expired needs 150 blocks past `LastValidBlockHeight`; the job is `[DisableConcurrentExecution]` and walks every open claim in keyset pages; the placer's `BetId` link is conditional (`TryLinkBet`) and never overwrites a reconciler settle; documented the landed-return-fails manual follow-up and the alert log lines. No migration change. |
 | 2026-09-24 | §6.3b fix round 2: the claim → bet link moves **into the bet insert's transaction** (`RegisterBetRequest.OrbitClaimId`; `TryLinkBet` also requires the bet's signature; both `RegisterBet` and `RegisterHouseEdgeBet`), so a placer that stalls after a dropped "Confirmed" transfer can no longer register a bet on a stake the reconciler already credited or returned: the insert rolls back, the bet is refused, no refund event. Every Orbit on-chain return (reconciler Landed, placer case B, handler refusal) is **taken before it is published** (`TryClaimReturn`: settle + `Requested` `PaymentRefundClaim`, one transaction), and the reconciler republishes stale `Requested` rows of settled claims; a Landed claim whose bet link won publishes and logs nothing. Expired is only credited when **a second run** sees it again (new `FirstSeenExpiredAt` column, same unshipped `AddOrbitManualBets` migration, regenerated with the backfill kept). Runs stop taking claims after 45 s. |
 | 2026-09-24 | owner: automatic Orbit-first source, no toggle. Decision 7 rewritten; the PAY FROM switch and `usePaySource` are removed (§7.2-7.4): `useGame.nextBetSource` picks Orbit when its server balance covers the stake, else the wallet; a lapsed session on a device that used Orbit before (`orbit.used.<wallet>` marker) is re-minted with one signature at bet time; an `OrbitInsufficientBalance` refusal retries the same bet from the wallet; the paying header pill is lit; the console has no Orbit copy (auto-play block prints on lever pull). §1 row, §7.5-7.8, §10.2, AC 1/5/10 and §13 steps 2-4/6/7/9 updated. |
+| 2026-09-24 | owner: out-of-funds signal. New §7.9 — when Orbit stops covering the current game's stake (or the race fallback's `OrbitInsufficientBalance` refusal), the header pill's balance digits flash the existing danger red for 5s and a toast ("You've run out of Orbit funds…") links to `/orbit?tab=wallet`; new `useOrbitOutOfFunds.ts`, fired once per episode via a `useGame.ts` watcher + the race fallback, deduped between the two. |
