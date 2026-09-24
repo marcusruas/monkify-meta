@@ -203,7 +203,7 @@ What the house actually keeps differs sharply by type, so the same formula lands
 | --- | --- | --- | --- |
 | Cosmic Sprint / Space Jackpot, heads-up | ~1% of turnover (2% of the winner's profit above their own stake, `BetDomainService.CommissionForWinner`) | 1% of turnover | ~100% |
 | Same, six bets one winner | ~1.67% | 1% | ~60% |
-| **Hyper Roll** | **~8.16%** (100 − `RtpPercent` 91.84; `CalculateHouseEdgeReward` takes **no** commission — the edge is in the multipliers) | 1% | **~12%** |
+| **Hyper Roll** | **~8.16–8.86%** (100 − the board mode's RTP: 91.84 HYPER, 91.50 AVERAGE, 91.14 SUPER; `CalculateHouseEdgeReward` takes **no** commission — the edge is in the multipliers) | 1% | **~12%** |
 
 The pooled-game half was already known and accepted (`specs/house-edge-rework.md` §3.3); Hyper Roll was
 simply not covered there, because that spec is a day older than Hyper Roll's merge.

@@ -60,8 +60,10 @@ feature.
 - **`/terms` carries a Hyper Roll clause** (2026-09-22, #183): the house cut applies to Cosmic Sprint and
   Space Jackpot; Hyper Roll is played against the house, pays `stake × multiplier` up to 10× with no
   house cut, and every word pays back **"currently 91.84%"**. ⚠️ That RTP is a second hardcoded number
-  that goes stale silently — an odds revision (`BoardLadder` / `RtpPercent`) must update
-  `terms.astro` too.
+  that goes stale silently — an odds revision (a `HouseEdge.Modes` ladder / RTP) must update
+  `terms.astro` too. ⚠️ **Stale since 2026-09-24:** Hyper Roll now has three board modes
+  ([`hyper-roll-modes.md`](hyper-roll-modes.md)) paying back 91.50% (AVERAGE), 91.14% (SUPER) and
+  91.84% (HYPER), and multipliers start at 3×; the clause still quotes the single 91.84% board.
 - **`/terms` carries a numberless REFERRALS clause** (#175): we may compensate third parties for
   referring players, a referral link confers **no** player benefit or obligation and changes nothing
   about bets, odds, payouts or the house cut, and attribution is at our discretion. ⚠️ **No

@@ -1,6 +1,11 @@
 # SpaceStroker — "Hyper Roll Game Modes" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged to `main` on **2026-09-24** via `feature/hyper-roll-modes` (backend, front,
+> meta); distilled in [`../features/hyper-roll-modes.md`](../features/hyper-roll-modes.md). ⚠️ Post-ship note: the
+> §8 rotary MODE DIAL was replaced before ship by three round **mode keys** + an LCD beside MIN / MAX
+> (owner feedback, card comment 2026-09-23); behaviour (lock after bet, reroll-in-place, per-browser memory) is as specified.
+>
+> Originally refined via Trello card
 > [Hyper Roll game modes (AVERAGE / SUPER / HYPER)](https://trello.com/c/Uyo3eq6g) (2026-09-22).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/hyper-roll-modes` → `.worktrees/hyper-roll-modes/<repo>`.

@@ -89,7 +89,7 @@ ships — there is one catalogue and one deployment:
 | Name          | Charset | Len | Mode                                                                                 |
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
 | Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
-| Hyper Roll    | Letters | 10  | **Player-vs-house** (`IsHouseEdge`): solo round, pick 1 of 8 board words, free stake 0.002–0.1 SOL, paid `stake × multiplier` (4×–10×) from the treasury at a flat 91.84% RTP — see [`hyper-roll.md`](hyper-roll.md) |
+| Hyper Roll    | Letters | 10  | **Player-vs-house** (`IsHouseEdge`): solo round, three board modes (AVERAGE 5 words / SUPER 6 / HYPER 8), pick 1 board word, free stake 0.002–0.1 SOL, paid `stake × multiplier` (3×–10×) from the treasury at a flat per-mode RTP (91.50 / 91.14 / 91.84%) — see [`hyper-roll.md`](hyper-roll.md) and [`hyper-roll-modes.md`](hyper-roll-modes.md) |
 | Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
 
 ⚠️ **Beast Mode is gone from `DefaultGames`** and was deactivated (`Active = false`) in prod on

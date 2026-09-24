@@ -115,7 +115,7 @@
   by `SpaceStroker.Consumers` at startup **create-only by name**: a type is inserted only when no row
   with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
   admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
-  (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18 — see `features/hyper-roll.md`) and **Space Jackpot**
+  (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER since 2026-09-24 — see `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
   (24h lottery). The exceptions to "never rewritten" are the **three single-field startup self-heals**:
   `AllowFreeBet = !IsProduction()`, `AllowOrbit` and `ComingSoon` from config. None of them touches
   `Active`, which is what preserves the resurrection guarantee.
