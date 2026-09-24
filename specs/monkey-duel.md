@@ -563,10 +563,25 @@ published by `RegisterBetHandler` after a **creator** bet commits on a `DuelKind
 Placing this bet is what claims the round (step 3 of §6.3 runs for it too, as the joiner), and its
 `BetPlacedEvent` is what starts the round.
 
-**Failure to place = the round stays `WaitingBets` with one bet on it, forever.** The creator's stake
-is not lost: it is refunded by the ordinary 12h `NeedsRefunding` sweep, or by the creator cancelling
-(§6.6 — a `House` round with no counterparty is cancellable on exactly the same terms as a PVP room).
-The SPA shows the vague "could not be started" and offers cancel.
+**Every give-up path above TERMINATES the round and refunds the creator**, by taking the same two
+steps the creator's own cancel takes (§6.6): the conditional UPDATE to `NotEnoughPlayersToStart` with
+an `EndDate`, then a `RefundInvalidBetEvent` for the creator's bet. A free round is terminated with
+no refund (it moved no money).
+
+⚠️ **Nothing else would return that stake.** `PendingRefundSweepJob` selects only
+`BetStatus.NeedsRefunding`, and the sole production writer of that status is
+`POST /admin/bets/refund` — unreachable in production; no automatic transition moves a `Made` bet to
+`NeedsRefunding`, and `GameService.CloseOngoingGames` filters `GameInProgressStatus` and never touches
+a `WaitingBets` round. There is no redelivery either: `BaseConsumer.Consume` catches every exception,
+so a throw is acked exactly like a silent return. A round left `WaitingBets` here would ALSO stay in
+`PendingHouseStakes` forever, subtracting its stake from HouseSeed headroom until `maxStake` clamps to
+0 for every player — and the creator often cannot self-rescue, because
+`GetActiveGameForParameter` returns only their **newest** duel round and a `House` round never appears
+on the public board. The SPA still shows the vague "could not be started".
+
+The ONE give-up that does not terminate is "the round has no bound `Stake` yet": the stake and the
+creator's bet row are written by the same transaction, so there is nothing staked and nothing to
+refund, and terminating could kill a round whose creator bet is still landing.
 
 ### 6.5 Coverage — `DuelHouseCoverage` + `IDuelHouseCoverageService`
 
