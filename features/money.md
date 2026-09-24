@@ -34,6 +34,10 @@
 > entity or migration change. Every figure below is the **current 2%** rate; the 0.5% figures live on in
 > [`../specs/crypto-commission.md`](../specs/crypto-commission.md) as the record of what that card shipped.
 
+> **Not on house-edge types.** Hyper Roll takes **no** commission — a winner is paid exactly
+> `stake × multiplier` from the treasury and the margin is the 91.84% RTP built into the board
+> (`CommissionPercentage` maps to 0). See [`hyper-roll.md`](hyper-roll.md).
+
 Space Stroker retains a small **house commission** on winnings instead of paying out the whole pot. The
 cut comes only from each winner's **profit above their own stake**, and is realized by crediting winners
 less on-chain — the retained amount simply stays in the house token account.

@@ -110,14 +110,14 @@ Source of truth: `monkify-backend` `SpaceStroker.Consumers/DefaultGameParameters
 | Card | Real type | Must say | Must never say |
 | --- | --- | --- | --- |
 | **Cosmic Sprint** | 6X Main Sprint | One **6-character alphanumeric** race (A–Z + 0–9); tag `6 CHARS · A–Z + 0–9` | "6 letters / 6 numbers" — there is no letters-only or numbers-only variant |
-| **Beast Mode** | 6X Main Derby | **Back 1 of 8** preset runners | The invented "rabbit / monkey / jaguar / falcon" set |
+| **Hyper Roll** | Hyper Roll (`IsHouseEdge`) | **Pick 1 of 8 words**, set your stake, the house pays the multiplier — **up to 10×**, no house cut | "Back a beast", a pot, or "first one spelled wins the pot" — Hyper Roll is player-vs-house (replaced Beast Mode 2026-09-22 on the LP) |
 | **Space Jackpot** | 6X Main Millions | Lottery drawn **once a day (24h)**; tag `DAILY DRAW · 24H` | "every 4h" — the 4h lotteries are DEV-only defaults, not Main |
 
 **Mode art:** each card has its own animated GIF with a static first-frame poster (poster at rest, GIF on
 hover/active, static under `prefers-reduced-motion`). Scene art carrying its own background (Cosmic
 Sprint, Space Jackpot) fills the square frame edge-to-edge via `object-cover` — Space Jackpot uses
-`object-top` so the character's head isn't cropped; the transparent Beast character stays contained and
-bottom-anchored. All three share one uniform square frame.
+`object-top` so the character's head isn't cropped; the transparent Beast character — which the Hyper Roll card
+reuses until it has its own art — stays contained and bottom-anchored. All three share one uniform square frame.
 
 ## Links (all real — no placeholders left)
 

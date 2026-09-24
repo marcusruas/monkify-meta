@@ -224,6 +224,11 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   `PendingRefundSweepJob`, publishing a `RefundInvalidBetEvent` for every bet in `NeedsRefunding` so the
   refund consumer pays it back and clears it to `Refunded` (failures retry next run). See
   `features/refund-safeguards.md`.
+- **House-edge board cleanup:** recurring job `house-edge-board-cleanup` (every
+  `GeneralSettings.Games.HouseEdgeBoardCleanupIntervalMinutes`, default 5) runs `HouseEdgeBoardCleanupJob`,
+  deleting unbet Hyper Roll solo boards past `BoardExpiresAt` (30 min idle). House-edge rounds have no
+  automatic rollover, so the next board is opened by the player (`POST /games/{gameTypeId}/boards`). See
+  `features/hyper-roll.md`.
 
 ## 8. Blockchain & payments
 
@@ -525,7 +530,9 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /games/active-types`, `GET /games/{id}`, `POST /games/{id}/bets`, `GET /players/nonce`,
   `GET /players/preferences`, `PATCH /players/preferences`, `POST /players/self-exclusion`,
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
-  `GET /games/{parametersId}/history`, `GET /games/{id}/verification`.
+  `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
+  `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}`, `POST /games/rounds/{roundId}/reroll`,
+  `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`).
 - **Player customization:** a **menu button** in `GameHeader.vue` holds **Settings** (opens
   `PlayerCustomizationModal.vue` — display name only), **Stats** (the Stats page), **Fair** (the
   fairness modal) and **History** (the Games History page); Stats + Fair are hidden when embedded.
