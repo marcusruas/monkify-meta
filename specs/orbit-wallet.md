@@ -113,7 +113,8 @@ File: `monkify-backend/src/SpaceStroker.Domain/Orbit/Entities/OrbitTransaction.c
 
 ```csharp
 /// The client idempotency key of a MANUAL bet placement. Null on every other row (deposits,
-/// cash-outs, auto BetDebits, credits). Set on the manual BetDebit claim row and on its compensation.
+/// cash-outs, auto BetDebits, credits). Set on the manual BetDebit claim row and on its case-A
+/// compensation Refund (§6.3). The case-B on-chain refund (RefundToOrbit) does not carry it.
 public Guid? PlacementRequestId { get; set; }
 ```
 
@@ -137,14 +138,25 @@ builder.Property(x => x.OrbitAutoPlaced).IsRequired().HasDefaultValue(false);
 builder.HasIndex(x => new { x.OrbitAccount, x.MintAddress, x.PlayerId, x.GameId })
        .IsUnique()
        .HasFilter("\"PlacementRequestId\" IS NULL");
-builder.HasIndex(x => x.PlacementRequestId)
+// The manual claim: one BetDebit (Type 4) per request.
+builder.HasIndex(x => x.PlacementRequestId, "IX_OrbitTransactions_PlacementRequestId_BetDebit")
        .IsUnique()
-       .HasFilter("\"PlacementRequestId\" IS NOT NULL");
+       .HasFilter("\"PlacementRequestId\" IS NOT NULL AND \"Type\" = 4");
+// The case-A make-whole: at most one Refund (Type 6) per request, so a concurrent or repeated
+// compensation loses on 23505 instead of crediting twice.
+builder.HasIndex(x => x.PlacementRequestId, "IX_OrbitTransactions_PlacementRequestId_Refund")
+       .IsUnique()
+       .HasFilter("\"PlacementRequestId\" IS NOT NULL AND \"Type\" = 6");
 ```
 
 ⚠️ The existing unique index becomes **filtered**. Postgres treats NULLs as distinct, so an unfiltered
 composite including `PlacementRequestId` would silently stop protecting the auto claim, and
 `PlaceOrbitBetConsumer`'s 23505 → `AlreadyClaimed` path depends on that protection.
+
+⚠️ `PlacementRequestId` has **two** filtered unique indexes, split by `Type`, because the manual
+case-A Refund row carries the same request id as the BetDebit it reverses. Both use the **named**
+`HasIndex` overload: EF keys an index by its property set, so two bare `HasIndex(x => x.PlacementRequestId)`
+calls would configure one index, and the second filter would silently replace the first.
 
 ### 4.4 Migration
 
@@ -162,8 +174,8 @@ The migration must:
    Orbit-funded bet before this card was engine-placed. Without the backfill, a round open at deploy
    holds its start gate one bet short, and historic auto wins would relabel as Manual.
 3. Add `OrbitTransactions.PlacementRequestId uuid NULL`.
-4. Drop and recreate the composite unique index with the filter, then create the filtered
-   `PlacementRequestId` unique index.
+4. Drop and recreate the composite unique index with the filter, then create the two filtered
+   `PlacementRequestId` unique indexes (BetDebit `Type = 4`, Refund `Type = 6`).
 
 Previous migration: `20260921202859_IncludePlayerIdInReferralCodeIndex`. Both index operations are on
 `OrbitTransactions` (small). The `GameBets` column add has a default and one `UPDATE` over `FundedByOrbit`
@@ -255,7 +267,13 @@ public class PlaceOrbitWagerRequestBody
     **`ErrorMessages.OrbitInsufficientBalance`** (new, clear).
 12. Record `Pending` for `RequestId` (§6.4), publish
     `PlaceManualOrbitBetEvent(RequestId, PlayerId, GameId, Choice, Amount, Seed, Nonce)`, and return
-    **202** `{ requestId, status: "Pending" }`.
+    **200** with the Pending result DTO `{ requestId, status: 1, betId: null, message: null }` (the
+    codebase's `ProcessRequest` pattern; `status` is **numeric**, like every other Orbit enum). If the
+    publish fails, overwrite the stored result with `Refused` (`FailedToRegisterBet`) and refuse the POST
+    with that copy (400). No claim exists, so no money moved.
+
+A retried POST with a `RequestId` that already has a stored result returns that result and publishes
+nothing (step 3, before self-exclusion).
 
 Everything in 4–11 is **re-checked** by the consumer (§6.2) or by `RegisterBetHandler` itself. The API
 pass exists so the common refusal costs no claim, no transfer and no gas.
@@ -281,7 +299,8 @@ Manual flow:
 3. **Claim + debit** in one DB transaction: insert `OrbitTransaction { Type = BetDebit, Amount = -Amount,
    GameId, PlacementRequestId = RequestId, Status = Completed }`, then `ledger.TryDebit(playerId,
    Amount)`. A 23505 on the `PlacementRequestId` index means the request was already claimed: return
-   without touching the result (redelivery). `TryDebit` false → rollback → `Refused`
+   without touching the result (a duplicate POST whose twin claimed first; `BaseConsumer` swallows
+   exceptions, so there is no redelivery). Step 1 is preceded by the claim look-up in §6.4. `TryDebit` false → rollback → `Refused`
    (`OrbitInsufficientBalance`).
 4. **Transfer:** `TransferTokensWithMemo(..., memo: $"orbit-manual:{requestId:N}")`. The memo is
    load-bearing: two identical custody → treasury transfers would otherwise share a signature, and the
@@ -332,14 +351,29 @@ report.
 The placement is asynchronous and many of its refusals happen before any ledger row exists, so the
 outcome is recorded explicitly:
 
-- Redis key `orbit-wager:{playerId}:{requestId}`, TTL **15 min**, value `{ status: Pending | Placed |
-  Refused, betId?, message? }`. Follow the existing `CacheHelper` settings pattern.
+- Redis key `OrbitWager:{playerId}:{requestId}`, TTL **15 min**, value `{ requestId, status, betId?,
+  message? }` with a **numeric** `status`: `Pending = 1`, `Placed = 2`, `Refused = 3`, `NotFound = 4`.
+  Follow the existing `CacheHelper` settings pattern.
 - The API writes `Pending` before publishing, and the consumer overwrites it with `Placed` / `Refused`.
-- `GetOrbitWagerHandler` returns the stored value. It is scoped by the session's player, so a request id
-  from another player reads as not found (vague). If the key is missing (expired or flushed), it falls
-  back to the ledger: a `BetDebit` with this `PlacementRequestId` and a `BetId` means `Placed`, a
-  compensated one means `Refused`, and anything else means `NotFound`. The SPA treats `NotFound` after a
-  timeout as "check your Orbit history".
+  **A stored `Placed` is final:** the store never overwrites it with `Pending` or `Refused`
+  (read-then-write, not atomic).
+- **Duplicate POSTs.** Two concurrent POSTs with one `requestId` can both publish. Before any re-check,
+  the consumer looks up the `BetDebit` carrying this `PlacementRequestId`: with a `BetId` it records
+  `Placed { betId }` and stops; without one, the other run owns the request, so it stops without touching
+  the store. Without this, the second run's pre-checks would see the first run's bet and record `Refused`
+  over a real `Placed`.
+- `GetOrbitWagerHandler` is scoped by the session's player, so a request id from another player reads as
+  not found (vague). **The ledger is authoritative for `Placed`:** a `BetDebit` with this
+  `PlacementRequestId` and a `BetId` returns `Placed`, whatever the store holds. This also closes the
+  store's residual read-then-write race. Otherwise it returns the stored value, and a stored `Pending` is
+  upgraded to `Refused` when the ledger shows a case-A compensation. If the key is missing (expired or
+  flushed), it falls back to the ledger: a stamped `BetDebit` means `Placed`, a `BetDebit` plus a `Refund`
+  carrying the id (case A) means `Refused`, an unstamped `BetDebit` with no such `Refund` means `Pending`,
+  and no `BetDebit` means `NotFound`. The SPA treats `NotFound` after a timeout as "check your Orbit
+  history".
+- **Accepted gap:** the case-B refund (`RefundToOrbit`, §6.3) does not carry the request id. After the
+  15-minute TTL, a case-B refusal therefore reads as `Pending` from the ledger. The stored `Refused`,
+  with the handler's copy, covers the first 15 minutes, and the Orbit history shows the refund.
 - `message` is the user-facing copy, and only ever an existing vague message or one of the two sanctioned
   clear ones.
 
@@ -422,7 +456,8 @@ ledger-only case-A compensations still carry no `BetId` and still never appear a
 ### 7.1 Types and service
 
 - `src/types/orbit.ts`: `OrbitWagerBody { requestId, gameId, choice, amount, seed, nonce }`,
-  `OrbitWagerStatus = 'Pending' | 'Placed' | 'Refused' | 'NotFound'`, `OrbitWagerResult { status, betId?,
+  `OrbitWagerStatus = 1 | 2 | 3 | 4` (Pending / Placed / Refused / NotFound, numeric on the wire),
+  `OrbitWagerResult { requestId, status, betId?,
   message? }`, `OrbitBetSource` (1 Auto / 2 Manual) plus `source` on `OrbitHistoryRow`.
 - `src/services/orbitService.ts`: `placeWager(body)` → `POST /orbit/wagers`, and `getWager(requestId)` →
   `GET /orbit/wagers/{id}`, both `withSession()`.
@@ -557,7 +592,7 @@ sequenceDiagram
   else ok
     API->>Redis: orbit-wager = Pending
     API->>Bus: PlaceManualOrbitBetEvent
-    API-->>SPA: 202 {requestId}
+    API-->>SPA: 200 {requestId, status: 1 (Pending)}
   end
   Bus->>C: PlaceManualOrbitBetEvent
   C->>C: re-checks + solvency guard
@@ -784,3 +819,4 @@ real).
 | Date | Change |
 | --- | --- |
 | 2026-09-23 | Initial spec from the refined card (#194) and same-chat refinement; code exploration added §6.3 (double-credit), the filtered claim index, `OrbitAutoPlaced`, the `/wagers` route (rate-limit test) and the `GameConsole` reversal note. |
+| 2026-09-23 | Matched to the Task 5 code after review: POST returns **200** with the Pending DTO (not 202), and `OrbitWagerStatus` is **numeric** on the wire (§6.1 step 12, §7.1, §8); a failed publish records `Refused`; the `PlacementRequestId` claim is **two** filtered unique indexes (BetDebit `Type = 4`, Refund `Type = 6`), and the manual case-A Refund carries the id (§4.2–§4.4); a stored `Placed` is never downgraded, the consumer checks the claim before re-checking, the ledger is authoritative for `Placed` on GET, and after the TTL a case-B refusal reads `Pending` from the ledger (accepted, §6.4). |
