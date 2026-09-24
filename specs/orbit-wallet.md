@@ -181,6 +181,12 @@ Previous migration: `20260921202859_IncludePlayerIdInReferralCodeIndex`. Both in
 `OrbitTransactions` (small). The `GameBets` column add has a default and one `UPDATE` over `FundedByOrbit`
 rows. Neither is a long lock.
 
+⚠️ **`Down()` only works before any player has two manual Orbit bets in one round.** It recreates the
+original **unfiltered** unique index on `(OrbitAccount, MintAddress, PlayerId, GameId)`; once a player holds two
+`OrbitTransactions` rows for one round (two manual `BetDebit`s — the second-bet rule allows it once someone else
+has bet — or a manual stake plus its case-A `Refund`), that `CreateIndex` fails on the duplicates. Rolling back
+after that point needs a hand-written data fix first; treat the migration as forward-only once manual bets exist.
+
 ---
 
 ## 5. Configuration
@@ -376,11 +382,38 @@ outcome is recorded explicitly:
   with the handler's copy, covers the first 15 minutes, and the Orbit history shows the refund.
 - `message` is the user-facing copy, and only ever an existing vague message or one of the two sanctioned
   clear ones.
+- **Settle refresh (front, final-review I1).** The only other post-settlement Orbit refresh is
+  `useOrbitNotifications.onWin`, and the backend sends that only for **auto** bets. So after a manual bet is
+  `Placed`, the SPA remembers that round (same wallet/round guards as the Placed arm) and re-reads the Orbit
+  balance when it finishes: once ~5s after `Ended`, and again (then forgets it) on `RewardForWinnersCompleted`
+  (`'win'`), `NotEnoughPlayersToStart` (`'refund'`) or `ErrorWhenProcessingRewards` (unattributed). The reads
+  are armed, and an armed read publishes only a same-signed delta, so a loss shows nothing and the repeated read
+  cannot double a chip (§7.4).
 
 ### 6.5 `RegisterBetHandler` — the auto-play block for wallet bets
 
-In `Handlers/Games/RegisterBet/RegisterBetHandler.cs`, after the `ComingSoon` check (L168-169) and
-**before** `ValidatePayment` (L174):
+> ⚠️ **Superseded ordering — validate the payment before ANY refund (final-review C1, 2026-09-23).** The
+> snippet below originally sat **before** `ValidatePayment`, next to self-exclusion and `ComingSoon`. That let
+> anyone post a fabricated, never-used signature with a large amount while self-excluded (or on a coming-soon /
+> auto-played type) and be "refunded" it from the treasury — `RefundWithoutBet` paid `message.Value` to
+> `message.Wallet` checking only claim/ledger idempotency, never that the payment existed. **Rule: never
+> refund what has not been verified.**
+>
+> 1. **Handler.** A paid bet runs `ValidatePayment()` (reuse guard + on-chain validation of this signature,
+>    from this wallet, to the treasury, for this amount) **first**, then self-exclusion → `ComingSoon` → the
+>    auto-play block → `ValidateBetParameters`. An invalid payment ends with the existing validation failure and
+>    **no** refund event. Free bets are not validated and every refusal stays reject-only. `FundedByOrbit`
+>    bets skip only the on-chain half (the house made that transfer) and keep the reuse guard.
+> 2. **`RefundInvalidBetConsumer.RefundWithoutBet` (defence in depth).** After taking the claim and before
+>    paying a **non-Orbit** bet-less refund, it re-runs `ITokenSettlementService.ValidatePayment` on the
+>    detached bet (signature, `message.Wallet` as sender, treasury as receiver, `message.Value`). If it does not
+>    verify, nothing is paid: the claim ends **`Failed`** (terminal, never retried) and `Log.Error` records
+>    "refund refused: payment not verified" with the signature and wallet. `FundedByOrbit` refunds
+>    (`RefundToOrbit`, custody → custody) are unchanged; the flag lives only on the internal
+>    `RegisterBetRequest` and the event, never on the public `RegisterBetRequestBody`.
+
+In `Handlers/Games/RegisterBet/RegisterBetHandler.cs`, after the `ComingSoon` check (and, per the note above,
+**after** `ValidatePayment`):
 
 ```csharp
 // Decision 4 (#194): a game type Orbit is auto-playing for this player cannot also be played by hand.
@@ -389,8 +422,8 @@ if (!_orbitAutoPlaced && playerId != null && await OrbitIsAutoPlaying(playerId.V
     return await RefundInvalidBet(ErrorMessages.OrbitAutoPlayActive);
 ```
 
-A paid wallet bet refused here has already moved money, so it takes the normal refund path (the SPA
-blocks it client-side first, §7.3). This is the only check the stale-SPA case relies on.
+A paid wallet bet refused here has already moved money — verified by `ValidatePayment` first — so it takes the
+normal refund path (the SPA blocks it client-side first, §7.3). This is the only check the stale-SPA case relies on.
 
 ### 6.6 Auto-only readers switch from `FundedByOrbit` to `OrbitAutoPlaced`
 
@@ -498,7 +531,8 @@ limits, Hyper Roll board re-read / `checkGameAvailability`):
 - **Skip** the wallet fee-headroom check (L992-1003) when `effectiveSource === 'orbit'`. No wallet gas is
   spent. Run the Orbit balance check instead.
 - Branch **before** any transfer building. For Orbit there is no `sendToken`, no deeplink and no popup:
-  1. `isLoadingBet = true` (the terminal shows `> PLACING BET…`), `requestId = crypto.randomUUID()`, and
+  1. `isLoadingBet = true` (the terminal shows `> PLACING BET…`), `requestId = randomUuid()` (`utils/uuid.ts`,
+     generated **inside** the `try` — `crypto.randomUUID()` throws in an insecure context), and
      the seed/nonce from `useClientSeed().nextBetSeed()`, as for a wallet bet.
   2. `orbitService.placeWager({...})`. A 4xx → `betOutput = message`, then `onBetFail()`.
   3. Poll `getWager(requestId)` every **1s**, up to **60s**:
@@ -515,6 +549,8 @@ limits, Hyper Roll board re-read / `checkGameAvailability`):
 - `maybeFireWinToast` (L500-510) excludes `viaOrbit`, which is now auto-only, so a manual Orbit win gets
   the ordinary win toast. That is correct: decision 11.
 - Hyper Roll: `hyperRollBetInFlight` wraps the Orbit branch exactly as it wraps the wallet branch.
+- **Settle refresh:** the `Placed` arm remembers the round; the round-outcome watcher re-reads the Orbit
+  balance when it finishes (§6.4, last bullet).
 
 ### 7.5 `/orbit` page — wallet first
 
@@ -799,6 +835,9 @@ real).
 6. Drain the balance below the stake → the lever is disabled with the deposit link.
 7. Reload → ORBIT is still selected. Log out of the Orbit session → selecting ORBIT prompts sign-in.
 8. The bet log shows MANUAL / AUTO rows.
+9. With auto-bet **off**, place a manual Orbit bet and win it → within ~5s of the round ending the Orbit
+   pill and PAY FROM rise by the win (with its chip), and the next bet is not blocked as "balance short".
+   Repeat with a round that refunds (not enough players) → the stake comes back the same way.
 
 ---
 
@@ -820,3 +859,4 @@ real).
 | --- | --- |
 | 2026-09-23 | Initial spec from the refined card (#194) and same-chat refinement; code exploration added §6.3 (double-credit), the filtered claim index, `OrbitAutoPlaced`, the `/wagers` route (rate-limit test) and the `GameConsole` reversal note. |
 | 2026-09-23 | Matched to the Task 5 code after review: POST returns **200** with the Pending DTO (not 202), and `OrbitWagerStatus` is **numeric** on the wire (§6.1 step 12, §7.1, §8); a failed publish records `Refused`; the `PlacementRequestId` claim is **two** filtered unique indexes (BetDebit `Type = 4`, Refund `Type = 6`), and the manual case-A Refund carries the id (§4.2–§4.4); a stored `Placed` is never downgraded, the consumer checks the claim before re-checking, the ledger is authoritative for `Placed` on GET, and after the TTL a case-B refusal reads `Pending` from the ledger (accepted, §6.4). |
+| 2026-09-23 | Final-review fixes: **validate the payment before any refund** — the handler runs `ValidatePayment` before self-exclusion / `ComingSoon` / the auto-play block, and `RefundWithoutBet` re-verifies a non-Orbit payment on-chain before paying (claim `Failed` otherwise) (§6.5); the SPA re-reads the Orbit balance when a manual Orbit bet's round settles (§6.4, §7.4, §13 step 9); the wager `requestId` comes from a never-throwing `randomUuid` (§7.4); `Down()` is forward-only once manual bets exist (§4.4). |
