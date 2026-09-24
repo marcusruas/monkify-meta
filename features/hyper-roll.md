@@ -6,14 +6,20 @@
 > Code reached `main` in `monkify-backend`, `monkify-front` and `monkify-meta` on **2026-09-18** via
 > `feature/hyper-roll-handoff` (live in prod the same day); `monkify-lp` and this doc merged from
 > `feature/hyper-roll` on **2026-09-22**. Trello [#183](https://trello.com/c/XtPzB6wZ/183-hyper-roll-game).
+>
+> ⚠️ **Board modes (2026-09-24, #193):** the type now offers three boards — AVERAGE (5 words), SUPER (6)
+> and HYPER (8, the board described below). Ladders, the per-mode multiplier map, the 74-word pool,
+> `GameBoardModes`, `Game.BoardMode` and the mode keys are in [`hyper-roll-modes.md`](hyper-roll-modes.md);
+> where this doc says "the board" or "the ladder", read **the HYPER mode**.
 
 ## What it does
 
-Hyper Roll is a **player-vs-house** game that replaced Beast Mode. The player gets a board of **8 words**
-and picks one. They stake any amount of SOL between the type's minimum and maximum, and pull the lever.
+Hyper Roll is a **player-vs-house** game that replaced Beast Mode. The player gets a board of **5, 6 or 8
+words** (the AVERAGE / SUPER / HYPER mode they picked) and picks one. They stake any amount of SOL between the type's minimum and maximum, and pull the lever.
 Edson types as usual, then a **provably-fair weighted draw** picks the winning word. If it is the player's word, the
 **treasury pays `stake × that word's multiplier`** (4× to 10×). There is no pot, no split and no house cut:
-the house's margin is built into the odds, and every word pays back the same **91.84% RTP**.
+the house's margin is built into the odds, and every word on a board pays back that mode's RTP
+(**91.50 / 91.14 / 91.84%**).
 Every round belongs to **one player** (solo rounds).
 
 ## Core rules
@@ -23,7 +29,8 @@ Every round belongs to **one player** (solo rounds).
 - **Payout = `stake × multiplier`, no commission.** `CalculateHouseEdgeReward` skips the pot division and
   the house cut; `GameParametersDto.CommissionPercentage` is **0** for a house-edge type. The STATS badge
   reads **`91.84% RTP`** where the other types show `N% HOUSE CUT`.
-- **The board follows a fixed ladder of `multiplier:weight` slots** (`GameParameters.BoardLadder`):
+- **Each mode's board follows a fixed ladder of `length:multiplier:weight` slots** (`GameBoardModes.Ladder`;
+  `GameParameters.BoardLadder` is only a legacy HYPER mirror). The HYPER ladder, as multiplier:weight:
   `10:91837, 10:91837, 4:229591, 6:153061, 8:114796, 8:114796, 9:102041, 9:102041` (Σ = 1,000,000).
   A slot's chance is `weight ÷ 1,000,000`, so `10×` lands 9.18% of the time and `4×` lands 22.96%. Every slot returns
   91.836–91.837%, so `RtpPercent = 91.84` is **the** payback, not a ceiling, and the copy never says
@@ -45,14 +52,16 @@ Every round belongs to **one player** (solo rounds).
 ### The word pool and the board
 
 - The pool is the reworked **`PresetChoice`** table (`Multiplier`, `Active`), seeded from
-  `DefaultGames[Hyper Roll].HouseEdge.Words`. It has **54 lowercase words** where **length sets the
-  multiplier**: 6 letters → 4×, 7 → 6×, 8 → 8×, 9 → 9×, 10 → 10× (10/10/16/9/9 words). A config-binding
-  unit test enforces the length rule on the shipped pool. At runtime `Validate` only checks length within
-  6–10, charset and per-tier uniqueness.
+  `DefaultGames[Hyper Roll].HouseEdge.Words`. It has **74 lowercase words, lengths 4–10**
+  (10/10/10/10/16/9/9 words). **The ladder slot's length picks the word and the slot sets the
+  multiplier**, so the same word pays differently per mode; `PresetChoice.Multiplier` is a legacy HYPER
+  mirror (the table below is HYPER's map: 6 letters → 4×, 7 → 6×, 8 → 8×, 9 → 9×, 10 → 10×). A config-binding
+  unit test enforces the length rule on the shipped pool. At runtime `ValidateMode` checks length within
+  4–10, charset, uniqueness and that every mode's length tiers can be filled.
 - **`HouseEdgeReconciler` self-heals** the words, ladder, `RtpPercent` and `ChoiceRequiredLength` (10)
   on existing databases at Consumers startup. Odds revisions therefore ship as settings-only changes with no
   migration. Adding or removing a word takes a config change plus a Consumers redeploy; there is no admin CRUD.
-- **The board is 8 words drawn per ladder slot**, using ordinary randomness, with no repeated word inside a
+- **The board is one word drawn per ladder slot of the chosen mode**, using ordinary randomness, with no repeated word inside a
   board. It is persisted in **`GameBoardChoices`** (word, multiplier, **weight**). Only the winner draw is
   provably fair. Which word fills a slot never changes that slot's weight or EV, so the board draw has nothing
   to exploit.
@@ -121,8 +130,9 @@ Every round belongs to **one player** (solo rounds).
 
 - The console shows the 8 official key sprites recoloured into a rarity ladder: `4×` grey, `6×` green,
   `8×` blue, `9×` purple, `10×` **gold** with a sparkle. The terminal table is `KEY WORD MULT PAYS`, and the
-  header reads `YOU vs THE HOUSE` + stake. The stake plate has `−`/`+` keys, **`.01 / .02 / .05` chips that
-  set the stake** (not add to it) and a red MAX key. The stake field opens at the minimum.
+  header reads `YOU vs THE HOUSE` + stake. The stake plate has `−`/`+` keys (0.01 grid), **MIN / MAX** keys
+  and the three round **mode keys** (the old `.01 / .02 / .05` chips are gone — see
+  [`hyper-roll-modes.md`](hyper-roll-modes.md)). The stake field opens at the minimum.
 - `> POT:` and the near-miss `N AWAY!` row are **hidden**. `> PAID:` shows only the viewer's own payout.
   A win plays a banner scaled by multiplier (NICE WIN! → MAX HIT!), and a loss prints `NO WIN THIS ROUND.`
 - The bet flow checks bounds and the `+0.001 SOL` fee headroom, then `/availability`, then asks for the signature.
@@ -168,7 +178,7 @@ Every round belongs to **one player** (solo rounds).
   `HyperRollMisconfigurationTests`, `HyperRollBoardWeightGuardTests`.
 
 **Frontend (`monkify-front/src`)**
-- `components/game/GameConsole.vue`, `GameTerminal.vue`, `HyperRollStakeChips.vue`, `HyperRollWinFx.vue`,
+- `components/game/GameConsole.vue`, `GameTerminal.vue`, `HyperRollModeDial.vue`, `HyperRollWinFx.vue`,
   `GameStatsPanel.vue`, `GameFairPanel.vue`. `components/game-selection/GameTypeCard.vue`.
 - `hooks/useGame.ts` (board open/reroll/restore, availability pre-check, stake), `hooks/useLiveGames.ts`,
   `hooks/usePracticeHyperRoll.ts`.
