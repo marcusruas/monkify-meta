@@ -352,6 +352,84 @@ and add a case-B test (§11). If the existing test proves the double-credit cann
 auto's current behaviour and apply the rule to the manual path only. Record which in the implementation
 report.
 
+### 6.3b Unknown transfer outcomes — check the chain before crediting
+
+⚠️ **Finding.** `SolanaService.TransferTokensWithMemo` returned `null` both when the stake transfer was
+**never sent** and when it was **sent with an unknown outcome**: after the Polly retries and the one fallback
+attempt, a transaction the primary already forwarded can come back as "already processed", a timeout or an
+error. The placer read every `null` as case A and credited the ledger, so a stake that had actually landed in
+the treasury was paid back twice. Owner decision (2026-09-23): **check the chain before crediting.**
+
+**Tri-state transfer (Orbit stakes only).** `ISolanaService.TransferStakeWithMemo` is a sibling of
+`TransferTokensWithMemo`; every other caller keeps the old method. It builds and signs the transaction
+**locally** (same instructions, memo, native-SOL rent guard, SPL token-account lookup and Finalized preflight
+as the shipped transfer, through a shared `BuildSignedTransfer`), so the signature is known before anything is
+sent, and it answers:
+
+| Outcome | Meaning | Placer |
+| --- | --- | --- |
+| `NotSent` | Failed before submission: no blockhash, build/sign failure, zero amount, rent guard, no token account, or the pre-send stamp lost / threw. | Case A: ledger-only credit, exactly once → `TransferFailed`. |
+| `Confirmed(signature)` | The RPC answered with **our** signature. | As before: register, stamp `BetId`, case B on refusal → `Placed` / `RegistrationRefused`. |
+| `Unknown(signature, lastValidBlockHeight)` | A send was attempted and did not come back with our signature (failed everywhere, threw, or answered a different signature). | **No credit, no bet.** The claim stays `Open` with its signature → new outcome **`InDoubt`**; `Log.Warning` with ids only. |
+
+`lastValidBlockHeight` comes from the same `getLatestBlockhash` answer the transaction was signed with.
+
+**Stamp before send.** The transfer takes a `beforeSend(signature, lastValidBlockHeight)` callback and sends
+only if it returns true. The placer uses it to write `Signature` and `LastValidBlockHeight` onto its `BetDebit`
+claim (the signature column is already unique). **Nothing is ever sent without its signature on the claim**, so
+an open claim with no signature provably moved no money.
+
+**Claim state (new columns, same unshipped `AddOrbitManualBets` migration).** `OrbitTransaction.ClaimState`
+(`Open = 1`, `Settled = 2`, null on every other row and on claims written before this change) and
+`OrbitTransaction.LastValidBlockHeight` (`bigint`, nullable), plus a filtered index
+`IX_OrbitTransactions_OpenClaims` on `CreatedDate` WHERE `"ClaimState" = 1`. The placer writes new claims as
+`Open`. Every decision about an open claim is a **conditional UPDATE** (`OrbitStakeClaimStore`): the stamp
+needs `Open`, no signature, no `BetId`; settling needs `Open`, no `BetId`. The case-A credit settles the claim
+**inside the credit's transaction**, so the placer and the reconciler can each win it at most once, and a
+stake credited by the reconciler can never be stamped and sent by a slow placer afterwards. Legacy claims
+(null state) are never touched: whatever the code that wrote them decided still stands.
+
+**Consumers.** Auto (`PlaceOrbitBetConsumer`) handles `InDoubt` exactly like `TransferFailed`: the gate is
+released so the round doesn't wait. Manual (`PlaceManualOrbitBetConsumer`) leaves the wager result `Pending`.
+The GET ledger fallback already reads a `BetDebit` with no `BetId` and no `Refund` as `Pending`.
+
+**Reconciler — `OrbitStakeReconciliationJob`** (Consumers, Hangfire recurring `orbit-stake-reconciliation`,
+`Cron.Minutely()`). It reads open claims of the configured pool with no `BetId`, older than **2 minutes**, at
+most 100 per run, oldest first. For each claim:
+
+1. **Already compensated** (a `Refund` carrying the `PlacementRequestId` for manual claims, or the per-round
+   reason `Orbit stake for game {id} was not placed.` for auto claims): settle it and credit nothing.
+2. **No signature**: it was never sent. Case A credit through `IOrbitStakePlacer.ReturnUnsentStake`, exactly
+   once.
+3. **A bet carries the signature**: only the stamp was lost. Link `BetId` and settle; no money moves.
+4. **A `PaymentRefundClaim` exists for the signature**: the refund path owns it (case B). Settle it.
+5. Otherwise, **ask the chain** (`CheckStakeTransfer`): read the finalized block height first, then call
+   `getSignatureStatuses` with `searchTransactionHistory = true`. The status comes from the primary endpoint
+   only, because "not found" credits the ledger. Only a **finalized** status decides.
+   - **Landed**: the stake is in the treasury. Once the signature was stamped at least **5 minutes** ago
+     (so a registration still in flight is not refunded), publish
+     `RefundInvalidBetEvent(Guid.Empty, wallet, stake, reason, gameId, signature, FundedByOrbit: true)`,
+     which is the existing on-chain return to custody. Its `PaymentRefundClaim` dedupe makes it idempotent,
+     and `RefundToOrbit` credits the ledger when the money is back. Then settle. The reason is the per-round /
+     per-request compensation text, so the return also counts as the claim's compensation.
+   - **Failed** (finalized with an error, fees only) or **Expired** (not found, and the finalized height is
+     past `LastValidBlockHeight`, so it can never land): case A credit, exactly once.
+   - **Undetermined** (RPC error, not yet finalized, or not found while the blockhash is still valid): skip it
+     and retry next run.
+6. Manual claims: once resolved, record `Refused` with `FailedToRegisterBet`, or `Placed` for step 3. The store
+   never downgrades a `Placed`.
+7. Any claim still unresolved **1 hour** after its creation is logged at `Error` on every run, for alerting.
+
+The reconciler also closes the earlier gap where a crash or throw after the claim committed skipped the
+make-whole forever: that claim is now an open claim like any other. It also covers a case-B refund whose
+publish threw, because the placer leaves that claim open and the reconciler re-requests the return once the
+chain shows the stake landed.
+
+Accepted: a plain preflight rejection on the first attempt is now `Unknown` rather than `NotSent`, because
+the retries hide which attempt failed. That player waits for expiry plus one reconciler run (a few minutes)
+instead of an immediate credit. After the result TTL, a landed-unknown manual wager reads `Pending` from the
+ledger, like a case-B refusal (§6.4).
+
 ### 6.4 Wager result store (`GET /orbit/wagers/{requestId}`)
 
 The placement is asynchronous and many of its refusals happen before any ledger row exists, so the
@@ -860,3 +938,4 @@ real).
 | 2026-09-23 | Initial spec from the refined card (#194) and same-chat refinement; code exploration added §6.3 (double-credit), the filtered claim index, `OrbitAutoPlaced`, the `/wagers` route (rate-limit test) and the `GameConsole` reversal note. |
 | 2026-09-23 | Matched to the Task 5 code after review: POST returns **200** with the Pending DTO (not 202), and `OrbitWagerStatus` is **numeric** on the wire (§6.1 step 12, §7.1, §8); a failed publish records `Refused`; the `PlacementRequestId` claim is **two** filtered unique indexes (BetDebit `Type = 4`, Refund `Type = 6`), and the manual case-A Refund carries the id (§4.2–§4.4); a stored `Placed` is never downgraded, the consumer checks the claim before re-checking, the ledger is authoritative for `Placed` on GET, and after the TTL a case-B refusal reads `Pending` from the ledger (accepted, §6.4). |
 | 2026-09-23 | Final-review fixes: **validate the payment before any refund** — the handler runs `ValidatePayment` before self-exclusion / `ComingSoon` / the auto-play block, and `RefundWithoutBet` re-verifies a non-Orbit payment on-chain before paying (claim `Failed` otherwise) (§6.5); the SPA re-reads the Orbit balance when a manual Orbit bet's round settles (§6.4, §7.4, §13 step 9); the wager `requestId` comes from a never-throwing `randomUuid` (§7.4); `Down()` is forward-only once manual bets exist (§4.4). |
+| 2026-09-23 | Owner decision: **check the chain before crediting** an in-doubt stake. New §6.3b: `TransferStakeWithMemo` signs locally and answers `NotSent` / `Confirmed` / `Unknown`; the signature and `LastValidBlockHeight` are stamped on the claim before the send; new `ClaimState` column (Open/Settled, conditional updates) and `LastValidBlockHeight` in the unshipped `AddOrbitManualBets` migration; placer outcome `InDoubt` (auto releases the gate, manual stays Pending); `OrbitStakeReconciliationJob` (every minute) credits unsigned / failed / expired claims once and returns landed stakes on-chain to custody. |
