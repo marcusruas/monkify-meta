@@ -25,7 +25,7 @@ with `FundedByOrbit`).
 | Who decides | Player | Engine, every round | Player |
 | Game types | All paid | `AllowOrbit` (Cosmic Sprint) | **All paid** (Cosmic Sprint, Space Jackpot, Hyper Roll) |
 | Authorisation | Wallet-signed transfer | Enrolment `Enabled` | **`X-Orbit-Session` only** — no per-bet signature |
-| Stake source | Player wallet | Orbit balance | Orbit balance |
+| Stake source | Player wallet | Orbit balance | Orbit balance — picked **automatically**: Orbit first when its server balance covers the stake, otherwise the wallet pays; **no toggle** (decision 7) |
 | Transfer | Player → treasury (SPA-built) | Orbit account → treasury (house-signed) | Orbit account → treasury (house-signed) |
 | Choice | Player | Enrolment word or derived | Player |
 | Stake | `RequiredAmount` / Hyper Roll variable | `RequiredAmount` | `RequiredAmount` / **Hyper Roll variable** |
@@ -79,7 +79,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 4 | **No manual + auto on the same game type.** While the enrolment is `Enabled` with `GameParametersId == type`, every manual bet on that type (wallet or Orbit) is refused. A **paused** enrolment does not block. |
 | 5 | Manual Orbit bets follow **exactly** the wallet-bet rules: per-round limits, choice exclusivity, `OrbitChoiceClaim` reservations. |
 | 6 | **Transport = the engine's path.** Claim + debit → house-signed custody → treasury transfer (memo-distinguished) → `RegisterBetHandler` with `FundedByOrbit`. The house pays gas. The client shows *placing…* until the outcome is known. Ledger-only bets were rejected. |
-| 7 | A **"Pay from: Wallet / Orbit" switch** on the bet control, remembered per device, **default Wallet**. Offered only when `orbitEnabled` (and not embedded or in free-bet mode). Choosing Orbit with no session starts the existing Orbit sign-in. When the balance is below the stake the lever is disabled with *"Not enough Orbit balance — deposit"* linking to `/orbit`. ⚠️ This **reverses the 2026-08-04 owner call "the game screen has no Orbit entry point"** recorded at `GameConsole.vue:136-150`. The owner re-decided it in this card's refinement. |
+| 7 | **Automatic source, no user choice** (owner, 2026-09-24 — replaces the 2026-09-23 "Pay from: Wallet / Orbit" switch, which is removed). Every manual bet pays from **Orbit first** when Orbit is usable (`orbitEnabled`, not embedded, not free-bet mode, wallet connected) and its **server** balance covers the stake; **otherwise the wallet pays**. A device that has held an Orbit session for this wallet before but has none now re-mints it with one `signMessage` at bet time; a cancelled sign-in, or a device that never used Orbit, pays from the wallet with no prompt. If Orbit refuses *only* for insufficient balance (a race), the same bet is retried from the wallet. The header pill that will pay is **lit**. The game console carries **no Orbit control or Orbit copy**, so the 2026-08-04 owner call "the game screen has no Orbit entry point" (`GameConsole.vue`) stands again. |
 | 8 | **Wallet decoupled from auto-bet.** Deposits no longer need an `OrbitEnrollment`. `/orbit` shows the **Wallet** first and **Auto-bet** as an optional section. The silent auto-commit of the single eligible type is removed. |
 | 9 | **Threshold, floor and stop-loss apply to auto-bet settlements only.** A manual win or loss never triggers an automatic cash-out. The UI **says so everywhere these settings appear** (§7.6). |
 | 10 | A **manual** Orbit-paid Space Jackpot winner **gets** the 100,000 $STROKE bonus, sent to their connected wallet. Only **auto-placed** bets stay excluded. |
@@ -640,42 +640,57 @@ ledger-only case-A compensations still carry no `BetId` and still never appear a
 - `src/services/orbitService.ts`: `placeWager(body)` → `POST /orbit/wagers`, and `getWager(requestId)` →
   `GET /orbit/wagers/{id}`, both `withSession()`.
 
-### 7.2 Source preference — `usePaySource` (new hook)
+### 7.2 Source selection — automatic (`useGame.nextBetSource`)
 
-`src/hooks/usePaySource.ts`, modelled on `useDisplaySettings.ts` (module-level ref, try/catch read,
-error-swallowing persist):
+There is **no** stored preference and **no** `usePaySource` hook (the 2026-09-23 version is deleted; the
+orphaned `space-stroker.paySource` localStorage key is removed once on load, inside try/catch).
 
-- key `space-stroker.paySource`, values `'wallet' | 'orbit'`, default `'wallet'`.
-- `effectiveSource` is `'orbit'` only when `orbitEnabled && !isEmbedded && !freeBetMode && preference ===
-  'orbit'`. Otherwise it is `'wallet'`.
+`useGame` exposes **one** computed, `nextBetSource: 'orbit' | 'wallet' | null`, read by **both** `runBet`
+(once per bet) and the header, so the two can never disagree:
 
-### 7.3 Bet control — the "Pay from" switch
+- `null` off the game page (`inGame` false), with no wallet or game, for an active free bet, or while
+  Orbit auto-plays this type (the auto-play block below).
+- `'orbit'` when Orbit is usable — `orbitEnabled && !isEmbedded && !freeBetMode && wallet connected` — the
+  loaded Orbit state belongs to the connected wallet, and its **server** balance `orbit.value.balance`
+  (never the optimistic display `balance`) is ≥ the stake (fixed `RequiredAmount`, or the Hyper Roll LCD
+  stake).
+- `'wallet'` otherwise. A short Orbit balance disables nothing: the wallet simply pays.
 
-`src/components/game/GameConsole.vue`: rewrite the ⚠️ comment at L136-150 to record the reversal
-(decision 7, #194, 2026-09-23). Add a compact **`PAY FROM: WALLET | ORBIT`** segmented control, desktop
-and phone layouts, next to the lever/stake area. It is visible only when `orbitEnabled && !isEmbedded &&
-!freeBetMode && wallet connected`. The Orbit side shows `formatCompact(orbit.balance)` SOL.
+**Lapsed session.** `useOrbit.storeSession` also writes a durable marker
+`space-stroker.orbit.used.<wallet>` = `'1'`, never removed (not on expiry, not by `forgetSession`); a stored
+session key (expired or not) also counts as "used". When `nextBetSource` says `'wallet'` for a paid bet,
+Orbit is usable, no Orbit state is loaded for this wallet **and** the marker is present, `runBet` calls
+`useOrbit().ensureSession(wallet, { allowHop: true })` (one `signMessage`), then `load`, then re-reads
+`nextBetSource`. A cancelled or failed sign-in → the wallet pays. A deeplink hop out to the wallet app stops
+the bet (the page is leaving; the next press finds the session). No marker → the wallet pays, no prompt.
+No backend endpoint is involved.
 
-- **Selecting ORBIT without a session** → `useOrbit().ensureSession(wallet)` (the existing sign-in, one
-  `signMessage`, mobile hop allowed). If it fails or is cancelled, the switch reverts to WALLET.
-- **Auto-play block (both sources):** when `orbit.value?.enabled && orbit.value.gameParametersId ===
-  selectedGame.id`, the lever and inputs are disabled and the console shows *"Orbit is auto-playing this
-  game — pause it to bet manually."* with a link to `/orbit`. The console must now call
-  `useOrbit().loadIfSignedIn(wallet)` so this is known. It uses the stored session only and never prompts.
-  With no session the server check (§6.5) is the backstop.
-- **Insufficient balance (Orbit source):** use the **server** figure `orbit.value.balance` (never the
-  optimistic display `balance`, `useOrbit.ts:55-72`). If it is below the stake (fixed or the Hyper Roll LCD
-  stake), disable the lever with *"Not enough Orbit balance — deposit"*, where *deposit* links to
-  `/orbit?tab=wallet`. Skip the check while `orbit.value === null`.
+### 7.3 Bet control and header
 
-### 7.4 Placing a manual Orbit bet — `useGame.ts`
+`src/components/game/GameConsole.vue` has **no** source control, hint or Orbit status line. Its ⚠️ comment
+records that the PAY FROM switch was removed (owner, 2026-09-24) and that the console reads Orbit state for
+one purpose only: the lever's disabled state during the auto-play block. It still calls
+`useOrbit().loadIfSignedIn(wallet)` (stored session only, never prompts).
 
-In `runBet` (L935-1266), after the shared guards (self-exclusion, sequence taken, Hyper Roll stake, per-round
-limits, Hyper Roll board re-read / `checkGameAvailability`):
+- **Auto-play block (both sources, unchanged rule):** when `orbit.value?.enabled &&
+  orbit.value.gameParametersId === selectedGame.gameTypeId`, the lever and inputs are disabled. There is
+  **no console message**: pulling the lever prints the terminal line *"Orbit is auto-playing this game —
+  pause it to bet manually."* via `betOutput`, and `runBet` refuses with the same line. With no session the
+  server check (§6.5) is the backstop.
+- **Header:** the pill that will pay the next bet — violet `OrbitLauncher` or amber `WalletButtons` — gets
+  the `.lit` state (border in the source colour, `box-shadow: 0 0 0 1px var(--color-void), 0 0 16px -2px
+  color-mix(in oklab, <source colour> 70%, transparent)`), driven by `nextBetSource`. The other pill is
+  unchanged (never dimmed). Off the game page, or when no paid bet is possible, neither is lit. Both pills
+  keep their click behaviour (doors to Orbit / the wallet).
 
-- **Skip** the wallet fee-headroom check (L992-1003) when `effectiveSource === 'orbit'`. No wallet gas is
-  spent. Run the Orbit balance check instead.
-- Branch **before** any transfer building. For Orbit there is no `sendToken`, no deeplink and no popup:
+### 7.4 Placing a manual bet — `useGame.ts`
+
+In `runBet`, after the shared guards (self-exclusion, auto-play block, sequence taken, Hyper Roll stake,
+per-round limits), the source is resolved once (§7.2), then the wallet fee-headroom check runs **only when
+the wallet pays**, then the Hyper Roll board re-read / `checkGameAvailability`.
+
+- Branch **before** any transfer building. For Orbit there is no `sendToken`, no deeplink and no popup
+  (`placeFromOrbit`):
   1. `isLoadingBet = true` (the terminal shows `> PLACING BET…`), `requestId = randomUuid()` (`utils/uuid.ts`,
      generated **inside** the `try` — `crypto.randomUUID()` throws in an insecure context), and
      the seed/nonce from `useClientSeed().nextBetSeed()`, as for a wallet bet.
@@ -683,17 +698,25 @@ limits, Hyper Roll board re-read / `checkGameAvailability`):
   3. Poll `getWager(requestId)` every **1s**, up to **60s**:
      - `Placed` → `betOutput = 'Your bet was successfully placed'`,
        `useOrbit().applyOrbitDebit(amount, 'stake')` (the Orbit pill, **not**
-       `useTokenBalance().applyDebit`), then `refreshQuietly`.
+       `useTokenBalance().applyDebit`), then `refreshQuietly` (wallet-switch and round-rollover guards
+       unchanged).
      - `Refused` → `betOutput = message`, `onBetFail()`, `refreshQuietly`.
      - Timeout / `NotFound` → *"Still placing — check your Orbit history."* and `refreshQuietly`.
   4. Keep the same `requestId` for any client retry of the POST, which is idempotent (§6.1 step 3).
-- The existing once-per-round Orbit debit (L594-605, keyed on `viaOrbit`) stays **auto-only**. Because
+- **Race fallback:** if the Orbit attempt is refused — the POST's 4xx **or** the polled `Refused` — with a
+  message **exactly equal** to `OrbitInsufficientBalance` (*"Not enough Orbit balance for that bet."*,
+  one front constant that must match the backend `ErrorMessages` entry), nothing is shown, `onBetFail` is
+  not called, and the **same bet** is retried from the wallet in the same `runBet` (fee-headroom check
+  applied, fresh seed/nonce, the wallet signature prompt appears). The refused Orbit attempt moved no money.
+  Any other refusal is shown as before, with no fallback.
+- The existing once-per-round Orbit debit (keyed on `viaOrbit`) stays **auto-only**. Because
   `viaOrbit` now means auto (§6.6), a manual bet never trips it, so there's no double debit.
 - `myBetThisRoundIsOrbit` / `OrbitBetLock` / `YOU · ORBIT` keep keying on `viaOrbit` and stay auto-only.
   A manual Orbit bet renders like any own bet (`YOU`).
-- `maybeFireWinToast` (L500-510) excludes `viaOrbit`, which is now auto-only, so a manual Orbit win gets
+- `maybeFireWinToast` excludes `viaOrbit`, which is now auto-only, so a manual Orbit win gets
   the ordinary win toast. That is correct: decision 11.
-- Hyper Roll: `hyperRollBetInFlight` wraps the Orbit branch exactly as it wraps the wallet branch.
+- Hyper Roll: `hyperRollBetInFlight` wraps the Orbit branch (and its wallet fallback) exactly as it wraps
+  the wallet branch.
 - **Settle refresh:** the `Placed` arm remembers the round; the round-outcome watcher re-reads the Orbit
   balance when it finishes (§6.4, last bullet).
 
@@ -717,8 +740,8 @@ opening the page.
 
 `src/components/orbit/tabs/OrbitMoneyTab.vue`: `canDeposit` (L63-65) no longer requires
 `gameParametersId`. Delete *"Pick a game first — Orbit needs to know what it would play."* (L221-223).
-Change *"Orbit bets from this balance, not your wallet."* (L184) to *"Bet from this balance on any game —
-pick ORBIT under PAY FROM. Auto-bet spends from it too."*
+Change *"Orbit bets from this balance, not your wallet."* (L184) to *"Your bets are paid from this balance
+first; when it can't cover a stake, your wallet pays. Auto-bet spends from it too."* (2026-09-24 wording.)
 
 `src/hooks/useOrbit.ts` `deposit` (L553-659): delete the `gameParametersId` guard (L569-572).
 
@@ -733,7 +756,6 @@ Every place threshold, floor or stop-loss appears states that it applies to **au
 | --- | --- | --- |
 | `components/orbit/tabs/OrbitStopRulesTab.vue` | intro (L247-249), `thresholdHelp` (L75), `floorHelp` (L77-81), `floorAlert` (L86-93) | One line under the title: *"These rules only watch auto-bets. Manual bets from your Orbit balance never trigger them."* Help texts say "an auto-bet win" / "auto-bets". Fix the stale L20 comment. |
 | `components/orbit/OrbitModal.vue` | "AUTO CASHOUT (PAUSES ORBIT)" (L1428), `rulesHint` (L287-289), help popover (L1061-1064) | Heading **"AUTO CASHOUT — AUTO-BETS ONLY"** plus the same line. |
-| `components/game/GameConsole.vue` | Orbit side of PAY FROM | A small info hint: *"Manual bets never trigger your auto cash-out rules."* |
 | `components/guide/sections/GuideOrbit.vue` | rows L21-50, intro L55-59 | New row **"IT'S YOUR IN-GAME WALLET"** (bet from it manually on any game, no signing, wins land back in it). The "YOU SET WHEN IT STOPS" row says the rules apply to auto-bets only. "IT HAS ITS OWN BALANCE" is updated. One row notes the auto-play block. |
 | `components/home/HomeOrbitCard.vue` | beats L42-55 | Mention wallet use. The stop-rules beat says auto-bets only. |
 | `pages/OrbitPage.vue` | pitch grid L428-440 | "Banks a winning run…" / "Stops a losing one…" say *auto-bet*. |
@@ -747,9 +769,11 @@ the stale "GET /orbit poll" comment (L10).
 
 ### 7.8 Header
 
-No change needed: the Orbit pill (`OrbitLauncher.vue`) already shows the Orbit balance whenever
-`orbitEnabled && !isEmbedded && wallet`. The card's "header shows the Orbit balance while Orbit is
-selected" is therefore **already true**. Manual placements animate it through `applyOrbitDebit`.
+The Orbit pill (`OrbitLauncher.vue`) already shows the Orbit balance whenever
+`orbitEnabled && !isEmbedded && wallet`; manual placements animate it through `applyOrbitDebit`. New
+(2026-09-24): the pill that will pay the next bet is **lit** (§7.3) — `OrbitLauncher` and `WalletButtons`
+take a `lit` prop from `GameHeader`, fed by `useGame().nextBetSource`; the shared `.btn-door.lit` rule lives
+in `arcade.css`.
 
 ---
 
@@ -853,10 +877,11 @@ Threshold and toast run only when `OrbitAutoPlaced`, and floor/zero-out only for
 | --- | --- | --- |
 | 1 | `types/orbit.ts` | Wager types, `OrbitBetSource`, `OrbitHistoryRow.source` |
 | 2 | `services/orbitService.ts` | `placeWager`, `getWager` |
-| 3 | `hooks/usePaySource.ts` (new) | Persisted preference, `effectiveSource` |
-| 4 | `hooks/useGame.ts` | Orbit branch in `runBet`; skip wallet fee headroom; Orbit balance check; poll |
-| 5 | `hooks/useOrbit.ts` | Drop the deposit `gameParametersId` guard; expose what the console needs |
-| 6 | `components/game/GameConsole.vue` | PAY FROM switch (desktop + phone), auto-play block, insufficient-balance state, comment rewrite |
+| 3 | ~~`hooks/usePaySource.ts`~~ | Removed 2026-09-24 (automatic source); `space-stroker.paySource` cleaned up on load |
+| 4 | `hooks/useGame.ts` | `nextBetSource`; Orbit branch in `runBet`; wallet fee headroom only when the wallet pays; lapsed-session re-mint; insufficient-balance wallet fallback; poll |
+| 5 | `hooks/useOrbit.ts` | Drop the deposit `gameParametersId` guard; durable `orbit.used.<wallet>` marker + `hasUsedOrbitOnDevice` |
+| 6 | `components/game/GameConsole.vue` | Auto-play block (lever disabled, terminal line on pull), comment rewrite; no source control |
+| 6b | `components/GameHeader.vue`, `orbit/OrbitLauncher.vue`, `header/WalletButtons.vue`, `assets/styles/arcade.css` | `lit` state on the pill that will pay |
 | 7 | `pages/OrbitPage.vue` | Tab order / rename / default `wallet`, `money` alias, pitch copy |
 | 8 | `components/orbit/tabs/OrbitGameTab.vue` | Remove auto-commit; explicit "use auto-bet" action |
 | 9 | `components/orbit/tabs/OrbitMoneyTab.vue` | `canDeposit` without a game; copy |
@@ -923,7 +948,7 @@ Project: `monkify-backend/src/SpaceStroker.Tests` (unit) and `SpaceStroker.Tests
 ## 12. Acceptance criteria
 
 1. Given a player with an Orbit balance ≥ the stake and a valid Orbit session, when they place a Cosmic
-   Sprint bet with "Pay from: Orbit", then no wallet signature is requested, the stake is debited from the
+   Sprint bet, then Orbit pays automatically: no wallet signature is requested, the stake is debited from the
    Orbit balance, and the bet appears in the round like any other bet.
 2. Given a manual Orbit-paid bet that wins (Cosmic Sprint, Space Jackpot or Hyper Roll), when the round
    settles, then the net winnings are credited to the player's Orbit balance with a WinCredit ledger row
@@ -935,9 +960,11 @@ Project: `monkify-backend/src/SpaceStroker.Tests` (unit) and `SpaceStroker.Tests
 4. Given a manual Orbit-paid bet that fails a pre-check (self-excluded, choice taken/reserved, per-round
    limit, game not accepting bets, low house SOL), when it is submitted, then no ledger debit and no
    on-chain transfer happen and the existing vague refusal is shown.
-5. Given an Orbit balance below the stake, when "Pay from: Orbit" is selected, then the bet button is
-   disabled with "Not enough Orbit balance — deposit" linking to /orbit; a race that drains the balance
-   server-side yields an insufficient-balance refusal with no money moved.
+5. Given an Orbit balance below the stake, when the player places a paid bet, then the wallet pays (the
+   usual wallet signature and fee-headroom check) and nothing is disabled; given a race that drains the
+   Orbit balance server-side after the source was chosen, then Orbit refuses with "Not enough Orbit balance
+   for that bet." with no money moved and the same bet is immediately retried from the wallet. Any other
+   Orbit refusal is shown with no fallback.
 6. Given the custody transfer does not land or bet registration is rejected after it, when the manual
    placement fails, then the stake is made whole exactly once: ledger-only if it never left custody,
    on-chain refund to custody if it reached the treasury.
@@ -949,9 +976,12 @@ Project: `monkify-backend/src/SpaceStroker.Tests` (unit) and `SpaceStroker.Tests
 9. Given a player with no Orbit enrolment, when they deposit on /orbit, then the deposit is credited and
    spendable on manual bets without choosing an auto-bet game; /orbit shows Wallet first and Auto-bet as
    an optional section.
-10. Given the "Pay from" switch set to Orbit, when the player reloads the app on the same device, then
-    Orbit is still selected; with no Orbit session, selecting Orbit starts the existing Orbit sign-in; with
-    orbitEnabled off, the switch is not shown.
+10. Given there is no source toggle, when a paid bet is placed, then Orbit pays if it is usable and its
+    server balance covers the stake, otherwise the wallet; the header pill that will pay is lit (game page
+    only). Given no Orbit session on this device but a previous one for this wallet (the
+    `orbit.used.<wallet>` marker), the bet first asks for one Orbit sign-in signature, then applies the
+    rule; a cancelled sign-in, or a device that never used Orbit, pays from the wallet with no prompt.
+    With orbitEnabled off, embedded or in free-bet mode, the wallet always pays.
 11. Given a manual Orbit-paid Space Jackpot winner, when the lottery settles, then they receive the
     100,000 $STROKE bonus in their connected wallet; auto-placed Orbit bets remain excluded.
 12. Given Orbit bets of both kinds, when the player views the Orbit bet log, then each is labelled Manual
@@ -970,18 +1000,22 @@ Run it on the local stack (see memory: *local-house-seed-activation*, *local-pai
 real).
 
 1. Fresh wallet → `/orbit` opens on **WALLET** → deposit 0.05 with no game picked → the balance shows.
-2. Cosmic Sprint → PAY FROM: ORBIT → pull the lever → no wallet pop-up → `> PLACING BET…` → the bet lands
-   as `YOU` → the Orbit pill drops by 0.01.
-3. Hyper Roll → ORBIT → pick a stake of 0.002 → play → a win credits the Orbit pill.
-4. Enable auto-bet on Cosmic Sprint → the console shows the auto-play block for both sources → pause →
-   betting returns.
+2. Cosmic Sprint with an Orbit balance ≥ 0.01 → the violet Orbit pill is lit → pull the lever → no wallet
+   pop-up → `> PLACING BET…` → the bet lands as `YOU` → the Orbit pill drops by 0.01.
+3. Hyper Roll (Orbit pill lit) → pick a stake of 0.002 → play → a win credits the Orbit pill.
+4. Enable auto-bet on Cosmic Sprint → the lever is disabled; pulling it prints "Orbit is auto-playing this
+   game — pause it to bet manually." → pause → betting returns.
 5. Set a threshold below the current balance → win manually → no cash-out happens; the stop-rules copy
    says auto-bets only.
-6. Drain the balance below the stake → the lever is disabled with the deposit link.
-7. Reload → ORBIT is still selected. Log out of the Orbit session → selecting ORBIT prompts sign-in.
+6. Drain the Orbit balance below the stake → the amber wallet pill lights instead → pull the lever → the
+   wallet signature prompt appears and the wallet pays. Race: with a balance just above the stake, let an
+   auto bet (another type) spend it, then bet → the Orbit refusal is followed at once by the wallet prompt.
+7. Delete the stored `space-stroker.orbit-session.<wallet>` (keep `space-stroker.orbit.used.<wallet>`) → bet
+   → one Orbit sign-in prompt, then Orbit pays; cancel it instead → the wallet pays. Remove the marker too →
+   bet → no Orbit prompt, the wallet pays.
 8. The bet log shows MANUAL / AUTO rows.
 9. With auto-bet **off**, place a manual Orbit bet and win it → within ~5s of the round ending the Orbit
-   pill and PAY FROM rise by the win (with its chip), and the next bet is not blocked as "balance short".
+   pill rises by the win (with its chip), and the next bet goes back to Orbit if the balance now covers it.
    Repeat with a round that refunds (not enough players) → the stake comes back the same way.
 
 ---
@@ -1008,3 +1042,4 @@ real).
 | 2026-09-23 | Owner decision: **check the chain before crediting** an in-doubt stake. New §6.3b: `TransferStakeWithMemo` signs locally and answers `NotSent` / `Confirmed` / `Unknown`; the signature and `LastValidBlockHeight` are stamped on the claim before the send; new `ClaimState` column (Open/Settled, conditional updates) and `LastValidBlockHeight` in the unshipped `AddOrbitManualBets` migration; placer outcome `InDoubt` (auto releases the gate, manual stays Pending); `OrbitStakeReconciliationJob` (every minute) credits unsigned / failed / expired claims once and returns landed stakes on-chain to custody. |
 | 2026-09-23 | §6.3b review fixes: every reconciler settle/credit is conditional on the signature state it decided on (`ExpectedSignature`: IS NULL for unsigned, = observed for signed), closing a snapshot-vs-late-stamp double pay; block height AND status read from the primary only, and Expired needs 150 blocks past `LastValidBlockHeight`; the job is `[DisableConcurrentExecution]` and walks every open claim in keyset pages; the placer's `BetId` link is conditional (`TryLinkBet`) and never overwrites a reconciler settle; documented the landed-return-fails manual follow-up and the alert log lines. No migration change. |
 | 2026-09-24 | §6.3b fix round 2: the claim → bet link moves **into the bet insert's transaction** (`RegisterBetRequest.OrbitClaimId`; `TryLinkBet` also requires the bet's signature; both `RegisterBet` and `RegisterHouseEdgeBet`), so a placer that stalls after a dropped "Confirmed" transfer can no longer register a bet on a stake the reconciler already credited or returned: the insert rolls back, the bet is refused, no refund event. Every Orbit on-chain return (reconciler Landed, placer case B, handler refusal) is **taken before it is published** (`TryClaimReturn`: settle + `Requested` `PaymentRefundClaim`, one transaction), and the reconciler republishes stale `Requested` rows of settled claims; a Landed claim whose bet link won publishes and logs nothing. Expired is only credited when **a second run** sees it again (new `FirstSeenExpiredAt` column, same unshipped `AddOrbitManualBets` migration, regenerated with the backfill kept). Runs stop taking claims after 45 s. |
+| 2026-09-24 | owner: automatic Orbit-first source, no toggle. Decision 7 rewritten; the PAY FROM switch and `usePaySource` are removed (§7.2-7.4): `useGame.nextBetSource` picks Orbit when its server balance covers the stake, else the wallet; a lapsed session on a device that used Orbit before (`orbit.used.<wallet>` marker) is re-minted with one signature at bet time; an `OrbitInsufficientBalance` refusal retries the same bet from the wallet; the paying header pill is lit; the console has no Orbit copy (auto-play block prints on lever pull). §1 row, §7.5-7.8, §10.2, AC 1/5/10 and §13 steps 2-4/6/7/9 updated. |
