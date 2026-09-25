@@ -1,7 +1,7 @@
 # SpaceStroker — Monkey Duel: the treasury is the house — Implementation Spec
 
-> **Status:** approved design (owner, 2026-09-25), not yet implemented. Branch `feature/duel-treasury-house`
-> in `monkify-backend`, `monkify-front`, `monkify-meta`. **Nothing ships to production until this lands**
+> **Status:** approved design (owner, 2026-09-25); **implemented** on `feature/duel-treasury-house` in
+> `monkify-backend`, `monkify-front`, `monkify-meta` — **not yet shipped**. **Nothing ships to production until this lands**
 > (owner: "Don't ship anything for now") — `main` already carries Monkey Duel + `duel-lobby-fixes`, never
 > deployed.
 >
@@ -65,38 +65,66 @@ local rounds from before this change keep their old shape and are never re-run.
 
 - A House round is **full** when `HouseWord != null` (`ActiveGameDto.IsFull`). `ClaimedByPlayerId` stays null
   on House rounds (it remains the PvP claim).
+- A House round races / starts **only once `HouseWord` is set**. The typer (races the word, sizes the pool),
+  the padded pot (`BetDomainService.SetPotAmount`) and `BetPlacedConsumer`'s start gate all read the one
+  computed, **unmapped** property `Game.HasDrawnHouseWord` (`IsDuel && DuelKind == House && HouseWord` set),
+  so start, race and pot can never disagree.
+- A **second bet** on a House round (a direct API call — nothing legitimate joins one) is refused with the
+  existing `ChoiceAlreadyTaken` and refunded.
 - `CancelDuelRoom` is only reachable for OpenRoom rooms (a House round starts on the creator's bet), unchanged.
 
 ## 5. Backend behaviour
 
 ### 5.1 Opening a House room — `POST /games/{type}/duels {kind: House}`
 
-Refused (existing vague message) when `HouseEdgeEnabled` is false, or when the **treasury** cannot cover the
-type's minimum stake (the shared check, §5.3). Replaces today's HouseSeed coverage call.
+Refused with the existing vague `GameNotValidForBets` when `HouseEdgeEnabled` is false, or when the **treasury**
+cannot cover the type's minimum stake (the shared check, §5.3). Replaces the old HouseSeed coverage call.
+Availability (`CheckBetAvailability`) answers `HouseEdgeUnderMaintenance` for the VS HOUSE tab when the switch
+is off.
 
 ### 5.2 The creator's bet (`RegisterBetHandler.RegisterDuelBet`, House round)
 
-Runs under the **shared treasury lock** (`HouseEdgeCoverageService.AcquireLockAsync`) instead of the duel lock
-(a House round has no join race):
+Runs under the **duel lock** (`IDuelLockService`, §5.6), like every duel bet. A **paid** bet on a House round
+(switch on) also takes the **shared treasury lock** (`HouseEdgeCoverageService.AcquireLockAsync`) **right after
+the duel lock and before the bind**; it joins the duel lock's open transaction.
+
+- **Lock order is always duel → treasury.** Hyper Roll (and `HouseEdgeBoardCleanupJob`) only ever take the
+  treasury lock, never the duel lock, so the order cannot deadlock.
+- **Treasury lock before the bind**, because the bind is an `UPDATE` that holds the `Games` row lock until the
+  commit, and `HouseEdgeBoardCleanupJob` holds the treasury lock while it deletes unbound shells: binding first
+  and then waiting on the treasury lock is a lock cycle Postgres breaks by killing a valid bet (refunded). The
+  round's kind comes from the pre-lock read — `DuelKind` never changes after open.
+- **One commit**, through the duel lock: bind + house word + bet land together or not at all.
+- A paid House bet may hold the duel lock for up to **5 s** while it waits on the treasury lock.
+
+Steps:
 
 1. Reuse guard, bind the round (`OwnerPlayerId`, `Stake`) — unchanged.
-2. `HouseEdgeEnabled` false → refund with the maintenance sentence.
+2. `HouseEdgeEnabled` false → refused with the maintenance sentence (paid: refunded). The switch applies to
+   **free** bets too (reject-only).
 3. Paid bet: the shared treasury check (§5.3) for this round's worst case. Not coverable or no decision → refund
    with the maintenance sentence.
-4. Draw the house word — `DuelHouseWordGenerator.DeriveWord` attempts 0..9, skipping the creator's word (the
-   existing `DeriveAvailableWord` logic moves here). None free → refund, round `NotEnoughPlayersToStart`.
+4. Draw the house word — `DuelHouseWordGenerator.DrawAvailableWord`: `DeriveWord` attempts
+   `0..MaxWordAttempts-1` (`MaxWordAttempts = 10`), skipping the creator's word. No drawable word (or the
+   conditional `TrySetDuelHouseWord` writes 0 rows) → refused with `GameNotValidForBets` and refunded. The bind
+   rolls back, so the round stays an **unbound shell** for `HouseEdgeBoardCleanupJob` (it is not moved to
+   `NotEnoughPlayersToStart`).
 5. Write `Game.HouseWord`, insert the bet, commit, then publish `BetPlacedEvent` (and notify).
 
-A free House duel (dev) skips step 3's money check and is never counted as exposure.
+A free House duel (dev) skips step 3's money check (and the treasury lock) and is never counted as exposure.
 
 ### 5.3 Shared treasury exposure (`HouseEdgeCoverage` / `HouseEdgeCoverageService`)
 
-`ExposureRounds` also selects **House duel rounds** that are unsettled (the existing `UnsettledStatuses`),
-bound (`Stake` set) and paid. A House duel's worst case is its payout: `Stake × (2 − rate)` with
-`rate = CommissionPercentage / 100` (1.98 × Stake at 2%), plus one fee reserve. The incoming bet's own round is
-priced the same way. `coverable ⇔ balance − feeReserve ≥ total exposure`, unchanged.
+`ExposureRounds` also selects **House duel rounds** that are unsettled (the existing `UnsettledStatuses`) and
+**hold an unsettled paid bet (or are the incoming bet's own round)** — exposure is built from bet rows. A House
+duel's worst case is its payout: `Stake × (2 − rate)` with `rate = CommissionPercentage / 100` (1.98 × Stake at
+2%), plus one fee reserve. The incoming round has no bet row yet (the bet is inserted after the decision), so it
+is priced **once, from the new bet** — no exclusion parameter. `coverable ⇔ balance − feeReserve ≥ total
+exposure`, unchanged.
 
-Availability's `maxStake` for the VS HOUSE tab becomes `min(MaximumStake, headroom / (2 − rate))`.
+Availability's `maxStake` for the VS HOUSE tab is
+`min(MaximumStake, (balance − feeReserve − exposure) / (2 − rate))`, truncated to 9 dp
+(`DuelHouseRules.MaxStakeFromHeadroom`), and `0` when the treasury balance is unreadable.
 
 ### 5.4 Start, run, reward
 
@@ -105,10 +133,11 @@ Availability's `maxStake` for the VS HOUSE tab becomes `min(MaximumStake, headro
 - `SpaceStrokerTyper`: for a House duel, `SetBets` adds `HouseWord` with count 0 (Hyper Roll's board-word
   pattern) and `SetCharactersOnTyper` adds its characters to the pool. A house win therefore has
   `NumberOfWinners = 0`.
-- `RewardGameConsumer`: the House duel winner's reward is **`Stake × (2 − rate)`** (a dedicated
-  `CalculateDuelHouseReward`, like `CalculateHouseEdgeReward`), paid from the treasury — to Orbit custody when
-  `FundedByOrbit`. The treasury pre-check (today `IsHouseEdge` only) covers House duels. A house win pays
-  nobody. `netRewardPerWinner` is published as today.
+- `RewardGameConsumer`: the House duel winner's reward is **`Stake × (2 − rate)`**, with **no dedicated
+  reward function**: `BetDomainService.SetPotAmount` adds `Game.Stake` to the pot when `HasDrawnHouseWord`, and
+  the shared commission formula on that 2S pot yields `Stake × (2 − rate)`. Paid from the treasury — to Orbit
+  custody when `FundedByOrbit`. The treasury pre-check applies when `treasuryFunded` (a house-edge type **or** a
+  House duel). A house win pays nobody. `netRewardPerWinner` is published as today.
 
 ### 5.5 Verification (`GetGameVerificationHandler`)
 
@@ -120,13 +149,17 @@ Availability's `maxStake` for the VS HOUSE tab becomes `min(MaximumStake, headro
 `DuelHouseBetService`, `DuelHouseBetConsumer`, `DuelCreatorBetPlacedEvent` (+ its receive endpoint),
 `DuelHouseCoverage`, `DuelHouseCoverageService` and their DI/tests. House duels stop reading HouseSeed config.
 
+**Kept:** the duel advisory lock, extracted from the retired coverage service as
+`IDuelLockService` / `DuelLockService` (key `"MONKDUEL"`) — every duel bind/claim/cancel still serialises on it.
+
 ## 6. Frontend behaviour (`monkify-front`)
 
 - `GameInstance.houseWord` (new, from the round DTO). For a House round the rival word is `houseWord` and the
   rival label stays `THE HOUSE` (terminal header, VS splash, result lines); OpenRoom keeps reading the rival bet.
 - Win/loss: `winnerChoice === myBet.choice` → won; otherwise lost — unchanged logic, the house word is simply
   not a bet any more.
-- `provablyFair.ts` / `verify.html`: no change to the draw; confirm the recompute passes with a one-bet prefix.
+- `provablyFair.ts` / `verify.html`: **no change needed** — the server's `orderedChoices` (built from
+  `typer.Bets`) already include the house word, and the draw is unchanged.
 - The VS HOUSE ceiling is whatever availability quotes (now treasury-based); no new constant.
 
 ## 7. Tests
@@ -144,3 +177,10 @@ exposure blocking a House duel (and the reverse).
 ## 8. Out of scope
 
 OpenRoom duels, Cosmic Sprint's house seed, the lobby / Orbit work already on `main`, the prod deploy.
+
+## 9. Known follow-ups
+
+- **History / BiggestPot** show a House duel's pot as **1× stake** (the persisted bet sum) — display only; the
+  payout is correct.
+- **Pre-existing:** `HouseEdgeBoardCleanupJob` deletes shells by `Id`; a bind that commits between its read and
+  its delete would lose the round (and, via the `Bets` FK cascade, the bet). Deserves its own card.
