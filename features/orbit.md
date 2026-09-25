@@ -44,8 +44,8 @@
 - ⚠️ **The invariant is `OrbitBalance.Amount == SUM(OrbitTransaction.Amount)`** for that pool and
   player, over **all** rows with **no status filter**. A failed cash-out stays at `−X` and is cancelled
   by an appended compensating row — never by deleting or filtering one.
-- Deposits are **free-form** within a published bound — ladder `0.05 / 0.1 / 0.5` SOL, minimum
-  **0.05**, maximum **5 per transaction**, minimum **partial** cash-out **0.05**. ⚠️ **THE MINIMUM
+- Deposits are **free-form** within a published bound — ladder `0.001 / 0.1 / 0.5` SOL, minimum
+  **0.001** (lowered from 0.05 on 2026-09-25), maximum **5 per transaction**, minimum **partial** cash-out **0.001**. ⚠️ **THE MINIMUM
   CASH-OUT DOES NOT GATE EMPTYING THE BALANCE:** a request for the *whole* remaining balance is always
   accepted, however small. As an unconditional gate it trapped funds — only the automatic sources
   (threshold, floor, forced) skip the check, so anyone left under it by a losing run, a deposit below
@@ -56,7 +56,7 @@
   whole-number rule was policy inherited from the USDC ladder and in SOL meant a minimum deposit worth
   a few hundred dollars. What replaces it is a **precision** check against the asset's decimals —
   crediting an amount finer than the chain can move would write a balance no cash-out could pay back
-  out. The deposit-bound message (*"Deposits are between 0.05 and 5 SOL."*) remains a **sanctioned
+  out. The deposit-bound message (*"Deposits are between 0.001 and 5 SOL."*) remains a **sanctioned
   exception** to the vague-messaging rule: it states a bound the backend already publishes, reveals
   nothing about a session or another player, and is refused **client-side before the transfer is
   signed** — a player told only "that could not be accepted" after their money left the wallet has no
