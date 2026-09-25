@@ -808,7 +808,13 @@ split, the duel coin between them; red = you, blue = your rival). ⚠️ The coi
 isDuel?: boolean;
 
 // GameInstance (the ROUND)
-duelKind?: 'House' | 'OpenRoom' | null;
+// ⚠️ An INTEGER, not a string. There is no JsonStringEnumConverter anywhere in the backend, so
+// DuelKind serialises as its numeric value: House = 1, OpenRoom = 2. An earlier draft of this
+// section typed it as `'House' | 'OpenRoom'`; that compare never matches, and because it fails
+// silently (lint and build stay green while every house round reports "not verified") it misled
+// two separate implementation plans before it was caught. Declare the enum and compare against it.
+export enum DuelKind { House = 1, OpenRoom }
+duelKind?: DuelKind | null;
 stake?: number | null;
 ownerWallet?: string | null;
 isFull?: boolean;
