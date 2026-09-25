@@ -44,7 +44,7 @@
 - ⚠️ **The invariant is `OrbitBalance.Amount == SUM(OrbitTransaction.Amount)`** for that pool and
   player, over **all** rows with **no status filter**. A failed cash-out stays at `−X` and is cancelled
   by an appended compensating row — never by deleting or filtering one.
-- Deposits are **free-form** within a published bound — ladder `0.05 / 0.1 / 0.5` SOL, minimum
+- Deposits are **free-form** within a published bound — ladder `0.001 / 0.1 / 0.5` SOL, minimum
   **0.001** (lowered from 0.05 on 2026-09-25), maximum **5 per transaction**, minimum **partial** cash-out **0.001**. ⚠️ **THE MINIMUM
   CASH-OUT DOES NOT GATE EMPTYING THE BALANCE:** a request for the *whole* remaining balance is always
   accepted, however small. As an unconditional gate it trapped funds — only the automatic sources
