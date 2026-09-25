@@ -39,6 +39,12 @@
 > AVERAGE, 91.14% SUPER, 91.84% HYPER (`CommissionPercentage` maps to 0). See [`hyper-roll.md`](hyper-roll.md)
 > and [`hyper-roll-modes.md`](hyper-roll-modes.md).
 
+> **Monkey Duel takes the ordinary commission** (#184, [`monkey-duel.md`](monkey-duel.md)): a duel is
+> pari-mutuel, not house-edge, so the winner of the 2-stake pot is paid `S × (2 − rate)` = **1.98 S** at
+> 2% — ~1% of the pot to the house, one `Credit` row. On a VS HOUSE duel the house's own stake comes from
+> the **HouseSeed** wallet (never the treasury) and the house carries full 50/50 variance. ⚠️ The design
+> artifact's `2S × (1 − rate)` and 5% are both wrong.
+
 Space Stroker retains a small **house commission** on winnings instead of paying out the whole pot. The
 cut comes only from each winner's **profit above their own stake**, and is realized by crediting winners
 less on-chain — the retained amount simply stays in the house token account.

@@ -437,3 +437,20 @@
   is marked `complete` and its sellable reserves go to zero, so **buys against it stop working**.
   `spacestroker-snipe-token` refuses to start against a graduated token and stops cleanly if graduation
   happens mid-run; it deliberately has no AMM path.
+- **Monkey Duel** — the 1v1 race type (#184): two 6-letter words, one typer stream, first word typed
+  takes the 2-stake pot less the ordinary commission (`S × (2 − rate)`). `GameParameters.IsDuel`;
+  ⚠️ **not** `IsHouseEdge`, and `PresetChoices` stays empty. See `features/monkey-duel.md`.
+- **Duel kind** — `Game.DuelKind`, per round: `House = 1` (VS HOUSE, the house bets from the HouseSeed
+  wallet) or `OpenRoom = 2` (OPEN DUELS, another player joins). Serialised as an **integer**.
+- **Duel room** — an `OpenRoom` round in `WaitingBets` with the creator's bet on it (`OwnerPlayerId` +
+  `Game.Stake` bound) and no `ClaimedByPlayerId`. Listed on the public board, cancellable by its creator
+  with a wallet proof, never auto-expired. An unbet shell is not a room.
+- **Duel word pool** — `DuelWordPool`: the curated words a House duel draws its word from, one row per
+  word per duel type, retired by `Active = false`. Snapshotted onto `Game.DuelPoolSnapshot` when a House
+  round opens so verification survives later edits.
+- **House word** — the House duel's word, derived from the committed `ServerSeed`
+  (`DuelHouseWordGenerator`, prefix `duel|{gameId}|{attempt}`), first attempt that differs from the
+  creator's word. Never chosen.
+- **Duel coverage** — `DuelHouseCoverage`: whether the HouseSeed wallet can fund the house's stake
+  after `MinimumSolBalance`, per-transfer fee reserves and other pending house stakes. Clamps the quoted
+  `maxStake`; fails closed on a null balance read. Distinct from Hyper Roll's `HouseEdgeCoverage`.

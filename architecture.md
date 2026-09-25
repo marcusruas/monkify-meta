@@ -232,7 +232,13 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   `GeneralSettings.Games.HouseEdgeBoardCleanupIntervalMinutes`, default 5) runs `HouseEdgeBoardCleanupJob`,
   deleting unbet Hyper Roll solo boards past `BoardExpiresAt` (30 min idle). House-edge rounds have no
   automatic rollover, so the next board is opened by the player (`POST /games/{gameTypeId}/boards`). See
-  `features/hyper-roll.md`.
+  `features/hyper-roll.md`. Since #184 the same job also sweeps **Monkey Duel** shells
+  (`IsHouseEdge || DuelKind != null`) — only unowned, unbet rounds; a posted duel room never expires.
+- **Monkey Duel house side (#184):** `DuelCreatorBetPlacedEvent` → `DuelHouseBetConsumer` (its own
+  receive endpoint) → `DuelHouseBetService` places the house's ordinary paid bet from the **HouseSeed**
+  wallet (memo `duel:{gameId:N}`), or terminates the round and refunds the creator on any give-up. The
+  duel word pool self-heals at startup via `DuelWordPoolReconciler` (before `OpenNewGames`). See
+  `features/monkey-duel.md`.
 
 ## 8. Blockchain & payments
 
@@ -556,7 +562,10 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}`, `POST /games/rounds/{roundId}/reroll`,
-  `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`).
+  `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), and for Monkey Duel
+  `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
+  `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`
+  `JoinDuelBoard`/`LeaveDuelBoard` channel `{gameTypeId}/DuelBoard` (see `features/monkey-duel.md`).
 - **Player customization:** a **menu button** in `GameHeader.vue` holds **Settings** (opens
   `PlayerCustomizationModal.vue` — display name only), **Stats** (the Stats page), **Fair** (the
   fairness modal) and **History** (the Games History page); Stats + Fair are hidden when embedded.

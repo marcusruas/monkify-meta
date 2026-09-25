@@ -80,6 +80,13 @@ A type's mode is derived from **which optional fields are set** — there is no 
 These are independent flags, so combinations are technically possible (e.g. preset + lottery); the
 seeded defaults don't combine them. The reward pot differs only for lottery (it adds `LotteryPot`).
 
+Two **explicit flags** layer player-vs-house shapes on top of this taxonomy: `IsHouseEdge` (Hyper Roll —
+see [`hyper-roll.md`](hyper-roll.md)) and **`IsDuel`** (Monkey Duel, #184 — see
+[`monkey-duel.md`](monkey-duel.md)). ⚠️ A duel type is a **free-type race** by the table above
+(`PresetChoices` empty on purpose; its house word pool is the separate `DuelWordPool` table): 1v1,
+per-round stake (`Game.Stake`), rounds opened by the player (`POST /games/{type}/duels`), never by
+rollover or startup, never seeded by the house seed bet (§14).
+
 ### Seeded default games — dev seeds the SAME catalogue production runs (since 2026-07-23)
 
 Game types are seeded from **`GeneralSettings:Operator:DefaultGames`** in `spacestrokersettings.json`
@@ -563,6 +570,11 @@ decision 13 already accepted it for Orbit-only rounds, and #172 extended that ac
 house **bets in**. It sits alongside — and does not weaken — the AC 21 invariant that a type with
 `MinimumNumberOfPlayers < 2` is never seeded at all. See
 [`../specs/house-seed-orbit-conflict.md`](../specs/house-seed-orbit-conflict.md).
+
+⚠️ **Duel types are never seeded** (`HouseSeedBetService.SeedRound` gives up on `IsDuel`, #184): on a
+duel the seeded bet *would be* the second player, so every open room would be taken by the house the
+instant it opened. A VS HOUSE duel's house side is a **different** service, `DuelHouseBetService`, fed by
+the same HouseSeed wallet — see [`monkey-duel.md`](monkey-duel.md).
 
 *(It replaced `SpaceStroker.Seeder`, a console app polling every 6 hours that covered only two types
 and stopped whenever that machine was off. The app is deleted.)*

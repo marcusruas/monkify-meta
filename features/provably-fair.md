@@ -82,6 +82,16 @@ returned.
   the same published cap, so it can never contradict the client's replay. (This replaced the old
   "MaxCharacters drift is accepted" caveat — drift is now impossible for settled rounds.)
 
+- **Monkey Duel (#184) adds the house word draw** — [`monkey-duel.md`](monkey-duel.md). The payload
+  gains `isDuel`, `duelKind`, `duelPoolSnapshot` (the ordinal-sorted pool snapshotted when the round
+  opened — a later pool edit never changes it) and `houseWord`. The house word is
+  `DuelHouseWordGenerator.DeriveWord(serverSeed, gameId, attempt, pool)` (prefix
+  `duel|{gameId}|{attempt}`, `Keystream` + `NextIndex`), taking the first attempt whose word differs
+  from the creator's. `houseWord` is resolved from the round's `ClaimedByPlayerId`, so a HouseSeed
+  wallet rotation never blanks it. ⚠️ The verifier **fails closed** on a House duel with missing inputs
+  (`houseWordOk = false`, reported "not published", distinct from "mismatch"). KEEP-IN-SYNC with
+  `provablyFair.ts` / `verify.html`.
+
 ## 3. The in-app FAIR panel
 
 - **Housing:** `GameSidePanel` is **chat-only**; `GameFairPanel` renders inside the header-menu **Fair

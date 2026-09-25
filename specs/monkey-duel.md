@@ -1,6 +1,14 @@
 # SpaceStroker — "Monkey Duel" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-09-25)** — `feature/monkey-duel` merged to `main` in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled into [`../features/monkey-duel.md`](../features/monkey-duel.md),
+> which records where the shipped code departs from this spec: the type went **live** with an 8-word
+> pool (not the §5.2 gated/empty seed), empty shells now carry the board TTL and are swept (§4.3 said
+> `BoardExpiresAt` stays null), a player may hold several rooms, the house word is resolved from
+> `ClaimedByPlayerId`, and every house give-up path terminates + refunds (§6.4, corrected in place).
+> This spec stays the deep design record.
+>
+> **Original status: Ready for implementation** — refined via Trello card
 > [Coinflip like game (#184)](https://trello.com/c/O7OXxNM0/184-coinflip-like-game) (refined 2026-09-23,
 > spec 2026-09-23).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
