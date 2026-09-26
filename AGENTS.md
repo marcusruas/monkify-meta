@@ -220,6 +220,11 @@ local Docker stack for the user to test before the card advances.
 
 ## Other constraints (see `constraints.md` for the full list)
 
+- **New game mode ⇒ how-to-play section + LP update.** Every new mode ships, on its own feature branch,
+  with a `HOW <MODE> WORKS` section in the player guide (`monkify-front`) and a landing-page update in
+  `monkify-lp` (mode card, mode-count copy, roadmap line, terms clause when the payout differs). See
+  `conventions/general.md`.
+
 - **Secrets/config files:** you may edit them, but only ever write **mock/placeholder** values —
   never real credentials, and never print/commit real secrets.
 - **EF config is inline** in `SpaceStrokerDbContext.OnModelCreating`; **migrations are applied only by
