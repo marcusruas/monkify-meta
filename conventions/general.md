@@ -30,8 +30,18 @@ Same format as the existing mode sections: `GuideHowTheGameWorks.vue` (race), `G
   key), stored in `src/assets/guide/<mode>-*.png`. No drawn stand-ins.
 - **Copy rules:** no em dashes, no litotes, and **no figures that go stale** (cuts, ceilings, RTP,
   payouts). Name the mechanic and send the reader to the screen or STATS panel that reads it live.
-- The shape-driven `THE MODES` cards (`GuideModeCards`) pick the mode up on their own; check they read
-  correctly for it.
+- The shape-driven `THE MODES` cards (`GuideModeCards`) pick the mode up on their own, **but only if the
+  new archetype has an entry in its `BLURB`, `ARCHETYPE_LABEL` and `ARCHETYPE_ACCENT` maps**: a missing
+  one crashes the whole block (it happened with the duel). Update the section intro that counts the kinds
+  of table too.
+
+### One row of modes on desktop
+
+Every surface that lists the modes shows **all of them on one row on desktop (1024px and up)**, 2x2 on
+tablets and one column on phones: the app lobby (`GameTypes.vue`, `lg:grid-cols-4`), the guide's THE
+MODES cards (`GuideModeCards.vue`) and the landing page (`GameModes.vue`). Adding a mode means
+re-checking that row at 1024, 1280 and 1440px; if it no longer fits, redesign the cards rather than
+wrapping to a second row.
 
 ### 2. The landing-page update (`monkify-lp`)
 
