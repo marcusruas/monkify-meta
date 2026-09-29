@@ -254,7 +254,7 @@ never left custody (case A) is credited ledger-only, exactly once. Full rules in
 | --- | --- |
 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `CommissionForWinner` in `CalculateRewardForBet`; materialized `Winners`; `PayableWinnerCount`; `CalculateRefundForInvalidBet` / `CalculateRemainingBetPayout` |
 | `SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` | `CommissionPercentage` |
-| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`5.0`** — the production rate, not a mock |
+| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`2.0`** — the production rate, not a mock (corrected 2026-09-29: this row said `5.0`; neither `deploy/secrets.production.json` nor Terraform overrides the committed value, so prod runs 2%) |
 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` · `GlobalStatsDto` | Rate pass-through for the badges |
 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credits `rewardResult.Value` via the payment strategy |
 | `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` | The 12h sweep |

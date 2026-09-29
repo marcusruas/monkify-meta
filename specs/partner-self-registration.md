@@ -1,6 +1,12 @@
 # Space Stroker — "Partner self-registration" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/partner-self-registration` on **2026-09-29** (`main` in
+> `monkify-backend`, `monkify-front`, `monkify-meta`; `master` in `monkify-lp`). Current truth is
+> distilled in [`../features/partner-self-registration.md`](../features/partner-self-registration.md).
+> Shipped as specified; the prod house cut is the committed **2%** (§15.1 resolved — no override in
+> secrets or Terraform), so the explainer reads 0.001 SOL per 1 SOL bet.
+>
+> Originally refined via Trello card
 > [#195 Public referral registering page](https://trello.com/c/fuLdOsMW/195-public-referral-registering-page)
 > (2026-09-28).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp` (`master`), and this doc in `monkify-meta`.

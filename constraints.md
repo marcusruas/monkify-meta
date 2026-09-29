@@ -134,6 +134,14 @@ agents work different features at once without colliding.
   a server rejection at all. A vague message here would be actively harmful: the transfer leaves the
   wallet first, and a player told only "that could not be accepted" has no way to learn what amount is
   allowed. This does **not** loosen the rules above; nothing else in Orbit names its reason.
+- **Sanctioned exception — partner self-registration (#195).** `POST /referrals/registrations` says
+  *"That code is taken."* and *"This wallet is already a partner. Sign in instead."* — but only
+  **after** a valid wallet proof, and it reveals only that a code or wallet exists (codes are public in
+  every `?ref=` link), never a partner's name, wallet or share. It also states its two public rules
+  (terms required, code shape) before the proof. Every other referral refusal — a bad signature, an
+  unknown or replayed nonce, a house wallet, sign-in, statement, cash-out — stays the one vague
+  `ReferralRequestInvalid`, and an unknown `?ref=` still resolves exactly like no code. See
+  `features/partner-self-registration.md`.
 
 ## 7. Asking the user to decide — pick the answer mode first, then give the trade-offs
 

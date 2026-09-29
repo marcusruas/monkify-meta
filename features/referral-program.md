@@ -215,6 +215,9 @@ is constructed at DI time, so a test cannot add a partner afterwards.
 
 ## Follow-up
 
+⚠️ **Partners can register themselves since #195** ([`partner-self-registration.md`](partner-self-registration.md)):
+a self-registered row is an ordinary `ReferralPartners` row, attributed exactly as below.
+
 [#177 Partner earnings page](https://trello.com/c/FRzhCu07/177-partner-earnings-page-referral-cash-out)
 supersedes the "report only" decision with a partner-facing page that pays automatically from a
 dedicated referral account. Until it ships, the SQL report **is** the payment mechanism.
