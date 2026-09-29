@@ -77,6 +77,13 @@ Every round belongs to **one player** (solo rounds).
   or re-attaches to a running round after a reload.
 - **The bet starts the round immediately** (`HouseEdgeTimeUntilGameStarts = 0`). Hyper Roll has **no automatic
   rollover**: the next board comes from a lever pull or a page reload.
+- **A round types for ~4.5 s** (since 2026-09-29; was ~10 s). Hyper Roll paces on its own window,
+  `GeneralSettings:Games:HouseEdgeTarget*` (mean 3–6 s, p95 6 — committed config, no deploy override).
+  Because the winner is always the weighted draw, every round runs to its character cap, and the cap is
+  the 500K ceiling, so the round lasts exactly the mean target (measured 4.53–4.55 s locally). ⚠️ That is
+  ~111K characters/s, twice the race's rate: a CPU-starved Consumers instance would stretch it silently,
+  so judge it by real round times after a deploy, not by the config. Practice mirrors it
+  (`PRACTICE_HYPER_ROLL_TIMINGS.runMs = 4500`).
 - **Unbet boards expire** after `HouseEdgeBoardTtlMinutes` (30) idle, and each read, pre-check or reroll resets
   the timer. The Hangfire job `house-edge-board-cleanup` deletes them every
   `HouseEdgeBoardCleanupIntervalMinutes` (5).
