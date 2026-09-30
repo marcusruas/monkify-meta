@@ -56,8 +56,9 @@ an app-wide icon system"*.
 There is now **one pixel-art icon language**: a shared registry (`src/constants/icons.ts`) rendered by
 one component (`ui/AppIcon.vue`). Every page and feature carries an **identity mark**.
 
-⚠️ **The ☰ header menu is a 3-column icon pad, not a list of rows** — nine cells (Home · Practice ·
-Orbit · Stats · Fair · How to play · History · Responsible · Settings), 24px pixel marks over VT323
+⚠️ **The ☰ header menu is a 3-column icon pad, not a list of rows** — **eight** cells since #198 removed
+Orbit's (Home · Practice · Stats · Fair · How to play · History · Responsible · Settings; the ninth slot is
+deliberately left empty — Orbit is reached from its header pill), 24px pixel marks over VT323
 labels, with a pixel glyph on the trigger. **The embed renders the same grid** with its two survivors
 (History + Settings), **not an alternate layout**. Stats and Fair are hidden when embedded. The
 dismissal contract (opens on click, closes on item click or outside click, **no hover**) is unchanged,

@@ -337,16 +337,17 @@
   rebuilt by **#141** on 2026-08-06. See `features/orbit-custodial-wallet.md`,
   `features/orbit-auto-bet-engine.md`, `features/orbit-notifications.md` and
   `features/orbit-ui-overhaul.md`.
-- **Orbit panel vs the `/orbit` page** — Orbit's two player-facing surfaces, with one job each. The
-  **panel** is the compact `ArcadeModal` for money you move **mid-round**: turn Orbit on for the game
-  you are already in, and add money — plus a status strip and the seam row. The **page** is everything
-  else, as a four-step collapse-to-dashboard list (`Game → Money → Stop rules → Telegram`), and **no
-  control on it opens a modal**. The panel is the short version of the page, never a second copy.
-  ⚠️ The split's accepted cost: the **cash-out floor** is readable but not editable from inside a round.
+- **Orbit quick popup vs the Orbit modal** (#198) — Orbit's two player-facing surfaces since the `/orbit`
+  page was deleted. The **quick popup** hangs off the header pill for a signed-in player: balance, status,
+  add money, cash out, MORE OPTIONS. The **modal** is everything: WALLET · LET ORBIT PLAY <TYPE> ·
+  NOTIFICATIONS · RECOVER A DEPOSIT, **one section open at a time**, pinned so it never jumps. (Before
+  #198 the pair was "the panel vs the `/orbit` page" — a mid-round panel plus a five-tab page.)
 - **`.arcade-frame--orbit`** — Orbit's own page material (void-deep fill, 2px violet-deep frame), the
   **third** panel beside grey and black. It exists because `/orbit` needed the black panel's depth but
   carries a stop-loss, and black is documented as *never a warning about money* — so Orbit got its own
-  material rather than bending that rule. **Scope is the `/orbit` page only.**
+  material rather than bending that rule. **Scope is Orbit's own surfaces** — the home Orbit card today;
+  the `/orbit` page it was made for was deleted in #198 (the modal and popup use the matching
+  `variant="orbit"` dialog material).
 - **Orbit word claim** — `OrbitChoiceClaim`, unique on `(GameParametersId, Choice)`. The row's
   existence **is** the claim. An Orbit player's optional fixed word becomes a **standing, cross-round**
   reservation on that free-text game type, blocking other Orbit players **and human bettors** in every

@@ -1,6 +1,8 @@
 # SpaceStroker — "Orbit Improvements" (quick popup + one sectioned modal) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped — merged to main via `feature/orbit-improvements` on 2026-09-30.** Distilled in
+> [`../features/orbit.md`](../features/orbit.md) §5 (Minor change: no dedicated `features/` doc).
+> Refined via Trello card
 > [#198 Orbit improvements](https://trello.com/c/eoY4MEGK/198-orbit-improvements) (2026-09-29).
 > Repos affected: `monkify-front`, and this doc in `monkify-meta`. **`monkify-backend` is NOT affected**
 > (no endpoint, DTO, entity, migration, event or SignalR change).
