@@ -12,6 +12,11 @@
 > modal** with collapsible sections that separate the wallet from Cosmic Sprint auto-betting. The
 > `/orbit` page is deleted.
 
+> ⚠️ **Owner feedback after the first local test (2026-09-30) supersedes parts of §3/§7/§12** — see
+> §16. In short: sections are an **accordion (one open, no scrolling)**, **BET HISTORY is removed**, the
+> status tag reads **AUTO BET ON / OFF**, cash-out is **empty = everything**, and buttons follow the
+> mockup palette.
+
 ---
 
 ## 1. Summary
@@ -452,3 +457,17 @@ devnet wallet:
 | Date | Change |
 | --- | --- |
 | 2026-09-29 | Initial spec from refined card #198 + design gate (owner picked P1 + M4) |
+| 2026-09-30 | Owner feedback after local test: accordion, no bet history, AUTO BET ON/OFF, cash-out empty = all, mockup button palette (§16) |
+
+---
+
+## 16. Changes after the first local test (owner, 2026-09-30)
+
+| # | Change | Supersedes |
+| --- | --- | --- |
+| F1 | **One section open at a time** (accordion), no scrolling inside the modal. The jump strip's lit chip is always the open section; a chip opens its section, a title click toggles it. Start section: deep link → auto-bet while running → last one the player left open (`space-stroker.orbit.section`, `none` when all collapsed) → WALLET. | Decision 4, §7.3 item 2, §7.4 |
+| F2 | **BET HISTORY removed** from the modal (and `OrbitBetLog.vue` deleted). Orbit has no bet log surface any more. | §7.3 item 3, AC 7 / AC 14 |
+| F3 | Status tag reads **AUTO BET ON** (running, or enabled but unfunded — amber lamp + tooltip) / **AUTO BET OFF** (violet lamp) instead of RUNNING / PAUSED / OFF / NEEDS MONEY. Applies to popup and modal. | §7.2/§7.3 status tag |
+| F4 | Cash out: the field starts **empty with placeholder `all X`**; empty or exactly the balance = full cash-out (no amount sent). No MAX button. The field is no longer disabled by the shared `isBusy` flag (it locked whenever a word/rule auto-save was in flight). | §7.1 cash-out control |
+| F5 | Button palette from the mockups: ADD amber fill (`OrbitAmountField` `confirmPrimary`), CASH OUT / RECOVER amber outline (`.btn-dialog--outline-primary`), START AUTO-BET violet fill (`.btn-dialog--orbit`), PAUSE / Telegram buttons violet outline (`.btn-dialog--orbit-outline`); popup money labels violet. The dead `.orbit-trio*` styles went with the control bar. | §7.5 start/pause styling |
+| F6 | Local testing of NOTIFICATIONS uses the prod bot via an untracked compose override (`.worktrees/orbit-improvements/telegram.local-override.yml`, env `GeneralSettings__Operator__Token__Orbit__TelegramBot*`). ⚠️ The link flow's `getUpdates` shares the bot's update queue with production, so a local verify can acknowledge a production player's pending `/start` (they would simply re-send it). Never committed. | — |
