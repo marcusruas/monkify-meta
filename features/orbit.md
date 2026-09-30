@@ -28,7 +28,8 @@
 > [`../specs/orbit-modal-improvements.md`](../specs/orbit-modal-improvements.md) ·
 > [`../specs/orbit-feedback-adjustments.md`](../specs/orbit-feedback-adjustments.md) ·
 > [`../specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md) ·
-> [`../specs/orbit-wallet.md`](../specs/orbit-wallet.md) (manual bets, #194).
+> [`../specs/orbit-wallet.md`](../specs/orbit-wallet.md) (manual bets, #194) ·
+> [`../specs/orbit-improvements.md`](../specs/orbit-improvements.md) (popup + one modal, `/orbit` page removed, #198).
 
 ---
 
@@ -142,9 +143,11 @@ testing read the flow as *"sign in → enable? → set up → then hit play (to 
 ⚠️ **They collapsed to one.** `Enabled` is the only flag and behaves exactly like play/pause. Cash-outs
 are their own thing. **The only cool-off left in Orbit is the rolling manual cash-out gap.**
 
-Also available: **partial cash-out**, a **cash-out floor**, a **stop-loss trigger**, and a per-player
-**bet log** that labels every bet **MANUAL** or **AUTO** (`OrbitBetLogDto.Source`, numeric `Auto = 1`,
-`Manual = 2`, from `Bet.OrbitAutoPlaced`).
+Also available: **partial cash-out**, a **cash-out floor** and a **stop-loss trigger**. The backend still
+serves a per-player bet log (`GET /orbit/history`, each row labelled **MANUAL** or **AUTO** via
+`OrbitBetLogDto.Source`, numeric `Auto = 1`, `Manual = 2`, from `Bet.OrbitAutoPlaced`), but ⚠️ **no
+surface renders it since #198** — the owner removed the BET HISTORY section; `OrbitBetLog.vue` is deleted
+and `useOrbit().loadHistory` has no caller.
 
 ⚠️ **Threshold, floor and stop-loss apply to AUTO-bets only** (#194 decision 9). A manual Orbit-paid
 win or loss never triggers an automatic cash-out: `OrbitBetSettlementService.CreditWin` evaluates the
@@ -190,36 +193,61 @@ never asked for, was **silent**.
 ## 5. The player-facing surface
 
 Orbit shipped functionally complete and visually unfinished — one 916-line hand-rolled overlay that
-bypassed the design system, plus eight scattered touchpoints on the game screen with nothing saying
-what Orbit was doing right now.
+bypassed the design system — then spent #141 → #194 as **two surfaces** (a compact in-round panel and a
+five-tab `/orbit` page). New players read the two as one confusing feature, so **#198 (2026-09-30)
+collapsed them**: ⚠️ **the `/orbit` page is GONE** (route, `OrbitPage.vue`, its tab components and the ☰
+ORBIT cell) — **no redirect**, an old link hits the catch-all. Orbit is now:
 
-It is now **two surfaces with one job each**: a compact **panel** for money moved mid-round, and an
-**`/orbit` page** that is the order you set Orbit up in and, once set up, the dashboard that says it is
-running. Plus a module in the game cabinet and a resolved mobile-deeplink sign-in.
+1. **The quick popup** (`OrbitQuickPanel` + `OrbitQuickBody`, owner-picked mockup **P1**) — what a
+   **signed-in** player gets from the header pill: ORBIT HOLDS + the status tag, **ADD MONEY**, **CASH
+   OUT** (full or partial) and **MORE OPTIONS** → the modal. No auto-bet control. Anchored under the pill
+   from `lg` up (outside click / Esc close it), an `ArcadeModal` bottom sheet below `lg`. Signed out, the
+   pill opens the modal's sign-in view instead — the popup never mints a session.
+2. **The Orbit modal** (`OrbitModal`, mockup **M4**) — ORBIT HOLDS + status tag, a **jump strip** of
+   chips, and collapsible sections: **WALLET** (add money + cash out) · **LET ORBIT PLAY COSMIC SPRINT**
+   (the word, START / PAUSE AUTO-BET, the auto cash-out rules) · **NOTIFICATIONS** (Telegram, only where a
+   bot is configured) · **RECOVER A DEPOSIT**, plus a *How Orbit works* link to `/how-to-play#orbit`.
 
-⚠️ **`/orbit` is wallet-first** (#194). The tabs are **WALLET** (the default; `?tab=money` still works as
-an alias) → **AUTO-BET** → **AUTO CASH-OUT** → RECOVER → TELEGRAM, and the pitch leads with *"your
-in-game wallet"*, with auto-bet as the optional extra. Depositing needs no game picked, and the panel no
-longer dims ADD MONEY until a word is saved. On the game screen the header pill that will pay the next
-bet is lit and the stake LCD takes its colour; the console itself carries no Orbit control (see
-[`orbit-wallet.md`](orbit-wallet.md)).
+⚠️ **ONE SECTION OPEN AT A TIME, and the modal is PINNED** (owner, after the first local test): no
+scrolling, and the lit chip is always the open section. The modal opens on the section a deep link names,
+else auto-bet while it is running, else the one the player last left open (`space-stroker.orbit.section`
+in localStorage, `none` when all collapsed), else WALLET. `ArcadeModal pinned` hangs it from a fixed top
+with `min-height: min(720px, 84dvh)` on desktop and a fixed `90dvh` sheet on mobile, so switching sections
+never re-centres or resizes it upward.
 
-### One eligible type ⇒ no dropdown
+⚠️ **The auto-bet section is hard-wired to `eligibleGameTypes[0]`** (today Cosmic Sprint). The game
+picker, the auto-pointing at the round on screen and the "switch guard" are gone: START sends
+`{ enabled, gameParametersId }` from **any** page with **no navigation**. With zero eligible types the
+section is hidden; a type picker is a future card. The word still gates the stop rules only — money in and
+money out never depend on it.
 
-With Beast Mode gone and Hyper Roll `AllowOrbit: false` (a player-vs-house solo round has no place for
-an auto-bet), exactly **one** eligible type is left (Cosmic Sprint —
-Space Jackpot is `AllowOrbit: false`, because an auto-bet on a 24h draw would lock a player's funds for
-a day). A dropdown with one option is a control that cannot be used, so **`OrbitGameTab.vue` renders a
-read-only line** naming the game and its stake, plus *"More modes coming to Orbit soon."*, and an
-explicit **"Use Orbit auto-bet on Cosmic Sprint"** action that creates the enrolment. ⚠️ **It no longer
-auto-commits on mount** (#194): deposits do not need an enrolment any more, so creating one is a
-deliberate step rather than a side effect of opening the page. With **zero** eligible types the empty "Pick a game" select stays —
-that is a real condition, not a third state worth inventing.
+⚠️ **Cash-out is "empty = everything".** The field starts empty with placeholder `all <balance>`; empty
+(or exactly the balance) sends **no amount**, so the escape hatch cannot miss by a float hair; a partial
+must be `>= minimumCashOut`. The field is **not** disabled by the shared `isBusy` flag — every Orbit write
+sets it, and a field that locked while a word or rule auto-saved read as "I can't change the amount".
 
-⚠️ **`OrbitModal.vue` keeps its `<select>`** and must not be collapsed the same way: it is a
-*confirm-then-navigate* picker that only renders when nothing is set up yet, so one option is still a
-real press — collapsing it would auto-navigate the player the moment the panel opens. It reads the same
-`eligibleGameTypes`, so the gated type is already gone from it.
+**Entry points:** the header pill (popup / sign-in); the **out-of-funds toast** opens the popup (the modal on
+WALLET if the session lapsed); the **first-win invite** opens the modal on the auto-bet section; the **home
+card** opens the modal (with no wallet connected its sign-in view says *"Connect a wallet first — Orbit is
+tied to the wallet that owns the balance."*). Every one goes through `useHeaderModals()` —
+`openOrbit(section?)` / `openOrbitPopup()` — so there is still exactly one modal instance.
+
+**Palette** (from the mockups): ADD amber fill (`OrbitAmountField confirmPrimary`), CASH OUT and RECOVER
+amber outline (`.btn-dialog--outline-primary`), START AUTO-BET violet fill (`.btn-dialog--orbit`), PAUSE
+and the Telegram buttons violet outline (`.btn-dialog--orbit-outline`). The status tag keeps PAUSED /
+RUNNING / OFF / NEEDS MONEY.
+
+On the game screen the header pill that will pay the next bet is lit and the stake LCD takes its colour;
+the console itself carries no Orbit control (see [`orbit-wallet.md`](orbit-wallet.md)).
+
+### One eligible type
+
+With Beast Mode gone and Hyper Roll `AllowOrbit: false` (a player-vs-house solo round has no place for an
+auto-bet), exactly **one** eligible type is left: Cosmic Sprint (Space Jackpot is `AllowOrbit: false`,
+because an auto-bet on a 24h draw would lock a player's funds for a day). That is why #198 could drop the
+picker outright: the section title and subtitle name the type (*"Orbit plays one Cosmic Sprint round for
+you every round, and cashes out when your rules say so."*) and START creates the enrolment. Enrolment is
+still a deliberate press — nothing auto-commits on open (#194).
 
 ## Key code touchpoints
 
@@ -229,8 +257,12 @@ real press — collapsing it would auto-navigate the player the moment the panel
 ⚠️ **a separate receive endpoint from `HouseSeedBetConsumer`, so a slow house placement never delays
 Orbit planning for the same round**), the cash-out job, and `SpaceStroker.Api/Controllers/OrbitController.cs`.
 
-**Frontend (`monkify-front`)** — `src/pages/OrbitPage.vue`, the Orbit panel + cabinet module,
-`src/hooks/useOrbit.ts`, `src/services/orbitService.ts`, all behind `orbitEnabled`.
+**Frontend (`monkify-front`)** — `src/components/orbit/OrbitQuickPanel.vue` + `OrbitQuickBody.vue` (popup),
+`OrbitModal.vue` + `OrbitSection.vue` + `OrbitSectionStrip.vue` + `sections/OrbitNotificationsSection.vue` /
+`OrbitRecoverSection.vue` (modal), `OrbitDepositControl.vue` / `OrbitCashOutControl.vue` (the shared money
+controls), `src/hooks/useOrbitSections.ts`, `src/hooks/useHeaderModals.ts`, `src/hooks/useOrbit.ts`,
+`src/services/orbitService.ts`, and `ArcadeModal`'s `pinned` option — all behind `orbitEnabled`. Design
+record: [`../specs/orbit-improvements.md`](../specs/orbit-improvements.md) (#198, incl. §16 feedback).
 
 **Manual Orbit bets** (`POST /orbit/wagers`, `PlaceManualOrbitBetConsumer`, the shared `OrbitStakePlacer`,
 `OrbitStakeReconciliationJob`, `useGame.nextBetSource`) are listed in
