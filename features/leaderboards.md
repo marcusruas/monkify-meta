@@ -97,8 +97,11 @@ the quiet-week fallback intact:
 ### Previous weeks — the history pager
 
 `GET /leaderboards?weeksAgo=N` ranks the two weekly boards over the anchored slot **N weeks before the
-live one** (0 = live, clamped to `[0,520]`). `/leaderboard` renders `‹ OLDER` / `THIS WEEK` / `NEWER ›`
-under the explainer; the home section does **not** page (it is a live teaser).
+live one** (0 = live, clamped to `[0,520]`). Both `/leaderboard` and the home section render
+`‹ OLDER` / `THIS WEEK` / `NEWER ›` under the explainer. ⚠️ The home section's hide-when-empty rule now
+also stays up when there is history (`weeksAgo > 0` or any visible board's `hasEarlier`), so right
+after a reset it shows an empty live week with OLDER enabled instead of vanishing, and paging to an
+empty past week never pulls the section out from under the player. A never-played DB still hides it.
 
 - A past week is a **closed slot** `[start, nextStart − 1µs]` — the bounds are inclusive, so ending on
   the reset instant would count a round that finishes exactly then in both weeks. It is captioned
