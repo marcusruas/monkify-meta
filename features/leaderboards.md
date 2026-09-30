@@ -12,7 +12,8 @@
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
 weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
 **hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
-`/leaderboard` route. The two weekly boards **reset every Friday 15:00 UTC**.
+`/leaderboard` route. The two weekly boards **reset every Wednesday 15:00 UTC**, and `/leaderboard`
+can page back through **previous weeks' winners**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -53,8 +54,9 @@ There are **two modes**, and which one is live depends only on whether an anchor
 Production is anchored; a local box with no override is not.
 
 **Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
-`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-04T15:00:00Z`, which
-is **Friday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-30T15:00:00Z`, which
+is **Wednesday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+(It was Friday 15:00 UTC — `2026-09-04T15:00:00Z` — until `feature/leaderboard-history`.)
 
 - ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
   runtime — that would make the boards depend on the tz database being present and identically named in
@@ -92,6 +94,26 @@ the quiet-week fallback intact:
 
 **Both modes** are floored at `SettlementCutoverUtc`, or a window would sum two settlement currencies.
 
+### Previous weeks — the history pager
+
+`GET /leaderboards?weeksAgo=N` ranks the two weekly boards over the anchored slot **N weeks before the
+live one** (0 = live, clamped to `[0,520]`). `/leaderboard` renders `‹ OLDER` / `THIS WEEK` / `NEWER ›`
+under the explainer; the home section does **not** page (it is a live teaser).
+
+- A past week is a **closed slot** `[start, nextStart − 1µs]` — the bounds are inclusive, so ending on
+  the reset instant would count a round that finishes exactly then in both weeks. It is captioned
+  *"last week (23 Sep – 30 Sep)"* / *"the week of …"* with a `FINAL STANDINGS` line instead of the reset.
+- `window.weeksAgo` echoes the page; `window.hasEarlier` says whether any qualifying round exists
+  before `from` **and after the cutover**, and drives the `OLDER` button — the pager stops at the first
+  week with nothing older and can never walk into the previous settlement asset.
+- `window.resetsAt` still names the **live** week's next reset on every page, so it stays the mode flag.
+- Unanchored, `weeksAgo` is **ignored** (coerced to 0) — the rolling window has no grid to walk.
+- Each page gets its own 120 s Redis entry (the key carries the **requested** week's start).
+- ⚠️ **No season is stored.** History is the *current* grid applied to the rows, so re-pointing the
+  anchor re-cuts past weeks too — the Friday → Wednesday move re-cut every earlier week, and a past
+  week's standings also shift if a player later self-excludes (they are hidden on every page).
+- The hall of fame is all time and ignores the pager.
+
 ### The hall of fame
 
 - **All-time and floored at the cutover — the two are not in conflict.** "All time" means no 7-day
@@ -122,7 +144,7 @@ the quiet-week fallback intact:
 
 ## The read
 
-**`GET /leaderboards?parametersId=&wallet=&size=`** — public, on the stateless API. One call returns
+**`GET /leaderboards?parametersId=&wallet=&size=&weeksAgo=`** — public, on the stateless API. One call returns
 **all three** boards, which is why swiping the carousel costs no request.
 
 - `size` clamps to `[1,25]`; out of range coerces with **200**, never a 400.
@@ -167,7 +189,7 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   header and plinth meta line — so there is **one** board component driven by a config map, not three.
   A per-board champion band was drawn, reviewed and rejected.
 - ⚠️ **No bare figures.** Every board carries an explainer naming the period **read from the response**
-  (anchored: *"this week"* plus a `RESETS FRIDAYS 3 PM UTC` line derived from `window.resetsAt`;
+  (anchored: *"this week"* plus a `RESETS WEDNESDAYS 3 PM UTC` line derived from `window.resetsAt`;
   unanchored: *"in the last 7 days"*, or a fallback week's real dates — it can never claim a period the
   rows do not cover), a unit-naming meta line under each plinth figure, and a column header.
   ⚠️ The reset is rendered in **UTC and explicitly labelled**, never the viewer's local time: it is one
