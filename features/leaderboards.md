@@ -12,7 +12,7 @@
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
 weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
 **hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
-`/leaderboard` route. The two weekly boards **reset every Friday 15:00 UTC**.
+`/leaderboard` route. The two weekly boards **reset every Wednesday 15:00 UTC**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -53,8 +53,10 @@ There are **two modes**, and which one is live depends only on whether an anchor
 Production is anchored; a local box with no override is not.
 
 **Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
-`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-04T15:00:00Z`, which
-is **Friday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-30T15:00:00Z`, which
+is **Wednesday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+(It was Friday 15:00 UTC — `2026-09-04T15:00:00Z` — until `feature/leaderboard-history`; the move
+re-cut the live week the moment it deployed.)
 
 - ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
   runtime — that would make the boards depend on the tz database being present and identically named in
@@ -167,7 +169,7 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   header and plinth meta line — so there is **one** board component driven by a config map, not three.
   A per-board champion band was drawn, reviewed and rejected.
 - ⚠️ **No bare figures.** Every board carries an explainer naming the period **read from the response**
-  (anchored: *"this week"* plus a `RESETS FRIDAYS 3 PM UTC` line derived from `window.resetsAt`;
+  (anchored: *"this week"* plus a `RESETS WEDNESDAYS 3 PM UTC` line derived from `window.resetsAt`;
   unanchored: *"in the last 7 days"*, or a fallback week's real dates — it can never claim a period the
   rows do not cover), a unit-naming meta line under each plinth figure, and a column header.
   ⚠️ The reset is rendered in **UTC and explicitly labelled**, never the viewer's local time: it is one
