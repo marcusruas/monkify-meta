@@ -33,6 +33,12 @@ reproducible.
 - **Fallback winner** (character cap reached) is drawn from a dedicated
   `HMAC-SHA256(serverSeed, prefix + "|fallback")` label — reproducible regardless of how many characters
   streamed.
+- **Voided holder tickets stay in the prefix (Space Jackpot, #196).** A ticket voided by the draw
+  recheck keeps its `Seed` in `orderedBetSeeds` — it was committed at entry, and dropping it would make
+  the stream depend on a post-entry RPC read. Only its **choice** leaves the race: the typer skips
+  `Voided` bets, so the server's `orderedChoices` already exclude it. The verification payload lists the
+  bet with **`voided: true`**; the verifier builds the prefix from **all** bets and takes the racing
+  choices from `orderedChoices`. See [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 - **Weighted fallback (house-edge types — Hyper Roll).** Natural matching is off, so the winner is
   always the fallback, drawn by `WeightedFallbackIndex`: a uniform draw over the board's **published
   integer weights** (32-bit rejection sampling on the same `|fallback` block). The weights ship in the

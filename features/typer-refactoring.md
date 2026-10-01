@@ -21,6 +21,11 @@ SignalR messages instead of 5M and ~25,000.
   shrink** — full alphabet, deliberately: a smaller lottery pool raises how often *anyone* wins,
   which is pot-payout/money behavior, not pacing (`SpaceStrokerTyper.SetCharactersOnTyper` gates on
   `IsLottery`).
+- ⚠️ **Hyper Roll and Monkey Duel pace on their own windows since 2026-09-29** —
+  `HouseEdgeTarget*` (3–6 s, p95 6) and `DuelTarget*` (4–6 s, p95 8). Hyper Roll always runs to its cap
+  and its horizon is the character ceiling, so a round lasts the mean (**4.5 s**, 500K chars — twice the
+  race's character rate); a duel averages ~3.5–3.8 s. `SpaceStrokerTyper` picks house-edge → duel →
+  lottery → race. See `monkey-duel.md` / `hyper-roll.md`.
 - **Pacing targets** (config, code defaults): race **and** lottery draw run mean 8–12 s, p95 15 s
   (× the 0.9 safety ⇒ 13.5 s schedule ceiling). `MaxTyperCharacters` ceiling **500,000** (was 5M).
   ⚠️ For small pools the time-derived cap (`capByTime`) binds **below** 500K — persisted caps like

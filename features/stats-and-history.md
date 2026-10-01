@@ -17,10 +17,17 @@
 - **Free bets (`Amount == 0`) are excluded from every money figure** — pot, payout, total-paid,
   hottest-choice tally — but **counted in participation** (a round of only free bets still increments
   rounds played, and history's `BetCount` includes them).
+- **Space Jackpot holder tickets follow the same split** (#196,
+  [`space-jackpot-refactor.md`](space-jackpot-refactor.md)). Holder **credits** — real SOL, but the
+  house's own money given away — are excluded from global and per-type `TotalPaidOut`, winners-paid and
+  `BiggestSinglePayout`, and from a player's won / net / biggest win; a holder round never counts for
+  `BiggestPot`. **Participation still counts them**: bets placed, rounds played and unique players
+  include holder entries, like free bets. ⚠️ The exclusion is on the bet's `EntryKind == Holder`, not on
+  `Amount == 0` — the credit row is a positive amount.
 - **Money source:** `TotalPaidOut` / `BiggestSinglePayout` come from `TransactionLog` rows of type
   `Credit`. **`BiggestPot` is reconstructed per round** as `Σ paid Bet.Amount` (+
-  `LotteryParameters.LotteryPot` + `Game.CarriedExtra` for lotteries) — `Game` has **no persisted pot
-  column**.
+  `LotteryParameters.LotteryPot` + `Game.CarriedExtra` for lotteries) — the one persisted pot is a
+  holder round's `Game.HouseFundedPot`, which the stats ignore and history shows.
 - **Single currency.** Every game settles in the one configured token, so the DTO carries that token's
   symbol/decimals and the client renders token-native through the shared `useAmountFormatter`.
 - **Vague errors.** An unknown or deactivated type collapses to the same vague `ParameterNotFound` —
@@ -93,7 +100,9 @@ newest first, public. Rendered at `/game/history`.
   request-sequence guard drops stale/overlapping responses.
 - **Row fields:** ended date (`Game.EndDate`, fallback `CreatedDate`), type name, winning choice, pot,
   **bet count** (free included), winner count, and the **first 12 chars** of `ServerSeedHash`. ⚠️ The
-  full typed character stream is **never** returned or shown.
+  full typed character stream is **never** returned or shown. On a **holder round** (Space Jackpot) the
+  pot is `Game.HouseFundedPot` — not stakes plus lottery base — and the winner count includes holder
+  tickets (`GameHistoryService.BuildRow`), so the round reads as a real paid draw.
 - **Own-bet columns (nullable):** `MyChoice`, `MyStake`, `MyWon`, `MyPayout` (`Σ` of the bet's `Credit`
   rows; 0 when lost, and 0 for a free-bet win). Null on rounds the caller didn't bet in. Multiple bets
   in one round → the winning bet is surfaced, else the first by `CreatedDate` (one row per round).

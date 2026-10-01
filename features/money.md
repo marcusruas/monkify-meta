@@ -12,7 +12,9 @@
 > ⚠️ **The project's pump.fun coin is NOT this token and never appears in this document.** It is
 > marketing information on a page, gated by its own env key, and it touches no stake, payout, refund or
 > ledger row. See [`token-launch.md`](token-launch.md) — conflating the two mints is the mistake that
-> doc exists to prevent.
+> doc exists to prevent. ⚠️ **One narrow exception since 2026-10-01 (#196):** holding $STROKE is what
+> makes a wallet eligible for a free Space Jackpot ticket (§4). The coin is still only **read** — it is
+> never staked, paid out, refunded or written to the ledger.
 >
 > Deep design: [`../specs/crypto-commission.md`](../specs/crypto-commission.md) (the cut),
 > [`../specs/commission-rate-1-percent.md`](../specs/commission-rate-1-percent.md) (the current rate),
@@ -45,6 +47,10 @@
 > the **HouseSeed** wallet (never the treasury) and the house carries full 50/50 variance. ⚠️ The design
 > artifact's `2S × (1 − rate)` and 5% are both wrong.
 
+> **Space Jackpot takes no commission** (#196, [`space-jackpot-refactor.md`](space-jackpot-refactor.md)):
+> it is a free holder lottery whose whole pot is house-funded, so `houseFundedShare` equals the winner's
+> reward and the taxable profit is 0. No code branch — it falls out of the formula below. See §4.
+
 Space Stroker retains a small **house commission** on winnings instead of paying out the whole pot. The
 cut comes only from each winner's **profit above their own stake**, and is realized by crediting winners
 less on-chain — the retained amount simply stays in the house token account.
@@ -61,7 +67,9 @@ netReward  = winnerReward − commission
 - **A winner always keeps their full stake.** The cut only touches profit above it.
 - **House-funded lottery money is never taxed.**
   `houseFundedShare = (LotteryParameters.LotteryPot + Game.CarriedExtra) / payableWinnerCount` is
-  subtracted before the rate applies. For races this term is 0.
+  subtracted before the rate applies. For races this term is 0. On a **holder round** the house-funded
+  base is `Game.HouseFundedPot` instead (it replaces `LotteryPot + CarriedExtra`), which is the entire
+  pot — so the commission is 0.
 - Because every bet in a game shares one fixed `RequiredAmount`, the total retained equals
   **rate × (losing-bet stakes)**.
 - ⚠️ **The yield as a share of the pot is therefore always BELOW the nominal rate** — the winner's own
@@ -71,6 +79,8 @@ netReward  = winnerReward − commission
 - **Rounding** is down to the token's decimals (`MidpointRounding.ToZero`), applied **after** the
   commission, so the sum of payouts never exceeds the pot held on-chain.
 - **Free bets** (amount 0) contribute nothing and receive nothing → no commission.
+- ⚠️ **A holder ticket is amount 0 but is NOT a free bet** (`Bet.EntryKind = Holder`): it contributes
+  nothing and **does** receive — it is a payable winner of the house-funded pot.
 - **Refunds are unaffected** — a refund always returns the full stake.
 - ⚠️ **A bet created before `SettlementCutoverUtc` is never paid or refunded.** Its `Amount` is a bare
   number denominated in the previous settlement asset, so moving it now would pay the same figure in
@@ -90,7 +100,8 @@ netReward  = winnerReward − commission
 - ⚠️ **The rate is read at payout time, never snapshotted per round.** A round already open when
   Consumers restarts with a new rate settles at the **new** rate, even for bets placed while the badge
   showed the old one. Deliberate (a snapshot would need a migration); the mitigation is to deploy a rate
-  change with no paid round open — the exposure is the 24h **Space Jackpot** lottery.
+  change with no paid round open. *(The long-lived exposure used to be the 24h **Space Jackpot**
+  lottery; since 2026-10-01 it is free and pays no commission, so it no longer matters here.)*
 - **Retained funds stay put** — a smaller on-chain credit, **no new transfer, no ledger row, no
   migration**. "Total paid out" stats drop accordingly.
 
@@ -246,6 +257,47 @@ never left custody (case A) is credited ledger-only, exactly once. Full rules in
 
 ---
 
+## 4. The Space Jackpot pot — house-funded, and reserved as exposure
+
+Spec: [`../specs/space-jackpot-refactor.md`](../specs/space-jackpot-refactor.md) · distilled in
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md) (#196, 2026-10-01).
+
+Space Jackpot takes no stake. Its pot is the treasury's own money, promised a day ahead, so it is
+accounted for like every other thing the treasury may have to pay.
+
+- **Sized once, when the round opens (Consumers):**
+  `pot = PotPercent (0.5%) × (house SOL − open exposure − fee reserve − ReserveFloor 5 SOL)`, floored to
+  **2 significant figures**, clamped to `PotMinimum` 0.05 / `PotMaximum` 2 SOL
+  (`HolderJackpotPotRules`), and frozen on `Game.HouseFundedPot`. All of it is config under
+  `GeneralSettings:Games:HolderJackpot`.
+- **Computed under the shared treasury advisory lock** — the same one a Hyper Roll bet and a House duel
+  take — and the round is inserted in that transaction. Reserving the pot and creating the round are one
+  write, so two things can never both spend the same headroom.
+- ⚠️ **A reserved pot is house-edge exposure.** `HouseEdgeCoverage.Evaluate` adds every unsettled
+  holder round's pot (`HouseEdgeCoverageService.ReservedPotRounds`) to `exposure`, plus **one transfer
+  fee reserve** per pot. Hyper Roll's coverable stake and the VS HOUSE duel ceiling are lower by that
+  amount for as long as the round is open — all day, by design. During rollover the new pot is sized
+  while yesterday's is still unpaid and still counted; that is conservative and intended.
+- **Released by status, with no code.** The pot stops counting the moment the round leaves the
+  unsettled statuses — paid (`RewardForWinnersCompleted`), under-subscribed
+  (`NotEnoughPlayersToStart`), `ErrorWhenProcessingRewards` or `GameEndedAbruptely`.
+- **Never half-funded.** If the headroom cannot cover the pot floor (or the balance cannot be read),
+  the round opens **PAUSED** with no pot and takes no entries.
+- **Nothing carries.** An un-won pot is not stacked into the next round; the next round sizes a fresh
+  one.
+- **Payout.** `RewardGameConsumer` treats a holder round as **treasury-funded** (the running balance
+  guard applies), pays the pot in SOL to the winner's own wallet — one `Credit` row — with 0 commission.
+  The ledger guard makes a redelivered reward a no-op.
+- **Nothing to refund, ever.** No ticket is paid for, so an under-subscribed or cancelled holder round
+  publishes no refund. Refund-skip guards key on **`Amount == 0`** (not on `IsFreeBet`, which is false
+  for a holder ticket). A **paid** bet sent to a holder type is refunded only after its payment
+  validates (§2).
+- **One-time deploy refund.** At the first Consumers boot on this code, `HolderJackpotTransition`
+  refunds the paid 0.1 SOL bets of the live legacy round through the ordinary `RefundInvalidBetEvent`
+  path (reason *"Space Jackpot is now free for token holders."*) and closes that round. Idempotent.
+
+---
+
 ## Key code touchpoints
 
 **Backend (`monkify-backend`)**
@@ -254,7 +306,7 @@ never left custody (case A) is credited ledger-only, exactly once. Full rules in
 | --- | --- |
 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | `CommissionForWinner` in `CalculateRewardForBet`; materialized `Winners`; `PayableWinnerCount`; `CalculateRefundForInvalidBet` / `CalculateRemainingBetPayout` |
 | `SpaceStroker.Domain/Configs/Entities/TokenSettings.cs` | `CommissionPercentage` |
-| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`5.0`** — the production rate, not a mock |
+| `SpaceStroker.Common/spacestrokersettings.json` | `GeneralSettings.Operator.Token.CommissionPercentage` = **`2.0`** — the production rate, not a mock (corrected 2026-09-29: this row said `5.0`; neither `deploy/secrets.production.json` nor Terraform overrides the committed value, so prod runs 2%) |
 | `SpaceStroker.Infrastructure/Contracts/Games/GameParametersDto.cs` · `GlobalStatsDto` | Rate pass-through for the badges |
 | `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` | Credits `rewardResult.Value` via the payment strategy |
 | `SpaceStroker.Infrastructure/Jobs/PendingRefundSweepJob.cs` | The 12h sweep |

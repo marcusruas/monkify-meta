@@ -9,7 +9,9 @@
 ## What it does
 
 Orbit is the player's **in-game wallet**. A player deposits into Orbit once, then places **manual** bets on
-**any paid game** (Cosmic Sprint, Space Jackpot, Hyper Roll) straight from that balance, with no wallet
+**any paid game** (Cosmic Sprint, Hyper Roll — ⚠️ **not Space Jackpot since 2026-10-01**: it is a free
+holder lottery with no stake, and an Orbit-funded request to it is refused,
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md)) straight from that balance, with no wallet
 transaction to sign per bet. The SPA picks the source by itself: Orbit pays when its balance covers the
 stake, otherwise the connected wallet pays. Wins and refunds of an Orbit-paid bet land back in the Orbit
 balance. Wallet-signed bets and Orbit **auto-bet** keep working, but a game type Orbit is auto-playing
@@ -25,7 +27,7 @@ cannot also be played by hand.
 | Win / refund lands in | Player wallet | Orbit balance | Orbit balance |
 | Threshold / floor / stop-loss | n/a | Evaluated | **Never evaluated** |
 | "Orbit won" private toast | n/a | Fires | Does not fire (normal win toast) |
-| Lottery 100,000 $STROKE bonus | Yes | No | **Yes**, to the connected wallet |
+| Lottery 100,000 $STROKE bonus | — removed 2026-10-01 (#196) | — | — |
 | `Bet.FundedByOrbit` / `Bet.OrbitAutoPlaced` | false / false | true / **true** | true / false |
 
 ## Core rules
@@ -69,8 +71,10 @@ cannot also be played by hand.
   `OrbitBetSettlementService.CreditWin` evaluates the threshold and publishes the "Orbit won" notification
   only for an auto bet, and `RewardGameConsumer.EvaluateOrbitFloors` looks only at players with an auto bet
   in the round. A manual win or loss never triggers an automatic cash-out.
-- **A manual Orbit-paid Space Jackpot winner gets the 100,000 $STROKE bonus** at their own wallet
-  (`bet.GetWalletAddress()`; $STROKE is never custodied). Only auto-placed bets are excluded.
+- ⚠️ **Space Jackpot is out of Orbit's reach since 2026-10-01 (#196).** It became a free holder lottery:
+  there is no stake to pay from Orbit, the holder branch of `RegisterBetHandler` refuses an Orbit-funded
+  request, and the 100,000 $STROKE winner bonus this bullet used to describe is removed. A holder entry
+  is still blocked by an **Enabled** auto-bet on that type and by self-exclusion, like any bet.
 
 ### `OrbitAutoPlaced` vs `FundedByOrbit`
 
@@ -215,20 +219,22 @@ carry the request id (the Orbit history shows the refund).
 - **Out-of-Orbit-funds signal** (`useOrbitOutOfFunds.ts`): when the Orbit balance **drops** and stops covering
   the current game's stake (same wallet and game type), the Orbit pill's digits turn red
   (`oklch(0.8 0.16 25)`) for exactly 5 s and a toast reads *"You've run out of Orbit funds. You can deposit
-  more into Orbit or use your own wallet funds."* (~6 s; a click opens `/orbit?tab=wallet`). The race
+  more into Orbit or use your own wallet funds."* (~6 s; a click opens the Orbit quick popup — the modal on
+  WALLET if the session lapsed; #198 removed `/orbit`). The race
   fallback fires the same trigger, deduplicated. It fires once per episode and re-arms only when Orbit
   covers the stake again. It never fires when the player merely raises the stake, on first load, on a wallet
   switch, off the game page, during auto-play, or when embedded or in free-bet mode.
 - **The game console has no Orbit control or Orbit copy.** During the auto-play block the lever and inputs
   are disabled. Pulling the lever prints the auto-play line, and `runBet` refuses with it.
-- **`/orbit` is wallet-first:** tabs **WALLET** (default; `?tab=money` is an alias) → **AUTO-BET** →
-  **AUTO CASH-OUT** → recover → telegram. Depositing needs no game. The single-eligible-type auto-commit is
-  gone: enrolling is an explicit *"Use Orbit auto-bet on Cosmic Sprint"* action. `OrbitModal` no longer dims
-  ADD MONEY until a word is saved.
-- **"Auto-bets only" copy** appears wherever threshold, floor or stop-loss appear (stop-rules tab,
-  `OrbitModal` heading *"AUTO CASHOUT — AUTO-BETS ONLY"*, guide, home card, `/orbit` pitch).
-- **Bet log** (`OrbitBetLog.vue`) has a **TYPE** column (`AUTO` / `MANUAL`). The private "Orbit won" toast
-  fires for auto wins only; a manual win gets the ordinary win toast.
+- **Wallet-first, and since #198 on two surfaces only:** the header pill's quick popup (add money, cash out)
+  and the Orbit modal, whose first section is **WALLET**. Depositing needs no game and no word. Enrolling
+  in auto-bet is an explicit START AUTO-BET press in the modal's LET ORBIT PLAY COSMIC SPRINT section. The
+  `/orbit` page (and its tabs) is gone — see [`orbit.md`](orbit.md) §5.
+- **"Auto-bets only" copy** appears wherever threshold, floor or stop-loss appear (the modal's *"AUTO
+  CASHOUT · AUTO-BETS ONLY"*, guide, home card).
+- **No bet log in the UI since #198** (`OrbitBetLog.vue` deleted); `GET /orbit/history` still labels rows
+  `AUTO` / `MANUAL`. The private "Orbit won" toast fires for auto wins only; a manual win gets the ordinary
+  win toast.
 
 ## Edge cases
 
@@ -284,9 +290,9 @@ and pushing wager outcomes over SignalR.
 - `components/game/GameConsole.vue` (auto-play lock, stake LCD colour), `components/GameHeader.vue`,
   `components/orbit/OrbitLauncher.vue`, `components/header/WalletButtons.vue`, `assets/styles/arcade.css`
   (`.btn-door.lit`).
-- `pages/OrbitPage.vue`, `components/orbit/tabs/OrbitGameTab.vue`, `OrbitMoneyTab.vue`,
-  `OrbitStopRulesTab.vue`, `components/orbit/OrbitModal.vue`, `OrbitTabBar.vue`, `OrbitBetLog.vue`,
-  `components/guide/sections/GuideOrbit.vue`, `components/home/HomeOrbitCard.vue`.
+- `components/orbit/OrbitModal.vue`, `OrbitQuickPanel.vue` / `OrbitQuickBody.vue`,
+  `OrbitDepositControl.vue` / `OrbitCashOutControl.vue` (#198 — they replaced `pages/OrbitPage.vue` and its
+  `tabs/*`, now deleted), `components/guide/sections/GuideOrbit.vue`, `components/home/HomeOrbitCard.vue`.
 
 ## Tests
 
@@ -301,7 +307,7 @@ and pushing wager outcomes over SignalR.
   `PlaceManualOrbitBetConsumerTests`, `PlaceOrbitBetConsumerTests`, `OrbitStakePlacerTests`,
   `OrbitStakeReconciliationJobTests`, `OrbitWagerResultStoreTests`, `BetPreChecksTests`,
   `RegisterBetHandlerTests`, `SolanaServiceTests`, `RateLimitSettingsTests`, `BetDtoTests`,
-  `GameHistoryServiceTests`, `JackpotRewardServiceTests`, `OrbitBetSettlementServiceTests`,
+  `GameHistoryServiceTests`, `JackpotRewardServiceTests` (deleted 2026-10-01 with the bonus, #196), `OrbitBetSettlementServiceTests`,
   `RewardGameConsumerTests`, `HouseSeedBetServiceTests`, `CreditOrbitDepositTests`, `GetOrbitHistoryTests`.
 - `monkify-front` has no test runner: `yarn lint` + `yarn build` + browser QA (spec §13).
 

@@ -1,9 +1,15 @@
 # SpaceStroker — "Space Jackpot: free daily draw for $STROKE holders" — Implementation Spec
 
-> **Status: Ready for implementation.** Refined via Trello card
+> **Status: Shipped** — merged to `main` on 2026-10-01 (and to `master` in `monkify-lp`) via branch
+> `feature/space-jackpot-refactor`. Distilled in
+> [`../features/space-jackpot-refactor.md`](../features/space-jackpot-refactor.md).
+> ⚠️ **The implementation deviates from this body in several places** — the §16 revision-log entry dated
+> 2026-10-01 lists every one, and where they disagree **that entry and the code win**.
+>
+> Refined via Trello card
 > [#196 Space Jackpot refactor](https://trello.com/c/mEB01ur9/196-space-jackpot-refactor) (2026-09-28).
 > Level **`Feature`**. Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in
-> `monkify-meta`. Branch `feature/space-jackpot-refactor` in every repo. Worktrees are at
+> `monkify-meta`. Branch `feature/space-jackpot-refactor` in every repo. Worktrees were at
 > `.worktrees/space-jackpot-refactor/<repo>`.
 >
 > **Purpose:** Space Jackpot stops being a paid 0.1 SOL lottery. It becomes a **free daily lottery for

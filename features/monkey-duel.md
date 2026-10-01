@@ -98,11 +98,21 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 ### Start, run, reward
 
 - A duel starts **as soon as both bets are in** — no `MinimumWaitPeriodForBets` hold — after
-  `DuelTimeUntilGameStarts` (3 s, the VS splash). A one-bet room past the window just stays open.
+  `DuelTimeUntilGameStarts` (**2 s** since 2026-09-29, was 3 s — the VS splash follows the server's
+  `startDate`, so it needs no frontend constant). A one-bet room past the window just stays open.
 - No rollover, no startup open, no startup re-plan, **never seeded by the house seed bet** (on a duel
   the seeded bet *is* the second player), never in Orbit's `eligibleGameTypes`, no lottery.
-- The typer is unchanged: it races the two words over the union of their characters. Expect a high
-  **fallback** share (~43% in 2-bet free-text rounds, `typer-refactoring.md`).
+- The typer races the two words over the union of their characters, but on its **own pacing window**
+  (`GeneralSettings:Games:DuelTarget*`, 2026-09-29): mean target **4–6 s**, p95 **8 s** ⇒ a 5 s target and
+  a 7.2 s cap. A duel usually ends at a natural win BEFORE the cap, so it **averages ~3.5–3.8 s**
+  (measured 3.52 s over 10 local rounds, range 0.2–7.3 s) — not 5. ⚠️ The cap/mean ratio (1.44) is kept
+  at or above the race's 1.35 on purpose: a tighter cap would push more rounds to the fallback. Expect a
+  high **fallback** share (~40–43% in 2-bet free-text rounds, `typer-refactoring.md`).
+- **The word carries over.** After a bet lands, `DuelConsole` stores the word per wallet
+  (`utils/duelWord.ts`, `localStorage` key `space-stroker.duel-word.<wallet>`) and pre-fills it on the
+  next round. **Orbit's word wins** when the player is enrolled with one. It fills only an empty field or
+  one it filled itself — never over the player's typing — and a field the player clears stays clear.
+  Device-local by design; the backend knows nothing about it.
 - **Payout is the unchanged pari-mutuel path:** winner gets `S × (2 − rate)` = **1.98 S** at the live
   2%, one `Credit` `TransactionLog` row. Our edge on a house duel is ~**1% of the pot** with full 50/50
   variance.

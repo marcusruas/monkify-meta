@@ -94,6 +94,19 @@ knowingly-accepted cost is that the most prominent section on the page says "the
   `SpaceRoadmap.vue` phase 5 no longer reads *"the token stays your stake in all of it"* — vague future
   talk before launch, a checkable lie once a real contract address sits two sections above it. (Phase 1's
   *"The token drops on Solana"* is fine and was left alone.)
+  ⚠️ **DELIBERATELY REVERSED FOR SPACE JACKPOT (2026-10-01, card #196).** The token still never
+  **stakes** a bet — no mode takes $STROKE as a stake — but **holding it grants a free Space Jackpot
+  entry**, and the copy now says so on purpose: **"Token holders get a free daily lottery draw."** Do
+  **not** "fix" that copy back to this rule. See
+  [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
+- ⚠️ **THE JACKPOT BULLETS ABOVE ARE HISTORY SINCE 2026-10-01.** The 100,000 $STROKE winner bonus is
+  **removed** (`JackpotRewardService` deleted), so nothing is paid "from the Treasury Wallet" any more
+  and the signer mismatch noted above no longer exists. The heading is now **`Holders play Space Jackpot
+  free`** and the body **`Token holders get a free daily lottery draw. Hold the day's minimum $STROKE at
+  the draw.`** — still verbatim in `TokenSection.vue` (LP) and `HomeTokenCard.vue` (app), still moved
+  together. `GuideToken.vue`'s row is now **`FREE JACKPOT FOR HOLDERS`** and states the rule (hold the
+  minimum at entry and at the 10PM UTC draw, or the ticket is voided). Present tense is correct here:
+  the mechanic runs. **Buyback-and-burn still does not exist in code.**
 - **The ticker is `$STROKE`, a stand-in.** It is a single constant in each repo, marked `TODO(launch)`,
   because it is not yet decided.
 - **The treasury is disclosed, not hidden** — ~50% of supply, framed as the fuel for the two mechanics.
@@ -390,6 +403,9 @@ front-door card → guide → chart. See [`stats-and-history.md`](stats-and-hist
    ⚠️ It carries **~20 rounds of runway** (2,000,000 held ÷ 100,000, drawn daily), after which every
    round pays nobody and logs an Error — **topping the house wallet up is an ops task with a
    deadline**. **Buyback-and-burn: still open**, still future tense (§4).
+   ⚠️ **The bonus and its runway are gone since 2026-10-01 (#196)** — Space Jackpot is now a free draw
+   for holders and pays SOL only ([`space-jackpot-refactor.md`](space-jackpot-refactor.md)). There is no
+   top-up deadline any more; what to do with the house's leftover $STROKE is an open owner question.
 4. Whether the apex `spacestroker.com` or `www.` is canonical for any LP deep link. **Still open.**
 
 ## Key code touchpoints

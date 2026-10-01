@@ -12,7 +12,7 @@
 Ranks players against each other for the first time. Three read-only boards in one carousel — a
 weekly **gamble race** (Σ paid stake), a weekly **PNL** board (net, signed), and an all-time
 **hall of fame** of biggest win multipliers — on a section of the home page and on a shareable
-`/leaderboard` route. The two weekly boards **reset every Friday 15:00 UTC**.
+`/leaderboard` route. The two weekly boards **reset every Wednesday 15:00 UTC**.
 
 ⚠️ **It moves no money and writes nothing.** A prize pool was scoped out deliberately: there is no
 season table, no prize wallet, no payout consumer and no solvency guard. Adding one is a new card.
@@ -24,6 +24,12 @@ season table, no prize wallet, no payout consumer and no solvency guard. Adding 
 - Only rounds that reached **`RewardForWinnersCompleted`** count. Refunded, `NotEnoughPlayersToStart`,
   `ErrorWhenProcessingRewards` and `GameEndedAbruptely` contribute nothing.
 - **Free bets (`Amount == 0`) are excluded** from every figure.
+- **Space Jackpot holder tickets are excluded too** (#196). A holder ticket is amount 0, so the same
+  `Amount > 0` filters drop it from the race, PNL and the hall of fame — a holder's jackpot win adds
+  nothing to wagered, won or any multiplier. No code changed for this; it is **pinned by tests**
+  (`LeaderboardServiceTests`, `LeaderboardHallOfFameTests`). ⚠️ Do not replace an `Amount > 0` filter
+  with `!IsFreeBet` — `IsFreeBet` is **false** for a holder ticket, and its SOL credit would enter the
+  boards with a zero stake. See [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 - **`SettlementCutoverUtc` floors every board** — including the hall of fame; see below.
 - **Orbit bets count.** They are ordinary paid bets on the real player's `Player` row, so they need no
   special handling. ⚠️ The **Orbit custody account is never a leaderboard entity** — it signs, it does
@@ -53,8 +59,10 @@ There are **two modes**, and which one is live depends only on whether an anchor
 Production is anchored; a local box with no override is not.
 
 **Anchored (production).** The two weekly boards rank the slot `{anchor + k*7d}` that contains `now` —
-`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-04T15:00:00Z`, which
-is **Friday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+`GeneralSettings:Operator:Leaderboards:WeeklyResetAnchorUtc`, production `2026-09-30T15:00:00Z`, which
+is **Wednesday 15:00 UTC** (12:00 BRT). The race restarts on a schedule instead of sliding with the clock.
+(It was Friday 15:00 UTC — `2026-09-04T15:00:00Z` — until `feature/leaderboard-history`; the move
+re-cut the live week the moment it deployed.)
 
 - ⚠️ **The anchor is a UTC INSTANT, not a weekday + timezone.** Nothing resolves `America/Sao_Paulo` at
   runtime — that would make the boards depend on the tz database being present and identically named in
@@ -101,7 +109,9 @@ the quiet-week fallback intact:
   a dimensionless ratio. That was sound while the board showed a bare `×n` and is **void now that it
   shows the SOL won** — a pre-cutover amount is a USDC-era figure, roughly a 200× misstatement under a
   SOL mark. **Do not reinstate the exemption without also removing the amount.**
-- **Ranked on the MULTIPLIER, never the amount.** A Space Jackpot ticket is 10× a Cosmic Sprint one, so
+- **Ranked on the MULTIPLIER, never the amount.** Stakes differ by an order of magnitude across modes
+  (a Space Jackpot ticket was 10× a Cosmic Sprint one while it was paid — it is free and off the boards
+  since 2026-10-01; Hyper Roll and duel stakes still vary), so
   the biggest multiplier is routinely not the biggest payout; ordering by the amount would let ticket
   prices decide the board. The amount is display-only, beside the ratio.
 - One row per player — their single best win ever, not one row per winning bet.
@@ -167,7 +177,7 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   header and plinth meta line — so there is **one** board component driven by a config map, not three.
   A per-board champion band was drawn, reviewed and rejected.
 - ⚠️ **No bare figures.** Every board carries an explainer naming the period **read from the response**
-  (anchored: *"this week"* plus a `RESETS FRIDAYS 3 PM UTC` line derived from `window.resetsAt`;
+  (anchored: *"this week"* plus a `RESETS WEDNESDAYS 3 PM UTC` line derived from `window.resetsAt`;
   unanchored: *"in the last 7 days"*, or a fallback week's real dates — it can never claim a period the
   rows do not cover), a unit-naming meta line under each plinth figure, and a column header.
   ⚠️ The reset is rendered in **UTC and explicitly labelled**, never the viewer's local time: it is one
@@ -179,8 +189,9 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   contract (`gambleRace`).
 - Money carries the `sol.svg` brand mark. ⚠️ The hall of fame's multiplier takes **no** mark — it is a
   ratio, not money.
-- ⚠️ **`/leaderboard` gets NO ☰ menu cell.** The pad is a 3-column nine-cell grid and a tenth cell is
-  not an option ([`frontend-ux.md`](frontend-ux.md)); it is reached from the home section and
+- ⚠️ **`/leaderboard` gets NO ☰ menu cell.** The pad is a 3-column grid and a tenth cell is not an
+  option (since #198 removed Orbit's cell there are eight, and the free ninth slot was deliberately not
+  given to anything) ([`frontend-ux.md`](frontend-ux.md)); it is reached from the home section and
   `/game/stats`, and is unlisted like `/partner`. It joins `EMBED_REDIRECT_ROUTES`.
 - No SignalR group and no polling — fetch on mount and on `visibilitychange`.
 - The home section **hides itself when every visible board is empty**, so on a fresh database it looks

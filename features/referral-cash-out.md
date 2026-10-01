@@ -24,8 +24,10 @@ code — the platform's first automated outbound payment to someone who is not a
   is only a **create-only seed** run at Consumers startup, exactly like `DefaultGames` — an existing
   row is never rewritten, so a restart cannot resurrect a deactivated partner or move a share
   percentage out from under money already earned. A `MOCK_` wallet seeds as `NULL`.
-- Ongoing management is **hand-run SQL** against the table. There is no admin surface and no
-  self-serve signup.
+- Two ways in. **Self-registration** on `/partner` (#195,
+  [`partner-self-registration.md`](partner-self-registration.md)) inserts a row at the fixed
+  `SharePercentage = 5`, `Active = true`, with `TermsAcceptedAt` set. Everything else — bespoke rates,
+  deactivation, corrections — is **hand-run SQL** against the table. There is still no admin surface.
 - `NormalizedCode` is UNIQUE; `PayoutWallet` is UNIQUE **filtered on NOT NULL**, so many partners may
   sit at "not set up to be paid yet" simultaneously. ⚠️ These two indexes replaced startup throws —
   the duplicates can no longer be written, and the in-memory directory resolves first-wins rather
@@ -118,7 +120,8 @@ code — the platform's first automated outbound payment to someone who is not a
   (`7Xf4…9kQa`) and the statement itself stays totals-only (it is cached). ⚠️ The partner's own
   `PayoutWallet` is **not** one of those rows, matching the self-referral guard the earnings predicate
   has always carried. See [`partner-player-roster.md`](partner-player-roster.md).
-- `/partner` is unlisted: not in the header menu (a 3×3 icon pad that cannot take a tenth cell), and
+- `/partner` is unlisted: not in the header menu (a 3×3 icon pad that cannot take a tenth cell) — its
+  only in-app link is the cold home hero's BECOME A PARTNER (#195) — and
   in `EMBED_REDIRECT_ROUTES`, because a commercial balance inside a casino's iframe is the same leak
   that put Orbit in that set. `robots.txt` already covers it via the app host's blanket `Disallow: /`.
 
