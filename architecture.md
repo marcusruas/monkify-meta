@@ -80,6 +80,12 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   history for one game type) works the same way via `IGameHistoryService` — the public page is
   Redis-cached 5 min per type+page+size and the caller's own-bet columns are joined live.
   See `features/games-history.md`.
+  **`GET /games/{gameTypeId}/holder-eligibility?wallet=`** (`GetHolderEligibility`, #196) is the Space
+  Jackpot pre-check: it reads the wallet's $STROKE balance against the type's live holder round and
+  returns `{ wallet, symbol, minimum, balance | null, eligible, entriesPaused }` — cached 15 s per
+  round + wallet (a null balance is never cached), rate-limited 30/min
+  (`get:/games/*/holder-eligibility`). It places nothing; `RegisterBetHandler` re-verifies everything.
+  See `features/space-jackpot-refactor.md`.
 
 ## 3. Data: PostgreSQL + EF Core (Npgsql)
 
@@ -103,13 +109,19 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 - **Games area** (`SpaceStroker.Domain/Games/Entities`): `Game` (carries the provably-fair
   **`ServerSeed`** + **`ServerSeedHash`** committed on the first bet; the old `int? Seed` is removed),
   `GameParameters` (a "game type" — flat, belonging to no tenant), `LotteryParameters`, `PresetChoice`,
-  `GameStatusLog`, **`Player`** (wallet-keyed identity + self-exclusion).
+  `GameStatusLog`, **`Player`** (wallet-keyed identity + self-exclusion). A **holder round** (Space
+  Jackpot, #196) carries `Game.HolderMinimum` (N, frozen), `Game.HouseFundedPot` (frozen, house-funded)
+  and `Game.HolderEntriesPaused`; its type is flagged by `LotteryParameters.HolderOnly`.
 - **Bets area** (`SpaceStroker.Domain/Bets/Entities`): `Bet` (its `Seed` is a 64-char
   `HMAC(clientSeed, Nonce)` hex, with a per-bet **`Nonce`**, and a nullable indexed `Signature`),
   **`TransactionLog`** — THE ledger, one row per money movement (`Credit`/`Debit`/`Refund`) carrying a
   **nullable `BetId`** plus the on-chain columns (`Signature`, `RelatedSignature`, `Wallet`,
   `MintAddress`, `SenderAccount`, `RawTokenAmount`, `Decimals`) — and `BetStatusLog`.
   (`RefundLog` and then `CryptoTransactionLog` were both folded into `TransactionLog`.)
+  `Bet.EntryKind` (`Paid = 1` / `Free = 2` / `Holder = 3`) says what an amount-0 bet is: a dev free bet
+  or a Space Jackpot **holder ticket**. One holder ticket per wallet per round is enforced by the unique
+  partial index `IX_GameBets_GameId_PlayerId_Holder`. `BetStatus.Voided` is a holder ticket struck out
+  by the draw recheck.
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
 Relationships: `GameParameters 1—* Game 1—* Bet 1—* TransactionLog` (the FK is **nullable** — a refund
@@ -142,7 +154,7 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 
 | Event | Published by | Consumed by | Effect |
 | --- | --- | --- | --- |
-| `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the game, then publishes `RunGameEvent`. Refunds bets if a lottery lacks players. |
+| `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the game, then publishes `RunGameEvent`. Refunds bets if a lottery lacks players. For a **holder round** it first runs `HolderDrawRecheck` (batched Token-2022 balance reads; tickets below N are `Voided`, unreadable ones kept) and an under-subscribed holder round refunds nothing. |
 | `RunGameEvent` | `BetPlacedConsumer` | `RunGameConsumer` | Marks game `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next game, publishes `RewardGameEvent`. |
 | `RewardGameEvent` | `RunGameConsumer` | `RewardGameConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
 | `RefundInvalidBetEvent` (carries `BetId` **or**, for a stake rejected before the bet was persisted, the payment signature + wallet) | `RegisterBetHandler`, `BetPlacedConsumer`, `GameTypeDeactivatedConsumer`, `PendingRefundSweepJob` (12h sweep of `NeedsRefunding`) | `RefundInvalidBetConsumer` | Refunds an invalid/rejected/flagged bet via `ISolanaService.RefundTokens` and writes the `Refund` ledger row. Clears the bet to `Refunded` on success (any path); skipped for free bets (`Value == 0`). See `features/refund-safeguards.md`. |
@@ -216,6 +228,15 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   behaviour. At startup `SpaceStroker.Consumers` realigns open **anchored** rounds that are off-grid —
   updating `StartDate` **and** rescheduling the job — which also re-arms a draw missed during
   downtime. See `features/lottery-draw-time.md`.
+- **Holder rounds are planned at creation (#196).** For a `LotteryParameters.HolderOnly` type,
+  `GameService.CreateGame` asks **`IHolderJackpotRoundPlanner`** for the round's N and pot before the
+  insert: N from the Jupiter price (below, §8), the pot from the treasury's headroom **under the shared
+  house-edge advisory lock** (`HouseEdgeCoverageService.AcquireLockAsync` + `EvaluateHeadroomAsync`),
+  with the round insert joining the lock's transaction. `CarriedExtra` is forced to 0, and creation is
+  **skipped** when the type already has a live round (checked under the lock). ⚠️ The planner is an
+  **optional** `GameService` constructor dependency registered in **Consumers only** — the API host
+  builds `GameService` without it, and a holder round opened there opens **PAUSED**. Every planning
+  failure also opens the round PAUSED rather than throwing. See `features/space-jackpot-refactor.md`.
 - **Game chat purge:** daily recurring job `game-chat-purge` runs `ChatMessagePurgeJob`, deleting
   `GameChatMessage` rows older than `GeneralSettings.Chat.RetentionDays` (class default 7; committed **2**).
   The rows are also the fallback source of a game type's chat history, and the Redis history list expires
@@ -287,6 +308,20 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   **`getSignatureStatuses` poll**, not a WebSocket — a socket cannot be proxied. Locally/on devnet,
   with no proxy configured, the SPA still uses the public endpoint directly so no key is needed and no
   provider credits are spent. See `features/frontend-helius-gateway.md`.
+- **$STROKE holder balances are Token-2022 reads (#196).** $STROKE is a **Token-2022** mint
+  (`GeneralSettings:Operator:Token:HolderToken` → `HolderTokenSettings`; public, committed), and Solnet's
+  helpers hardcode the classic program — a classic ATA derivation reads a real balance as **0**. So the
+  holder lottery reads through `ISolanaService.GetToken2022Balance` (one `getTokenAccountBalance` on the
+  `Token2022Program`-derived ATA) and `GetToken2022Balances` (`getMultipleAccounts`, chunks of 100),
+  both behind **`IHolderBalanceReader`** (registered in **both** hosts: the API reads at entry and for
+  the eligibility endpoint, Consumers rechecks at the draw). A missing account is 0; a failed read is
+  `null`. ⚠️ Never read $STROKE through `GetTokenBalance`. The token is **never transferred** by the
+  backend any more — the winner bonus that did (`JackpotRewardService`) is deleted.
+- **Jupiter price — the one outbound price call (#196).** `IStrokePriceClient` /
+  `JupiterPriceClient` does `GET https://lite-api.jup.ag/price/v3?ids=<mint>` (keyless; named
+  `HttpClient`, `PriceTimeoutSeconds`) and returns the USD price or `null` — it never throws. It is
+  registered in **Consumers only** and called once per holder round opened (about once a day) to size
+  the holder minimum N. A failure keeps the previous N and logs at Error.
 - **Host split:** bet-time signature validation runs in `SpaceStroker.Api`; Credit/Refund transfers run
   in `SpaceStroker.Consumers`. The token owner private key is read from config by both — it is **not**
   encrypted at rest, because encrypting a config value with a key stored in the same config bought
@@ -511,6 +546,14 @@ another operator means **deploying the app again with a different `spacestrokers
   production** (config + a Consumers redeploy, which also publishes the existing
   `GameTypeDeactivatedEvent` to cancel and refund its open round): there is no admin endpoint, because
   no admin token can be minted in production. See `features/games.md` §19.
+  ⚠️ **Holder lotteries have their own, wider pair (#196):** `HolderLotteryReconciler` brings an
+  existing default with `HolderOnly: true` onto `HolderOnly`, `LotteryPot 0`, `RequiredAmount 0`,
+  `AllowFreeBet false` and the config `Description` (the `AllowFreeBet` self-heal skips those types),
+  and `HolderJackpotTransition` — right after default-parameter seeding, before
+  `CorrectScheduledLotteryDraws` / `ReplanOpenRounds` / `OpenNewGames` — refunds the paid bets of the
+  type's live **legacy** round and closes it `GameEndedAbruptely`, so `OpenNewGames` opens the first
+  holder round. Both are idempotent and never throw out of startup. Both hosts also run
+  `HolderJackpotSettings.Validate()` at startup and log at Error when it fails.
 - **Admin portal** (`/admin`): the one authenticated surface. `X-Admin-Token` is an
   admin-scoped RS256 JWT validated against the configured public key with **no `iss` and no contract
   check**; `POST /dev/admin-token` mints one outside production. Game types: create/list/deactivate,

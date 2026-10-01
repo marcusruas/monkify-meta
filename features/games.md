@@ -80,6 +80,12 @@ A type's mode is derived from **which optional fields are set** — there is no 
 These are independent flags, so combinations are technically possible (e.g. preset + lottery); the
 seeded defaults don't combine them. The reward pot differs only for lottery (it adds `LotteryPot`).
 
+⚠️ **A lottery with `LotteryParameters.HolderOnly` is a different game again** — a **holder lottery**:
+free to enter, gated on a $STROKE balance, pot funded by the house, nothing refunded and nothing
+carried. **Space Jackpot is one** (since 2026-10-01). Most of what this document says about lotteries
+(pot grows with each bet, under-subscribed draws refund, pot stacking) does **not** apply to it — see
+§15 and [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
+
 Two **explicit flags** layer player-vs-house shapes on top of this taxonomy: `IsHouseEdge` (Hyper Roll —
 see [`hyper-roll.md`](hyper-roll.md)) and **`IsDuel`** (Monkey Duel, #184 — see
 [`monkey-duel.md`](monkey-duel.md)). ⚠️ A duel type is a **free-type race** by the table above
@@ -97,7 +103,7 @@ ships — there is one catalogue and one deployment:
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
 | Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
 | Hyper Roll    | Letters | 10  | **Player-vs-house** (`IsHouseEdge`): solo round, three board modes (AVERAGE 5 words / SUPER 6 / HYPER 8), pick 1 board word, free stake 0.002–0.1 SOL, paid `stake × multiplier` (3×–10×) from the treasury at a flat per-mode RTP (91.50 / 91.14 / 91.84%) — see [`hyper-roll.md`](hyper-roll.md) and [`hyper-roll-modes.md`](hyper-roll-modes.md) |
-| Space Jackpot | Letters | 6   | Lottery (pot 5, drawn every 24h)                                                      |
+| Space Jackpot | Letters | 6   | **Holder lottery** (`HolderOnly`): free for wallets holding ≥ N $STROKE, house-funded pot frozen per round, drawn daily at 22:00 UTC — see [`space-jackpot-refactor.md`](space-jackpot-refactor.md) |
 
 ⚠️ **Beast Mode is gone from `DefaultGames`** and was deactivated (`Active = false`) in prod on
 2026-09-18 by `deploy/sql/beast-mode-deactivation.sql`; Hyper Roll replaced it (#183). Its settled
@@ -105,7 +111,7 @@ history stays reachable.
 
 All pooled types: min 2 players, duplicates allowed, settled in the single configured asset — **native SOL** since
 2026-08-20 (see [`sol-settlement.md`](sol-settlement.md)). Prices: **Cosmic Sprint 0.01** (re-priced
-from 0.02 on 2026-08-23), **Space Jackpot 0.1**; Hyper Roll takes a **variable stake** (`RequiredAmount` = min 0.002, `MaximumStake`
+from 0.02 on 2026-08-23), **Space Jackpot 0 — free for holders** (it was 0.1 until 2026-10-01; `HolderLotteryReconciler` zeroes an existing row); Hyper Roll takes a **variable stake** (`RequiredAmount` = min 0.002, `MaximumStake`
 = max 0.1, both create-only — `deploy/sql/hyper-roll-min-stake.sql` moved the floor from 0.01). ⚠️ Seeding is create-only by
 name and there is **no `RequiredAmount` self-heal**, so a re-price reaches a FRESH install only; an
 existing database needs a hand-run script — `deploy/sql/cosmic-sprint-reprice.sql` for the
@@ -123,9 +129,16 @@ cannot resurrect an admin-deactivated type or mutate one under a live round. The
 
 | Self-heal | Forces | Why it must exist |
 | --- | --- | --- |
-| `AllowFreeBet` | `= !IsProduction()` | outside production the free-bet path is testable without a funded wallet; in production free bets are off |
+| `AllowFreeBet` | `= !IsProduction()` — **holder defaults are skipped** (they are pinned to `false`) | outside production the free-bet path is testable without a funded wallet; in production free bets are off |
 | `AllowOrbit` | `= config.AllowOrbit` | a flag added to config after a row exists would otherwise never reach it |
 | `ComingSoon` | `= config.ComingSoon` | the **only** way a seeded type is switched off — there is no admin endpoint behind it (§19) |
+
+⚠️ **A fourth, wider one exists for holder lotteries (#196):** `HolderLotteryReconciler` brings an
+existing default whose config says `HolderOnly: true` onto `HolderOnly = true`, `LotteryPot = 0`,
+`RequiredAmount = 0`, `AllowFreeBet = false` and the config `Description`. It is the one sanctioned
+`RequiredAmount` rewrite, it still never touches `Active`, and it is followed by
+`HolderJackpotTransition`, which closes and refunds the type's live **legacy** paid round. See
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 
 > **`DefaultGameParameters.cs` is deleted.** The old broad dev catalogue (Letters/Number/
 > NumbersAndLetters races, preset races, 4h + 24h lotteries at lengths 6 and 8) survives **only as test
@@ -216,6 +229,10 @@ delayed `BetPlacedEvent` at the game's `StartDate` (now + `Frequency`).
 into the next round via `Game.CarriedExtra` (preset no-winner carries the losing stakes; under-sub
 carries the base unchanged; a paid win resets to the base). Deactivating a lottery that still holds an
 un-won pot **transfers** it to an eligible lottery. See `features/lottery-pot-stacking.md`.
+- ⚠️ **A holder lottery (Space Jackpot) differs on every point but the first:** the pot shown is the
+round's frozen `houseFundedPot` (tickets add nothing), an under-subscribed draw refunds nothing because
+nothing was paid, and nothing stacks. Before the player count, the draw **re-reads every ticket's
+$STROKE balance** and voids the ones below the round's minimum. See §15.
 
 ---
 
@@ -328,17 +345,22 @@ it pays them, so a deferred set would shrink mid-payout and over-reward later wi
   for lottery types, add `LotteryParameters.LotteryPot` **and** the game's `CarriedExtra` (the
   jackpot stacked from prior un-won lottery rounds — see `features/lottery-pot-stacking.md`). The pot
   is never reduced here; the crypto commission (below) is applied per winner at payout.
+  ⚠️ **On a holder round the pot is `Game.HouseFundedPot` and nothing else** — it ignores `LotteryPot`
+  and `CarriedExtra`, and the tickets are amount 0 (§15).
 - **Reward per winner (`CalculateRewardForBet`):**
   - `winnerReward = pot / payableWinnerCount`, where `payableWinnerCount` = the number of **paid**
     winners (`Winners.Count(w => !IsFreeBet(w))`, frozen, guarded ≥ 1). Free-bet winners are marked
     `Rewarded` but receive no payout, so they do **not** dilute the paid winners' share (a free + paid
-    winner ⇒ the paid winner takes the whole pot).
+    winner ⇒ the paid winner takes the whole pot). ⚠️ A **holder ticket is amount 0 but is not a free
+    bet** (`IsFreeBet` = `Amount == 0` and `EntryKind != Holder`), so a holder winner is payable.
   - If `winnerReward < bet.Amount` → `BetRewardBiggerThanThePot` (won't pay less than the stake).
   - **House commission:** subtract `rate × max(0, winnerReward − ownStake − houseFundedShare)`, where
-    `rate = GeneralSettings.Operator.Token.CommissionPercentage / 100` (**5%**, `0` disables) and
-    `houseFundedShare = (LotteryPot + CarriedExtra) / payableWinnerCount`. The cut comes only from
-    **profit above the winner's own stake**, and the house-funded lottery base is excluded. It now
-    applies to **every** game type, because there is only one. See `features/crypto-commission.md`.
+    `rate = GeneralSettings.Operator.Token.CommissionPercentage / 100` (**2%** committed, pinned by
+    `CommissionRateTests`; `0` disables) and
+    `houseFundedShare = (HouseFundedPot ?? (LotteryPot + CarriedExtra)) / payableWinnerCount`. The cut
+    comes only from **profit above the winner's own stake**, and the house-funded lottery base is
+    excluded — so a **holder round, whose whole pot is house-funded, pays 0 commission**. See
+    [`money.md`](money.md) §1.
   - Subtract this bet's already-paid **`Credit`** ledger rows: `winnerReward -= Σ(Credit-type TransactionLog amounts)`.
   If `≤ 0` → `BetHasAlreadyBeenRewarded` (idempotency guard for retries).
   - Round down to `TokenSettings.Decimals`; also compute the smallest-unit integer for the transfer.
@@ -542,6 +564,8 @@ client-side from data the client already has; no backend, DB, SignalR or settlem
   `Games` hub; event name and payload unchanged — see [`infra.md`](infra.md).)
 - **Free bets contribute nothing**, so a dev free-bet race pot reads `0` while a lottery still shows
   its base.
+- **A holder lottery shows `houseFundedPot ?? 0`** (`utils/pot.ts`) — never stakes plus base — and
+  **PAUSED** in place of a figure when `entriesPaused`.
 - **Always visible** — pre-run, running and ended, so the final total stays on screen.
 
 ## 14. The house seed bet
@@ -576,40 +600,55 @@ duel the seeded bet *would be* the second player, so every open room would be ta
 instant it opened. A VS HOUSE duel's house side is a **different** service, `DuelHouseBetService`, fed by
 the same HouseSeed wallet — see [`monkey-duel.md`](monkey-duel.md).
 
+⚠️ **Holder lotteries are never seeded either** (`LotteryParameters.HolderOnly`, #196): a seed bet is a
+paid bet, and a holder type takes no stake. So Space Jackpot **needs two real holders** to draw — "all
+three game types" above no longer includes it.
+
 *(It replaced `SpaceStroker.Seeder`, a console app polling every 6 hours that covered only two types
 and stopped whenever that machine was off. The app is deleted.)*
 
 ## 15. Lottery draw time
 
-### The $STROKE bonus on a lottery win
+### Space Jackpot is a holder lottery
 
-Spec: [`../specs/jackpot-stroke-reward.md`](../specs/jackpot-stroke-reward.md).
+Spec: [`../specs/space-jackpot-refactor.md`](../specs/space-jackpot-refactor.md) · distilled in
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md) (#196, 2026-10-01).
 
-Every **distinct winning player** of a **lottery** round also receives **100,000 $STROKE**, on top of
-their SOL winnings, signed by the house settlement wallet out of its own holding. It makes good on the
-promise the landing page and the app's home card already print (see
-[`token-launch.md`](token-launch.md) §4).
+A lottery whose `LotteryParameters.HolderOnly` is true is **free and holder-only**. Gate on that flag
+or on `Game.IsHolderRound` — never on the type's name.
 
-- **Where:** `JackpotRewardService`, called by `RewardGameConsumer` **after** the round's status is
-  already settled.
-- **Who:** distinct wallets among the winners **credited in that pass**. Free bets and Orbit
-  **auto-placed** bets (`OrbitAutoPlaced`) are excluded. A **manual** Orbit-paid winner (#194) gets the
-  bonus at their own wallet: $STROKE is never custodied. Gated on `Parameters.LotteryParameters != null`, not on the type's name.
-- ⚠️ **It cannot fail the round.** It runs last, inside a `try`/`catch`, and never touches a
-  `GameStatus` or a `BetStatus`. `RewardForWinnersCompleted` is what the front reads to decide whether
-  it may print a PAID line, so a failed promotional bonus flipping it would **hide a SOL payout that
-  really happened**.
-- ⚠️ **All or nothing per round.** If the house cannot cover every winner, nobody is paid. A round's
-  winners are publicly comparable.
-- ⚠️ **No ledger row, deliberately.** `TransactionLog` is denominated in the settlement asset and feeds
-  pot maths, stats and the leaderboards. Idempotency comes from the consumer handing over only the
-  winners it credited **this pass** — a redelivered `RewardGameEvent` hands over an empty list.
-- ⚠️ **$STROKE is a TOKEN-2022 mint**, so none of the existing SPL helpers can move it: Solnet
-  hardcodes the classic program, including inside the associated-account derivation where the program
-  id is a **seed**. `Token2022Program` builds the instructions by hand. A classic derivation would
-  read the house's real balance as **zero** rather than erroring.
-- ⚠️ **Runway.** The house holds 2,000,000 $STROKE and the draw is daily, so this pays for roughly
-  **20 rounds** before it starts logging shortfalls.
+- **Entry is a signed message, not a payment.** The player picks a 6-letter word and signs a
+  `jackpot-entry` wallet-proof message; `POST /games/{roundId}/bets` carries `amount: 0` plus the proof.
+  No transaction, no fee, no ledger row, no commission.
+- **Eligibility is a $STROKE balance.** The wallet's Token-2022 associated token account must hold at
+  least the round's **N** (`Game.HolderMinimum`, ≈ $10 of $STROKE, frozen when the round opens) — at
+  entry **and again at the draw**. A ticket below N at the draw is **`Voided`** and cannot win; an
+  unreadable balance at the draw keeps the ticket.
+- **One ticket per wallet per round**, and entries close at the draw time (`WaitingBets` and before
+  `StartDate` — nothing is accepted during the `GameStarting` countdown).
+- **The pot is house-funded** (`Game.HouseFundedPot`), frozen when the round opens and counted as
+  house-edge exposure until the round settles. When the treasury cannot fund it the round opens
+  **PAUSED** and takes no entries.
+- **Under-subscribed (fewer than 2 valid tickets) → no draw, no refunds, nothing carried.** A new round
+  opens with a fresh N and pot.
+- **Paid in SOL**, split equally among the winners, 0 commission.
+
+### The $STROKE winner bonus — removed
+
+The 100,000 $STROKE bonus every lottery winner used to receive
+([`../specs/jackpot-stroke-reward.md`](../specs/jackpot-stroke-reward.md), shipped 2026-09-16) was
+**removed on 2026-10-01** by #196: `JackpotRewardService`, `IJackpotRewardService` and
+`ISolanaService.TransferJackpotReward` / `GetJackpotRewardBalance` are deleted, and `RewardGameConsumer`
+no longer has a bonus step. A Space Jackpot win pays SOL only.
+
+What survives from it, because the holder lottery needs it:
+
+- ⚠️ **$STROKE is a TOKEN-2022 mint.** Solnet hardcodes the classic program, including inside the
+  associated-account derivation where the program id is a **seed**; `Token2022Program` derives the
+  account by hand. A classic derivation reads a real balance as **zero** rather than erroring — so
+  $STROKE is read only through `ISolanaService.GetToken2022Balance(s)`, never `GetTokenBalance`.
+- The mint config, renamed `JackpotRewardSettings` → **`HolderTokenSettings`**
+  (`Operator:Token:HolderToken`), without the per-winner amount.
 
 ---
 
@@ -655,6 +694,13 @@ someone wins.
   base unchanged; a paid win resets to the config base.
 - **Admin deactivation transfers** an un-won pot to an eligible active lottery (same method/token) or
   **blocks** — it is never destroyed.
+- ⚠️ **Holder rounds never stack (Space Jackpot, #196).** `LotteryPotCarry.NextCarriedExtra` returns
+  `0` for a holder round and `GameService.CreateGame` forces `CarriedExtra = 0` on one, whatever its
+  caller passed. An un-won holder pot is not carried: its reservation is simply released and the next
+  round sizes a **fresh** pot from the treasury's headroom. So with the seeded catalogue **no live type
+  stacks today** — the rules above apply only to a non-holder lottery (the test fixtures, or one an
+  admin creates). The deploy transition also **drops** a legacy round's `CarriedExtra` (logged at
+  Warning).
 
 ## 17. Typer pacing
 

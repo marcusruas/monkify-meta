@@ -24,6 +24,12 @@ season table, no prize wallet, no payout consumer and no solvency guard. Adding 
 - Only rounds that reached **`RewardForWinnersCompleted`** count. Refunded, `NotEnoughPlayersToStart`,
   `ErrorWhenProcessingRewards` and `GameEndedAbruptely` contribute nothing.
 - **Free bets (`Amount == 0`) are excluded** from every figure.
+- **Space Jackpot holder tickets are excluded too** (#196). A holder ticket is amount 0, so the same
+  `Amount > 0` filters drop it from the race, PNL and the hall of fame — a holder's jackpot win adds
+  nothing to wagered, won or any multiplier. No code changed for this; it is **pinned by tests**
+  (`LeaderboardServiceTests`, `LeaderboardHallOfFameTests`). ⚠️ Do not replace an `Amount > 0` filter
+  with `!IsFreeBet` — `IsFreeBet` is **false** for a holder ticket, and its SOL credit would enter the
+  boards with a zero stake. See [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 - **`SettlementCutoverUtc` floors every board** — including the hall of fame; see below.
 - **Orbit bets count.** They are ordinary paid bets on the real player's `Player` row, so they need no
   special handling. ⚠️ The **Orbit custody account is never a leaderboard entity** — it signs, it does
@@ -103,7 +109,9 @@ the quiet-week fallback intact:
   a dimensionless ratio. That was sound while the board showed a bare `×n` and is **void now that it
   shows the SOL won** — a pre-cutover amount is a USDC-era figure, roughly a 200× misstatement under a
   SOL mark. **Do not reinstate the exemption without also removing the amount.**
-- **Ranked on the MULTIPLIER, never the amount.** A Space Jackpot ticket is 10× a Cosmic Sprint one, so
+- **Ranked on the MULTIPLIER, never the amount.** Stakes differ by an order of magnitude across modes
+  (a Space Jackpot ticket was 10× a Cosmic Sprint one while it was paid — it is free and off the boards
+  since 2026-10-01; Hyper Roll and duel stakes still vary), so
   the biggest multiplier is routinely not the biggest payout; ordering by the amount would let ticket
   prices decide the board. The amount is display-only, beside the ratio.
 - One row per player — their single best win ever, not one row per winning bet.

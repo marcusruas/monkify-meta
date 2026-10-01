@@ -84,6 +84,20 @@
   list and returning what changed) is the only seam where the behaviour can be asserted against real
   Postgres. `Program.cs` keeps the side effects — the cache drop and the event publish — so the
   reconciler stays a pure single-column write.
+- **Changing what an existing seeded type IS takes two steps: a reconciler, then a transition.** Seen in
+  #196 (`HolderLotteryReconciler` + `HolderJackpotTransition`). The reconciler moves the type's **row**
+  onto the new config; the transition deals with the **live round opened under the old rules** — refund
+  its paid bets through the ordinary `RefundInvalidBetEvent` path (save first, publish after), close it
+  `GameEndedAbruptely`, and let `OpenNewGames` open the first round of the new kind. Run it right after
+  default-parameter seeding and **before** `CorrectScheduledLotteryDraws` / `ReplanOpenRounds`, make it
+  idempotent by selecting on a marker the new rounds carry (`HolderMinimum == null`), and wrap it in
+  `try`/`catch` + `Log.Error` so it can never take the host down.
+- **A dependency only Consumers may have goes in as an OPTIONAL constructor parameter.** `GameService`
+  is built by both hosts; `IHolderJackpotRoundPlanner? holderPlanner = null` is registered in
+  **Consumers only** (Microsoft DI honours the default when the service is unregistered). The host
+  without it must **fail closed** on that path — the API opens a holder round PAUSED and logs at Error,
+  it never sizes a pot. Do not register such a service in the shared `DependencyInjection` to "make it
+  resolve".
 - **CQRS-ish via MediatR:** each use case is a `Request` + `Handler` pair under
   `SpaceStroker.Infrastructure/Handlers/<Area>/<UseCase>/`. Handlers extend `BaseRequestHandler`.
 - **⚠️ The folder tree must show the architecture. Never leave a project as a flat pile of `.cs` files.**

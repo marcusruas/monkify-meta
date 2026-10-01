@@ -9,7 +9,9 @@
 ## What it does
 
 Orbit is the player's **in-game wallet**. A player deposits into Orbit once, then places **manual** bets on
-**any paid game** (Cosmic Sprint, Space Jackpot, Hyper Roll) straight from that balance, with no wallet
+**any paid game** (Cosmic Sprint, Hyper Roll — ⚠️ **not Space Jackpot since 2026-10-01**: it is a free
+holder lottery with no stake, and an Orbit-funded request to it is refused,
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md)) straight from that balance, with no wallet
 transaction to sign per bet. The SPA picks the source by itself: Orbit pays when its balance covers the
 stake, otherwise the connected wallet pays. Wins and refunds of an Orbit-paid bet land back in the Orbit
 balance. Wallet-signed bets and Orbit **auto-bet** keep working, but a game type Orbit is auto-playing
@@ -25,7 +27,7 @@ cannot also be played by hand.
 | Win / refund lands in | Player wallet | Orbit balance | Orbit balance |
 | Threshold / floor / stop-loss | n/a | Evaluated | **Never evaluated** |
 | "Orbit won" private toast | n/a | Fires | Does not fire (normal win toast) |
-| Lottery 100,000 $STROKE bonus | Yes | No | **Yes**, to the connected wallet |
+| Lottery 100,000 $STROKE bonus | — removed 2026-10-01 (#196) | — | — |
 | `Bet.FundedByOrbit` / `Bet.OrbitAutoPlaced` | false / false | true / **true** | true / false |
 
 ## Core rules
@@ -69,8 +71,10 @@ cannot also be played by hand.
   `OrbitBetSettlementService.CreditWin` evaluates the threshold and publishes the "Orbit won" notification
   only for an auto bet, and `RewardGameConsumer.EvaluateOrbitFloors` looks only at players with an auto bet
   in the round. A manual win or loss never triggers an automatic cash-out.
-- **A manual Orbit-paid Space Jackpot winner gets the 100,000 $STROKE bonus** at their own wallet
-  (`bet.GetWalletAddress()`; $STROKE is never custodied). Only auto-placed bets are excluded.
+- ⚠️ **Space Jackpot is out of Orbit's reach since 2026-10-01 (#196).** It became a free holder lottery:
+  there is no stake to pay from Orbit, the holder branch of `RegisterBetHandler` refuses an Orbit-funded
+  request, and the 100,000 $STROKE winner bonus this bullet used to describe is removed. A holder entry
+  is still blocked by an **Enabled** auto-bet on that type and by self-exclusion, like any bet.
 
 ### `OrbitAutoPlaced` vs `FundedByOrbit`
 
@@ -303,7 +307,7 @@ and pushing wager outcomes over SignalR.
   `PlaceManualOrbitBetConsumerTests`, `PlaceOrbitBetConsumerTests`, `OrbitStakePlacerTests`,
   `OrbitStakeReconciliationJobTests`, `OrbitWagerResultStoreTests`, `BetPreChecksTests`,
   `RegisterBetHandlerTests`, `SolanaServiceTests`, `RateLimitSettingsTests`, `BetDtoTests`,
-  `GameHistoryServiceTests`, `JackpotRewardServiceTests`, `OrbitBetSettlementServiceTests`,
+  `GameHistoryServiceTests`, `JackpotRewardServiceTests` (deleted 2026-10-01 with the bonus, #196), `OrbitBetSettlementServiceTests`,
   `RewardGameConsumerTests`, `HouseSeedBetServiceTests`, `CreditOrbitDepositTests`, `GetOrbitHistoryTests`.
 - `monkify-front` has no test runner: `yarn lint` + `yarn build` + browser QA (spec §13).
 

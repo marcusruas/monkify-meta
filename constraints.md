@@ -142,6 +142,15 @@ agents work different features at once without colliding.
   unknown or replayed nonce, a house wallet, sign-in, statement, cash-out — stays the one vague
   `ReferralRequestInvalid`, and an unknown `?ref=` still resolves exactly like no code. See
   `features/partner-self-registration.md`.
+- **Sanctioned exception — the Space Jackpot holder minimum (#196).** *"Hold at least 1,000,000
+  $STROKE to enter today's draw."* (`HolderBelowMinimum`) is deliberately **specific**. N is a public
+  bound the backend already publishes on the round payload (`holderMinimum`) and on
+  `GET /games/{type}/holder-eligibility`, and the front shows the same sentence **before any signature
+  is requested**; the server returns it only **after** a valid wallet proof. It reveals nothing a
+  block explorer does not already show. Everything else on that path stays vague: a bad signature, an
+  unknown nonce and a replayed nonce all return the one `JackpotEntryInvalid` sentence, an unreadable
+  balance returns *"Your entry could not be processed. Please try again."*, and a paused or closed
+  round is the generic `GameNotValidForBets`. See `features/space-jackpot-refactor.md`.
 
 ## 7. Asking the user to decide — pick the answer mode first, then give the trade-offs
 

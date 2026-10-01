@@ -134,8 +134,10 @@ Every round belongs to **one player** (solo rounds).
   are refused. Open rounds still settle.
 - **Coverage check before accepting a bet:** a paid bet is coverable only when
   `treasuryBalance − feeReserve ≥ exposure`. `exposure` is the sum, over **every** unsettled house-edge
-  round, of that round's worst-case word payout, counting the new bet. `feeReserve` is 0.001 SOL per
-  payout transfer. The balance is a fresh, uncached read, and **a failed read counts as not coverable (fail
+  round, of that round's worst-case word payout, counting the new bet — **plus the frozen pot of every
+  unsettled Space Jackpot holder round** (`ReservedPotRounds`, #196; see
+  [`money.md`](money.md) §4), so the coverable stake is lower by that pot all day. `feeReserve` is
+  0.001 SOL per payout transfer (one more per reserved pot). The balance is a fresh, uncached read, and **a failed read counts as not coverable (fail
   closed)**. The sequence runs under **one global PostgreSQL advisory lock** shared by every house-edge round, so two
   concurrent bets cannot both pass.
 - The SPA calls **`POST /games/{gameTypeId}/availability`** (`{ choice, amount }` → `{ available }`,

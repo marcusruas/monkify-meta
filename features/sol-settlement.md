@@ -13,7 +13,8 @@
 
 Every game settles in **native SOL** instead of the SPL token it used to (mainnet USDC). A ticket is
 **0.01 SOL** on Cosmic Sprint (0.02 at the cutover; re-priced 2026-08-23), **0.1 SOL** on Space
-Jackpot, and **0.02 SOL** on the gated Beast Mode (since deactivated; its replacement Hyper Roll takes a
+Jackpot (until 2026-10-01 — it is now **free for $STROKE holders**, with a house-funded SOL pot; see
+[`space-jackpot-refactor.md`](space-jackpot-refactor.md)), and **0.02 SOL** on the gated Beast Mode (since deactivated; its replacement Hyper Roll takes a
 variable 0.002–0.1 SOL stake — [`hyper-roll.md`](hyper-roll.md)).
 Stakes leave the player's wallet as an ordinary lamport transfer and winnings arrive the same way —
 no mint, no associated token account, nothing to unwrap.

@@ -64,6 +64,14 @@ feature.
   `terms.astro` too. ⚠️ **Stale since 2026-09-24:** Hyper Roll now has three board modes
   ([`hyper-roll-modes.md`](hyper-roll-modes.md)) paying back 91.50% (AVERAGE), 91.14% (SUPER) and
   91.84% (HYPER), and multipliers start at 3×; the clause still quotes the single 91.84% board.
+- **`/terms` carries a Space Jackpot clause** (2026-10-01, #196), and the **house-cut clause now names
+  Cosmic Sprint only** (plus the duel's own clause). Space Jackpot is free to enter for wallets holding
+  at least the round's published minimum of $STROKE; eligibility is checked at entry and again at the
+  draw, and a ticket below the minimum at the draw is void; the pot is funded by the house, fixed when
+  the round opens, and carries no house cut; a draw with fewer than two valid tickets is cancelled and
+  nothing carries over; entries may be paused when the house cannot fund the pot. It names **no
+  figure** (N and the pot are per-round), so nothing in it goes stale on a config change. See
+  [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 - **`/terms` carries a numberless REFERRALS clause** (#175): we may compensate third parties for
   referring players, a referral link confers **no** player benefit or obligation and changes nothing
   about bets, odds, payouts or the house cut, and attribution is at our discretion. ⚠️ **No

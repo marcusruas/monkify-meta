@@ -1,5 +1,14 @@
 # SpaceStroker — "Space Jackpot $STROKE reward" — Implementation Spec
 
+> ⛔ **SUPERSEDED on 2026-10-01 by [`space-jackpot-refactor.md`](space-jackpot-refactor.md) (#196).**
+> The 100,000 $STROKE winner bonus described here is **removed**: `JackpotRewardService`,
+> `IJackpotRewardService`, `ISolanaService.TransferJackpotReward` / `GetJackpotRewardBalance` and their
+> tests are deleted, and `JackpotRewardSettings` became `HolderTokenSettings`
+> (`Operator:Token:HolderToken`, no per-winner amount). Space Jackpot is now a free daily draw for
+> $STROKE holders that pays SOL only. What survives from this spec is `Token2022Program`'s
+> associated-account derivation and the Token-2022 lesson (a classic derivation reads **0**). Kept as
+> the design archive of what shipped on 2026-09-16 — **nothing below describes current behaviour.**
+
 > ✅ **Status: SHIPPED** — merged to `main` on **2026-09-16** from `feature/jackpot-stroke-reward`
 > (`monkify-backend` + `monkify-meta`; **`monkify-front` untouched, zero files**).
 >

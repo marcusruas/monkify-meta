@@ -38,7 +38,9 @@
 - **Free bet** — dev/QA-only bet with `Amount = 0`, allowed only when backend `AllowFreeBets`, game
   `AllowFreeBet`, and (for UI) the frontend flag are all enabled. No debit/credit/refund and no ledger
   row; it also skips wallet-connect, so it carries no wallet and stays anonymous. Detected via
-  `BetExtensions.IsFreeBet` (`Amount == 0`). See `features/free-bet-mode.md`.
+  `BetExtensions.IsFreeBet` (`Amount == 0` **and** `EntryKind != Holder`; stored as
+  `EntryKind = Free`). ⚠️ A Space Jackpot **holder ticket** is also amount 0 but is **not** a free bet —
+  "nothing was paid" guards key on `Amount == 0` instead. See `features/free-bet-mode.md`.
 - **AllowFreeBet** — bool on `GameParameters` (DB default `false`). Per game type; exposed as
   `allowFreeBet` on active-types API responses.
 - **ComingSoon** — bool on `GameParameters` (DB default `false`), exposed as `comingSoon` on
@@ -116,8 +118,10 @@
   with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
   admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
   (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER since 2026-09-24 — see `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
-  (24h lottery). The exceptions to "never rewritten" are the **three single-field startup self-heals**:
-  `AllowFreeBet = !IsProduction()`, `AllowOrbit` and `ComingSoon` from config. None of them touches
+  (daily **holder lottery** — free for $STROKE holders since 2026-10-01, see **Holder lottery**). The
+  exceptions to "never rewritten" are the **three single-field startup self-heals**:
+  `AllowFreeBet = !IsProduction()` (holder defaults skipped), `AllowOrbit` and `ComingSoon` from config,
+  plus `HolderLotteryReconciler` for a holder default. None of them touches
   `Active`, which is what preserves the resurrection guarantee.
 - **Admin token** — an **RS256 JWT** with `scope = "admin"` and **no `sub`**, sent as
   **`X-Admin-Token`** on `/admin/*` REST calls. Signed with
@@ -137,10 +141,13 @@
   with a key stored in the same config bought nothing once no user could type a private key into the
   admin portal (`ISecretProtector`/`AesSecretProtector` are deleted). Deployed environments inject it
   via Secret Manager; the committed file carries a placeholder.
-- **The launch token** — the project's **pump.fun** coin (ticker `$STROKE`, a stand-in until launch).
-  ⚠️ **NOT the configured token above, and never a stake** — rounds settle in SOL and this coin has no
-  backend surface at all: no endpoint, entity, migration or settlement path. It exists only as copy on
-  four frontend surfaces, gated by `VUE_APP_TOKEN_MINT` / `PUBLIC_TOKEN_MINT` (fail-closed, build-time).
+- **The launch token** — the project's **pump.fun** coin, `$STROKE` (live; a **Token-2022** mint, 6
+  decimals). ⚠️ **NOT the configured token above, and never a stake** — rounds settle in SOL. Its **one
+  backend surface** is the holder lottery (#196): the backend **reads** a wallet's $STROKE balance
+  (`Operator:Token:HolderToken` → `HolderTokenSettings`, `IHolderBalanceReader`) to decide a free Space
+  Jackpot entry — it never transfers the token (the 100,000 $STROKE winner bonus was removed
+  2026-10-01). On the front it is copy on four surfaces, gated by `VUE_APP_TOKEN_MINT` /
+  `PUBLIC_TOKEN_MINT` (fail-closed, build-time).
   Its mint address and the **treasury wallet** (`VUE_APP_TREASURY_WALLET` / `PUBLIC_TREASURY_WALLET`, a
   public address holding ~50% of supply) are the only two values that come from env. See
   [`features/token-launch.md`](features/token-launch.md).
@@ -189,7 +196,33 @@
   blocked bets refunded/rejected via the shared `RefundInvalidBet` path. See `specs/fix-bets-logic.md`.
 - **LotteryParameters** — config for lottery-style games (`Frequency`, base `LotteryPot`); scheduled
   via Hangfire. The base is a per-round seed; the *running* un-won jackpot is carried on the game as
-  **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`.
+  **`CarriedExtra`**, not here. See `features/lottery-pot-stacking.md`. **`HolderOnly`** turns the type
+  into a **holder lottery** (below), where neither `LotteryPot` nor `CarriedExtra` is used.
+- **Holder lottery / holder round** — a lottery type with `LotteryParameters.HolderOnly` (Space Jackpot,
+  #196) and one of its rounds (`Game.IsHolderRound` = `HolderMinimum != null`). Free to enter, open only
+  to wallets holding enough $STROKE, pot funded by the house, no commission, nothing refunded and
+  nothing carried. Gate on the flag, never on the type's name. See `features/space-jackpot-refactor.md`.
+- **Holder ticket / holder entry** — a bet with `EntryKind = Holder` (3): `Amount` 0, no payment
+  signature, placed by signing a `jackpot-entry` wallet-proof message. ⚠️ **Not a free bet** — it is
+  payable (`BetExtensions.IsFreeBet` is false for it). One per wallet per round
+  (`IX_GameBets_GameId_PlayerId_Holder`). No ledger row, no `BetPlacedEvent`, no referral commission.
+- **Holder minimum (N)** — `Game.HolderMinimum`: the whole-$STROKE balance a wallet's Token-2022
+  associated token account must hold to enter **and** to still hold at the draw. ≈ $10 of $STROKE:
+  Jupiter price → rounded up on the 1-2-5 ladder → clamped to ×2/÷2 of the previous round's N and to a
+  config floor/ceiling. **Frozen when the round opens**; a price failure keeps the previous N.
+- **House-funded pot / reserved pot** — `Game.HouseFundedPot`: a holder round's whole pot, in SOL,
+  = 0.5% of the treasury's free headroom (after open exposure, fee reserve and a 5 SOL reserve floor),
+  floored to 2 significant figures and clamped to 0.05–2 SOL. Frozen when the round opens and
+  **reserved** — it counts as house-edge exposure (plus one fee reserve) against Hyper Roll and House
+  duels until the round leaves the unsettled statuses.
+- **Voided ticket** — a holder ticket in `BetStatus.Voided` (= 6, terminal): its wallet held less than N
+  when the draw rechecked balances. It cannot win and does not count towards the minimum players; its
+  seed stays in the provably-fair keystream and the verification payload flags it `voided`. Never
+  refunded (nothing was paid). An **unreadable** balance does not void — the ticket is kept.
+- **Paused round** — a holder round with `HolderEntriesPaused = true` and no pot: the treasury could not
+  fund the pot floor (or the mint/settings/lock/planner were unavailable). It takes no entries (generic
+  `GameNotValidForBets`), shows **JACKPOT PAUSED**, logs `opened PAUSED` at Error, and is replaced by a
+  freshly planned round at the next draw.
 - **CarriedExtra** — the running lottery jackpot stacked from prior **un-won** rounds, stored per
   game (`Game.CarriedExtra`, `decimal(18,9)`, default `0`) **on top of** the base `LotteryPot`.
   A **preset lottery** whose drawn choice had no bettors carries `prev.CarriedExtra + Σ losing stakes`
@@ -197,7 +230,8 @@
   **paid win** (incl. a free-bet winner) resets the successor to `0`. Decided once at rollover by
   `LotteryPotCarry.NextCarriedExtra(Game)`. `0` for every non-lottery game. On admin deactivation
   it is **transferred** to an eligible active lottery (never destroyed).
-  See `features/lottery-pot-stacking.md`.
+  See `features/lottery-pot-stacking.md`. ⚠️ **Always `0` on a holder round** — Space Jackpot never
+  stacks.
 - **Pot** — the amount winners split, shown as the `> POT:` line in the game terminal for **every**
   game type (free-type race, preset race, lottery). Client-side, display-only: races = `Σ bets`,
   lottery = `lotteryParameters.lotteryPot` base `+ CarriedExtra` (the stacked jackpot) `+ Σ bets`;
@@ -205,7 +239,8 @@
   bets (`amount = 0`) add nothing. Rendered via `formatAmount`, which is token-native only (the
   configured token's symbol + decimals). Settlement math is separate —
   `BetDomainService.SetPotAmount` (`= Σ bets + LotteryPot + CarriedExtra`) remains the payout source of
-  truth. See `features/game-pot-display.md` and `features/lottery-pot-stacking.md`.
+  truth. On a **holder round** both the display and the settlement pot are `HouseFundedPot` alone.
+  See `features/game-pot-display.md` and `features/lottery-pot-stacking.md`.
 - **Display name** — optional `Player.DisplayName` (1–20 chars, trimmed). Set via the customization
   modal (`PATCH /players/preferences`), which is **signature-gated**: the endpoint is public and a
   wallet address is not a secret, so the write carries an ed25519 signature over a purpose-scoped
@@ -214,7 +249,8 @@
 - **Wallet-proof nonce** — a single-use challenge for any write that must prove control of a wallet.
   `GET /players/nonce?wallet=…&purpose=…` issues it into Redis under
   `WalletNonce:{purpose}:{wallet}` (5 min), and the handler consumes it on use. It is
-  **purpose-scoped** — today `preferences` and `self-exclusion` — so a challenge minted for one flow
+  **purpose-scoped** — `preferences`, `self-exclusion`, and the purposes later features added (among
+  them **`jackpot-entry`**, the Space Jackpot holder entry, #196) — so a challenge minted for one flow
   cannot be replayed against the other. *(There is no preferred display currency and no FX rate table:
   every game settles in the one configured token, so there is nothing to convert.)*
 - **Game chat message** — a plain-text line in a **chat room** sent over
