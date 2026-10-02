@@ -288,8 +288,8 @@ game type whose round is on screen; not replayed on a tab change, a new round or
 the terminal unmounts; never under reduced motion). Styles live at the bottom of `GameTerminal.vue`.
 - **Hyper Roll** — the board reel (rows scramble and settle in turn), which already played on every board.
 - **Cosmic Sprint** — the plates, then the bet cards, glide in from the left, staggered.
-- **Space Jackpot** — each plate opens out of a horizontal line like a screen powering on; the countdown's
-  digit boxes pop in.
+- **Space Jackpot** — the plates, then the tickets, fade in as they slide up, staggered. (A "power-on" — plates
+  opening out of a line — was rejected as wonky.)
 - **Monkey Duel** — YOU slides in from the left, THE HOUSE from the right, VS slams in between.
 - ⚠️ Transform and opacity only, smooth easing. The first Sprint / Jackpot cut (a stepped `clip-path`
   wipe and a neon flicker) was rejected as "laggy and weird": `clip-path` animates on the main thread
