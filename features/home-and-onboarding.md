@@ -42,13 +42,18 @@ the Orbit card → how-it-works → provably fair → **the community panel**.
 - **The partner card** is the same for every visitor and carries no figures — see
   [`partner-self-registration.md`](partner-self-registration.md).
 - **The community panel** (`HomeCommunity.vue`, "JOIN THE GANG") is the app's first set of links to the
-  project's own homes: Twitter/X, Telegram, Discord and YouTube, as the landing page's `#community` join
-  slots (two-up from `sm`, four-up from `lg`), without the LP's crew roster. Each opens in a new tab and
+  project's own homes: Twitter/X, Telegram and Discord, as the landing page's `#community` join
+  slots (two-up from `sm`, one row from `lg`), without the LP's crew roster. Each opens in a new tab and
   fires **`community_link_click`** with `network` — its own event, not a `home_link_click` value, because
   that series counts surfaces *inside* the app.
-  ⚠️ **`src/constants/socials.ts` is a HAND-MIRROR of `SOCIALS` in `monkify-lp/src/constants.ts`** (the LP
-  is the source of truth). Nothing fails when one side changes — a handle that moves must be moved in
-  both repos. ⚠️ This also retires "`monkify-front` carries no Telegram handle": the constant exists now,
+  ⚠️ **The fourth slot is the COIN, not YouTube** (owner, 2026-10-02): `PUMP.FUN` / `BUY ▸`, linking to
+  `TOKEN_BUY_URL`. It is a **token surface**, so it follows the token rules: rendered only when
+  `tokenLive` (fail-closed — with no mint the panel is three even slots, never a link to an empty
+  address), and reported to **`token_click`** with the new source **`home_community`**, not to the
+  community event. The LP still lists YouTube as its fourth social; the app deliberately does not.
+  ⚠️ **`src/constants/socials.ts` is a HAND-MIRROR of `SOCIALS` in `monkify-lp/src/constants.ts`** minus
+  YouTube (the LP is the source of truth). Nothing fails when one side changes — a handle that moves must
+  be moved in both repos. ⚠️ This also retires "`monkify-front` carries no Telegram handle": the constant exists now,
   though the Feedbacker guide section and the partner pitch still name the communities as plain text.
 
 ⚠️ **The mode cards come first** because they are the only
