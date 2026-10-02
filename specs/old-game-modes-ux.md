@@ -95,7 +95,7 @@ From `monkify-meta/constraints.md` (see that file for the full list):
 | 9 | **Right:** keys 1-8 are favourite words, engraved `FAVORITES`. Blue = saved, gold = the one on the LCD, grey = empty, red = saved while the FAVORITES tab is open. |
 | 10 | **Favourites auto-store.** Each new word the player bets goes to the lowest free key and stops at 8. Stored when the server accepts the bet. A word already on a key is not stored twice. Words Orbit bets on its own are not stored. |
 | 11 | **One favourites list for both modes, per wallet, in `localStorage`.** No backend. |
-| 12 | A saved key **applies** its word on the main and WINNERS tabs and **clears** its slot on the FAVORITES tab. An empty key does nothing. No wallet → every key is inert. |
+| 12 | A saved key **applies** its word on the main and WINNERS tabs and **clears** its slot on the FAVORITES tab. An empty key does nothing — **amended 2026-10-02**: while the LCD holds a whole word that fits the table, is not already on a key and a key is free, every empty key **pulses** and pressing one **saves that word on it** without betting (any tab, any round state; never for an Orbit-owned round). Auto-store on a bet (row 10) is unchanged. No wallet → every key is inert. |
 | 13 | The FAVORITES tab lists all 8 slots; saved rows read `PRESS KEY n TO CLEAR`; a notice states that on this tab a saved key clears its word. |
 | 14 | After a bet and after a round the LCD is **pre-filled with the last bet word** (per wallet, `localStorage`). It fills only an empty field or one it filled itself, never over the player's typing. |
 | 15 | **Tabs are view-only and never scroll.** Cosmic Sprint: `RACE · FAVORITES · WINNERS`. Space Jackpot: `DRAW · FAVORITES · WINNERS`. Switched by the tab keys or by clicking the on-screen tabs. |
@@ -448,7 +448,7 @@ the left plate's controls.
 | `favorites` | `useFavoriteWords().slots` mapped to states: no wallet or null → `empty`; FAVORITES tab open → `clear`; `slot === userWord` → `loaded`; else `saved` |
 | `favorite` | see below |
 
-**Favourite key press.** No wallet or an empty slot → nothing. FAVORITES tab open →
+**Favourite key press.** No wallet → nothing. An empty slot → saves the LCD's word if it is storable (amended 2026-10-02, see AC 12), otherwise nothing. FAVORITES tab open →
 `useFavoriteWords().clear(index)` (allowed whatever the round's state — it is not a bet). Any other
 tab → if `inputsLocked`, `myBetThisRoundIsOrbit`, or the word does not `fitsType` → the error twitch
 sound (`error1.wav`) and nothing else; otherwise `handToPlayer()` and `userWord = slot`, with
