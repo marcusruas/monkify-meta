@@ -28,11 +28,30 @@ first-time player has no reason to open.
 ⚠️ **The `/space-stroker` URL prefix is gone** (the app is hosted at `app.spacestroker.com`). That is
 why the LP's play CTA targets the **bare origin** and not a route — see [`lp.md`](lp.md).
 
-**Section order:** hero → the mode picker → **the token card** → the leaderboard → how-it-works →
-feature cards → the Orbit card → **the partner card** (#199) → the player's own record → everyone's
-numbers. ⚠️ **The partner card sits with Orbit, after everything a player came for**: it is an offer to
-the few visitors with an audience, not a step in playing. It is the same for every visitor and carries
-no figures — see [`partner-self-registration.md`](partner-self-registration.md). ⚠️ **The mode cards come first** because they are the only
+**Section order (owner's list, 2026-10-02):** hero → the mode picker → **the token card** → the
+leaderboard → **the partner card** (#199) → the player's own record → everyone's numbers (THE FLOOR) →
+the Orbit card → how-it-works → provably fair → **the community panel**.
+
+- ⚠️ **Everything below the leaderboard was reordered on 2026-10-02.** It used to run explainers → Orbit →
+  partner → numbers, on the argument that a first-timer's objections come first. The page now leads with
+  what is live or earns, and the explainers sit near the foot; the hero's own buttons still take a
+  newcomer to the guide and to practice.
+- ⚠️ **The token card was not in the owner's list** (it renders nothing without a mint, so it is invisible
+  locally). It keeps the slot its own decision gave it — directly after the games — rather than being
+  moved or dropped by omission. Confirm with the owner if it should move.
+- **The partner card** is the same for every visitor and carries no figures — see
+  [`partner-self-registration.md`](partner-self-registration.md).
+- **The community panel** (`HomeCommunity.vue`, "JOIN THE GANG") is the app's first set of links to the
+  project's own homes: Twitter/X, Telegram, Discord and YouTube, as the landing page's `#community` join
+  slots (two-up from `sm`, four-up from `lg`), without the LP's crew roster. Each opens in a new tab and
+  fires **`community_link_click`** with `network` — its own event, not a `home_link_click` value, because
+  that series counts surfaces *inside* the app.
+  ⚠️ **`src/constants/socials.ts` is a HAND-MIRROR of `SOCIALS` in `monkify-lp/src/constants.ts`** (the LP
+  is the source of truth). Nothing fails when one side changes — a handle that moves must be moved in
+  both repos. ⚠️ This also retires "`monkify-front` carries no Telegram handle": the constant exists now,
+  though the Feedbacker guide section and the partner pitch still name the communities as plain text.
+
+⚠️ **The mode cards come first** because they are the only
 thing on the page a visitor can act on, and ⚠️ **the token card is second, not under the hero** — it was
 under the hero for one build and the owner reversed it, because a billboard must not push the actionable
 thing below the fold. It renders nothing at all unless a mint is configured. See

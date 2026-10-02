@@ -108,8 +108,9 @@ replacement.
     Streamers and communities can get a custom share — reach out to the team on Telegram or Discord."*
     It is the page admitting the second door exists: self-registration only ever writes the standard
     share, bespoke rates are still hand-run SQL. ⚠️ **No number and no promise** — a custom rate is
-    negotiated. ⚠️ **No links**, the same rule `GuideFeedbacker` follows: `monkify-front` carries no
-    Telegram or Discord handle constant, so the two communities are named as places.
+    negotiated. ⚠️ **No links here**: the two communities are named as places, the way `GuideFeedbacker`
+    names the Telegram. The handles live in `src/constants/socials.ts` and are linked from the home
+    page's community panel ([`home-and-onboarding.md`](home-and-onboarding.md)).
   - **HOW IT WORKS** (four numbered steps — a sequence, so they keep their numerals) and **THE RULES**.
     Step 01 says **"One code per wallet, and it is yours for good"** — true since #195, never said on the
     page before.
@@ -129,7 +130,8 @@ replacement.
     connected here (read from the code, not device-tested).
 - The home hero's button exists only in the **cold** (wallet-not-connected) hero, so before #199 a
   connected player — every returning player — had no in-app way to the programme. `HomePartnerCard`
-  closes that: one panel after the Orbit card, **identical for every visitor** (the page cannot know
+  closes that: one panel directly under the leaderboard (owner's 2026-10-02 reorder; it first shipped
+  after the Orbit card), **identical for every visitor** (the page cannot know
   whether a wallet is a partner without a signed session, and must not hint at it — §6), with **static
   copy and no figures**, so `/` makes no new request and the cold home still fetches nothing. Neither
   entry needs an embed gate: `Home` is already in `EMBED_REDIRECT_ROUTES`. Both fire `home_link_click`
