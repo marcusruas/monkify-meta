@@ -281,6 +281,20 @@ three-plate splits. Edson also changed size between games on a phone.
 - ⚠️ The live console's legacy two-plate phone branch and three-well desktop branch in `GameConsole` are
   now reached only by legacy preset types (none live); their Hyper Roll markup is dead code.
 
+### Mode entrances — a signature display animation per game (owner, 2026-10-02)
+
+Switching into a game plays a short entrance on its display, once (`hooks/useModeIntro.ts`, keyed on the
+game type whose round is on screen; not replayed on a tab change, a new round or a re-render; reset when
+the terminal unmounts; never under reduced motion). Styles live at the bottom of `GameTerminal.vue`.
+- **Hyper Roll** — the board reel (rows scramble and settle in turn), which already played on every board.
+- **Cosmic Sprint** — the plates, then the bet cards, glide in from the left, staggered.
+- **Space Jackpot** — each plate opens out of a horizontal line like a screen powering on; the countdown's
+  digit boxes pop in.
+- **Monkey Duel** — YOU slides in from the left, THE HOUSE from the right, VS slams in between.
+- ⚠️ Transform and opacity only, smooth easing. The first Sprint / Jackpot cut (a stepped `clip-path`
+  wipe and a neon flicker) was rejected as "laggy and weird": `clip-path` animates on the main thread
+  while the round is still rendering, and stepped timing reads as dropped frames.
+
 ## 4. Background, motion and performance
 
 - ⚠️ **`NebulaField.vue` was deleted outright** — 5 clouds of 40–82vw radial gradient carrying
