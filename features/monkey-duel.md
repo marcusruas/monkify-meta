@@ -166,7 +166,9 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   types (`GET /games/{type}` has no shared round and would toast a 400).
 - The machine: `DuelTabs` (VS HOUSE / OPEN DUELS N) · `DuelCard` (two corners either side of VS, red =
   you, blue = rival) · `DuelBoard` (room grid, `+ OPEN YOUR OWN DUEL` tile first) · `DuelPlate` (pure
-  view: word LCD + `?`, − / stake LCD / +, slide switch, UP/DOWN, SORT/OK/CLEAR, lever) + `DuelConsole`
+  view: word LCD + `?`, − / stake LCD / +, slide switch, UP/DOWN, SORT/OK/CLEAR; since 2026-10-02 it
+  mounts on the shared `ConsolePlate`, which owns the plate, the lever and the row grid, so its keys and
+  rows match every other game's — see `frontend-ux.md` → "The game console") + `DuelConsole`
   (live logic) · `DuelVsSplash`. **OK arms everything on the board**: JOIN a room, OPEN from the `+`
   tile, CANCEL your own. Lever tag `READY → PULL → PLACING… → LIVE`; the result lever is **END — no
   rematch**. Only **your** near-miss row; no tug bar.

@@ -367,6 +367,11 @@ disagree (AC4).
 
 ### 7.4 The console — `RacePlate.vue`
 
+> **Superseded on 2026-10-02 (owner: standardize every console's sizes and positions).** `RacePlate` now
+> mounts on the shared `ConsolePlate` — the plate, wells, lever and tag are the shell's, and the controls
+> sit on its standard row grid (row 2 takes `HyperRollModeDial`'s shape). The px table below is the
+> shipped first cut and no longer matches the code; see `features/frontend-ux.md` → "The game console".
+
 Sizing follows `DuelPlate.vue`'s contract exactly: one composition at every width, `aspect-ratio:
 970 / 420`, wells positioned as percentages of the plate, text sized in container-query units;
 `mobile` → sized off the width, `wide` and desktop → sized off the height, plus the `fitHeight` prop

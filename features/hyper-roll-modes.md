@@ -126,6 +126,11 @@ exit are also unchanged.
   fairness panel, the games history rows, the terminal key hint, and the how-to-play mode card.
 - **Practice** (`/game/practice?mode=hyper-roll`) has all three modes offline. Its ladders and the new words
   are copied by hand into `constants/practiceGame.ts`.
+- ⚠️ **The phone console is the desktop console since 2026-10-02** (owner: "standardize it all"). It used
+  to be a two-plate phone re-composition — stake row and the eight keys crammed on one plate, the lever
+  alone on the other, and **no HELP / MAX / mode keys on a phone at all**. Now the live and practice
+  Hyper Roll consoles both sit on the shared `ConsolePlate` (see `frontend-ux.md` → "The game
+  console"): left = − / LCD / + then HELP / MAX / mode keys, centre = lever, right = the eight keys.
 
 ### Rollout
 

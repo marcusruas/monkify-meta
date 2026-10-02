@@ -243,6 +243,44 @@ at 500px these bubbles are two lines instead of three — every measurement come
 and the status-line collision does not reproduce. Use CDP device emulation at a real 360px, or the
 phone.
 
+### The game console — one plate for every game (owner, 2026-10-02)
+
+"Standardize console sizes and positions of elements — height and scales." Before this, the band the
+console sits in was already one size, but the three consoles inside it were not: at 1440x900 the lever was
+114, 95 or 106px wide depending on the game, a round key 37, 38 or 43px, the rows started at three different
+heights, the LCD type came in four sizes, and on a phone Hyper Roll was a two-plate layout with its lever on
+the right (it jumped ~90px sideways when you switched to it) while the others were two different
+three-plate splits. Edson also changed size between games on a phone.
+
+- **`components/game/ConsolePlate.vue` is the shell every live console mounts on**: `GameConsole`'s Hyper
+  Roll branch, `RacePlate` (Cosmic Sprint / Space Jackpot) and `DuelPlate` (Monkey Duel), plus the
+  practice faces (`PracticeConsole` race + Hyper Roll, `PracticeDuelConsole`). It owns the plate art, how
+  it is sized in each context (desktop / `wide` band / phone / practice `fill` / `fitHeight`), the three
+  wells and the phone re-cut, and **the lever and its tag** (not slots — one size and one place in every
+  game). The consoles fill a `left` and a `right` slot.
+- **The plate art is `assets/game/console/plate.png`** (97x42, generated): the duel's even 33 | 29 | 33
+  split, with the face ending at row 30 — between `terminal.png`'s 28 and the duel plate's 32. The owner's
+  call: the duel's plate "goes a lot lower", Sprint's was shorter, "something in between". It is the duel
+  plate with two flat face rows removed and two flat base rows added, so every edge and rivet is original.
+  `terminal.png` and `duel/plate.png` are now only used by the legacy preset-type branches.
+- **The standard layout for a well** is global CSS in ConsolePlate (`.cp-col`, `.cp-row--kmk|mkk|full`,
+  `.cp-cell`, `.cp-span-2`, `.cp-key-h`, `.cp-grid8`), in plate columns of the well's own `cqi`: a 26.4-column
+  centred column, rows 9.2 columns tall and 0.8 apart, the first 4.4 down; a round key is 5.6 columns
+  (7 / 31 of the column, the 7 : 17 : 7 module); the eight-key grid is 28.4 columns wide with its rows at
+  the same heights. Engravings are sized by `consolePlate.ts`'s `engraving(glyphColumns)`, so glyphs are
+  one size on every plate. Every LCD's readout is 60% of its bezel's height (16px floor on a phone).
+- **Row 2 of the classic plate is Hyper Roll's mode-dial row** (two keys, seam, three small keys over a
+  VT323 LCD), with HELP / RANDOM and the tab keys in it.
+- **Measured after the change** (all four games identical): desktop 1440x900 — lever 100x158, tag 96x24 at
+  13px, round keys 40x52, rows at 645 / 717, LCD type 31px. Phone 390x844 — wells 150 / 82 / 150, lever
+  58x91, keys 27x34, rows at 724 / 772, LCD type 20.5px, terminal 430px, Edson ~300x190. Tablet 768x1024 —
+  lever 92x145, keys 37x47.
+- **Phone**: the plate shows rows 12-344 of the art and re-cuts its wells to 38.5 | 21 | 38.5% for every
+  game; `GamePage` caps its width with `--plate-max-w` (= `--console-h` x 970/332) and gives every
+  plate game the classic modes' 7 : 3 terminal / Edson split. Practice keeps the whole, uncut plate.
+- ⚠️ The live console's legacy two-plate phone branch and three-well desktop branch in `GameConsole` are
+  now reached only by legacy preset types (none live); their Hyper Roll markup is dead code.
+
 ## 4. Background, motion and performance
 
 - ⚠️ **`NebulaField.vue` was deleted outright** — 5 clouds of 40–82vw radial gradient carrying
@@ -320,6 +358,8 @@ A lightweight chat on `/game`, in the right-side panel, attributed to each playe
 `src/styles/arcade.css` + `colors.css` + `tailwind.config.js` (tokens), `src/constants/icons.ts` +
 `src/components/ui/AppIcon.vue`, `src/components/GameHeader.vue` (icon pad),
 `src/components/game/{GameTerminal,GameConsole,GameMonkey,GameSidePanel,GameChatPanel}.vue`,
+`src/components/game/ConsolePlate.vue` + `consolePlate.ts` + `assets/game/console/plate.png` (the shared
+console plate, its lever and its well grid),
 `src/components/GameBackground.vue` + `TorpedoSpawner.vue`, `src/hooks/{usePerfMode,useIsMobile,useChatUnread}.ts`,
 `src/utils/walletDeepLink.ts`, `src/components/GameAudio.vue` + `src/assets/audios/`,
 `src/components/game/GameMobileTabs.vue`, `src/hooks/useKeyboardDismiss.ts` (+ its three wiring
