@@ -79,8 +79,9 @@ is navigation, the same class of object as the ☰ pad, not promotion. Before it
 one meant wordmark → home → scroll → card.
 
 - **Two shapes, mounted twice by `GameHeader`:** from `lg` up a small labelled box beside the wordmark
-  (the game on screen, or `GAMES` off the game route); below `lg` a bare icon square in the right-hand
-  cluster, last before the ☰ glyph so its panel can anchor right on a 360px bar.
+  (the game on screen, or `GAMES` off the game route); below `lg` a bare icon square in the **same slot**,
+  one bar-gap (8px) from Edson's head. ⚠️ It first shipped in the right-hand cluster, before the ☰ glyph,
+  and the owner moved it left the same day. The panel anchors left in both shapes.
 - ⚠️ **Its size took three cuts, and the middle one stuck.** 40px tall with 10px type was "way too big";
   28px with 8px type was "way too small". It is **34px tall with 9px type**, 12px of side padding, 10px
   between the mark and the name, a 1px frame and a 230px panel with 38px rows (44px below `lg`). Still
@@ -95,7 +96,7 @@ one meant wordmark → home → scroll → card.
 - ⚠️ **The phone bar's cluster stepped down to make room**: `.app-header`'s control height is 32px (was
   36px), the pills lose padding and gap, and below `md` the balance figure is 15px (was 17px) and the
   signed-out ORBIT word tightens. The SOL tag stays 7px (6px was once reported as too small). Measured at
-  360px with a wallet connected: ~43px of slack between the logo and the Orbit pill. Re-measure with a
+  360px with a wallet connected: ~41px of slack between the selector square and the Orbit pill. Re-measure with a
   three-digit balance in both pills before changing any of those numbers.
 - New coarse icon `games` (four tiles) — not a gamepad, which is `practice`, and not three bars, which is
   `menu`.
