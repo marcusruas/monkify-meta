@@ -105,11 +105,11 @@ replacement.
     only `GET /referrals/program`'s numbers: when that read fails the figures are **not rendered** and the
     steps fall back to numberless sentences. Never hand-type a figure here.
   - a **custom-share note** under them, always rendered (owner, 2026-10-02): *"Bringing a big audience?
-    Streamers and communities can get a custom share — reach out to the team in the community Telegram."*
+    Streamers and communities can get a custom share — reach out to the team on Telegram or Discord."*
     It is the page admitting the second door exists: self-registration only ever writes the standard
     share, bespoke rates are still hand-run SQL. ⚠️ **No number and no promise** — a custom rate is
-    negotiated. ⚠️ **No Telegram link**, the same rule `GuideFeedbacker` follows: `monkify-front` carries
-    no handle constant, so the community Telegram is named as a place.
+    negotiated. ⚠️ **No links**, the same rule `GuideFeedbacker` follows: `monkify-front` carries no
+    Telegram or Discord handle constant, so the two communities are named as places.
   - **HOW IT WORKS** (four numbered steps — a sequence, so they keep their numerals) and **THE RULES**.
     Step 01 says **"One code per wallet, and it is yours for good"** — true since #195, never said on the
     page before.
