@@ -93,8 +93,35 @@ exit are also unchanged.
 - **The chosen mode is remembered per browser** in `localStorage['hyperRoll:mode:<typeId>']`. A first visit
   opens on AVERAGE. Pressing a mode key redraws through the reroll path, and the **lever reroll always sends
   the round's current mode**, so it never drops back to the default.
-- The key row just gets shorter: keys keep their size. The global tier-colour scale is kept, so on AVERAGE
-  3× and 4× are both gray, and 5× and 6× are both green.
+- The key row just gets shorter: keys keep their size.
+- ⚠️ **A word's colour is its RANK ON ITS OWN BOARD since 2026-10-02** (`houseEdge.boardTier`), not the
+  fixed multiplier ranges it shipped with. Those ranges were drawn for HYPER alone, so on AVERAGE 3× and
+  4× were both gray and 5× and 6× both green — two different payouts in one colour. Every board has
+  exactly **five distinct multipliers**, so ranking them runs the whole ladder once per board:
+
+  | Board | Gray | Green | Blue | Purple | Gold |
+  |---|---|---|---|---|---|
+  | AVERAGE | 3× | 4× | 5× | 6× | 7× |
+  | SUPER | 3× | 4× | 6× | 8× | 9×, 9× |
+  | HYPER | 4× | 6× | 8×, 8× | 9×, 9× | 10×, 10× |
+
+  Two keys share a colour only when they pay the same. It drives the key art and the terminal's MULT
+  boxes (live and practice), and the win banner's flash colour.
+  - ⚠️ **The colour is relative to the board**: gold is 7× on AVERAGE, 9× on SUPER and 10× on HYPER, and
+    every board's top word now wears the gold key and its sparkle.
+  - ⚠️ **What a win FEELS like still follows the absolute multiplier** — `winHeadline`, the coin count, the
+    screen shake and the 10× gold triple ring all keep `tierName`'s thresholds. A 7× on AVERAGE flashes
+    gold but says BIG HIT.
+  - ⚠️ **The mode keys and their LCD keep `tierName`** (AVERAGE blue, SUPER purple, HYPER gold) so the
+    three boards still light differently. Known side effect: `SUPER 9×` reads purple while the 9× keys on
+    that board are gold.
+  - ⚠️ **Rejected the same day:** an eight-colour, one-per-multiplier ladder (silver / two greens / two
+    blues / purple / red / gold). Built, shown to the owner, dropped — eight unrelated hues stopped
+    reading as a progression. Do not re-propose it.
+  - A board without exactly five distinct multipliers is spread across the ladder end to end; changing a
+    ladder's slot count therefore changes its colours — re-check this table when a mode's ladder moves.
+  - ⚠️ The how-to-play guide's static Hyper Roll pictures (`assets/guide/hyper-roll-*.png`) were drawn
+    under the old ranges and were **not** regenerated.
 - The mode also appears in the stats panel (one RTP per mode instead of a single `91.84% RTP` badge), the
   fairness panel, the games history rows, the terminal key hint, and the how-to-play mode card.
 - **Practice** (`/game/practice?mode=hyper-roll`) has all three modes offline. Its ladders and the new words
