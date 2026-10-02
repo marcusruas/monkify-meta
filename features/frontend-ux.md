@@ -74,6 +74,30 @@ misrepresent as a page. See [`token-launch.md`](token-launch.md).
 audio — and a token pill shipped there for one build before being pulled: an always-on outbound CTA
 competed with the in-game primary actions on every screen, mid-round included.
 
+⚠️ **The bar DOES carry a game selector since 2026-10-02** (`header/GameSwitcher.vue`, owner's request) — it
+is navigation, the same class of object as the ☰ pad, not promotion. Before it, changing game from inside
+one meant wordmark → home → scroll → card.
+
+- **Two shapes, mounted twice by `GameHeader`:** from `lg` up a small labelled box beside the wordmark
+  (the game on screen, or `GAMES` off the game route); below `lg` a bare icon square in the right-hand
+  cluster, last before the ☰ glyph so its panel can anchor right on a 360px bar.
+- ⚠️ **Deliberately small.** The first cut used the pills' 40px height and 10px type and was rejected on
+  sight ("way too big"): the desktop box is 28px tall with 8px type, a 1px frame and a 190px panel.
+- ⚠️ **Names are shortened here** — a trailing parenthetical is dropped, so `Monkey Duel (Coinflip)` reads
+  `MONKEY DUEL`. The lobby card and the accessible name keep the full name.
+- Picking a game goes through **`useGamePicker.chooseGame`**, the handler the mode cards and the home hero
+  use, so `game_type_selected` fires and the route changes the same way from every entry point. The list
+  is the lobby's own (`shownGameTypes`): same games, same order, COMING SOON listed but inert. The
+  catalogue is fetched only if the store is empty, and only when the panel is first opened.
+- The row dots mirror `GameTypeCard`'s per-archetype accents by hand — change one, change the other.
+- ⚠️ **The phone bar's cluster stepped down to make room**: `.app-header`'s control height is 32px (was
+  36px), the pills lose padding and gap, and below `md` the balance figure is 15px (was 17px) and the
+  signed-out ORBIT word tightens. The SOL tag stays 7px (6px was once reported as too small). Measured at
+  360px with a wallet connected: ~43px of slack between the logo and the Orbit pill. Re-measure with a
+  three-digit balance in both pills before changing any of those numbers.
+- New coarse icon `games` (four tiles) — not a gamepad, which is `practice`, and not three bars, which is
+  `menu`.
+
 ⚠️ **Press Start 2P draws `$` and `!` wrong, and coarse marks like `●` fall outside the self-hosted
 subset** (they silently fall back to a system font with that font's baseline). Display-face copy carrying
 them goes through **`ui/PixelText.vue`**, and marks are drawn geometry, never a bare character. Its
