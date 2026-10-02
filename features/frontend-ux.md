@@ -81,8 +81,10 @@ one meant wordmark → home → scroll → card.
 - **Two shapes, mounted twice by `GameHeader`:** from `lg` up a small labelled box beside the wordmark
   (the game on screen, or `GAMES` off the game route); below `lg` a bare icon square in the right-hand
   cluster, last before the ☰ glyph so its panel can anchor right on a 360px bar.
-- ⚠️ **Deliberately small.** The first cut used the pills' 40px height and 10px type and was rejected on
-  sight ("way too big"): the desktop box is 28px tall with 8px type, a 1px frame and a 190px panel.
+- ⚠️ **Its size took three cuts, and the middle one stuck.** 40px tall with 10px type was "way too big";
+  28px with 8px type was "way too small". It is **34px tall with 9px type**, 12px of side padding, 10px
+  between the mark and the name, a 1px frame and a 230px panel with 38px rows (44px below `lg`). Still
+  smaller than a pill on purpose.
 - ⚠️ **Names are shortened here** — a trailing parenthetical is dropped, so `Monkey Duel (Coinflip)` reads
   `MONKEY DUEL`. The lobby card and the accessible name keep the full name.
 - Picking a game goes through **`useGamePicker.chooseGame`**, the handler the mode cards and the home hero
