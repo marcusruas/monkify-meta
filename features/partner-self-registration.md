@@ -10,11 +10,12 @@
 
 ## What it does
 
-Anyone can become a referral partner without the team. On the unlisted `/partner` page a visitor connects
-the wallet they want paid to, reads **HOW PARTNERSHIP WORKS**, picks a code, ticks the partner terms and
-signs one message. A `ReferralPartner` row is written — live immediately — and they land signed in on their
-statement, which now always shows **YOUR LINK** (`https://spacestroker.com/?ref=<code>`) with a COPY button.
-The cold home hero carries a **BECOME A PARTNER** button that opens `/partner?register=1`.
+Anyone can become a referral partner without the team. On the unlisted `/partner` page a visitor reads
+the pitch (**HOW IT WORKS** and **THE RULES**), connects the wallet they want paid to, picks a code, ticks
+the partner terms and signs one message. A `ReferralPartner` row is written — live immediately — and they
+land signed in on their statement, which always shows **YOUR LINK** (`spacestroker.com/?ref=<code>`) with a
+COPY LINK button. Two things on the home page open `/partner?register=1`: the cold hero's
+**BECOME A PARTNER** button and, since #199, the **partner card** every visitor sees.
 
 Bespoke partners are still created by hand-run SQL; self-registration is an additional door, not a
 replacement.
@@ -93,11 +94,34 @@ replacement.
 ### Frontend and terms
 
 - `/partner` stays unlisted and embed-redirected. Register mode comes from `?register=1` or the page's own
-  BECOME A PARTNER button; it shows the explainer **before** a wallet is connected, the form after. Refusals
+  BECOME A PARTNER button; it shows the pitch **before** a wallet is connected, the form after. Refusals
   are shown as the server's own sentence (`apiErrorMessage`); the client never invents a reason. The
   sign-in path's vague copy is untouched.
-- The home hero's button exists only in the **cold** (wallet-not-connected) hero. It needs no embed gate:
-  `Home` is already in `EMBED_REDIRECT_ROUTES`. It fires `home_link_click` with `link: 'partner'`.
+- **The register view is a PITCH since #199** (Trello [#199](https://trello.com/c/kGhJBd3t), layout only —
+  no request, refusal or figure changed). It was one six-bullet box in a narrow grey frame; it is now a
+  frameless title (`BRING PLAYERS. / GET PAID IN SOL.`) over the home page's `HomeSection` panels at the
+  home width:
+  - the **two headline figures** — the share, and what a 1 SOL bet earns — in an amber frame. ⚠️ Still
+    only `GET /referrals/program`'s numbers: when that read fails the panel is **not rendered** and the
+    steps fall back to numberless sentences. Never hand-type a figure here.
+  - **HOW IT WORKS** (four numbered steps — a sequence, so they keep their numerals) and **THE RULES**.
+    Step 01 says **"One code per wallet, and it is yours for good"** — true since #195, never said on the
+    page before.
+  - **CLAIM YOUR CODE**, the cyan panel beside them (below them under `lg`): the code field with its rule
+    **always visible** (it turns red once what was typed breaks it), the link preview and the payout
+    wallet as **text**, the terms box and REGISTER. ⚠️ **"Commissions are paid to `<wallet>` (the
+    connected wallet)"** is new copy; it is true by construction, because registration stores the signing
+    wallet as `PayoutWallet`. With no wallet the same panel holds the connect button, so the pitch never
+    dead-ends.
+  - ⚠️ A read-only value is **never** put in an input-looking box on this page (owner's rule from #197):
+    the link preview here and YOUR LINK on the statement are plain text.
+- The home hero's button exists only in the **cold** (wallet-not-connected) hero, so before #199 a
+  connected player — every returning player — had no in-app way to the programme. `HomePartnerCard`
+  closes that: one panel after the Orbit card, **identical for every visitor** (the page cannot know
+  whether a wallet is a partner without a signed session, and must not hint at it — §6), with **static
+  copy and no figures**, so `/` makes no new request and the cold home still fetches nothing. Neither
+  entry needs an embed gate: `Home` is already in `EMBED_REDIRECT_ROUTES`. Both fire `home_link_click`
+  with `link: 'partner'` — ⚠️ the two entries are **not distinguishable** in GA.
 - `monkify-lp` `/terms` has a **PARTNER PROGRAM** section (`#partner-program`, the checkbox's link target).
   ⚠️ Unlike the numberless REFERRALS clause it carries figures (5% of the house cut, 0.1 SOL, 60 minutes),
   all from `PARTNER_PROGRAM` in `monkify-lp/src/constants.ts` — a **hand-mirror** of the backend that must
@@ -122,7 +146,8 @@ replacement.
 | `SpaceStroker.Common/spacestrokersettings.json` | The rate-limit rule |
 
 **Frontend (`monkify-front`)** — `src/hooks/usePartnerRegistration.ts` (program load, code validation,
-sign + register, `partnerLink`), `src/components/partner/PartnerRegisterPanel.vue` (explainer + form),
+sign + register, `partnerLink`), `src/components/partner/PartnerRegisterPanel.vue` (the pitch + form),
+`src/components/home/HomePartnerCard.vue` (the home card, #199),
 `src/hooks/usePartnerEarnings.ts` (`buildPartnerRegistrationMessage`, `adoptSession`, exported `toBase64`),
 `src/pages/PartnerPage.vue` (register mode, YOUR LINK + COPY), `src/components/home/HomeHero.vue` +
 `src/pages/HomePage.vue` (the hero button), `src/services/partnerService.ts`, `src/types/partner.ts`,

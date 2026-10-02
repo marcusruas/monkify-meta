@@ -28,8 +28,11 @@ first-time player has no reason to open.
 ⚠️ **The `/space-stroker` URL prefix is gone** (the app is hosted at `app.spacestroker.com`). That is
 why the LP's play CTA targets the **bare origin** and not a route — see [`lp.md`](lp.md).
 
-**Section order:** hero → the mode picker → **the token card** → how-it-works → feature cards → the
-player's own record → everyone's numbers. ⚠️ **The mode cards come first** because they are the only
+**Section order:** hero → the mode picker → **the token card** → the leaderboard → how-it-works →
+feature cards → the Orbit card → **the partner card** (#199) → the player's own record → everyone's
+numbers. ⚠️ **The partner card sits with Orbit, after everything a player came for**: it is an offer to
+the few visitors with an audience, not a step in playing. It is the same for every visitor and carries
+no figures — see [`partner-self-registration.md`](partner-self-registration.md). ⚠️ **The mode cards come first** because they are the only
 thing on the page a visitor can act on, and ⚠️ **the token card is second, not under the hero** — it was
 under the hero for one build and the owner reversed it, because a billboard must not push the actionable
 thing below the fold. It renders nothing at all unless a mint is configured. See

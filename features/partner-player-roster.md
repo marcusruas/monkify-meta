@@ -14,7 +14,8 @@
 
 ## What it does
 
-A second section on the unlisted `/partner` page, under CASH-OUT HISTORY: **one row per player who
+A panel on the unlisted `/partner` page — **above** CASH-OUT HISTORY since #199, it used to sit under
+it: **one row per player who
 arrived through the partner's link**, ranked with the **biggest wager at the top**. A row says who
 the player is (their public display name when they chose one, over their truncated wallet), what they
 **wagered**, what that **generated in commission** for the partner, and when they were **first** and
@@ -142,9 +143,16 @@ have **no** app-side rule — a deliberate gap, not an oversight to "fix" withou
   sort, CLEAR), one **card per player** with labelled cells, numbered pages with an ellipsis and a
   10/20/50 page-size picker. The top row of page 1 wears the amber border; commission is amber (the
   colour the statement's figures wear), turnover is ink.
-  - **One template for both layouts:** six columns above 900px, and the same six children flowing
+  - **One template for both layouts:** six columns above **1024px**, and the same six children flowing
     into two columns below it. There is no table header to keep aligned, because every figure carries
     its own label.
+  - ⚠️ **The breakpoint is the VIEWPORT's, so it is only right for the page width it sits in.** The
+    fixed columns and gaps cost 622px. It shipped at 900px inside a 768px frame, which left the player
+    column ~98px: **names were cut to four letters ("moon…") and ran into WAGERED on every desktop**.
+    #199 widened the page to 1180px and moved the breakpoint to 1024px, where the panel's content box
+    is ~876px and the player gets ~250px. Re-do that sum if the page width ever changes.
+  - It is its own `HomeSection` panel since #199, with the filtered player count beside the subtitle
+    (the same number the footer's "of N" prints).
   - ⚠️ Figures go through `utils/money.formatSol`, **not** a local formatter. The old table carried
     its own 9-decimal one — exactly the drift that module exists to stop — and `formatSol`'s
     significant-digit escape is what keeps a 0.0003 SOL commission from rendering as `0.00`.

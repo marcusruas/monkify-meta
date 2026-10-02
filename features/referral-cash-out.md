@@ -120,10 +120,32 @@ code — the platform's first automated outbound payment to someone who is not a
   (`7Xf4…9kQa`) and the statement itself stays totals-only (it is cached). ⚠️ The partner's own
   `PayoutWallet` is **not** one of those rows, matching the self-referral guard the earnings predicate
   has always carried. See [`partner-player-roster.md`](partner-player-roster.md).
-- `/partner` is unlisted: not in the header menu (a 3×3 icon pad that cannot take a tenth cell) — its
-  only in-app link is the cold home hero's BECOME A PARTNER (#195) — and
+- `/partner` is unlisted: not in the header menu — its in-app links are the cold home hero's BECOME A
+  PARTNER (#195) and the home partner card every visitor sees (#199) — and
   in `EMBED_REDIRECT_ROUTES`, because a commercial balance inside a casino's iframe is the same leak
   that put Orbit in that set. `robots.txt` already covers it via the app host's blanket `Disallow: /`.
+  ⚠️ The menu pad has had a **free ninth cell** since #198 removed Orbit's, so "cannot take a tenth cell"
+  no longer keeps `/partner` out of it; leaving it out is now a choice (#199 did not add one), not a
+  constraint.
+
+### The statement's layout (#199)
+
+Layout only — every state, request, refusal and figure is what #177 / #192 / #195 shipped. The page went
+from one narrow grey frame (`max-w-3xl`) to a frameless title over `HomeSection` panels at the home
+page's width (`max-w-[1180px]`):
+
+- **AVAILABLE leads.** It is the one figure the partner can act on, so it is the big amber number with
+  CASH OUT under it; *earned all time*, *already paid out* and *as of* sit below a rule as context. They
+  used to be three equal 22px figures.
+- **YOUR LINK is text**, in its own cyan panel, with COPY LINK. It was a read-only `<input>`, which reads
+  as typable. It is shown without its scheme; the button still copies the full URL.
+- **YOUR PLAYERS comes before CASH-OUT HISTORY** — the roster is what a partner returns to check, the
+  ledger is reference.
+- **History rows are cards**, each value under its own label (the roster's idiom): one line on a desktop,
+  a 2×2 on a phone. ⚠️ The `<table>` it replaced scrolled sideways below ~560px with STATUS off-screen.
+  A `REVERSED` row is still listed — that rule did not move.
+- The **connect gate** (no wallet, not registering) gained a BECOME A PARTNER button; its copy already
+  said "or to become a partner" with nothing to press.
 
 ## Key code touchpoints
 
