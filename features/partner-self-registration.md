@@ -102,8 +102,14 @@ replacement.
   frameless title (`BRING PLAYERS. / GET PAID IN SOL.`) over the home page's `HomeSection` panels at the
   home width:
   - the **two headline figures** — the share, and what a 1 SOL bet earns — in an amber frame. ⚠️ Still
-    only `GET /referrals/program`'s numbers: when that read fails the panel is **not rendered** and the
+    only `GET /referrals/program`'s numbers: when that read fails the figures are **not rendered** and the
     steps fall back to numberless sentences. Never hand-type a figure here.
+  - a **custom-share note** under them, always rendered (owner, 2026-10-02): *"Bringing a big audience?
+    Streamers and communities can get a custom share — reach out to the team in the community Telegram."*
+    It is the page admitting the second door exists: self-registration only ever writes the standard
+    share, bespoke rates are still hand-run SQL. ⚠️ **No number and no promise** — a custom rate is
+    negotiated. ⚠️ **No Telegram link**, the same rule `GuideFeedbacker` follows: `monkify-front` carries
+    no handle constant, so the community Telegram is named as a place.
   - **HOW IT WORKS** (four numbered steps — a sequence, so they keep their numerals) and **THE RULES**.
     Step 01 says **"One code per wallet, and it is yours for good"** — true since #195, never said on the
     page before.
@@ -115,6 +121,12 @@ replacement.
     dead-ends.
   - ⚠️ A read-only value is **never** put in an input-looking box on this page (owner's rule from #197):
     the link preview here and YOUR LINK on the statement are plain text.
+  - ⚠️ **The connect step is `WalletButtons`, never the library's raw `WalletMultiButton`** — its purple
+    "Select Wallet" is off the button standard (owner, 2026-10-02). Both connect points on `/partner`
+    (this panel and the statement's connect gate) use it. ⚠️ Known limit, older than #199: the page keys
+    on the desktop adapter (`useWallet().connected` / `signMessage`), so on a phone it only works inside
+    a wallet's in-app browser — a deeplink-connected wallet on plain mobile web still reads as not
+    connected here (read from the code, not device-tested).
 - The home hero's button exists only in the **cold** (wallet-not-connected) hero, so before #199 a
   connected player — every returning player — had no in-app way to the programme. `HomePartnerCard`
   closes that: one panel after the Orbit card, **identical for every visitor** (the page cannot know
