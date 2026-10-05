@@ -221,17 +221,29 @@ events are expected (sweep + schedule + settings + deposit) and are absorbed by 
 
 1. **Load** the enrolment + its `GameParameters`. Return (no-op) unless `Enabled`, the type is solo,
    `Active`, `AllowOrbit`, not `ComingSoon`, and the player is not self-excluded.
-2. **In flight?** If `SoloRoundId != null`: load that game. If it still exists and its status is in
-   `Game.ActiveGamesStatus` (unsettled) → return. Otherwise (settled, terminated, or deleted by the board
-   cleanup) clear it with `ExecuteUpdate … WHERE SoloRoundId = @stale` and continue.
+2. **In flight?** If `SoloRoundId != null`: load that game. *(As built — `OrbitSoloRoundState.IsFinished`,
+   shared with the sweep:)* the round is in flight while its status is in `HouseEdgeCoverage.UnsettledStatuses`
+   (every status before rewards complete — NOT `Game.ActiveGamesStatus`, which would let a duplicate tick
+   re-stake between round end and the stop-loss evaluation); a terminal round counts as finished only once it
+   is older than `SoloRoundGapSeconds + 60 s` (the settlement hook is the fast path); a round in
+   `ErrorWhenProcessingRewards` is **never** finished — the loop holds until an operator resolves the payout
+   (the sweep logs it at Error once, then hourly); a deleted round is finished at once. Finished → clear it
+   with `ExecuteUpdate … WHERE SoloRoundId = @stale` and continue.
 3. **Gap.** If `NextSoloRoundAt > now` → `ScheduleNext(player, NextSoloRoundAt - now)` and return.
 4. **Lease.** `ExecuteUpdate SET SoloLeaseUntil = now + SoloLeaseSeconds WHERE PlayerId = @p AND Enabled
-   AND SoloRoundId IS NULL AND (SoloLeaseUntil IS NULL OR SoloLeaseUntil < now)`. **0 rows → return**
+   AND SoloRoundId IS NULL AND (SoloLeaseUntil IS NULL OR SoloLeaseUntil < now)
+   AND (NextSoloRoundAt IS NULL OR NextSoloRoundAt <= now)`. **0 rows → return**
    (another tick owns it). The lease is taken **before** any round is opened, so a duplicate tick never
    leaves an orphan board.
-5. **Stake & funds.** `stake = Stake ?? RequiredAmount`. If the settled pool balance `< stake` → release
-   the lease, return (no reschedule — the shipped zero-out / "needs money" path applies; a deposit
-   re-triggers via §6.1.5). If `placer.IsLowOnFees()` → release lease, `ScheduleNext(gap)`, return.
+5. **Stake & funds.** `stake = Stake ?? RequiredAmount`. If the settled **or the spendable** pool balance
+   `< stake` (a manual Orbit wager riding elsewhere lowers the spendable one) → release the lease, clear the
+   waiting flag, return (no reschedule — the shipped zero-out / "needs money" path applies; a deposit
+   re-triggers via §6.1.5). If a **cash-out floor** is set and the settled balance is **strictly below** it →
+   release the lease, run `EvaluateFloor` (the stop-loss cash-out), return — the same rule the shared planner
+   applies to Cosmic Sprint. If `placer.IsLowOnFees()` → release lease, `ScheduleNext(gap)`, return.
+   *(As built: the lease value is a token — `SetRound` and `ReleaseLease` only act on the tick's own lease; a
+   duel's stored word is re-validated before the lease; Enabled and self-exclusion are re-read just before
+   placing.)*
 6. **House pre-check (no money yet).**
    - `HouseEdgeEnabled == false` (both types honour it — `OpenDuelRoomHandler` already does for House) →
      **waiting**.
@@ -649,7 +661,14 @@ New `OrbitSoloAutoBetFlowTests` (Testcontainers harness; set `SoloRoundGapSecond
   **Implementation** section on the card lists branch, worktree, spec and level.
 - **Next:** `/monkify-implement-feature Enable auto bet for monkey duel & hyper roll`, then
   `/monkify-ship-feature Enable auto bet for monkey duel & hyper roll`.
-- **Deploy note:** additive migration; Consumers then API. The `AllowOrbit` flip is healed at Consumers
+- **Deploy note:** additive migration; Consumers then API, then the **front in the same window** — the
+  `AllowOrbit` flip is live the moment the new Consumers starts, and an old front lists Hyper Roll / Duel as
+  ordinary types it can't follow. **Rollback:** rolling Consumers back leaves the `orbit-solo-autobet-sweep`
+  recurring job and any scheduled `OrbitSoloRoundDueEvent` jobs pointing at code the old build lacks — remove
+  them (`RecurringJob.RemoveIfExists("orbit-solo-autobet-sweep")` or the Hangfire dashboard). **Held loop:** a
+  player whose auto round sits in `ErrorWhenProcessingRewards` is parked until an operator resolves that
+  round's payout (the sweep logs it at Error). Hangfire's Postgres storage polls ~15 s, so the real gap between
+  auto rounds is ~5–30 s, not exactly 5 s. The `AllowOrbit` flip is healed at Consumers
   startup — no SQL. Prove it in prod by `GET /orbit` listing three `eligibleGameTypes`.
 
 ---
@@ -659,3 +678,4 @@ New `OrbitSoloAutoBetFlowTests` (Testcontainers harness; set `SoloRoundGapSecond
 | Date | Change |
 | --- | --- |
 | 2026-10-05 | Initial spec from refined card #200 (short-mode refinement in the same chat) + code exploration. Corrections vs the card: there is no `DuelHouseBetConsumer` (the house word is drawn in `RegisterDuelBet`), coverage for both types is `IHouseEdgeCoverageService`, solo rounds publish no `GameOpenedEvent`, and `AllowOrbit` alone would let the shared planner pull Orbit players into another player's solo round (§6.1). `SoloRoundGapSeconds` lives under `Operator.Token.Orbit`. |
+| 2026-10-05 | Implementation feedback (SDD reviews): in-flight rule = `UnsettledStatuses` + grace, errored payouts hold the loop, lease token, `NextSoloRoundAt` in the lease, settled **and** spendable funds check, stop-loss floor checked before staking, duel word re-validated, deploy/rollback notes. |
