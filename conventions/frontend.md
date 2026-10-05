@@ -737,7 +737,7 @@
     such helpers **inside** a branch.
   - **Where a value exists on both sides, share it rather than copy it** — the practice hold reads the
     same `VUE_APP_NEW_GAME_DELAY` the real console does. Backend-owned numbers that the frontend cannot
-    see (`TimeUntilGameStarts` = 10, `TerminalBatchLimit` = 500) are hard-coded with a comment naming
+    see (`TimeUntilGameStarts` = 5 since 2026-10-05, `TerminalBatchLimit` = 500) are hard-coded with a comment naming
     the setting, so the next person knows where the truth lives.
   See `specs/practice-mode.md`.
 - **Env vars** are `VUE_APP_*` (do not commit `.env*`; see `constraints.md`).

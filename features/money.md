@@ -266,9 +266,10 @@ Space Jackpot takes no stake. Its pot is the treasury's own money, promised a da
 accounted for like every other thing the treasury may have to pay.
 
 - **Sized once, when the round opens (Consumers):**
-  `pot = PotPercent (0.5%) × (house SOL − open exposure − fee reserve − ReserveFloor 5 SOL)`, floored to
-  **2 significant figures**, clamped to `PotMinimum` 0.05 / `PotMaximum` 2 SOL
-  (`HolderJackpotPotRules`), and frozen on `Game.HouseFundedPot`. All of it is config under
+  `pot = PotBase 0.03 + PotStep 0.005 × floor(treasury SOL ÷ PotStepBalance 10)`, capped at `PotMaximum`
+  2 SOL (`HolderJackpotPotRules`), and frozen on `Game.HouseFundedPot`. The headroom (house SOL − open
+  exposure − fee reserve − `ReserveFloor` 5 SOL) must cover it or the round opens PAUSED. (Was 0.5% of the
+  headroom, 2 significant figures, 0.05–2 SOL, until 2026-10-05.) All of it is config under
   `GeneralSettings:Games:HolderJackpot`.
 - **Computed under the shared treasury advisory lock** — the same one a Hyper Roll bet and a House duel
   take — and the round is inserted in that transaction. Reserving the pot and creating the round are one

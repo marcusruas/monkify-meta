@@ -1,6 +1,10 @@
 # SpaceStroker — "Better UX/UI in old game modes" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-05)** — merged to `main` from `feature/old-game-modes-ux` in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled in [`../features/old-game-modes-ux.md`](../features/old-game-modes-ux.md);
+> where this spec and the code disagree (owner review rounds, AC 12's save-on-empty-key amendment), the code wins.
+>
+> **Originally: Ready for implementation** — refined via Trello card
 > [#197 Better UX/UI in old game modes](https://trello.com/c/QtLMPhjU/197-better-ux-ui-in-old-game-modes)
 > (2026-10-01). Level **`Feature`**. Repos affected: `monkify-front` (almost all of it),
 > `monkify-backend` (one field on the history row), and this doc in `monkify-meta`. Branch

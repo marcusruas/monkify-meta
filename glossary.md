@@ -208,11 +208,13 @@
   (`IX_GameBets_GameId_PlayerId_Holder`). No ledger row, no `BetPlacedEvent`, no referral commission.
 - **Holder minimum (N)** — `Game.HolderMinimum`: the whole-$STROKE balance a wallet's Token-2022
   associated token account must hold to enter **and** to still hold at the draw. ≈ $10 of $STROKE:
-  Jupiter price → rounded up on the 1-2-5 ladder → clamped to ×2/÷2 of the previous round's N and to a
+  Jupiter price → rounded up on the 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 ladder → clamped to ×2/÷2 of the previous
+  round's N and to a
   config floor/ceiling. **Frozen when the round opens**; a price failure keeps the previous N.
 - **House-funded pot / reserved pot** — `Game.HouseFundedPot`: a holder round's whole pot, in SOL,
-  = 0.5% of the treasury's free headroom (after open exposure, fee reserve and a 5 SOL reserve floor),
-  floored to 2 significant figures and clamped to 0.05–2 SOL. Frozen when the round opens and
+  = 0.03 SOL + 0.005 SOL per full 10 SOL the treasury holds, capped at 2 SOL; the round opens PAUSED if
+  the free headroom (after open exposure, fee reserve and a 5 SOL reserve floor) cannot cover it. Frozen
+  when the round opens and
   **reserved** — it counts as house-edge exposure (plus one fee reserve) against Hyper Roll and House
   duels until the round leaves the unsettled statuses.
 - **Voided ticket** — a holder ticket in `BetStatus.Voided` (= 6, terminal): its wallet held less than N

@@ -14,8 +14,9 @@ Anyone can become a referral partner without the team. On the unlisted `/partner
 the pitch (**HOW IT WORKS** and **THE RULES**), connects the wallet they want paid to, picks a code, ticks
 the partner terms and signs one message. A `ReferralPartner` row is written — live immediately — and they
 land signed in on their statement, which always shows **YOUR LINK** (`spacestroker.com/?ref=<code>`) with a
-COPY LINK button. Two things on the home page open `/partner?register=1`: the cold hero's
-**BECOME A PARTNER** button and, since #199, the **partner card** every visitor sees.
+COPY LINK button. Two things on the home page open `/partner?register=1`: the hero's
+**BECOME A PARTNER** button (signed out and, since 2026-10-05, signed in) and, since #199, the
+**partner card** every visitor sees.
 
 Bespoke partners are still created by hand-run SQL; self-registration is an additional door, not a
 replacement.
@@ -128,9 +129,14 @@ replacement.
     on the desktop adapter (`useWallet().connected` / `signMessage`), so on a phone it only works inside
     a wallet's in-app browser — a deeplink-connected wallet on plain mobile web still reads as not
     connected here (read from the code, not device-tested).
-- The home hero's button exists only in the **cold** (wallet-not-connected) hero, so before #199 a
-  connected player — every returning player — had no in-app way to the programme. `HomePartnerCard`
-  closes that: one panel directly under the leaderboard (owner's 2026-10-02 reorder; it first shipped
+  - **The three short faces are centred** (owner, 2026-10-05): the connect gate, the "opening your
+    statement" line and the sign-in card (`OPEN YOUR STATEMENT` with SIGN IN + BECOME A PARTNER) sit in
+    the middle of the page with their title (`PartnerPage`'s `centered` computed). The pitch and the
+    statement keep the full-width, left-aligned layout.
+- Until 2026-10-05 the home hero's button existed only in the **cold** (wallet-not-connected) hero, so
+  before #199 a connected player — every returning player — had no in-app way to the programme. The
+  signed-in hero's button row now carries BECOME A PARTNER too (owner, 2026-10-05). `HomePartnerCard`
+  closed the gap first: one panel directly under the leaderboard (owner's 2026-10-02 reorder; it first shipped
   after the Orbit card), **identical for every visitor** (the page cannot know
   whether a wallet is a partner without a signed session, and must not hint at it — §6), with **static
   copy and no figures**, so `/` makes no new request and the cold home still fetches nothing. Neither

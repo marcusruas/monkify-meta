@@ -95,8 +95,10 @@ any signature is requested**.
 
 - Computed in **Consumers** when the round opens and stored on `Game.HolderMinimum`
   (`HolderMinimumRules`): Jupiter price (`https://lite-api.jup.ag/price/v3`, `JupiterPriceClient`) →
-  `TargetUsd` (10) ÷ price → rounded **up** on the **1-2-5 ladder** → clamped to **×2 / ÷2 of the previous
-  round's N** → clamped to `MinimumFloor` / `MinimumCeiling` (100,000 / 100,000,000).
+  `TargetUsd` (10) ÷ price → rounded **up** on the **nice-number ladder** **1, 1.5, 2, 2.5, 3, 4, 5, 6, 8**
+  per decade (616,500 → 800,000; 1,010,000 → 1,500,000) → clamped to **×2 / ÷2 of the previous round's N** →
+  clamped to `MinimumFloor` / `MinimumCeiling` (100,000 / 100,000,000). ⚠️ The ladder was 1-2-5 until
+  2026-10-05 (owner: "the numbers cannot be that big" — $10 needing 616,500 asked for 1,000,000).
 - When a ×2/÷2 clamp binds, N can land **off** the ladder (e.g. 4,000,000); the next unclamped round
   snaps back.
 - **Price failure** (non-200, timeout, missing mint, absurd value) → N stays at the previous round's N
@@ -104,9 +106,12 @@ any signature is requested**.
 
 ### The pot — house-funded, frozen and reserved
 
-- `Game.HouseFundedPot` = `PotPercent` (0.5%) × (house SOL − open exposure − fee reserve −
-  `ReserveFloor` 5 SOL), **floored to 2 significant figures**, clamped to `PotMinimum` 0.05 /
-  `PotMaximum` 2 (`HolderJackpotPotRules`).
+- `Game.HouseFundedPot` = `PotBase` **0.03 SOL** + `PotStep` **0.005 SOL** for every **full**
+  `PotStepBalance` (**10 SOL**) the treasury **holds** — its whole balance, not the headroom (17.17 SOL →
+  0.035; under 10 SOL → 0.03), capped at `PotMaximum` 2 (`HolderJackpotPotRules`). The headroom (house SOL
+  − open exposure − fee reserve − `ReserveFloor` 5 SOL) only **gates**: a pot it cannot cover opens the
+  round PAUSED. ⚠️ Changed 2026-10-05 (owner, on `feature/old-game-modes-ux`); before that it was 0.5% of
+  the headroom floored to 2 significant figures and clamped to 0.05–2 SOL.
 - Sized by `HolderJackpotRoundPlanner` **under the shared treasury advisory lock**
   (`HouseEdgeCoverageService.AcquireLockAsync` + `EvaluateHeadroomAsync`, one retry of the lock and one
   re-read of a null balance); the round insert joins that transaction, so reserving and creating are one
@@ -193,7 +198,8 @@ any signature is requested**.
 ### Configuration
 
 - `GeneralSettings:Games:HolderJackpot` (`HolderJackpotSettings`): `TargetUsd`, `StartingMinimum`,
-  `MinimumFloor`, `MinimumCeiling`, `PotPercent` (0 < x < 1), `ReserveFloor`, `PotMinimum`, `PotMaximum`,
+  `MinimumFloor`, `MinimumCeiling`, `PotBase` (> 0, ≤ `PotMaximum`), `PotStep` (≥ 0), `PotStepBalance`
+  (> 0), `ReserveFloor`, `PotMaximum`,
   `PriceApiUrl`, `PriceTimeoutSeconds`, `DrawRecheckAttempts`, `DevAssumedBalance`. `Validate()` runs at
   startup in **both** hosts; a bad value logs at Error and holder rounds open PAUSED.
 - No new secret (the Jupiter lite endpoint is keyless), no Terraform change, no front env var.
@@ -244,7 +250,7 @@ any signature is requested**.
 | `SpaceStroker.Domain/Bets/Services/BetExtensions.cs` | `IsFreeBet` excludes Holder; `IsHolderEntry` |
 | `SpaceStroker.Domain/Bets/Services/BetDomainService.cs` | Pot and house-funded base from `HouseFundedPot` |
 | `SpaceStroker.Domain/Games/Entities/Game.cs`, `LotteryParameters.cs` | `HolderMinimum`, `HouseFundedPot`, `HolderEntriesPaused`, `IsHolderRound`; `HolderOnly` |
-| `SpaceStroker.Domain/Games/Services/HolderMinimumRules.cs` | The 1-2-5 ladder and clamps |
+| `SpaceStroker.Domain/Games/Services/HolderMinimumRules.cs` | The nice-number ladder and clamps |
 | `SpaceStroker.Domain/Games/Services/HolderJackpotPotRules.cs` | Pot formula, 2-sig-fig floor, null = paused |
 | `SpaceStroker.Domain/Games/Services/HouseEdgeCoverage.cs` | Reserved pots as exposure + fee reserve |
 | `SpaceStroker.Domain/Games/Services/LotteryPotCarry.cs` | Holder round → carry 0 |
