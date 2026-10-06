@@ -82,6 +82,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 10e | No Telegram / Orbit notifications for streamer bets — ordinary win toasts only. |
 | 10f | Play debit + `Bet` insert are **one DB transaction**; settlement credits **exactly once**. No reconciler job (nothing is on-chain). |
 | 11 | *(Spec default, from code)* **Personal stats** (`GET /players/stats`) and the streamer's **own history columns** (`MyPayout`) **include** play-money results, read from the play ledger — the streamer's own view must show their wins on stream (card: "show the wallet increase/decrease"). The public **history Pot** includes the play stake, like any bet ("appear normally"). |
+| 12 | *(Owner, 2026-10-06, during QA — ALL players, not only streamers)* **Monkey Duel and Hyper Roll remember the last stake** per wallet and game type, exactly like the duel word carry-over: `src/utils/lastStake.ts` (`localStorage` key `space-stroker.last-stake.<gameTypeId>.<wallet>`), written when a paid bet is placed (wallet or Orbit), restored on entering the game and after every round only over the default/self-filled value, clamped to the current bounds (Hyper Roll `[min, MaximumStake]`, duel `[min, current ceiling]`). Device-local; no backend. |
 
 ---
 
@@ -666,4 +667,5 @@ drive `StreamerWalletReconciler.Reconcile` via `CreateConsumersScope()`.
 
 | Date | Change |
 | --- | --- |
+| 2026-10-06 | Decision 12 added during QA: last-stake memory for Monkey Duel + Hyper Roll (all players, frontend-only). |
 | 2026-10-06 | Initial spec from the refined card + same-chat refinement (short mode). Code exploration corrected decision 3 (no duel house bet exists since `duel-treasury-house`) and added decision 11 (personal stats / own history read the play ledger). |
