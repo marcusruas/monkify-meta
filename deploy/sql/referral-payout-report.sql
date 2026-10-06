@@ -70,6 +70,9 @@ qualifying_bets AS (
     WHERE b."ReferralCode" IS NOT NULL
       -- Free bets contribute nothing and receive nothing (features/money.md).
       AND b."Amount" > 0
+      -- Streamer play-money bets (BetEntryKind.Streamer = 4) never earn a commission: mirrors
+      -- EarningBets (ReferralEarningsService).
+      AND b."EntryKind" <> 4
       -- Only rounds that actually paid out. Refunded / under-subscribed (NotEnoughPlayersToStart),
       -- ErrorWhenProcessingRewards and GameEndedAbruptely are excluded — the same rule every stats
       -- read applies (features/stats-and-history.md).
