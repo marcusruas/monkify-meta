@@ -139,6 +139,10 @@ good at.
   ([`stats-and-history.md`](stats-and-history.md)). Free bets are amount 0 and contribute nothing
   automatically.
 - Bets from the partner's own `PayoutWallet` are excluded: the one hard self-referral guard.
+- **Streamer play bets never earn** (#201, [`streamer-wallets.md`](streamer-wallets.md)): they are stamped
+  `ReferralCode = null` at registration, and `EarningBets` also filters `EntryKind != Streamer` (belt and
+  braces); `deploy/sql/referral-payout-report.sql` mirrors it with `AND "EntryKind" <> 4` beside the
+  unchanged `"Amount" > 0`, keeping the two byte-equivalent.
 - ⚠️ **Turnover is not profit.** At 2% the house retains 2% of *losing* stakes, which on a
   `MinimumNumberOfPlayers = 2` type (Cosmic Sprint, heads-up) is **1% of turnover**, rising to ~1.67%
   at six bets with one winner. **A `SharePercentage` above ~1% pays a partner more than their traffic

@@ -72,7 +72,10 @@ player's bets span many game types and every outcome at once.
 
 - **`wagered`** — Σ of the player's paid stakes attributed to this code inside the window, settled or
   not. Free bets (amount 0) and pre-`SettlementCutoverUtc` bets are excluded, so a player whose only
-  bets are those is **not a row at all**.
+  bets are those is **not a row at all**. **Streamer play bets** (#201) never appear either: they always
+  carry `ReferralCode = null`, so the code match drops them. ⚠️ Deliberately **no** `EntryKind` predicate
+  here — the covering index below has no `EntryKind` column, and adding one would turn the index-only
+  aggregate into heap fetches. The revenue column excludes them through `EarningBets`.
 - **`revenue`** — what those bets earned the PARTNER. ⚠️ **Not `wagered × rate`**: only settled,
   non-refunded bets in rounds that finished paying out earn anything, so a player with an open round
   shows turnover that has not paid yet, and a refunded stake counts as wagered while earning nothing.

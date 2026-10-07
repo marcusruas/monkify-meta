@@ -119,6 +119,16 @@ Every round belongs to **one player** (solo rounds).
 - `hyperRollBetInFlight` wraps the Orbit branch and its wallet fallback exactly as it wraps a wallet bet.
   See [`orbit-wallet.md`](orbit-wallet.md).
 
+### Streamer play bets (#201)
+
+- A registered streamer wallet ([`streamer-wallets.md`](streamer-wallets.md)) plays Hyper Roll with **play
+  money** through the same board flow and `POST /orbit/wagers`, synchronously. Stake bounds, board
+  freshness, the maintenance switch and the draw are unchanged; **coverage is never priced** (a
+  session-verified streamer's `/availability` answers `Open` without it) and its bets are excluded from
+  `HouseEdgeCoverageService` exposure, so a streamer round never shrinks a real player's max stake. A win
+  `stake × multiplier` is credited to the play ledger (still listed in the broadcast `payouts[]`); a
+  streamer-only round never reads the treasury.
+
 ### The draw
 
 - **Natural matching is disabled** for house-edge types. Every round types exactly `MaxCharacters`, and
@@ -166,7 +176,11 @@ Every round belongs to **one player** (solo rounds).
   `8×` blue, `9×` purple, `10×` **gold** with a sparkle. The terminal table is `KEY WORD MULT PAYS`, and the
   header reads `YOU vs THE HOUSE` + stake. The stake plate has `−`/`+` keys (0.01 grid), **MIN / MAX** keys
   and the three round **mode keys** (the old `.01 / .02 / .05` chips are gone — see
-  [`hyper-roll-modes.md`](hyper-roll-modes.md)). The stake field opens at the minimum.
+  [`hyper-roll-modes.md`](hyper-roll-modes.md)). The stake field opens at the minimum — or, since #201
+  (decision 12, all players), at the wallet's **last paid stake** on this type (`utils/lastStake.ts`, key
+  `space-stroker.last-stake.<gameTypeId>.<wallet>`), restored on entering, after every round and on a late
+  wallet connect only over the minimum / empty / its own fill, clamped to `[RequiredAmount, MaximumStake]`,
+  and paused while Orbit auto-plays the board.
 - `> POT:` and the near-miss `N AWAY!` row are **hidden**. `> PAID:` shows only the viewer's own payout.
   A win plays `HyperRollWinFx`, a banner scaled by multiplier (NICE WIN! → MAX HIT!). A loss prints
   `NO WIN THIS ROUND.` and, since 2026-10-06 (#200 QA), plays Cosmic Sprint's **`RaceResultFx` loss card**

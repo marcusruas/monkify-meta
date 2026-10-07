@@ -1,6 +1,43 @@
 # SpaceStroker — "Streamer Wallets" (play-money PVE bets for streamers) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped — merged to `main` via `feature/streamer-wallets` on 2026-10-07** (`monkify-backend`,
+> `monkify-front`, `monkify-meta`). Distilled in [`../features/streamer-wallets.md`](../features/streamer-wallets.md).
+> **The code wins** over the body below; as-built departures:
+>
+> - **Decision 3 / §6.0 house side:** there is no duel house bet to mirror (removed by `duel-treasury-house`);
+>   a streamer's House duel draws the house word as usual, skips the treasury lock and coverage pricing, and
+>   settles `S × (2 − rate)` into the play ledger.
+> - **§6.6 quotes are session-gated:** `/availability` and `POST /games/{id}/duels` honour body `wallet`
+>   **only** with a valid `X-Orbit-Session` for the same wallet (`IsVerifiedActiveStreamer`); otherwise the
+>   answer is any wallet's, with no lookup (anti-probing, `constraints.md` §6). The **OpenRoom streamer branch
+>   was removed** from both routes — an open room answers/opens like anyone's and the `RegisterBetHandler`
+>   guard refuses the play bet.
+> - **§6.1 reconciler:** seeds **active** wallets only (a wallet listed `Active: false` gets no seed until
+>   activated); `MOCK_` values are skipped **silently** (no Error); the Orbit-balance Warning fires for newly
+>   inserted wallets; and on **every** run it disables any `Enabled` Orbit enrolment of an active streamer
+>   (`Enabled = false`, #200's `WaitingForHouseSince = null`).
+> - **§6.2 ledger:** `TryDebit` takes the `betId` and stamps it directly (no separate `LinkBet`); `WonFor`
+>   returns a per-bet dictionary. FK `StreamerTransactions → StreamerWallets` is `Restrict`.
+> - **§6.3 / §6.4:** the streamer branch of `GET /orbit`, `POST /orbit/wagers` and `GET /orbit/wagers/{id}`
+>   runs **before** the Orbit `IsConfigured` gate; `GET /orbit` also defaults every #200 solo field.
+>   §6.10 refusals log a Warning.
+> - **§6.9 referral roster:** no `EntryKind` predicate — play bets carry `ReferralCode = null`, so the code
+>   match excludes them and the covering index still serves the query.
+> - **§4.4 migration:** `20261007033746_AddStreamerWallets`, regenerated after #200 merged (orders after
+>   `OrbitSoloAutoBet`, carries only the two streamer tables).
+> - **#200 interactions (not in the body):** active streamers are excluded from the solo loop (tick +
+>   pre-place re-check), `OrbitSoloAutoBetSweepJob`, `KickOrbitSoloLoops` and the shared planner's
+>   `ResolveCandidates`; the SPA turns #200's follow-auto-round logic off for a streamer.
+> - **§7 frontend:** a durable per-device marker `space-stroker.orbit.streamer.<wallet>` backs `isStreamer`
+>   for a lapsed session; quotes send `X-Orbit-Session`; the duel streamer watchers are installed on the first
+>   `useDuel()` call (a module-level watch reached `useWallet()` before `initWallet` and blanked the app);
+>   `HomeOrbitCard` is hidden for a streamer.
+> - **Decision 12** (last-stake memory, all players) shipped as written, and pauses while Orbit auto-play
+>   drives the round.
+> - **§5 ops:** adding/removing/topping up a streamer is a **full** `deploy --env <env>` (component deploys
+>   never apply `appConfig`), not "`deploy consumers` + `deploy api`".
+>
+> *Original status: Ready for implementation* — refined via Trello card
 > [#201 Streamer wallets](https://trello.com/c/t0toZxny/201-streamer-wallets) (refined 2026-10-06, spec
 > 2026-10-06, short answer mode).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.

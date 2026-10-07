@@ -26,6 +26,13 @@ a gap and goes again. The game screen follows each auto round live, and the leve
 - **One game at a time** is structural: one `OrbitEnrollment` row per player, one `GameParametersId`.
 - **Monkey Duel auto = VS HOUSE only.** The loop opens `DuelKind.House` rounds; Orbit never posts or joins
   OPEN DUELS.
+- ⚠️ **Active streamer wallets are never auto-played** (#201, [`streamer-wallets.md`](streamer-wallets.md)).
+  `OrbitSoloAutoBetService` returns early for one (every trigger lands there) and re-checks before placing;
+  `OrbitSoloAutoBetSweepJob` and `KickOrbitSoloLoops` skip it; the shared planner's `ResolveCandidates`
+  drops it; and the Consumers startup reconciler disables its enrolment (`Enabled = false`,
+  `WaitingForHouseSince = null`) on every run. `GET /orbit` gives a streamer `enabled: false`, empty
+  `eligibleGameTypes` and every solo field defaulted, and the SPA turns the follow-auto-round / rollover
+  hold / lever lock off for it. A real-money solo round already in flight at registration settles normally.
 - ⚠️ **The shared-round engine never touches a solo round.** With `AllowOrbit` on, the planner would have
   fanned every enrolled player into a human's Hyper Roll board. Four guards: `PlanPlacements` returns
   early, `IsOrbitEligible` refuses, `PlaceOrbitBetConsumer` skips (`"solo rounds are played by the solo

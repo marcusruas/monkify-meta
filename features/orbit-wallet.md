@@ -59,6 +59,29 @@ cannot also be played by hand.
   *"Not enough Orbit balance for that bet."* (`OrbitInsufficientBalance`) and the auto-play line above.
   Every other refusal reuses existing vague copy.
 
+### Streamer wallets on the same routes (#201, 2026-10-07)
+
+- An **active streamer wallet** ([`streamer-wallets.md`](streamer-wallets.md)) uses the same session and
+  the same `POST /orbit/wagers`, but `PlaceOrbitWagerHandler` resolves wallet → player → `FindActive`
+  **before** the Orbit-configured gate and branches into a **synchronous play-money** path: idempotency
+  (store, then the play ledger's `BetDebit` for the `requestId`) → self-exclusion → game → **Hyper Roll or
+  House duel only** (else `GameNotValidForBets`) → maintenance → `BetPreChecks` → play balance
+  (`OrbitInsufficientBalance`) → in-process `RegisterBetRequest { StreamerPlay }`. It answers `Placed` or a
+  400 at once — no `PlaceManualOrbitBetEvent`, claim, transfer or `Pending`. `GET /orbit/wagers/{id}` reads
+  the play ledger for a streamer.
+- `GET /orbit` (also ahead of the configured gate) returns `isStreamer: true` with the **play balance**,
+  `enabled: false`, empty `eligibleGameTypes`, zero totals, Telegram off and every #200 solo field defaulted;
+  the real Orbit balance is never returned. Non-streamers get `isStreamer: false`.
+- Refused for a streamer with the vague `OrbitRequestInvalid` (+ a Warning log): deposits (and
+  recover-a-deposit), cash-outs, `PATCH /orbit/settings`, Telegram link/verify. `GET /orbit/history` is an
+  empty page. Any real-money bet from a streamer wallet — wallet-signed, manual or auto Orbit — is refused
+  `GameNotValidForBets` by the `RegisterBetHandler` guard (a verified wallet stake is refunded).
+- Front: for a streamer `nextBetSource` is `'orbit'` on Hyper Roll / VS HOUSE regardless of balance and
+  `null` elsewhere; **both wallet fallbacks are off** (a short balance just shows the sanctioned message),
+  the lapsed-session path never falls to the wallet, the out-of-funds toast never fires, and deposit /
+  cash-out / auto-bet / notifications / recover are hidden. The streamer state is remembered per device
+  (`space-stroker.orbit.streamer.<wallet>`) beside `space-stroker.orbit.used.<wallet>`.
+
 ### Where the money goes after the bet
 
 - **Wins and refunds return to the Orbit balance.** `RewardGameConsumer` routes every `FundedByOrbit` winner

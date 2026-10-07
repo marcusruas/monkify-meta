@@ -24,6 +24,14 @@
   `BiggestPot`. **Participation still counts them**: bets placed, rounds played and unique players
   include holder entries, like free bets. ⚠️ The exclusion is on the bet's `EntryKind == Holder`, not on
   `Amount == 0` — the credit row is a positive amount.
+- **Streamer play bets follow the same split** (#201, [`streamer-wallets.md`](streamer-wallets.md)):
+  `EntryKind == Streamer` (4) is excluded from every **money** figure in global and per-type stats (paid
+  bets, credited bets, `BiggestPot`, hottest choice) — the `Amount > 0` filters stay and the predicate is
+  added beside them, since a play stake is positive — and **counted** in rounds played, bets placed and
+  unique players. History rows (pot, bet count, winner) show them **unchanged**, with no marking. The
+  streamer's **own** view reads its play winnings from the play ledger (`IStreamerLedger.WonFor`, there are
+  no `Credit` rows): history `MyPayout`, and personal stats `TotalWon` / `Net` / biggest win (stakes count
+  in `TotalWagered`).
 - **Money source:** `TotalPaidOut` / `BiggestSinglePayout` come from `TransactionLog` rows of type
   `Credit`. **`BiggestPot` is reconstructed per round** as `Σ paid Bet.Amount` (+
   `LotteryParameters.LotteryPot` + `Game.CarriedExtra` for lotteries) — the one persisted pot is a

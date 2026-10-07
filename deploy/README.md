@@ -354,6 +354,18 @@ perfectly cheerful `PASS`.
 > Postgres transport can provision its DB at Consumers startup (#64). Both DBs are declared in the
 > `data` module, so a default apply already creates `spacestroker` + `spacestroker_messaging`.
 
+### Streamer wallets (`appConfig`, #201)
+
+Streamer wallets are **public keys**, so they live in `appConfig`, never `secrets` (no Terraform binding):
+`GeneralSettings:Operator:Streamers:Wallets:<n>:Wallet` (optional `…:<n>:Active: false`) and
+`GeneralSettings:Operator:Streamers:TopUps:<n>:{Id,Wallet,Amount}`; `InitialBalance` defaults to 3.7. The
+Consumers startup reconciler seeds each **active** wallet once, applies each top-up `Id` once (⚠️ ids must be
+unique forever — a reused id is silently skipped), skips `MOCK_` values and **deactivates** (never deletes) a
+wallet you remove. ⚠️ Adding, removing or topping up a streamer needs a **full** `dotnet run -- deploy --env
+<env>`: a component deploy (`deploy consumers` / `deploy api`) only pushes an image and never runs the
+`terraform apply` that carries `appConfig` to Cloud Run. Before registering a wallet, cash out any real Orbit
+balance it holds (it is hidden, not moved, while it streams). See `features/streamer-wallets.md`.
+
 ## Monitoring (production only)
 
 A **production** deploy also creates the observability stack — `modules/monitoring`, one tenth module

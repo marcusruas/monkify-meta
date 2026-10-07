@@ -597,8 +597,8 @@ house **bets in**. It sits alongside — and does not weaken — the AC 21 invar
 
 ⚠️ **Duel types are never seeded** (`HouseSeedBetService.SeedRound` gives up on `IsDuel`, #184): on a
 duel the seeded bet *would be* the second player, so every open room would be taken by the house the
-instant it opened. A VS HOUSE duel's house side is a **different** service, `DuelHouseBetService`, fed by
-the same HouseSeed wallet — see [`monkey-duel.md`](monkey-duel.md).
+instant it opened. A VS HOUSE duel has no house bet at all — its side is the drawn `Game.HouseWord` and
+the treasury pays (`specs/duel-treasury-house.md`) — see [`monkey-duel.md`](monkey-duel.md).
 
 ⚠️ **Holder lotteries are never seeded either** (`LotteryParameters.HolderOnly`, #196): a seed bet is a
 paid bet, and a holder type takes no stake. So Space Jackpot **needs two real holders** to draw — "all

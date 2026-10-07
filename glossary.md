@@ -206,6 +206,23 @@
   signature, placed by signing a `jackpot-entry` wallet-proof message. ⚠️ **Not a free bet** — it is
   payable (`BetExtensions.IsFreeBet` is false for it). One per wallet per round
   (`IX_GameBets_GameId_PlayerId_Holder`). No ledger row, no `BetPlacedEvent`, no referral commission.
+- **Streamer play bet** — a bet with `EntryKind = Streamer` (4, `BetExtensions.IsStreamerPlay`): a
+  play-money stake from a registered **streamer wallet** on Hyper Roll or a House duel. `Amount > 0` (so
+  ⚠️ `IsFreeBet` is false — money paths branch on `IsStreamerPlay` explicitly), no signature, no
+  `TransactionLog` row, `ReferralCode = null`, never exposure, settled and refunded on the **play ledger**.
+  Excluded from leaderboards, stats money figures and referral earnings; counted in participation. See
+  `features/streamer-wallets.md`.
+- **Streamer wallet** — `StreamerWallet` (#201): a wallet registered in config
+  (`GeneralSettings:Operator:Streamers:Wallets`) and reconciled at Consumers startup
+  (`StreamerWalletReconciler`); seeded `InitialBalance` (3.7) once while active, deactivated — never
+  deleted — when it leaves config. While active it bets **only** play money (Hyper Roll + Monkey Duel VS
+  HOUSE via `POST /orbit/wagers`); every real-money bet and Orbit deposit / cash-out / settings / Telegram
+  call is refused with existing vague copy. `GET /orbit` reports `isStreamer: true`.
+- **Play balance / play ledger** — `StreamerWallet.Balance` and its append-only `StreamerTransaction`
+  rows (`IStreamerLedger`). Invariant `Balance == SUM(Amount)`; no lamports behind it, never cashed out,
+  shown in the Orbit pill in place of the real Orbit balance. Row types (`StreamerTransactionType`):
+  `Seed 1`, `TopUp 2` (one per config `TopUpId`), `BetDebit 3` (negative, one per `PlacementRequestId`),
+  `WinCredit 4`, `Refund 5` (one per bet and type).
 - **Holder minimum (N)** — `Game.HolderMinimum`: the whole-$STROKE balance a wallet's Token-2022
   associated token account must hold to enter **and** to still hold at the draw. ≈ $10 of $STROKE:
   Jupiter price → rounded up on the 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 ladder → clamped to ×2/÷2 of the previous
@@ -502,8 +519,9 @@
 - **Monkey Duel** — the 1v1 race type (#184): two 6-letter words, one typer stream, first word typed
   takes the 2-stake pot less the ordinary commission (`S × (2 − rate)`). `GameParameters.IsDuel`;
   ⚠️ **not** `IsHouseEdge`, and `PresetChoices` stays empty. See `features/monkey-duel.md`.
-- **Duel kind** — `Game.DuelKind`, per round: `House = 1` (VS HOUSE, the house bets from the HouseSeed
-  wallet) or `OpenRoom = 2` (OPEN DUELS, another player joins). Serialised as an **integer**.
+- **Duel kind** — `Game.DuelKind`, per round: `House = 1` (VS HOUSE, the treasury is the house and its
+  side is the drawn `Game.HouseWord` — no house bet row) or `OpenRoom = 2` (OPEN DUELS, another player
+  joins). Serialised as an **integer**.
 - **Duel room** — an `OpenRoom` round in `WaitingBets` with the creator's bet on it (`OwnerPlayerId` +
   `Game.Stake` bound) and no `ClaimedByPlayerId`. Listed on the public board, cancellable by its creator
   with a wallet proof, never auto-expired. An unbet shell is not a room.
@@ -512,7 +530,8 @@
   round opens so verification survives later edits.
 - **House word** — the House duel's word, derived from the committed `ServerSeed`
   (`DuelHouseWordGenerator`, prefix `duel|{gameId}|{attempt}`), first attempt that differs from the
-  creator's word. Never chosen.
-- **Duel coverage** — `DuelHouseCoverage`: whether the HouseSeed wallet can fund the house's stake
-  after `MinimumSolBalance`, per-transfer fee reserves and other pending house stakes. Clamps the quoted
-  `maxStake`; fails closed on a null balance read. Distinct from Hyper Roll's `HouseEdgeCoverage`.
+  creator's word, drawn when the creator's bet registers and stored on `Game.HouseWord`. Never chosen.
+- **Duel coverage** — no longer a rule of its own (`DuelHouseCoverage` was removed by
+  `specs/duel-treasury-house.md`): a House duel is priced by Hyper Roll's `HouseEdgeCoverage` against the
+  **treasury** at its worst case `Stake × (2 − rate)`, one shared exposure budget and lock. The VS HOUSE
+  ceiling is `DuelHouseRules.MaxStakeFromHeadroom`; fails closed on a null balance read.

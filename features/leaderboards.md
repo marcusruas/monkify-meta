@@ -31,6 +31,11 @@ season table, no prize wallet, no payout consumer and no solvency guard. Adding 
   with `!IsFreeBet` — `IsFreeBet` is **false** for a holder ticket, and its SOL credit would enter the
   boards with a zero stake. See [`space-jackpot-refactor.md`](space-jackpot-refactor.md).
 - **`SettlementCutoverUtc` floors every board** — including the hall of fame; see below.
+- **Streamer play bets are excluded** (#201, [`streamer-wallets.md`](streamer-wallets.md)). They are
+  `Amount > 0`, so the amount filter does not catch them: `PaidBetsIn` and `WinningBets` add
+  `EntryKind != Streamer` beside the unchanged `Amount > 0` — which covers the gamble race, weekly PnL,
+  the hall of fame **and** the caller's own row (`RankOfAsync` reads the same queryables). Keyed on the
+  bet's `EntryKind`, never the configured wallet list, so a later-deactivated streamer's play bets stay out.
 - **Orbit bets count.** They are ordinary paid bets on the real player's `Player` row, so they need no
   special handling. ⚠️ The **Orbit custody account is never a leaderboard entity** — it signs, it does
   not own the bet.

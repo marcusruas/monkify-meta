@@ -261,11 +261,10 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   automatic rollover, so the next board is opened by the player (`POST /games/{gameTypeId}/boards`). See
   `features/hyper-roll.md`. Since #184 the same job also sweeps **Monkey Duel** shells
   (`IsHouseEdge || DuelKind != null`) — only unowned, unbet rounds; a posted duel room never expires.
-- **Monkey Duel house side (#184):** `DuelCreatorBetPlacedEvent` → `DuelHouseBetConsumer` (its own
-  receive endpoint) → `DuelHouseBetService` places the house's ordinary paid bet from the **HouseSeed**
-  wallet (memo `duel:{gameId:N}`), or terminates the round and refunds the creator on any give-up. The
-  duel word pool self-heals at startup via `DuelWordPoolReconciler` (before `OpenNewGames`). See
-  `features/monkey-duel.md`.
+- **Monkey Duel house side:** no consumer and no house bet since `specs/duel-treasury-house.md` — the
+  creator's bet draws the house word into `Game.HouseWord` inside `RegisterBetHandler` (duel lock →
+  shared treasury lock), and the treasury pays a winner. The duel word pool self-heals at startup via
+  `DuelWordPoolReconciler` (before `OpenNewGames`). See `features/monkey-duel.md`.
 
 ## 8. Blockchain & payments
 
@@ -525,6 +524,23 @@ all three game types — **production only**.
   money) disables seeding with a `Fatal` log **without aborting the host**; and a game type with
   `MinimumNumberOfPlayers < 2` is never seeded, because the typer keystream mixes in every bet's seed
   and the house must not be able to run a round where it controls every input.
+
+## 8f. Streamer wallets: the play-money ledger (#201, 2026-10-07)
+
+- **A second, off-chain ledger** beside `TransactionLog` and `OrbitTransaction`: `StreamerWallet`
+  (materialised `Balance`) + append-only `StreamerTransaction` (`Seed`/`TopUp`/`BetDebit`/`WinCredit`/
+  `Refund`), written only by `IStreamerLedger` and the startup `StreamerWalletReconciler` (Consumers
+  `ApplicationStarted`, after `CreateDefaultReferralPartners`; config `GeneralSettings:Operator:Streamers`).
+  Idempotency is in filtered unique indexes, not in code. Nothing in it is backed by lamports.
+- **Flow:** `POST /orbit/wagers` from an active streamer runs **synchronously in the API** — no event, no
+  claim, no transfer — through `RegisterBetRequest { StreamerPlay }`, which debits the play ledger inside
+  the bet insert's transaction (`Bet.EntryKind = Streamer`). `RewardGameConsumer` / `RefundInvalidBetConsumer`
+  credit wins / refunds to the same ledger and never read the treasury for a streamer-only round.
+- **Cross-cutting:** every money read filters `EntryKind != Streamer` (coverage, leaderboards, stats money,
+  referral earnings); a streamer wallet is refused on every real-money path (`RegisterBetHandler` guard,
+  Orbit deposit / cash-out / settings / Telegram) and excluded from both Orbit auto-bet engines. The only
+  public routes that read streamer status (`/availability`, open duel) honour it **only** behind a matching
+  `X-Orbit-Session`. See `features/streamer-wallets.md`.
 
 ## 9. The game mechanic (the "Typer")
 

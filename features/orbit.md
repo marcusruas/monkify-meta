@@ -93,6 +93,15 @@ player's own round, stakes the enrolment's `Stake`, waits for settlement plus
 can never pull Orbit players in. No `OrbitChoiceClaim` is ever taken on a solo type. Full rules:
 [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
 
+⚠️ **Streamer wallets never auto-bet (#201, 2026-10-07).** An active streamer
+([`streamer-wallets.md`](streamer-wallets.md)) plays a play-money balance, not custody money: the Consumers
+startup reconciler switches its enrolment off on **every** run (`Enabled = false`, `WaitingForHouseSince`
+cleared), the shared planner's `ResolveCandidates`, the solo loop's tick and pre-place re-check, the
+`orbit-solo-autobet-sweep` and the startup kick all exclude it, and `PATCH /orbit/settings` refuses it
+(`OrbitRequestInvalid`). Its real Orbit balance stays in custody, hidden from `GET /orbit` (which shows the
+play balance with `isStreamer: true`), until the wallet is deactivated. A real-money solo round already in
+flight when the wallet is registered still settles to custody normally.
+
 - **Every eligible enrolled player bets every round — no cap.** Filling only the gap to
   `MinimumNumberOfPlayers` was rejected: it silently skips rounds a player enrolled to play.
 - ⚠️ **The house seed bet counts as an ordinary existing bettor in Orbit's viability check** (#172), so
