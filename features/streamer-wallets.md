@@ -151,7 +151,8 @@ per wallet and game type, like the duel word carry-over.
 ### Read paths (keyed on `Bet.EntryKind == Streamer`, never the wallet list)
 
 - **Excluded:** leaderboards (`PaidBetsIn` / `WinningBets` → gamble race, weekly PnL, hall of fame and the
-  caller's own row); every **money** figure in global and per-type stats (paid bets, credited bets, biggest
+  caller's own row) — and, while the wallet is an ACTIVE streamer, the wallet itself as a player
+  (`LeaderboardService.EligiblePlayers`), so even its real-money bets don't rank; every **money** figure in global and per-type stats (paid bets, credited bets, biggest
   pot, hottest choice); referral `EarningBets` and `deploy/sql/referral-payout-report.sql`
   (`AND "EntryKind" <> 4`, kept byte-equivalent). The existing `Amount > 0` filters stay alongside.
 - **Partner roster** (`GetReferralPlayersHandler`) has **no** EntryKind predicate: play bets always carry

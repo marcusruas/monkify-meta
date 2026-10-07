@@ -36,6 +36,12 @@ season table, no prize wallet, no payout consumer and no solvency guard. Adding 
   `EntryKind != Streamer` beside the unchanged `Amount > 0` — which covers the gamble race, weekly PnL,
   the hall of fame **and** the caller's own row (`RankOfAsync` reads the same queryables). Keyed on the
   bet's `EntryKind`, never the configured wallet list, so a later-deactivated streamer's play bets stay out.
+- **An ACTIVE streamer wallet is excluded as a player too** (#201 follow-up, 2026-10-07). `EligiblePlayers`
+  adds `!StreamerWallets.Any(s => s.Active && s.Wallet == player.ExternalPlayerId)` beside the house-wallet
+  and self-exclusion predicates (one SQL `NOT EXISTS`, proven by `LeaderboardsFlowTests`), so the wallet's
+  **real-money** bets — e.g. ones placed before it was registered — rank nothing and it gets no own row
+  while it streams. Deactivate it and it is an ordinary player again (its paid bets rank; its play bets
+  never do, per the bullet above).
 - **Orbit bets count.** They are ordinary paid bets on the real player's `Player` row, so they need no
   special handling. ⚠️ The **Orbit custody account is never a leaderboard entity** — it signs, it does
   not own the bet.
