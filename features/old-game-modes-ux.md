@@ -13,7 +13,10 @@ decorative keyboard and eight dead keys. They now have the same standard as Hype
 shared console where every key does something, a tabbed screen that never scrolls (round, favourites,
 winners), a start countdown, live race lanes, and win / loss / voided / spectator banners. Practice
 (`/game/practice`, race) mirrors the new console and screen. Hyper Roll, Monkey Duel and preset-word types
-keep their own consoles.
+keep their own consoles. ⚠️ Since 2026-10-06 (#200 QA, `8dfc5bc`) the **race lanes and `RaceResultFx`
+card are the standard for the other modes too**: Monkey Duel races your word in `RaceLanes` and ends on
+this card, and Hyper Roll uses its loss card (no lanes, no "N away"). See
+[`monkey-duel.md`](monkey-duel.md) and [`hyper-roll.md`](hyper-roll.md).
 
 ## Core rules
 
@@ -61,7 +64,11 @@ keep their own consoles.
   counting up (the figure only once the paid amount arrives; a rewards error makes no payout claim); lost →
   `NOT THIS TIME` with `-stake` / `NO LUCK TODAY` (no stake); voided ticket → `TICKET VOIDED`; spectator →
   a smaller neutral banner (word, winner, pot), no coins. No banner for a round that never starts. Reduced
-  motion: no coins, shake or count-up.
+  motion: no coins, shake or count-up. The same card serves Monkey Duel (its own player only; payout = the
+  duel's `S × (2 − rate)`) and Hyper Roll's **loss** (no `YOUR WORD WAS N AWAY` note; its win keeps
+  `HyperRollWinFx`).
+- **Race lanes are never shown on Hyper Roll**: its winner is the weighted draw, so a lane could read
+  `TYPED!` for a losing word. The duel gets one lane, the viewer's own word.
 - A Space Jackpot winner also gets the win toast.
 - **WINNERS tab:** the latest rounds that fit (about six) — when, word, pot, winner — own wins highlighted;
   titled `> LAST RACES` / `> RECENT DRAWS`. A finished round is prepended locally because the history page

@@ -161,7 +161,8 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 | `GameParametersCreatedEvent` | `CreateGameTypeHandler` | `GameParametersCreatedConsumer` | Opens the first game for a newly created game type (idempotent). |
 | `GameTypeDeactivatedEvent` | `DeactivateGameTypeHandler` | `GameTypeDeactivatedConsumer` | Cancels `WaitingBets` games of a deactivated type (refunds paid bets, skips free). |
 | `BetNotificationEvent` | `GameService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
-| `GameOpenedEvent` (ids only) | `GameService.CreateGame` (all four creation paths), `UpdateOrbitSettingsHandler` | `OrbitPlacementPlannerConsumer` **and** `HouseSeedBetConsumer` — **separate receive endpoints**, so a slow house placement never delays Orbit planning for the same round | Orbit decides who auto-bets (§8c). The house seeder places **one ordinary paid bet** into the round, **production only** (§8e, `features/house-seed-bet.md`). |
+| `GameOpenedEvent` (ids only) | `GameService.CreateGame` (all four creation paths), `UpdateOrbitSettingsHandler` (non-solo types only) | `OrbitPlacementPlannerConsumer` **and** `HouseSeedBetConsumer` — **separate receive endpoints**, so a slow house placement never delays Orbit planning for the same round | Orbit decides who auto-bets (§8c). The house seeder places **one ordinary paid bet** into the round, **production only** (§8e, `features/house-seed-bet.md`). |
+| `OrbitSoloRoundDueEvent(PlayerId)` | `UpdateOrbitSettingsHandler` (enable / save on a solo type), `OrbitDepositCreditedConsumer` (solo enrolment), `OrbitSoloAutoBetService` via Hangfire (`IOrbitSoloScheduler`, after the gap), `OrbitSoloAutoBetSweepJob` (every minute), Consumers startup (`KickOrbitSoloLoops`) | `OrbitSoloRoundConsumer` — **its own receive endpoint** | One idempotent, lease-guarded tick of Orbit's **solo loop** (Hyper Roll / VS HOUSE duel): open the player's round, stake it, or wait (§8c, `features/auto-bet-duel-hyper-roll.md`). |
 
 > The "monkey typing" loop and all reward/refund money movement happen in the **Consumers** host,
 > not the API.
@@ -249,6 +250,11 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   `OrbitStakeReconciliationJob` (`[DisableConcurrentExecution]`, no automatic retry, 45 s budget),
   deciding Orbit placement claims left open by an in-doubt transfer against the chain. See §8c and
   `features/orbit-wallet.md`.
+- **Orbit solo auto-bet sweep (#200):** every-minute recurring job `orbit-solo-autobet-sweep` runs
+  `OrbitSoloAutoBetSweepJob` — reads only, publishes `OrbitSoloRoundDueEvent` for every Enabled solo
+  enrolment that is due (nothing in flight and the gap elapsed, or its round gone / finished), and logs at
+  Error (rate-limited hourly) a loop held by an errored payout or a round stuck unsettled > 10 min. Never
+  shortens the gap. See §8c and `features/auto-bet-duel-hyper-roll.md`.
 - **House-edge board cleanup:** recurring job `house-edge-board-cleanup` (every
   `GeneralSettings.Games.HouseEdgeBoardCleanupIntervalMinutes`, default 5) runs `HouseEdgeBoardCleanupJob`,
   deleting unbet Hyper Roll solo boards past `BoardExpiresAt` (30 min idle). House-edge rounds have no
@@ -410,6 +416,31 @@ What spends the custody above: the house bets on an enrolled player's behalf, on
 - Wins and refunds on an Orbit-funded bet are routed to the **Orbit account**, never the player's
   personal wallet, each with its own ledger row. All of it runs in `SpaceStroker.Consumers`.
 
+### The solo loop (#200, 2026-10-06)
+
+A **second** engine for **solo types** (`IsHouseEdge || IsDuel`: Hyper Roll, Monkey Duel VS HOUSE), which
+have no shared round for the planner above to fill. The planner, `IsOrbitEligible`,
+`PlaceOrbitBetConsumer` and `BetPlacedConsumer` all **refuse solo rounds**. See
+`features/auto-bet-duel-hyper-roll.md`.
+
+- **Trigger → tick:** `OrbitSoloRoundDueEvent(playerId)` → `OrbitSoloRoundConsumer` (own endpoint) →
+  `OrbitSoloAutoBetService.RunOnce`. Eligibility → in-flight check (`OrbitSoloRoundState`: every
+  unsettled status blocks; `ErrorWhenProcessingRewards` blocks until an operator resolves it) → gap →
+  **lease** (`OrbitEnrollment.SoloLeaseUntil`, a token, taken **before** any round exists) → funds (settled
+  **and** spendable cover the stake; stop-loss floor) → house pre-check (`HouseEdgeEnabled` + coverage at
+  the worst multiplier, no money yet) → `GameService.OpenSoloBoard` / `OpenDuelRoom(House)` → record
+  `SoloRoundId` + push `OrbitAutoRound` → the **unchanged** `OrbitStakePlacer`.
+- **Enrolment writes go only through `IOrbitSoloLoopStore`** (conditional `ExecuteUpdate`; the context is
+  NoTracking). The loop never writes a ledger row.
+- **Next tick:** `RewardGameConsumer` (both paths, after `EvaluateOrbitFloors`) and
+  `RefundInvalidBetConsumer` call `OnAutoRoundSettled` → `NextSoloRoundAt = now + SoloRoundGapSeconds` and a
+  Hangfire-scheduled due event (`HangfireOrbitSoloScheduler`, the `ScheduleOrbitGateExpiry` shape). The
+  minute sweep and the Consumers startup kick recover lost schedules. ⚠️ Hangfire's Postgres storage polls
+  scheduled jobs ~every 15 s, so the real round-to-round time is ~10–30 s, not the configured 5 s (accepted
+  at ship).
+- **House refuses** (maintenance switch, coverage, no board): the enrolment stays Enabled,
+  `WaitingForHouseSince` is set, nothing moves, and the loop retries after the gap.
+
 ### Manual Orbit wagers (#194, 2026-09-24)
 
 A second spender of the custody balance: the player, by hand, on any paid type. See
@@ -444,6 +475,10 @@ A second spender of the custody balance: the player, by hand, on any paid type. 
   group over the **Redis backplane**, so a message sent from `SpaceStroker.Consumers` reaches a
   browser attached to the **API** — the same shape as `BetNotificationConsumer`. The payload carries
   **no balance**: the threshold cash-out fires the instant the credit lands, so the client re-reads.
+- **`OrbitAutoRound`** (#200, `GameSettings.OrbitAutoRoundEndpoint`) rides the same group: the solo loop
+  pushes `{ gameTypeId, roundId, waitingForHouse }` (camelCase JSON string) from Consumers through
+  `IHubContext<ActiveGamesHub>` when it opens an auto round (before placing, so the game screen can attach)
+  and when it enters "waiting for the house". Never sent to Telegram.
 - **Telegram (`ITelegramNotifier`) is an outbound-only integration with no poller and no webhook.**
   Linking is a `t.me/<bot>?start=<code>` deep link plus a VERIFY press making **one** `getUpdates`
   call; the link code and the read offset live in **Redis**, and the offset advances only on a match.
@@ -604,7 +639,8 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /players/preferences`, `PATCH /players/preferences`, `POST /players/self-exclusion`,
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
-  `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}`, `POST /games/rounds/{roundId}/reroll`,
+  `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds
+  since #200), `POST /games/rounds/{roundId}/reroll`,
   `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), and for Monkey Duel
   `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
   `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`

@@ -368,7 +368,8 @@
   about — nothing in `monkify-backend` models a season.
 
 - **Orbit** — the custodial wallet plus the engine that plays from it: a house-held per-player
-  balance, funded by on-chain deposits, withdrawable on demand, **auto-bet once per round**
+  balance, funded by on-chain deposits, withdrawable on demand, **auto-bet once per round** (Cosmic
+  Sprint) or back to back on the player's own rounds (Monkey Duel / Hyper Roll, the *Orbit solo loop*, #200)
   on the game type the player chose, and (since #194, 2026-09-24) spendable **by hand** on any paid game
   (see *manual Orbit wager*, `features/orbit-wallet.md`). All three cards are done (custody + engine + notifications), so
   shipped to `main` together as the `release/orbit` train on 2026-08-03; its player-facing surface was
@@ -377,7 +378,7 @@
   `features/orbit-ui-overhaul.md`.
 - **Orbit quick popup vs the Orbit modal** (#198) — Orbit's two player-facing surfaces since the `/orbit`
   page was deleted. The **quick popup** hangs off the header pill for a signed-in player: balance, status,
-  add money, cash out, MORE OPTIONS. The **modal** is everything: WALLET · LET ORBIT PLAY <TYPE> ·
+  add money, cash out, MORE OPTIONS. The **modal** is everything: WALLET · LET ORBIT PLAY (game tiles, #200) ·
   NOTIFICATIONS · RECOVER A DEPOSIT, **one section open at a time**, pinned so it never jumps. (Before
   #198 the pair was "the panel vs the `/orbit` page" — a mid-round panel plus a five-tab page.)
 - **`.arcade-frame--orbit`** — Orbit's own page material (void-deep fill, 2px violet-deep frame), the
@@ -388,7 +389,8 @@
   `variant="orbit"` dialog material).
 - **Orbit word claim** — `OrbitChoiceClaim`, unique on `(GameParametersId, Choice)`. The row's
   existence **is** the claim. An Orbit player's optional fixed word becomes a **standing, cross-round**
-  reservation on that free-text game type, blocking other Orbit players **and human bettors** in every
+  reservation on that free-text game type (never a solo type: Monkey Duel / Hyper Roll take none, #200;
+  switching the enrolment off the type releases it), blocking other Orbit players **and human bettors** in every
   round — including rounds Orbit does not bet in, because a conditional claim could be lost
   mid-losing-streak and make STOP dangerous. Released on change, clear or **disable**; re-validated on
   re-enable rather than silently restored. **Preset types are never claimed.** A blocked human sees the
@@ -441,6 +443,27 @@
   update, and the bet that spends it links it inside its own insert transaction. Written in the same transaction as the atomic debit and
   **before** any transfer is signed, so a redelivered placement loses on `23505` having moved no
   money. Losing the claim is *not* a failure: someone else is placing that bet.
+- **Solo type (Orbit)** — a game type with no shared round: `GameParameters.IsHouseEdge || IsDuel`
+  (`OrbitSoloTypes.IsSolo`), i.e. Hyper Roll and Monkey Duel. Orbit auto-bets it only through the **solo
+  loop**, never the shared-round planner, and never takes a word claim on it (#200).
+- **Orbit solo loop** — Orbit's second auto-bet engine (#200, `OrbitSoloAutoBetService`): one idempotent
+  tick per `OrbitSoloRoundDueEvent` opens the player's **own** Hyper Roll board or VS HOUSE duel, stakes
+  `OrbitEnrollment.Stake` through the unchanged `OrbitStakePlacer`, and after settlement waits
+  `SoloRoundGapSeconds` before the next. One round in flight per player (`SoloRoundId`), guarded by a
+  token **lease** (`SoloLeaseUntil`) taken before any round opens. See `features/auto-bet-duel-hyper-roll.md`.
+- **`SoloRoundGapSeconds`** — `Operator.Token.Orbit.SoloRoundGapSeconds` (committed **5**): the pause between
+  one solo auto round settling and the next opening, an ops brake. ⚠️ The observed round-to-round time is
+  ~10–30 s (Hangfire's ~15 s schedule polling + the on-chain transfer + the duel's 2 s countdown).
+- **Waiting for the house (Orbit)** — the solo loop's state when the maintenance switch is off or coverage
+  cannot take the stake: the enrolment **stays Enabled**, no money moves, `WaitingForHouseSince` is set,
+  the loop retries after the gap, and the modal/game screen say *"Waiting for the house…"* without naming
+  the cause.
+- **`OrbitAutoRound`** — private-channel (`orbit/{playerId}`) SignalR event
+  `{ gameTypeId, roundId, waitingForHouse }`, pushed by the solo loop when it opens an auto round or starts
+  waiting; the game screen attaches to the round (`useGame.attachRound`).
+- **Auto stake in flight** — `OrbitDto.autoStakeInFlight`: an `OrbitAutoPlaced` bet of the player sits in an
+  unsettled round, so its stake is out of the balance and a win may still come back. The SPA's auto-park
+  never switches Orbit off inside this window.
 - **Orbit start gate** — `Game.ExpectedOrbitBets` + `Game.OrbitGateExpiresAt`, which hold a round
   from starting until the Orbit bets it is counting on have landed. Armed **only when Orbit is
   load-bearing** — if humans already meet `MinimumNumberOfPlayers`, nobody waits on a bot. A ceiling

@@ -1,6 +1,11 @@
 # SpaceStroker — "Orbit auto-bet for Monkey Duel & Hyper Roll" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-06, branch `feature/auto-bet-duel-hyper-roll`)** in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled in
+> [`../features/auto-bet-duel-hyper-roll.md`](../features/auto-bet-duel-hyper-roll.md); where this spec and
+> the code disagree, the code wins. See the post-ship notes in §15.
+>
+> *(Original status:)* **Ready for implementation** — refined via Trello card
 > [#200 Enable auto bet for monkey duel & hyper roll](https://trello.com/c/i6thj637) (2026-10-05).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/auto-bet-duel-hyper-roll` → `.worktrees/auto-bet-duel-hyper-roll/<repo>`.
@@ -679,3 +684,4 @@ New `OrbitSoloAutoBetFlowTests` (Testcontainers harness; set `SoloRoundGapSecond
 | --- | --- |
 | 2026-10-05 | Initial spec from refined card #200 (short-mode refinement in the same chat) + code exploration. Corrections vs the card: there is no `DuelHouseBetConsumer` (the house word is drawn in `RegisterDuelBet`), coverage for both types is `IHouseEdgeCoverageService`, solo rounds publish no `GameOpenedEvent`, and `AllowOrbit` alone would let the shared planner pull Orbit players into another player's solo round (§6.1). `SoloRoundGapSeconds` lives under `Operator.Token.Orbit`. |
 | 2026-10-05 | Implementation feedback (SDD reviews): in-flight rule = `UnsettledStatuses` + grace, errored payouts hold the loop, lease token, `NextSoloRoundAt` in the lease, settled **and** spendable funds check, stop-loss floor checked before staking, duel word re-validated, deploy/rollback notes. |
+| 2026-10-06 | **Shipped.** Post-ship notes (code wins): `StakeOutcome.AlreadyClaimed` **holds** `SoloRoundId` like `InDoubt` (§6.4 step 11 said clear + reschedule); static refusals (stake outside the type's bounds, duel with no word / an invalid stored word) are checked **before** the lease and idle the loop with a log, no reschedule; scheduling goes through `IOrbitSoloScheduler`/`HangfireOrbitSoloScheduler` and every enrolment write through `IOrbitSoloLoopStore`; `OrbitDto.AutoStakeInFlight` added so the front's auto-park never parks a loop mid-round; the stake ceiling reads `GameParameters.MaximumStake` for both types (the duel's is seeded from `Duel.MaximumStake`); a deposit on a solo enrolment publishes the due event **instead of** the shared re-plan; the sweep also logs (Error, hourly) loops held by an errored payout or a round unsettled > 10 min. Front: the owner trimmed the A2 modal in QA (no per-tile subtitles, no duel VS strip, no "same word" line, no RND sentence; the lock line is a tooltip), the stake LCD accepts typed amounts, the setup locks while `enabled` (not only `running`), and solo auto-play never redirects the player. QA also standardised the result screens (duel: Sprint lanes + `RaceResultFx`, house word on the VS splash, win/lose sting; Hyper Roll: loss card, no lanes, AUTO stake LCD; winning word highlighted in every mode). ⚠️ **Known limitation:** real round-to-round time is ~10–30 s (5 s gap + Hangfire ~15 s schedule polling + on-chain transfer + 2 s duel countdown), not the §8 / §13 "~10 s"; the owner chose not to change the backend for now. |
