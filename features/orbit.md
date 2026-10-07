@@ -2,8 +2,10 @@
 
 > **What this covers.** Orbit is the platform's **first custody of real player money**: a house-held
 > balance a player funds with on-chain SOL deposits. It has **two spenders**: the **auto-bet engine**,
-> which places **one real bet per round** on the player's behalf and cashes out at a threshold they set,
-> and, since #194 (2026-09-24), **the player, by hand**: manual bets on any paid game, paid from the
+> which places **one real bet per round** on the player's behalf (Cosmic Sprint's shared rounds) or, since
+> #200 (2026-10-06), opens and plays the player's **own** Monkey Duel (VS HOUSE) or Hyper Roll rounds back
+> to back (the **solo loop**, [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md)), and cashes
+> out at a threshold they set; and, since #194 (2026-09-24), **the player, by hand**: manual bets on any paid game, paid from the
 > balance with no per-bet signature. The SPA pays from Orbit first whenever it covers the stake. The
 > manual path is distilled in [`orbit-wallet.md`](orbit-wallet.md); this doc covers custody, the engine,
 > the stop rules and the surfaces.
@@ -29,7 +31,8 @@
 > [`../specs/orbit-feedback-adjustments.md`](../specs/orbit-feedback-adjustments.md) ·
 > [`../specs/orbit-stop-loss-trigger.md`](../specs/orbit-stop-loss-trigger.md) ·
 > [`../specs/orbit-wallet.md`](../specs/orbit-wallet.md) (manual bets, #194) ·
-> [`../specs/orbit-improvements.md`](../specs/orbit-improvements.md) (popup + one modal, `/orbit` page removed, #198).
+> [`../specs/orbit-improvements.md`](../specs/orbit-improvements.md) (popup + one modal, `/orbit` page removed, #198) ·
+> [`../specs/auto-bet-duel-hyper-roll.md`](../specs/auto-bet-duel-hyper-roll.md) (auto-bet on Monkey Duel + Hyper Roll, #200).
 
 ---
 
@@ -81,6 +84,15 @@ bet per round out of their Orbit balance: a house-signed on-chain transfer with 
 the round's committed `ServerSeed`. ⚠️ **To every other player the bet is indistinguishable from a
 human's.**
 
+⚠️ **Two engines since #200.** Everything in this section describes the **shared-round planner**, which
+plays **Cosmic Sprint**. **Solo types** (`IsHouseEdge || IsDuel`, i.e. Hyper Roll and Monkey Duel) are
+played by a separate **solo loop**: `OrbitSoloRoundDueEvent` → `OrbitSoloAutoBetService` opens the
+player's own round, stakes the enrolment's `Stake`, waits for settlement plus
+`SoloRoundGapSeconds`, and repeats, with a lease-guarded one-round-in-flight rule. The planner, `IsOrbitEligible`,
+`PlaceOrbitBetConsumer` and `BetPlacedConsumer` all **refuse solo rounds**, so a human's Hyper Roll board
+can never pull Orbit players in. No `OrbitChoiceClaim` is ever taken on a solo type. Full rules:
+[`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
+
 - **Every eligible enrolled player bets every round — no cap.** Filling only the gap to
   `MinimumNumberOfPlayers` was rejected: it silently skips rounds a player enrolled to play.
 - ⚠️ **The house seed bet counts as an ordinary existing bettor in Orbit's viability check** (#172), so
@@ -98,7 +110,8 @@ human's.**
   `BetDebit` claim index does **not** bound this: it only exists after `ClaimAndDebit`, so every
   pre-claim failure (no chosen word, low SOL, no committed seed, no free choice) would loop.
 - **Eligible** = enrolment `Enabled`, `GameParametersId` matches the round's type, **not**
-  self-excluded, and the pool balance covers `RequiredAmount`. ⚠️ **A player who already has a bet in
+  self-excluded, and the pool balance covers `RequiredAmount` (on a solo type: the effective stake,
+  `Stake ?? RequiredAmount`, against both the settled and the spendable balance). ⚠️ **A player who already has a bet in
   the round is excluded** — Orbit gets no exemption from the one-bet-per-round rules.
 - ⚠️ **A `ComingSoon` game type is never Orbit-eligible** (see [`games.md`](games.md) §19). Three reads
   enforce it: `GetOrbitHandler` drops it from `eligibleGameTypes` (that is what shapes the UI),
@@ -130,8 +143,9 @@ human's.**
 ⚠️ An Orbit player may set a **fixed word**, and on a free-text type that becomes a **standing claim
 on the game type** (`OrbitChoiceClaim`, unique on `(GameParametersId, Choice)`) blocking everyone else
 in **every** round — including rounds Orbit does not bet in. It does **not** free on the next `Game`;
-it is released when the word is changed, cleared, or Orbit is disabled. **Preset types are never
-claimed.** A blocked human sees `ChoiceAlreadyTaken` and the same refund path, **byte-identical** to a
+it is released when the word is changed, cleared, Orbit is disabled, or the enrolment switches to
+another game type (#200). **Preset types and solo types (Monkey Duel, Hyper Roll) are never claimed**: a
+standing claim on the duel would block that word in everyone's duels. A blocked human sees `ChoiceAlreadyTaken` and the same refund path, **byte-identical** to a
 same-round collision — deliberately, so Orbit stays invisible. See [`games.md`](games.md) §11.
 
 ## 3. Control surface — one flag
@@ -159,8 +173,9 @@ ONLY"*).
 ⚠️ **An Enabled enrolment blocks manual play on that type.** While auto-bet is `Enabled` on a game type,
 every manual bet by that player on it, wallet **or** Orbit-paid, is refused with *"Orbit is
 auto-playing this game — pause it to bet manually."* (`OrbitAutoPlayActive`). A **paused** enrolment
-does not block. The game console disables the lever while the block holds. See
-[`orbit-wallet.md`](orbit-wallet.md).
+does not block. The game console disables the lever while the block holds (since #200 the duel console
+too). On Hyper Roll and Monkey Duel the screen also **follows** each auto round live (see
+[`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md)). See [`orbit-wallet.md`](orbit-wallet.md).
 
 ⚠️ **The floor fires STRICTLY BELOW itself, never at it** (changed 2026-09-07; it was `<=`). At the
 floor is still playing. The old boundary made a floor set *equal to* the balance — deposit 0.05, stop
@@ -204,8 +219,8 @@ ORBIT cell) — **no redirect**, an old link hits the catch-all. Orbit is now:
    from `lg` up (outside click / Esc close it), an `ArcadeModal` bottom sheet below `lg`. Signed out, the
    pill opens the modal's sign-in view instead — the popup never mints a session.
 2. **The Orbit modal** (`OrbitModal`, mockup **M4**) — ORBIT HOLDS + status tag, a **jump strip** of
-   chips, and collapsible sections: **WALLET** (add money + cash out) · **LET ORBIT PLAY COSMIC SPRINT**
-   (the word, START / PAUSE AUTO-BET, the auto cash-out rules) · **NOTIFICATIONS** (Telegram, only where a
+   chips, and collapsible sections: **WALLET** (add money + cash out) · **LET ORBIT PLAY**
+   (game tiles, the chosen game's setup, START / PAUSE AUTO-BET, the auto cash-out rules) · **NOTIFICATIONS** (Telegram, only where a
    bot is configured) · **RECOVER A DEPOSIT**, plus a *How Orbit works* link to `/how-to-play#orbit`.
 
 ⚠️ **ONE SECTION OPEN AT A TIME, and the modal is PINNED** (owner, after the first local test): no
@@ -215,11 +230,15 @@ in localStorage, `none` when all collapsed), else WALLET. `ArcadeModal pinned` h
 with `min-height: min(720px, 84dvh)` on desktop and a fixed `90dvh` sheet on mobile, so switching sections
 never re-centres or resizes it upward.
 
-⚠️ **The auto-bet section is hard-wired to `eligibleGameTypes[0]`** (today Cosmic Sprint). The game
-picker, the auto-pointing at the round on screen and the "switch guard" are gone: START sends
+⚠️ **The auto-bet section picks its game with tiles** (#200, `OrbitGameTiles`, one per
+`eligibleGameTypes` entry). The selected game is the enrolled type when it is still eligible, else the first
+tile, and pressing a tile while paused sends `PATCH { gameParametersId }`. The game, the stake, the Hyper Roll
+mode and multiplier are **locked while Orbit is enabled** (pause → pick → START); the word and the rules stay
+editable. The auto-pointing at the round on screen and the old "switch guard" stay gone: START sends
 `{ enabled, gameParametersId }` from **any** page with **no navigation**. With zero eligible types the
-section is hidden; a type picker is a future card. The word still gates the stop rules only — money in and
-money out never depend on it.
+section is hidden. The word still gates the stop rules only — money in and money out never depend on it.
+Per-game fields, the stake plate and *"Waiting for the house…"* are in
+[`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
 
 ⚠️ **Cash-out is "empty = everything".** The field starts empty with placeholder `all <balance>`; empty
 (or exactly the balance) sends **no amount**, so the escape hatch cannot miss by a float hair; a partial
@@ -240,14 +259,13 @@ RUNNING / OFF / NEEDS MONEY.
 On the game screen the header pill that will pay the next bet is lit and the stake LCD takes its colour;
 the console itself carries no Orbit control (see [`orbit-wallet.md`](orbit-wallet.md)).
 
-### One eligible type
+### Three eligible types
 
-With Beast Mode gone and Hyper Roll `AllowOrbit: false` (a player-vs-house solo round has no place for an
-auto-bet), exactly **one** eligible type is left: Cosmic Sprint (Space Jackpot is `AllowOrbit: false`,
-because an auto-bet on a 24h draw would lock a player's funds for a day). That is why #198 could drop the
-picker outright: the section title and subtitle name the type (*"Orbit plays one Cosmic Sprint round for
-you every round, and cashes out when your rules say so."*) and START creates the enrolment. Enrolment is
-still a deliberate press — nothing auto-commits on open (#194).
+Since #200 (2026-10-06) **three** types are Orbit-eligible: **Cosmic Sprint** (shared rounds, fixed price),
+**Hyper Roll** and **Monkey Duel** (solo loop, player-set stake; `AllowOrbit: true` in `DefaultGames`, healed
+at Consumers startup). Space Jackpot stays `AllowOrbit: false`, because it is a free holder draw with no
+stake. *(Between #198 and #200 Cosmic Sprint was the only eligible type and the section was hard-wired to it.)*
+Enrolment is still a deliberate press — nothing auto-commits on open (#194).
 
 ## Key code touchpoints
 
@@ -256,10 +274,14 @@ still a deliberate press — nothing auto-commits on open (#194).
 `SpaceStroker.Infrastructure/Handlers/Orbit/`, `OrbitPlacementPlannerConsumer` (on `GameOpenedEvent`,
 ⚠️ **a separate receive endpoint from `HouseSeedBetConsumer`, so a slow house placement never delays
 Orbit planning for the same round**), the cash-out job, and `SpaceStroker.Api/Controllers/OrbitController.cs`.
+The solo loop (#200): `OrbitSoloAutoBetService`, `OrbitSoloLoopStore`, `HangfireOrbitSoloScheduler`,
+`OrbitSoloRoundConsumer` (its own endpoint), `OrbitSoloAutoBetSweepJob`, `Domain/Orbit/Services/OrbitSoloTypes`,
+`OrbitSlotPicker`, `OrbitSoloRoundState`. See [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
 
 **Frontend (`monkify-front`)** — `src/components/orbit/OrbitQuickPanel.vue` + `OrbitQuickBody.vue` (popup),
-`OrbitModal.vue` + `OrbitSection.vue` + `OrbitSectionStrip.vue` + `sections/OrbitNotificationsSection.vue` /
-`OrbitRecoverSection.vue` (modal), `OrbitDepositControl.vue` / `OrbitCashOutControl.vue` (the shared money
+`OrbitModal.vue` + `OrbitSection.vue` + `OrbitSectionStrip.vue` + `sections/OrbitAutoBetSection.vue`
+(state in `src/hooks/useOrbitAutoBet.ts`; `OrbitGameTiles` / `OrbitStakePlate` / `OrbitMultiplierPicker`) /
+`OrbitNotificationsSection.vue` / `OrbitRecoverSection.vue` (modal), `OrbitDepositControl.vue` / `OrbitCashOutControl.vue` (the shared money
 controls), `src/hooks/useOrbitSections.ts`, `src/hooks/useHeaderModals.ts`, `src/hooks/useOrbit.ts`,
 `src/services/orbitService.ts`, and `ArcadeModal`'s `pinned` option — all behind `orbitEnabled`. Design
 record: [`../specs/orbit-improvements.md`](../specs/orbit-improvements.md) (#198, incl. §16 feedback).

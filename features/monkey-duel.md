@@ -25,7 +25,7 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   **integer** (there is no `JsonStringEnumConverter`) — the front declares `enum DuelKind` and compares
   against it.
 - Letters, `ChoiceRequiredLength = 6`, duplicates accepted, `MinimumNumberOfPlayers = 2`,
-  `AllowOrbit = false`, no `LotteryParameters`.
+  `AllowOrbit = true` since #200 (2026-10-06; was `false`), no `LotteryParameters`.
 - ⚠️ **`IsHouseEdge` stays `false`.** That flag selects the treasury × multiplier payout with no
   commission; a duel is pari-mutuel.
 - ⚠️ **`PresetChoices` stays empty.** Everywhere in the codebase "has `PresetChoices`" means "preset
@@ -70,6 +70,12 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 
 ### The house side (VS HOUSE)
 
+> ⚠️ **Stale, flagged at the #200 ship (2026-10-06):** the code no longer has `DuelHouseBetConsumer` /
+> `DuelHouseBetService` / `DuelCreatorBetPlacedEvent`. The house word is drawn **inside
+> `RegisterBetHandler.RegisterDuelBet`** at bet time (`DuelHouseWordGenerator.DrawAvailableWord`) and the
+> treasury is the house, per [`../specs/duel-treasury-house.md`](../specs/duel-treasury-house.md). Read the
+> bullets below as history until this section is re-distilled from that spec.
+
 - After a **creator** bet commits on a `House` round, `RegisterBetHandler` publishes
   `DuelCreatorBetPlacedEvent`; `DuelHouseBetConsumer` (Consumers, **its own receive endpoint**) runs
   `DuelHouseBetService`, modelled on `HouseSeedBetService`: an **ordinary** paid bet from the
@@ -101,7 +107,15 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   `DuelTimeUntilGameStarts` (**2 s** since 2026-09-29, was 3 s — the VS splash follows the server's
   `startDate`, so it needs no frontend constant). A one-bet room past the window just stays open.
 - No rollover, no startup open, no startup re-plan, **never seeded by the house seed bet** (on a duel
-  the seeded bet *is* the second player), never in Orbit's `eligibleGameTypes`, no lottery.
+  the seeded bet *is* the second player), never planned by Orbit's shared-round engine, no lottery.
+- **Orbit auto-bet (#200, 2026-10-06): VS HOUSE only.** The type is in Orbit's `eligibleGameTypes`. An
+  enrolled player's **solo loop** opens a `DuelKind.House` round via `OpenDuelRoom`, bets the enrolment word
+  (the same `Choice` as Cosmic Sprint, or seed-derived with auto-pick) at the enrolment `Stake`
+  (`RequiredAmount..MaximumStake`) through the unchanged Orbit placer, and goes again after settlement + the
+  gap. Orbit never posts or joins OPEN DUELS, and **never takes an `OrbitChoiceClaim` on the duel** (it would
+  block that word in everyone's duels). See [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
+  `GET /games/rounds/{roundId}` now serves **House** duel rounds too (OpenRoom stays refused), and reading
+  an unbet House shell keeps it alive.
 - The typer races the two words over the union of their characters, but on its **own pacing window**
   (`GeneralSettings:Games:DuelTarget*`, 2026-09-29): mean target **4–6 s**, p95 **8 s** ⇒ a 5 s target and
   a 7.2 s cap. A duel usually ends at a natural win BEFORE the cap, so it **averages ~3.5–3.8 s**
@@ -171,7 +185,25 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   rows match every other game's — see `frontend-ux.md` → "The game console") + `DuelConsole`
   (live logic) · `DuelVsSplash`. **OK arms everything on the board**: JOIN a room, OPEN from the `+`
   tile, CANCEL your own. Lever tag `READY → PULL → PLACING… → LIVE`; the result lever is **END — no
-  rematch**. Only **your** near-miss row; no tug bar.
+  rematch**.
+- **The race and result use Cosmic Sprint's standard** (since 2026-10-06, #200 QA `8dfc5bc`): during the
+  round the screen shows `RaceLanes` with **your word only** (the rival's word is never raced on screen),
+  the typer stream filling the rest, and on the result the lanes give way to the outcome lines. The result
+  moment is Sprint's **`RaceResultFx`** card (`YOU WON!` + the duel payout `S × (2 − rate)` / `NOT THIS
+  TIME` + `-stake`), shown to the duel's own player. ⚠️ The old dedicated **DUEL WON / DUEL LOST banner and
+  the near-miss dock are gone.** The winning word lights up yellow at the end of the stream
+  (`.winning-hit`), as in every mode.
+- **The VS splash shows the drawn house word.** `RegisterBetHandler` draws it at bet time, after the screen
+  loaded the round, so once the round leaves `WaitingBets` the front re-reads `GET /games/rounds/{id}` once
+  (`refreshDuelHouseWord`) and the splash reads `stroke VS nebula` instead of `??????`. A failed read is
+  silent and the splash keeps `??????`.
+- **Your own bet is re-derived from the round** on every load (`getBets()` after the pull never echoed it
+  through the Bets stream), so the **victory / lose sting now plays in duels** (it never did before), and the
+  lane appears. A duel round with no stake yet takes its stake from the first bet.
+- **While Orbit auto-plays the duel** (#200): `DuelConsole` locks the lever / OK with `OrbitBetLock` and the
+  *"Orbit is auto-playing this game — pause it to bet manually."* line (it ignored the lock before), the
+  stake LCD and POT quote **Orbit's** stake, the screen attaches to each auto round, and idle lines read the
+  Orbit lock line.
 - `useDuel.ts` holds tab, board, cursor, sort, the clamped ceiling and the open/join/cancel wallet
   actions; `useGameHub.ts` joins the board channel; `useGame.ts` has the duel round-loading branch and
   `isDuelPlacing`.
@@ -217,7 +249,9 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 
 **Frontend (`monkify-front`)** — `src/types/index.ts`, `src/services/mainService.ts`
 (`openDuelRoom`, `getDuelRooms`, `cancelDuelRoom`), `src/hooks/useDuel.ts`, `useGameHub.ts`,
-`useGame.ts`, `usePracticeDuel.ts`, `src/components/game/Duel{Tabs,Card,Board,Plate,Console,VsSplash}.vue`,
+`useGame.ts` (`refreshDuelHouseWord`, own-bet/lane re-seed, `attachRound` for Orbit auto duels), `usePracticeDuel.ts`,
+`src/components/game/Duel{Tabs,Card,Board,Plate,Console,VsSplash}.vue`, the shared `RaceLanes.vue` /
+`RaceResultFx.vue` / `GameTyper.vue` / `GameTerminal.vue`,
 `src/utils/gameArchetype.ts`, `src/utils/gameArt.ts`, `src/utils/provablyFair.ts`, `public/verify.html`.
 
 **Tests** — unit: `BetDomainServiceTests`, `DuelHouseWordGeneratorTests` (golden vector),

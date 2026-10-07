@@ -91,8 +91,14 @@ Every round belongs to **one player** (solo rounds).
   is per game type. Completed rounds stay in the public feed and history. Per-type stats say
   "biggest win" rather than "biggest pot", and the lobby card has no live pill.
 - `MinimumNumberOfPlayers = 1`; the **house seed bet exits silently** for house-edge types (S13), because a
-  Warning every round would flood prod logs. **Orbit never auto-bets it** (`AllowOrbit = false`), but a
-  player can pay a manual Hyper Roll bet from their Orbit balance (see below). Hyper Roll has no practice-mode
+  Warning every round would flood prod logs. **Orbit auto-bets it since #200 (2026-10-06)** (`AllowOrbit =
+  true`): never through the shared-round planner (which refuses solo rounds, so a human's board never pulls
+  Orbit players in) but through Orbit's **solo loop**, which opens the player's own fresh board in the chosen
+  mode every round, backs the slot carrying the chosen multiplier (RANDOM / duplicated multipliers →
+  seed-derived uniform pick), stakes the enrolment's `Stake`, and waits for settlement + the gap. When the house
+  cannot cover it, the loop waits without moving money. See
+  [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md). A player can also pay a manual Hyper Roll bet
+  from their Orbit balance (see below). Hyper Roll has no practice-mode
   bet, but `/game/practice?mode=hyper-roll` runs a front-only demo (see `hyper-roll-howto.md`).
 
 ### Manual Orbit-paid bets (#194)
@@ -162,7 +168,18 @@ Every round belongs to **one player** (solo rounds).
   and the three round **mode keys** (the old `.01 / .02 / .05` chips are gone — see
   [`hyper-roll-modes.md`](hyper-roll-modes.md)). The stake field opens at the minimum.
 - `> POT:` and the near-miss `N AWAY!` row are **hidden**. `> PAID:` shows only the viewer's own payout.
-  A win plays a banner scaled by multiplier (NICE WIN! → MAX HIT!), and a loss prints `NO WIN THIS ROUND.`
+  A win plays `HyperRollWinFx`, a banner scaled by multiplier (NICE WIN! → MAX HIT!). A loss prints
+  `NO WIN THIS ROUND.` and, since 2026-10-06 (#200 QA), plays Cosmic Sprint's **`RaceResultFx` loss card**
+  (`NOT THIS TIME`, `-stake`) **without** the "YOUR WORD WAS N AWAY" line, because the stream does not decide
+  the winner here. The typer's last characters, the winning word, light up yellow (`.winning-hit`), as in
+  every mode.
+- ⚠️ **No race lanes, deliberately.** The winner is the weighted draw and the stream never decides it; a
+  lane once read `TYPED!` for a board word that then lost (owner QA, 2026-10-06). `useGame` only builds lanes
+  for classic modes and the duel.
+- **While Orbit auto-plays Hyper Roll** (#200): the lever is locked (`OrbitBetLock`), the stake LCD shows the
+  Orbit icon + **AUTO** (`compact`), the page never opens a board of its own and attaches to each auto round
+  (`attachRound`), finished rounds print `> ROUND OVER.` + the Orbit lock line instead of "pull the lever for
+  a fresh board", rollover is held, and *"Waiting for the house…"* shows when the loop is waiting.
 - The bet flow checks bounds and the `+0.001 SOL` fee headroom, then `/availability`, then asks for the signature.
 - The lobby card reads **"from <min> SOL"**. Art resolves by **shape** (`gameArt.ts`), never by name or id.
   `/how-to-play` has a Hyper Roll mode card and its own `HOW HYPER ROLL WORKS` rail, and the game screen has a
@@ -195,6 +212,8 @@ Every round belongs to **one player** (solo rounds).
 - `SpaceStroker.Infrastructure/Consumers/RewardGame/RewardGameConsumer.cs` (running-balance payout check,
   `payouts[]`), `Services/HouseSeed/HouseSeedBetService.cs` (early exit),
   `Jobs/HouseEdgeBoardCleanupJob.cs` (scheduled in `SpaceStroker.Consumers/Program.cs`).
+- Orbit auto-bet (#200): `Services/Orbit/OrbitSoloAutoBetService.cs`, `Domain/Orbit/Services/OrbitSlotPicker.cs`
+  — see [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
 - `SpaceStroker.Api/Controllers/GamesController.cs`: `POST {gameTypeId}/boards`, `GET rounds/{roundId}`,
   `POST rounds/{roundId}/reroll`, `POST {gameTypeId}/availability`.
 - Config: `SpaceStroker.Common/spacestrokersettings.json` → `DefaultGames[Hyper Roll].HouseEdge`

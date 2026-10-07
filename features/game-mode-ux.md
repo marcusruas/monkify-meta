@@ -37,6 +37,15 @@ the terminal now states **what a winner was actually paid**.
 - The **manual lever** runs the same rollover, and its gate is **either** terminal payout state — a
   player on an errored round can still pull themselves out of it.
 - Practice mode reads the **same constant**, so `/game/practice` holds for 9 s too.
+- ⚠️ **Exception (#200): Orbit solo auto-play holds the result indefinitely.** While Orbit auto-plays the
+  Hyper Roll or Monkey Duel type on screen (`orbitAutoPlaysSoloGame`), the deadline does not roll over: a
+  rollover would re-read the round and wipe its result. The next `OrbitAutoRound` push (`attachRound`)
+  clears it, and pausing Orbit releases it. Shared races (Cosmic Sprint) never get that push, so they roll
+  over as always. See [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
+- **Every mode's typer highlights the winning word** at the end of the stream (`GameTyper`,
+  `.winning-hit`, the practice typer's yellow `#fde047`), since 2026-10-06. The backend ends a round the
+  instant the last N characters are a placed choice, so the tail is split off and lit when it matches
+  `winnerChoice`.
 
 ### Per-round state
 
