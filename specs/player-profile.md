@@ -2,7 +2,8 @@
 
 > **Status: Ready for implementation** — refined via Trello card
 > [#186 Profile V1 — public player profile + player tags (move personal stats here)](https://trello.com/c/cF0gPauc/186-profile-v1-public-player-profile-player-tags-move-personal-stats-here)
-> (refined 2026-10-12, spec 2026-10-13).
+> (refined 2026-10-12, spec 2026-10-13), **plus** [#206 Levelling system](https://trello.com/c/b4U9FiVd/206-levelling-system)
+> folded in on 2026-10-13 (§6.8, decisions 21–28).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/player-profile` → `.worktrees/player-profile/<repo>`.
 > Change level: **Feature** — mandatory happy-path integration test (`constraints.md` §3).
@@ -16,7 +17,8 @@
 > **Purpose:** give every wallet a public profile at **`/player/:wallet`**, move the personal record there
 > from the home page, add a first shelf of **10 trophies** derived from rounds already played, and make
 > every player name in the app a tappable **player tag** that opens a mini profile card over the current
-> screen. V1 of a three-version roadmap (V2 = icon, privacy switches, chat tags, donations; V3 = quests,
+> screen. Every player also gets a cosmetic **level** from the SOL they have gambled, shown as a badge on
+every player tag and with a progress bar on the profile. V1 of a three-version roadmap (V2 = icon, privacy switches, chat tags, donations; V3 = quests,
 > seasons, cosmetics — separate Backlog cards).
 
 ---
@@ -31,9 +33,11 @@
 | Player names in game / boards | dead text (bet list even prints the full raw wallet) | shared `PlayerTag` → mini `PlayerCard` (popover ≥ `lg`, bottom sheet below) |
 | ☰ menu | 8 cells, 9th slot free | 9th cell **PROFILE** |
 | Wallet pill menu | Copy / Change / Disconnect (desktop) · Disconnect (phone) | + **My profile** |
+| Level (#206) | none | `LV n` badge on every player tag; level + progress to the next level on the profile and card |
 
-Backend adds **one** public read (`GET /players/profile?wallet=`) and an additive **`isHouse`** flag on
-bet payloads. **No entity, no column, no migration, no money path touched.**
+Backend adds **two** public reads (`GET /players/profile?wallet=` and the batched
+`GET /players/levels?wallets=`) and an additive **`isHouse`** flag on bet payloads. **No entity, no
+column, no migration, no money path touched.**
 
 ---
 
@@ -82,6 +86,14 @@ From `monkify-meta/constraints.md` (full list there):
 | 18 | *(spec)* Trophies are **money-free, so not floored at `SettlementCutoverUtc`** (card edge case). Consequence accepted: a USDC-era 5-streak can unlock *Win streak 5* while the (floored) Best streak stat shows less. |
 | 19 | *(spec)* Streamer **play bets** (`EntryKind == Streamer`) never count for a trophy, even after the wallet is deactivated — keyed on the bet, like leaderboards. Their rounds still appear in recent rounds **unmarked** (no "DEMO", `streamer-wallets.md` decision 8). |
 | 20 | *(spec, see §6.6)* "Self-excluded not tappable" is enforced **at the card**, not per bet: no exclusion flag is ever broadcast on bet payloads. A tag of an excluded player opens a card that says "Profile unavailable". |
+| 21 | *(#206)* **Levels are folded into Profile V1** — same branch, same design preview. Cosmetic only: no perks, no rewards, no money path. |
+| 22 | *(#206)* **Level basis = the gamble-race rule, all-time:** Σ `Bet.Amount` over bets with `Amount > 0`, `PlayerId != null`, `EntryKind != Streamer`, in `RewardForWinnersCompleted` rounds of **every** game type, **floored at `SettlementCutoverUtc`** (it is a SOL figure — USDC-era stakes never count). Orbit-funded bets (manual + auto) count. Free bets and holder tickets add nothing (stake 0). |
+| 23 | *(#206)* **Curve — geometric, fitted to the SolPump example:** L1 = 0.2 SOL, L2 = 0.5, L3 = 1, then each level costs ×`r` more, `r = 10^(6/117) ≈ 1.1253`, so **L120 ≈ 1,000,000 SOL**. Below 0.2 SOL = level 0. Capped at **L200**. Thresholds live in one backend table (§6.8.1) and are tunable later without a migration. |
+| 24 | *(#206)* **A level badge on every player tag** (all §7.5 surfaces, YOU tags included), plus level + progress bar on the profile page and the mini card. Level 0 shows **no** badge. House tags never show one. |
+| 25 | *(#206, spec)* Tags get their level from a **batched read** (`GET /players/levels`, §6.8.3) cached per wallet, **not** from new fields on bet / duel-room / leaderboard payloads — one mechanism for every surface, and no `SUM` in the bet hot path (`GameService.InsertBet`). |
+| 26 | *(#206, spec)* **Levels are public and computed for every valid non-house wallet, with no streamer or self-exclusion filter.** Hiding an excluded or streaming wallet's badge would make its absence the signal (`legal.md`, the streamer anti-probing rule). An active streamer's play stakes are already out by decision 22, so it simply shows the level of its real-money play. The profile/card of an excluded wallet stay "Profile unavailable" (no level there). |
+| 27 | *(#206, spec)* Freshness: a level may lag a settled round by up to **60 s** (server per-wallet cache + client memo). No level-up notification, no SignalR push. |
+| 28 | *(#206)* A **level ranking** is a future card. Nothing here blocks it: its score is this same all-time query (§6.8.2) ordered desc. |
 
 ---
 
@@ -97,6 +109,7 @@ From `monkify-meta/constraints.md` (full list there):
 | Mode | `GameParameters` flags (§6.2) |
 | HYPER 10× | `GameBoardChoice (GameId, Choice, Multiplier)` |
 | Payout | `TransactionLog` `Credit` rows by `BetId`; streamer bets via `IStreamerLedger.WonFor` |
+| Level (#206) | `Σ GameBets.Amount` per player (decision 22) → static threshold table (§6.8.1); **not persisted** |
 
 Existing indexes `(PlayerId, GameId)` on bets and `(BetId, Type)` on transaction logs serve every
 player-scoped query below.
@@ -153,7 +166,8 @@ None. House wallets come from the existing `HouseWallets.Resolve(TokenSettings)`
 5. No row → available, `displayName = null`, `joinedAt = null`, all 10 achievements locked, no rounds.
    **Not cached** (one indexed lookup; caching unknown wallets would let a caller mint keys).
 6. Row exists → body from cache `PlayerProfile:{wallet}` (**60 s**,
-   `CacheHelper.GeneratePlayerProfileCacheSettings`) or computed by `IPlayerProfileService` (§6.3–§6.4).
+   `CacheHelper.GeneratePlayerProfileCacheSettings`) or computed by `IPlayerProfileService` (§6.3–§6.4)
+   plus `IPlayerLevelService` (§6.8.2) for `Level`.
    Display name is read from the live row and stamped on the returned copy (clone before stamp — never
    mutate the cached instance), so a rename shows immediately.
 
@@ -168,6 +182,7 @@ public class PlayerProfileDto
     public DateTime? JoinedAt { get; init; }         // Player.CreatedDate; null = no row
     public IReadOnlyList<AchievementDto> Achievements { get; init; } = [];
     public IReadOnlyList<ProfileRoundDto> RecentRounds { get; init; } = [];
+    public PlayerLevelDto Level { get; init; } = PlayerLevelDto.Zero;   // #206, §6.8
     public string TokenSymbol { get; init; } = "";
     public int TokenDecimals { get; init; }
     public static PlayerProfileDto Unavailable => new() { Available = false };
@@ -178,6 +193,13 @@ public record AchievementDto(string Key, bool Unlocked, DateTime? UnlockedAt);
 public record ProfileRoundDto(
     Guid GameId, DateTime EndedAt, string Mode, string GameTypeName, string? BoardMode,
     bool DuelVsHouse, string Choice, decimal Stake, string Entry, bool Won, decimal Payout, bool ViaOrbit);
+
+// #206 — Gambled is the decision-22 figure the level is computed from (NOT PlayerStatsDto.TotalWagered,
+// which also counts an own streamer's play stakes). NextLevelAt is null at the L200 cap.
+public record PlayerLevelDto(int Level, decimal Gambled, decimal LevelFloor, decimal? NextLevelAt)
+{
+    public static PlayerLevelDto Zero => new(0, 0m, 0m, 0.2m);
+}
 ```
 
 > ⚠️ **Nothing on the wire says a wallet is a streamer** (the `IsVerifiedActiveStreamer` anti-probing
@@ -291,6 +313,64 @@ the documented, accepted narrowing.
 The read never returns an error body for a wallet problem; a server fault is a normal 500 and the front
 shows offline-retry.
 
+### 6.8 Levels (#206)
+
+#### 6.8.1 Threshold table — `SpaceStroker.Domain/Players/PlayerLevels.cs`
+
+Static, pure, no config:
+
+- `Thresholds`: `decimal[201]`, index = level. `T[0] = 0`, `T[1] = 0.2`, `T[2] = 0.5`, and for
+  `n = 3..200`: `T[n] = Math.Round(r^(n-3), 2)` with `r = 10^(6/117)` (computed once in `double`, rounded
+  to `decimal`). Indicative values: L4 ≈ 1.13, L10 ≈ 2.29, L20 ≈ 7.44, L30 ≈ 24.2, L50 ≈ 257, L75 ≈ 4,924,
+  L100 ≈ 94,272, **L120 ≈ 1,000,000** SOL.
+- `int LevelFor(decimal gambled)` = the largest `n` with `T[n] <= gambled` (binary search over the table —
+  never `Math.Log`, so a boundary value lands on the right side deterministically).
+- `PlayerLevelDto Describe(decimal gambled)` → `(level, gambled, T[level], level < 200 ? T[level+1] : null)`.
+- ⚠️ The table is the **only** source of thresholds. The front never re-derives the curve; it renders
+  `levelFloor` / `nextLevelAt` from the API.
+
+#### 6.8.2 The gambled query — `IPlayerLevelService` (`Services/Players/PlayerLevelService.cs`)
+
+`Task<IReadOnlyDictionary<string, decimal>> GetGambledAsync(IReadOnlyCollection<string> wallets)` — **one**
+grouped aggregate, one row per wallet:
+
+```
+GameBets b JOIN Games g ON b.GameId = g.Id JOIN Players pl ON b.PlayerId = pl.Id
+WHERE pl.ExternalPlayerId IN (@wallets)
+  AND b.Amount > 0 AND b.EntryKind != Streamer
+  AND g.Status == RewardForWinnersCompleted
+  AND (g.EndDate >= @cutover OR (g.EndDate IS NULL AND g.CreatedDate >= @cutover))   -- only when a cutover is set
+GROUP BY pl.ExternalPlayerId → SUM(b.Amount)
+```
+
+- Same predicates as `LeaderboardService.PaidBetsIn` + `CompletedRounds` (all type ids, `from` = the
+  cutover floor via `StatsWindowExtensions.EffectiveCutoff(StatsWindow.All, …)`, `to` = null). Write the
+  cutover bound in the **sargable two-arm form** that method documents — never `COALESCE`.
+- **No `EligiblePlayers` join** (decision 26) — house wallets are filtered before the query (§6.8.3), and
+  streamer / self-excluded wallets keep their level.
+- Wallets with no `Player` row or no qualifying bet are absent from the result → level 0.
+- The profile handler (§6.1 step 6) calls it with the one wallet and stores `PlayerLevels.Describe(...)`
+  in the cached profile body, so profile and tags agree (both ≤ 60 s old).
+
+#### 6.8.3 `GET /players/levels?wallets=` (API, public)
+
+- **Controller:** `PlayersController` — `[HttpGet("levels")] GetPlayerLevels([FromQuery] string? wallets)`
+  + `[HttpOptions("levels")]`. `wallets` = comma-separated.
+- **Handler:** `Handlers/Players/GetPlayerLevels/{GetPlayerLevelsRequest,GetPlayerLevelsHandler}.cs`.
+  1. Split, trim, distinct; drop entries failing `WalletAddress.IsValid` and entries in
+     `HouseWallets.Resolve(token)`. More than **50** distinct inputs → only the first 50 are answered
+     (never an error — vague-messaging rule).
+  2. Per wallet, cache key `PlayerLevel:{wallet}` (**60 s**, `CacheHelper.GeneratePlayerLevelCacheSettings`)
+     holding the `int` level. Read every key; the **misses** go to **one** `GetGambledAsync` call; write
+     each miss back (level 0 included — a valid wallet is a bounded key space here because the input is
+     capped and must be a real public key).
+  3. Response: `PlayerLevelsDto { IReadOnlyDictionary<string,int> Levels }` — **only valid, non-house,
+     level ≥ 1** wallets appear. Anything absent = no badge. (A house or malformed input is
+     indistinguishable from a level-0 wallet.)
+- Level only on this read — no `gambled` figure, to keep the payload tiny on the hot path (every live
+  surface calls it).
+
+
 ---
 
 ## 7. Frontend behaviour (`monkify-front/src`)
@@ -301,10 +381,13 @@ shows offline-retry.
 ### 7.1 Types, service, utils (not gated)
 
 - `types/index.ts`: `PlayerProfile`, `ProfileAchievement`, `ProfileRound`, `AchievementKey` (the 10
-  keys); `AppliedBet.isHouse?: boolean`; `RaceCard.wallet?: string | null` (`utils/playerCard.ts`).
+  keys), `PlayerLevel` (`level`, `gambled`, `levelFloor`, `nextLevelAt | null`);
+  `AppliedBet.isHouse?: boolean`; `RaceCard.wallet?: string | null` (`utils/playerCard.ts`).
 - `services/mainService.ts`: `getPlayerProfile(wallet)` → `GET /players/profile?wallet=`, wrapped in
   `singleFlight` (two tags of one player tapped quickly share one request); export it. Set
-  `err.handled = true` in the composable so a failed card load does not toast.
+  `err.handled = true` in the composable so a failed card load does not toast. `getPlayerLevels(wallets)`
+  → `GET /players/levels?wallets=a,b,…` (≤ 50 per call), errors swallowed by the caller (a missing badge
+  is the failure mode — never a toast).
 - `constants/achievements.ts`: ordered catalog `{ key, title, hint, icon }` for the 10 keys (titles: First
   Sprint win · First Hyper Roll win · First Duel win · Space Jackpot winner · HYPER hit · Rival slayer ·
   Crowd beater · Win streak 3 · Win streak 5 · Explorer).
@@ -328,6 +411,13 @@ shows offline-retry.
   (`isMobileDeeplinkContext()`) → `useMobileWallet().openWalletModal()`; desktop → a function registered
   by the header `WalletButtons` instance (it already owns the hidden `<wallet-multi-button>` click). Plus
   `afterConnect(cb)` — one-shot watcher on `effectivePublicKey` used by PROFILE.
+- `hooks/usePlayerLevels.ts` (#206) — module-level store `Map<wallet, { level, at }>`.
+  `levelOf(wallet): ComputedRef<number>` registers the wallet and returns 0 until known. Registered
+  wallets that are missing or older than **60 s** are collected and flushed **once per ~50 ms tick** as
+  chunks of 50 into `getPlayerLevels` (one in-flight request per chunk; a wallet already in flight is not
+  re-asked). A wallet absent from the response is stored as 0. A failed request leaves the old values and
+  retries on the next tick that needs them (no tight retry loop — back off to the 60 s TTL). No polling:
+  a level only refreshes when some tag asks for it again after the TTL (decision 27).
 - Identity everywhere is **`useMobileWallet().effectivePublicKey`** (desktop + phone sessions), never
   `useWallet().publicKey`. On game surfaces `useGame().currentPlayerId` (unchanged).
 
@@ -340,13 +430,17 @@ shows offline-retry.
   - **Tappable** iff `wallet && !house && !useEmbed().isEmbedded`. Renders a `<button>` with
     `@click.stop` (DuelBoard cards and race cards have their own click handlers) → `usePlayerCard().open`.
     Otherwise a plain `<span>`. An empty slot for the V2 icon.
+  - **Level badge (#206):** `LV {n}` beside the name when `wallet && !house` and `usePlayerLevels().
+    levelOf(wallet) >= 1` — on YOU tags too, and on embedded (plain) tags. Level 0 / unknown / house → no
+    badge, and the badge appearing later must not shift layout on tight surfaces (race cards, bet list):
+    reserve its width or place it per the artifact.
   - Styling is inherited from the parent (YOU colours stay the surface's own classes).
 - **`PlayerCard.vue`** — mounted **once** in `App.vue`. Two shells, one body (the `OrbitQuickPanel.vue`
   pattern): ≥ `lg` a **teleported** `z-popover` panel positioned from `anchor.getBoundingClientRect()`
   (teleport is required — race cards are `overflow:hidden` and the cabinet uses CSS zoom), with
   `useClickOutside` + Esc via `useOverlayStack`; below `lg` an `<ArcadeModal size="compact">` (bottom
   sheet).
-  - Body: name, short wallet + copy, joined date (or "—"), tiles **rounds · win rate · net**, the **3 most
+  - Body: name, **level + progress bar** (from `profile.level`), short wallet + copy, joined date (or "—"), tiles **rounds · win rate · net**, the **3 most
     recent unlocked trophies** (by `unlockedAt` desc; none → "No trophies yet"), **View full profile**
     (`router.push` to `/player/{wallet}` and close).
   - States: loading; `available: false` → "Profile unavailable"; failed → "> profile offline — retry".
@@ -364,6 +458,11 @@ shows offline-retry.
 - **Sections** (single column below `lg`):
   1. **Header** — `publicName`, short wallet + copy + explorer link, "Joined <date>" (hidden when
      `joinedAt` null). Owner: **Edit name** → `useHeaderModals().openSettings()`; on save, reload.
+     **Level (#206):** `LEVEL n` + a progress bar from `levelFloor` to `nextLevelAt` filled by `gambled`,
+     with `"<gambled> / <nextLevelAt> SOL gambled"` (amounts via `formatGameAmount`, `sol.svg` mark;
+     "gamble", never "wager"). At the cap (`nextLevelAt` null): full bar, `MAX LEVEL`. Level 0: empty bar
+     toward L1 (0.2 SOL). Shown to visitors too (decision 24). Fine print like the gamble race's:
+     *"Total gambled, not deposited — Orbit re-bets what it wins."*
   2. **Record** — all `PlayerStats` fields, amounts via `formatGameAmount` / `useAmountFormatter`
      (`sol.svg` mark like the leaderboard), win rate as %, multiplier as `×n` with no money mark. Owner:
      **Responsible gaming** link by the block.
@@ -455,6 +554,9 @@ sequenceDiagram
   `effectivePublicKey`); rewriting `PlayerStatsService`; the public exclusion leak in
   `GET /players/preferences` (finding 3 — separate card).
 - Tags on race lanes, the winners tab, "PAID TO" and chat.
+- **Levels (#206):** a level ranking / leaderboard (decision 28 — future card), level perks or rewards,
+  level-up toasts or SignalR pushes, level names/tiers/colours beyond what the artifact settles, and any
+  USDC-era conversion.
 
 ---
 
@@ -475,6 +577,10 @@ sequenceDiagram
 | 9 | `.../DependencyInjection.cs` | register `IPlayerProfileService` (scoped) |
 | 10 | `.../Contracts/Games/BetDto.cs`, `ActiveGameDto.cs` | `IsHouse` |
 | 11 | `.../Consumers/BetNotification/BetNotificationEvent.cs`, `.../Services/Games/GameService.cs` | `IsHouse` (defaulted) set in `InsertBet` |
+| 12 | `SpaceStroker.Domain/Players/PlayerLevels.cs` | #206 threshold table, `LevelFor`, `Describe` (§6.8.1) |
+| 13 | `.../Services/Players/IPlayerLevelService.cs` + `PlayerLevelService.cs` | #206 `GetGambledAsync` (§6.8.2); register scoped in `DependencyInjection.cs` |
+| 14 | `.../Handlers/Players/GetPlayerLevels/{GetPlayerLevelsRequest,GetPlayerLevelsHandler}.cs`, `.../Contracts/Players/PlayerLevelsDto.cs` | #206 batched read (§6.8.3) |
+| 15 | `PlayersController.cs`, `CacheHelper.cs`, `PlayerProfileDto.cs`, `GetPlayerProfileHandler.cs` | #206 `GET levels` + OPTIONS; `GeneratePlayerLevelCacheSettings` (`PlayerLevel:{wallet}`, 60 s); `PlayerLevelDto` + `Level` on the profile |
 
 ### 10.2 Frontend (`monkify-front/src`)
 
@@ -499,6 +605,8 @@ sequenceDiagram
 | 17 | `components/game/DuelBoard.vue`, `DuelCard.vue`, `DuelVsSplash.vue` | tags; `rivalWallet` prop |
 | 18 | `components/leaderboard/LeaderboardRow.vue`, `LeaderboardPlinth.vue` | tags |
 | 19 | `pages/GameHistoryPage.vue` | YOU tag; use `utils/verifyRound` |
+| 20 | `hooks/usePlayerLevels.ts`, `services/mainService.ts`, `types/index.ts` | #206 batched level store, `getPlayerLevels`, `PlayerLevel` |
+| 21 | `PlayerTag.vue`, `PlayerCard.vue`, `PlayerProfilePage.vue` | #206 `LV n` badge; level + progress on card and page |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -554,6 +662,22 @@ New `UnitTests/Handlers/GetPlayerProfileHandlerTests.cs`:
 Also: `GameModeClassifierTests` (expression ≡ C# twin across the four flag combos);
 `BetDtoTests` / `ActiveGameDto` — `IsHouse` true for the house seed wallet only.
 
+**Levels (#206)** — new `PlayerLevelsTests`, `PlayerLevelServiceTests`, `GetPlayerLevelsHandlerTests`:
+
+| Case | Expected |
+| --- | --- |
+| `LevelFor` at 0, 0.19, 0.2, 0.5, 0.99, 1, `T[n]−0.01`, `T[n]` | 0, 0, 1, 2, 2, 3, n−1, n |
+| Table shape | strictly increasing; `T[3] = 1`; `T[120]` within 1 % of 1,000,000; length 201 |
+| Above `T[200]` | 200, `nextLevelAt` null |
+| Paid bets in completed rounds, two types | summed across types |
+| Free bet / holder ticket / streamer play bet / non-completed round | add nothing |
+| Bet in a round ending before `SettlementCutoverUtc` | excluded; `EndDate` null → `CreatedDate` decides |
+| Orbit-funded bet (manual and auto) | counts |
+| Active streamer's real-money bets / self-excluded player | still summed (decision 26) |
+| Batch: malformed, house wallet, level-0 wallet, duplicate wallet, 60 inputs | first three absent; duplicate answered once; only 50 answered; one aggregate query for the misses |
+| Batch: cached wallet + uncached wallet | only the uncached one hits the query |
+| Profile `level` | equals `Describe(GetGambledAsync)` for that wallet |
+
 ### 11.2 Integration (mandatory — `PlayerProfileFlowTests`, new)
 
 Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBetsGameAsync` → `PlaceBetAsync`
@@ -568,6 +692,10 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 2. `SelfExcludeAsync(winner)` → `{ available:false }`; `ExpireSelfExclusionAsync` → available again with
    the trophy back.
 3. `IntegrationTestFixture.HouseSeedWallet` and `"not-a-wallet"` → `{ available:false }`.
+4. **Levels (#206):** the happy-path round uses **paid** bets whose stake reaches ≥ 0.2 SOL for the winner
+   (or seed enough settled rounds to cross L1) → `profile.level.level ≥ 1`, `gambled` = Σ stakes;
+   `GET /players/levels?wallets=<winner>,<house seed>,not-a-wallet` → only the winner, with the same level.
+   Proves the grouped `SUM` + the two-arm cutover predicate translate on Postgres.
 
 ---
 
@@ -615,8 +743,20 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
     profile read returns their stats, unlocked trophies and last rounds.
 13. Given V1 is about to be implemented, when UI work starts, then a design preview artifact already
     exists (profile page desktop+mobile, owner vs visitor, trophy shelf, recent rounds, mini card popover +
-    bottom sheet, player tag on every surface, home strip, PROFILE ☰ cell, and all states), the owner has
-    iterated on it and explicitly approved it, and its link is on this card as the visual reference.
+    bottom sheet, player tag on every surface **with its level badge**, the level + progress bar on page
+    and card, home strip, PROFILE ☰ cell, and all states), the owner has iterated on it and explicitly
+    approved it, and its link is on this card as the visual reference.
+14. *(#206)* Given a wallet that has gambled ≥ 0.2 SOL in completed rounds since the SOL cutover, when any
+    of its player tags renders (every §7.5 surface, YOU included), then an `LV n` badge shows the level
+    from the §6.8.1 curve (L1 0.2 · L2 0.5 · L3 1 SOL · … · L120 ≈ 1M SOL, cap L200); below 0.2 SOL, or a
+    house tag, shows no badge.
+15. *(#206)* Given anyone opens a profile or mini card of an available wallet, then it shows the level and
+    a progress bar to the next level with "gambled / next" in SOL (MAX LEVEL at the cap).
+16. *(#206)* Given free bets, holder tickets, streamer play bets, refunded rounds or USDC-era bets, when
+    the level is computed, then they add nothing; Orbit-funded bets count.
+17. *(#206)* Given a live round with N players, when its tags render, then their levels arrive in **one**
+    batched `GET /players/levels` request (≤ 50 wallets per call), a level is at most ~60 s stale, and a
+    failed request just hides badges (no toast, no layout jump).
 
 ---
 
@@ -636,6 +776,10 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 6. `/player/not-a-wallet` and the house seed wallet → "Profile unavailable". A fresh keypair → "No rounds yet".
 7. Embed (`?embed` / iframe) → `/player/x` redirects to the lobby; names are plain text.
 8. Home → compact strip only; `yarn lint` + `yarn build` clean.
+9. *(#206)* Free bets alone → no badge, profile shows level 0 with an empty bar toward 0.2 SOL. Seed paid
+   bets (SQL, local DB only) totalling 1.0 SOL in completed post-cutover rounds → after ≤ 60 s every tag of
+   that wallet shows `LV 3` and the profile bar reads 1 / 1.13. Network tab: one `levels` call per surface
+   load, not one per tag.
 
 ---
 
@@ -643,6 +787,9 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 
 - **Source card:** [#186](https://trello.com/c/cF0gPauc) — list **Specs created**; the **Implementation**
   section on the card lists worktree, branch and spec.
+- **Folded-in card:** [#206 Levelling system](https://trello.com/c/b4U9FiVd) — refined into decisions
+  21–28 / AC 14–17 here; it rides on the same branch and moves with #186. **`/monkify-ship-feature` must
+  move #206 to Shipped together with #186.**
 - **Next:** `/monkify-implement-feature` (backend + non-visual plumbing first; UI only after the design
   artifact is approved and linked — AC 13), then `/monkify-ship-feature`.
 
@@ -653,3 +800,4 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 | Date | Change |
 | --- | --- |
 | 2026-10-13 | Initial spec from the refined card (#186) + code exploration of both repos. Spec-level decisions 17–20 added (wire contract, no cutover floor on trophies, streamer play bets never count, self-exclusion enforced at the card). |
+| 2026-10-13 | Folded in #206 Levelling system (owner, short mode): gamble-race basis all-time + cutover floor, geometric curve fitted to the SolPump example (L120 ≈ 1M SOL, cap 200), badge on every tag via a batched `GET /players/levels`, level + progress on page and card. Decisions 21–28, §6.8, AC 14–17, tests, QA step 9. |
