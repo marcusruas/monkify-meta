@@ -18,7 +18,8 @@
 > from the home page, add a first shelf of **10 trophies** derived from rounds already played, and make
 > every player name in the app a tappable **player tag** that opens a mini profile card over the current
 > screen. Every player also gets a cosmetic **level** from the SOL they have gambled, shown as a badge on
-every player tag and with a progress bar on the profile. V1 of a three-version roadmap (V2 = icon, privacy switches, chat tags, donations; V3 = quests,
+every player tag and with a progress bar on the profile. Players can **DONATE SOL** to each other from a profile or a mini card (pulled forward from V2, decisions 37–41).
+V1 of a three-version roadmap (V2 = icon, privacy switches, chat tags; V3 = quests,
 > seasons, cosmetics — separate Backlog cards).
 
 ---
@@ -36,8 +37,9 @@ every player tag and with a progress bar on the profile. V1 of a three-version r
 | Level (#206) | none | `LV n` badge on every player tag; level + progress to the next level on the profile and card |
 
 Backend adds **two** public reads (`GET /players/profile?wallet=` and the batched
-`GET /players/levels?wallets=`) and an additive **`isHouse`** flag on bet payloads. **No entity, no
-column, no migration, no money path touched.**
+`GET /players/levels?wallets=`), an additive **`isHouse`** flag on bet payloads, and — for the **color
+profile** (§6.9, added 2026-10-13) — **one nullable column `Player.ProfileTheme` + its migration** and a
+theme field on the existing signed `PATCH /players/preferences`. **No money path touched.**
 
 ---
 
@@ -51,7 +53,8 @@ From `monkify-meta/constraints.md` (full list there):
   the `ProductionGames` Monte Carlo suite); add tests per trophy rule and availability state; report the
   changed/added tests at the end.
 - **Integration test (Feature):** happy path in `SpaceStroker.Tests.Integration` (§11.2).
-- **EF:** nothing to map — no entity or column changes. **No migration.**
+- **EF:** one nullable column, `Player.ProfileTheme` (§4), mapped inline in `OnModelCreating`; one migration
+  via `dotnet ef migrations add`, applied only by `SpaceStroker.Consumers`. Never hand-edit the snapshot.
 - **API stays stateless**; the new read lives on `SpaceStroker.Api`.
 - **Mock-only config.** No new config keys are needed.
 - **Vague messaging (§6):** an unavailable profile never says *why* (self-excluded / house / malformed
@@ -94,12 +97,28 @@ From `monkify-meta/constraints.md` (full list there):
 | 26 | *(#206, spec)* **Levels are public and computed for every valid non-house wallet, with no streamer or self-exclusion filter.** Hiding an excluded or streaming wallet's badge would make its absence the signal (`legal.md`, the streamer anti-probing rule). An active streamer's play stakes are already out by decision 22, so it simply shows the level of its real-money play. The profile/card of an excluded wallet stay "Profile unavailable" (no level there). |
 | 27 | *(#206, spec)* Freshness: a level may lag a settled round by up to **60 s** (server per-wallet cache + client memo). No level-up notification, no SignalR push. |
 | 28 | *(#206)* A **level ranking** is a future card. Nothing here blocks it: its score is this same all-time query (§6.8.2) ordered desc. |
+| 29 | *(color profile, owner 2026-10-13)* The first design read as **too dark**. The look is brighter (lighter surfaces, themed hero) and every player has a **color profile** that themes their profile page **and** shows on their mini card, their race-card avatar tile and their tag's `LV` badge. In V1. |
+| 30 | *(owner)* **8 preset themes**, never a free color: `amber` ARCADE AMBER `#ffa214` · `comet` COMET CYAN `#38d9f5` · `nebula` NEBULA PINK `#ff6fb5` · `toxic` TOXIC LIME `#9be22d` · `ocean` DEEP OCEAN `#4c8dff` · `aurora` AURORA `#2ee6b0` · `sunset` SUNSET `#ff7a45` · `solar` SOLAR GOLD `#ffd23f` (each with a deep shade and an on-accent ink, §7.7). **No red** (warnings / losses) and **no violet** (Orbit identity). Keys are stable wire identifiers; the palette values live on the front. |
+| 31 | *(owner)* Set in the **SETTINGS modal** next to the display name (COLOR PROFILE grid + live preview), saved through the **same wallet-signed `PATCH /players/preferences`**; the owner's profile gets an **EDIT THEME** shortcut that opens SETTINGS. |
+| 32 | *(owner)* A player who never picked one gets a **wallet-derived default** (stable hash of the wallet → one of the 8), computed on the **front**; the server stores and returns only an explicit choice (`null` = default). |
+| 33 | *(spec)* **Theme stays the identity color only.** Primary actions (buttons, links), money semantics (red loss, amber CTA) and Orbit violet keep their fixed colors whatever the theme. |
+| 34 | *(spec)* Tags get the theme from the **same batched read** as levels: `GET /players/levels` adds `themes: { wallet: key }` for wallets with an explicit choice (absent = default). Same 60 s cache, same ≤ 50 cap — no new request, no field on bet / duel / leaderboard payloads. |
+| 35 | *(spec)* The signed message **must cover the theme** (a valid name signature must not be replayable with a different theme): a name-only save keeps today's message byte-for-byte; a save that sets a theme signs a new message (§6.9.2). |
+| 36 | *(spec)* The own race card keeps its **YOU ring** (`OWN_CARD_COLOR` border) so a player still finds themself at a glance; the **tile** takes the player's theme. |
+| 37 | *(owner, 2026-10-13)* **Donations come into V1** (were V2). A **DONATE SOL** button on every available profile but your own, and a **DONATE** button on the mini card. |
+| 38 | *(owner)* A donation is a **direct wallet-to-wallet SOL transfer the donor's wallet signs** (the shipped `useConnection.sendToken` path, one approval). It never touches the treasury or Orbit; no donating from an Orbit balance. |
+| 39 | *(owner)* **Every available player can receive** — no opt-in switch. Unavailable profiles (house, self-excluded, malformed) have no button because they render the vague state. |
+| 40 | *(owner)* **Front only** — no backend record, endpoint or table; the only receipt is the explorer link. Caps are therefore UI-only (a raw transfer outside the app was never controllable anyway). |
+| 41 | *(owner)* Amounts: presets **0.01 / 0.05 / 0.1 / 0.5 SOL** + a custom field, **min 0.001, max 1 SOL per donation**, then a confirm step that says the donation is final and non-refundable. *(spec)* Refused before signing: no wallet (→ connect flow, then the sheet), donating to yourself, an active self-exclusion of the donor, a phone wallet-app session (same honest "not supported yet" as joining a Duel), an amount outside the bounds or finer than 9 decimals, more than the wallet balance. A confirmation timeout is never reported as a failure (the money most likely moved). |
 
 ---
 
 ## 4. Data model
 
-**No change.** Everything reads existing rows:
+**One additive column** (color profile, §6.9): `Player.ProfileTheme` — `string?`, max length 20, nullable, no
+default, no index. Mapped inline in `SpaceStrokerDbContext.OnModelCreating`; migration
+`AddPlayerProfileTheme` (added with `dotnet ef migrations add`, applied only by `SpaceStroker.Consumers`). Null
+= "never picked" → the front's wallet-derived default. No backfill. Everything else reads existing rows:
 
 | Need | Source |
 | --- | --- |
@@ -369,6 +388,43 @@ GROUP BY pl.ExternalPlayerId → SUM(b.Amount)
      indistinguishable from a level-0 wallet.)
 - Level only on this read — no `gambled` figure, to keep the payload tiny on the hot path (every live
   surface calls it).
+- **Color profile (§6.9.3):** the response also carries `themes: { wallet: key }` for answered wallets with an
+  explicit `ProfileTheme`; the per-wallet cache value becomes `{ level, theme }`.
+
+### 6.9 Color profile (added 2026-10-13, decisions 29–36)
+
+#### 6.9.1 Theme keys — `SpaceStroker.Domain/Players/ProfileThemes.cs`
+
+`static readonly IReadOnlySet<string> Keys = { amber, comet, nebula, toxic, ocean, aurora, sunset, solar }` and
+`static bool IsValid(string? key)` (exact, case-sensitive). Keys only — colors are the front's.
+
+#### 6.9.2 Write — the existing `PATCH /players/preferences`
+
+- `UpdatePlayerPreferencesRequestBody` gains `string? ProfileTheme`. Semantics: `null` = leave unchanged;
+  `"default"` = clear to `null` (back to the wallet-derived default); a key from §6.9.1 = set. Anything else →
+  the generic validation failure (no list of valid keys in the message).
+- `DisplayName` becomes optional **when** `ProfileTheme` is sent (a theme-only save); at least one of the two
+  is required, as today.
+- **Signed message** (decision 35):
+  - `ProfileTheme == null` → today's `BuildMessage(wallet, displayName, nonce)`, **unchanged byte-for-byte**
+    (an older client keeps working mid-deploy).
+  - `ProfileTheme != null` → `BuildProfileMessage(wallet, displayName ?? "", theme, nonce)` =
+    `"Space Stroker profile\nWallet: {wallet}\nDisplay name: {displayName}\nTheme: {theme}\nNonce: {nonce}"`.
+    A name signature can therefore never be replayed to set a theme, and vice versa.
+- Same nonce purpose (`preferences`), same single-use consumption, same row-creation rule as the name write.
+- `PlayerPreferencesDto` (GET and PATCH) gains `ProfileTheme` (the stored key or null) to pre-fill SETTINGS.
+
+#### 6.9.3 Reads
+
+- **Profile** (§6.1): `PlayerProfileDto` gains `string? ProfileTheme`, read from the **live** row and stamped on
+  the copy exactly like `DisplayName` (step 6), so a change shows at once on the page and card. Unavailable /
+  no-row bodies carry `null`.
+- **Levels** (§6.8.3): on a cache miss the handler also reads `Players (ExternalPlayerId, ProfileTheme)` for the
+  missed wallets (one indexed `IN` query, alongside the one `GetGambledAsync`), caches `{ Level, Theme }` per
+  wallet under `PlayerLevel:{wallet}` (60 s), and returns `themes` for wallets whose theme is non-null — **even
+  when the level is 0** (a fresh player who picked a theme still shows it on their tile). A theme change reaches
+  other players' tags within ≤ 60 s (decision 27's freshness).
+- Themes are public and cosmetic: no streamer / self-exclusion filter (same reasoning as decision 26).
 
 
 ---
@@ -465,7 +521,10 @@ GROUP BY pl.ExternalPlayerId → SUM(b.Amount)
      *"Total gambled, not deposited — Orbit re-bets what it wins."*
   2. **Record** — all `PlayerStats` fields, amounts via `formatGameAmount` / `useAmountFormatter`
      (`sol.svg` mark like the leaderboard), win rate as %, multiplier as `×n` with no money mark. Owner:
-     **Responsible gaming** link by the block.
+     **Responsible gaming** link by the block. Every figure is a card. Headline row (largest, theme-framed):
+     GAMBLED · WON · BETS (GAMBLED = the level basis). Then six equal compact cards: NET · WIN RATE · BIGGEST
+     WIN · ROUNDS · BEST STREAK · MOST PLAYED. NET is never the lead and never red-framed — a loss must not be
+     the first thing a visitor sees (owner feedback 2026-10-13).
   3. **Trophy shelf** — 10 tiles in catalog order; locked = greyed + hint; unlocked = title + date.
   4. **Recent rounds** — up to 10 rows: mode, type name (+ board mode), choice, stake (`FREE` / `TICKET`
      for `entry`), WON/LOST, payout, `via Orbit` chip when `viaOrbit`, **Verify** (`utils/verifyRound`,
@@ -510,6 +569,49 @@ never tappable — it has no wallet.
   library's exposed actions so none is lost).
 - New icons: profile/user, copy, external-link (`constants/icons.ts`) — per the artifact.
 
+### 7.7 Color profile (decisions 29–36)
+
+- `constants/profileThemes.ts`: the 8 themes `{ key, name, accent, deep, onAccent }` (values in decision 30 +
+  the artifact's `Theme` board), and `defaultThemeKey(wallet)` — FNV-1a of the wallet mod 8, `amber` for a
+  null wallet. ⚠️ Not the `avatarColor` hash (`h*31 + c`): 31 ≡ −1 (mod 8) makes that an alternating
+  character sum and it clustered real wallets on one theme (4 of 6 in local QA). `themeFor(wallet, explicitKey?)` resolves
+  explicit → default; an unknown key falls back to the default.
+- `usePlayerLevels` → also stores `theme` per wallet from the response's `themes` map; exposes
+  `themeOf(wallet): ComputedRef<ProfileTheme>` (explicit else default — never waits on the network to render).
+- **Where the theme paints** (identity only, decision 33): the profile page's hero, avatar tile, `LEVEL` label
+  and progress bar, section rules (`border-top`), trophy frames and `NET` tile; the mini card's header band,
+  avatar, level bar, `NET` tile and trophy chips; the race-card avatar tile (own card keeps its YOU ring,
+  decision 36); the `LV n` badge on every tag (filled accent with on-accent ink). Buttons, links, the wallet
+  pill, red losses and Orbit violet keep their fixed colors.
+- **SETTINGS** (`components/header/PlayerCustomizationModal.vue`): a COLOR PROFILE grid of 8 labelled swatch
+  buttons (`aria-pressed`), and a live preview tag. No separate "use my default" option (owner, 2026-10-13): the grid opens on the
+  theme in effect — the saved pick, else the wallet-derived one — and a save sends a key only when it differs; SAVE signs through
+  `useDisplayNameSigning` with the theme message when a theme is part of the save (§6.9.2). The owner's profile
+  shows **EDIT THEME** next to Edit name (both open SETTINGS).
+- The page is **brighter** than the first preview (artifact v2): lighter void ramp for the profile surfaces,
+  themed hero gradient, `border-top` theme rules on each section.
+
+### 7.8 Donations (decisions 37–41)
+
+- `hooks/useDonate.ts` — module singleton: `requestDonate({wallet, name})` (connect first when no wallet),
+  `donate(amount)` with every refusal of decision 41 **before** `sendToken`, `applyDebit(amount, 'donation')`
+  on success (`MoneyChangeReason` gains `'donation'`). Constants `DONATION_PRESETS`, `DONATION_MIN`,
+  `DONATION_MAX`.
+- `components/player/DonateModal.vue` — mounted once in `App.vue`; `ArcadeModal` compact ("DONATE SOL"). It reads as a
+  transfer: a **YOU → THEM** strip (both tiles in their color profiles, no level badge, a SOL coin on a dashed
+  track that runs while confirming and lands on SENT), then **1/2 HOW MUCH?** — one big SOL figure, preset chips
+  (each with the SOL mark) + a **CUSTOM** chip that turns the figure into the input; only one chip is ever lit;
+  wallet balance shown; an amount over the balance is flagged here, not at SEND — then **2/2 CONFIRM** ("YOU SEND
+  <exact amount> to <name>", FINAL tag: no refunds, Space Stroker never holds it) → **SENT** with
+  `txExplorerUrl(signature)` (`utils/explorer.ts`). Exact amounts, never `formatSol`-truncated. Not dismissible while
+  the wallet prompt is open.
+- One `components/player/DonateButton.vue` (`lg` / `sm`): a plain Solana-purple key (#8A3FFC) with a white
+  SOL mark — never the amber CTA or the player's theme (owner, 2026-10-13). Profile
+  hero: **DONATE SOL** (`lg`, full width on phones). Mini card: **DONATE** (`sm`) next to VIEW FULL PROFILE; it
+  closes the card and opens the sheet. Neither shows on your own profile/card.
+- Not covered (owner's call): streamer wallets look like ordinary profiles to the front, so they can be sent
+  donations too; the Terms have no donation clause yet.
+
 ---
 
 ## 8. Flow diagrams
@@ -547,7 +649,8 @@ sequenceDiagram
 ## 9. Out of scope
 
 - V2: profile icon, privacy switches (ghost / hide stats / hide from leaderboards), clickable chat names,
-  pinned/rarest showcase + rarity %, owner time windows, donations.
+  pinned/rarest showcase + rarity %, owner time windows, donation opt-in / server-side record / "donations
+  received" figures.
 - V3: quests, seasons, cosmetic rewards, titles, share cards.
 - Display-name moderation; moving settings into the profile; **fixing the History page phone-session
   wallet bug** (`GameHistoryPage.vue` uses `useWallet().publicKey` for MINE ONLY — only the new YOU tag uses
@@ -581,6 +684,10 @@ sequenceDiagram
 | 13 | `.../Services/Players/IPlayerLevelService.cs` + `PlayerLevelService.cs` | #206 `GetGambledAsync` (§6.8.2); register scoped in `DependencyInjection.cs` |
 | 14 | `.../Handlers/Players/GetPlayerLevels/{GetPlayerLevelsRequest,GetPlayerLevelsHandler}.cs`, `.../Contracts/Players/PlayerLevelsDto.cs` | #206 batched read (§6.8.3) |
 | 15 | `PlayersController.cs`, `CacheHelper.cs`, `PlayerProfileDto.cs`, `GetPlayerProfileHandler.cs` | #206 `GET levels` + OPTIONS; `GeneratePlayerLevelCacheSettings` (`PlayerLevel:{wallet}`, 60 s); `PlayerLevelDto` + `Level` on the profile |
+| 16 | `SpaceStroker.Domain/Games/Entities/Player.cs`, `SpaceStrokerDbContext.cs`, `Migrations/<ts>_AddPlayerProfileTheme.cs` | color profile: `ProfileTheme` column (max 20, nullable) + migration |
+| 17 | `SpaceStroker.Domain/Players/ProfileThemes.cs` | the 8 keys + `IsValid` |
+| 18 | `Handlers/Players/UpdatePlayerPreferences/*`, `GetPlayerPreferences/*` | `ProfileTheme` on body + DTO; `BuildProfileMessage`; theme-only save |
+| 19 | `GetPlayerProfileHandler.cs`, `PlayerProfileDto.cs`, `GetPlayerLevelsHandler.cs`, `PlayerLevelsDto.cs` | live-stamped `ProfileTheme`; `themes` map + `{Level, Theme}` cache value |
 
 ### 10.2 Frontend (`monkify-front/src`)
 
@@ -607,6 +714,10 @@ sequenceDiagram
 | 19 | `pages/GameHistoryPage.vue` | YOU tag; use `utils/verifyRound` |
 | 20 | `hooks/usePlayerLevels.ts`, `services/mainService.ts`, `types/index.ts` | #206 batched level store, `getPlayerLevels`, `PlayerLevel` |
 | 21 | `PlayerTag.vue`, `PlayerCard.vue`, `PlayerProfilePage.vue` | #206 `LV n` badge; level + progress on card and page |
+| 22 | `constants/profileThemes.ts`, `types/index.ts`, `hooks/usePlayerLevels.ts` | color profile: themes, `defaultThemeKey`, `themeOf`; `profileTheme` on profile / preferences types, `themes` on levels |
+| 23 | `components/header/PlayerCustomizationModal.vue`, `hooks/useDisplayNameSigning.ts`, `services/mainService.ts` | COLOR PROFILE picker; theme message signing; `profileTheme` in the PATCH body |
+| 24 | `utils/playerCard.ts`, `RaceMainTab.vue`, `PlayerTag.vue`, `PlayerCard.vue`, `PlayerProfilePage.vue` | theme on the race tile, badge, card and page |
+| 25 | `hooks/useDonate.ts` (new), `components/player/DonateModal.vue` (new), `App.vue`, `PlayerCardBody.vue`, `PlayerProfilePage.vue`, `utils/explorer.ts`, `types/money.ts` | DONATE (§7.8) |
 
 ### 10.3 Meta (`monkify-meta`)
 
@@ -678,6 +789,23 @@ Also: `GameModeClassifierTests` (expression ≡ C# twin across the four flag com
 | Batch: cached wallet + uncached wallet | only the uncached one hits the query |
 | Profile `level` | equals `Describe(GetGambledAsync)` for that wallet |
 
+**Color profile** — `ProfileThemesTests`, extend `UpdatePlayerPreferencesHandlerTests`,
+`GetPlayerPreferencesHandlerTests`, `GetPlayerProfileHandlerTests`, `GetPlayerLevelsHandlerTests`:
+
+| Case | Expected |
+| --- | --- |
+| `IsValid` for the 8 keys / `"Nebula"` / `"red"` / null | true / false / false / false |
+| Name-only save | verified against today's `BuildMessage` (unchanged), theme untouched |
+| Save with theme, signed with the profile message | name + theme stored |
+| Save with theme, signed with the name-only message | rejected (generic failure), nothing stored |
+| Theme-only save (`DisplayName` null) | theme stored, name untouched |
+| `"default"` | theme cleared to null |
+| Unknown key | generic failure, nothing stored |
+| GET preferences | returns `profileTheme` |
+| Profile: cached body + theme change | new theme returned at once (live stamp), cached instance unchanged |
+| Levels: wallet with a theme at level 0 / level ≥ 1 / no theme | in `themes` / in `themes` and `levels` / absent from `themes` |
+| Levels: cached wallet | theme served from the `{Level, Theme}` cache value, no player read |
+
 ### 11.2 Integration (mandatory — `PlayerProfileFlowTests`, new)
 
 Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBetsGameAsync` → `PlaceBetAsync`
@@ -696,6 +824,9 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
    (or seed enough settled rounds to cross L1) → `profile.level.level ≥ 1`, `gambled` = Σ stakes;
    `GET /players/levels?wallets=<winner>,<house seed>,not-a-wallet` → only the winner, with the same level.
    Proves the grouped `SUM` + the two-arm cutover predicate translate on Postgres.
+5. **Color profile:** the winner saves `profileTheme = "nebula"` through the real signed flow (nonce → sign the
+   profile message → `PATCH /players/preferences`) → `GET /players/profile` returns `profileTheme: "nebula"`
+   and `GET /players/levels` returns it under `themes`. Proves the migration applied and the column round-trips.
 
 ---
 
@@ -757,6 +888,21 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 17. *(#206)* Given a live round with N players, when its tags render, then their levels arrive in **one**
     batched `GET /players/levels` request (≤ 50 wallets per call), a level is at most ~60 s stale, and a
     failed request just hides badges (no toast, no layout jump).
+18. *(color profile)* Given a connected player in SETTINGS, when they pick one of the 8 themes and save, then the save is wallet-signed with a message that includes the theme, and their
+    profile page, mini card, race-card tile and `LV` badge take that theme (page/card at once, other players'
+    tags within ~60 s).
+19. *(color profile)* Given a player who never picked a theme, when any of those surfaces renders, then it uses
+    the theme derived from their wallet (the same one every time), never a blank/dark default.
+20. *(color profile)* Given any theme, when a surface renders, then buttons, links, the wallet pill, red losses
+    and Orbit violet keep their fixed colors — only identity surfaces take the theme.
+21. *(color profile)* Given a name-only save from an older client, when it reaches the new backend, then it
+    still verifies (today's message unchanged); a theme can never be set with a name-only signature.
+22. *(donations)* Given a visitor on another player's available profile or mini card, when they tap DONATE,
+    pick an amount (presets or 0.001–1 SOL) and confirm, then their wallet signs one plain SOL transfer
+    straight to that player and the sheet shows SENT with the explorer link; no DONATE on your own profile/card
+    or on an unavailable one.
+23. *(donations)* Given no wallet, a self-excluded donor, a phone wallet-app session, an out-of-range amount or
+    more than the wallet balance, when they try to donate, then it is refused before anything is signed.
 
 ---
 
@@ -780,6 +926,10 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
    bets (SQL, local DB only) totalling 1.0 SOL in completed post-cutover rounds → after ≤ 60 s every tag of
    that wallet shows `LV 3` and the profile bar reads 1 / 1.13. Network tab: one `levels` call per surface
    load, not one per tag.
+10. *(donations)* With a funded devnet keypair in a fake Phantom: open another wallet's profile disconnected →
+    DONATE SOL → connect → sheet → 0.002 → SEND → SENT + explorer link; check both balances on-chain. Try 2,
+    1e-10 and more than the balance → refused, no signature. Own profile → no button. Leaderboard tag → card →
+    DONATE → card closes, sheet opens for that player.
 
 ---
 
@@ -800,4 +950,6 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 | Date | Change |
 | --- | --- |
 | 2026-10-13 | Initial spec from the refined card (#186) + code exploration of both repos. Spec-level decisions 17–20 added (wire contract, no cutover floor on trophies, streamer play bets never count, self-exclusion enforced at the card). |
+| 2026-10-13 | Color profile (owner, during /monkify-implement-feature, short mode): first preview judged too dark → brighter look + 8 preset themes set in SETTINGS (signed), wallet-hashed default, shown on page, card, race tile and LV badge. `Player.ProfileTheme` column + migration (§4, §6.9), `themes` on the levels read, decisions 29–36, §7.7, AC 18–21, integration step 5. |
+| 2026-10-13 | Owner feedback on the real screen: RECORD leads with GAMBLED · WON · BETS, NET is a plain card (page and mini card); SETTINGS drops "Use my default"; the profile header is toned down (neutral panel, faint tint — the theme stays on the stripe, tile and badge). **Donations pulled into V1** (decisions 37–41, §7.8, AC 22–23, QA step 10): direct wallet-signed SOL transfer, everyone can receive, front only, presets + custom ≤ 1 SOL. |
 | 2026-10-13 | Folded in #206 Levelling system (owner, short mode): gamble-race basis all-time + cutover floor, geometric curve fitted to the SolPump example (L120 ≈ 1M SOL, cap 200), badge on every tag via a batched `GET /players/levels`, level + progress on page and card. Decisions 21–28, §6.8, AC 14–17, tests, QA step 9. |
