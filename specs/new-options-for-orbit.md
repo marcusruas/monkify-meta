@@ -252,12 +252,13 @@ created after it), so a refund arriving after a fresh START **never** decrements
 
 `SpaceStroker.Infrastructure/Services/Orbit/OrbitSoloAutoBetService.cs`, `RunOnce` (`:70-336`):
 
-1. **Effective stake** (`:131`): replace `enrollment.Stake ?? parameters.RequiredAmount` with
-   `OrbitRunStake.Effective(enrollment, parameters)`. ⚠️ **Blocker fixed:** `StakeIsWithinBounds`
-   (`:132-137`, helper `:383-385`) silently idles the loop (log only, no reschedule, no push) for a stake
-   above `MaximumStake`, which a raw compounded stake would hit. Because `Effective` clamps, the check only
-   trips on a null ceiling (fail closed, unchanged) or a config change that lowered `RequiredAmount` above a
-   stored base, and both are already static refusals.
+1. **Effective stake** (`:131`): keep the shipped static refusal on the **base** stake
+   (`enrollment.Stake ?? parameters.RequiredAmount` through `StakeIsWithinBounds`, `:132-137`): a base out of the
+   type's current bounds (a config change) or a null ceiling still logs and idles the loop. The #200 rule "never
+   clamped or resized silently" stands. Only **after** the base passes, stake
+   `OrbitRunStake.Effective(enrollment, parameters)`, which clamps the **stepped** `RunNextStake` (decision 9).
+   ⚠️ Without the clamp a compounded stake above `MaximumStake` would trip `StakeIsWithinBounds` and silently idle
+   the loop. *(Implementation review: the first cut clamped the base too and was reverted.)*
 2. **Limit** (new static refusal, before the lease next to `:132`): `OrbitRunRules.ReachedLimit(enrollment)`
    ⇒ call `IOrbitRunService.EvaluateRunEnd(playerId)` (§6.6) and return. **This must run before a round is
    opened**: refusing only at the claim would leave an opened, unbet board/duel shell (step 8 `:233-235`).
@@ -296,6 +297,12 @@ predicate, `GetOrbitHandler.cs:186-188`, minus that round), then:
 normal reward path calls this while the round is still `RewardForWinnersInProgress`, so without it the round
 being settled would count as in flight and the run would **never** pause on its Nth bet. The refunded-bet
 exclusion covers a refund whose round is still open.
+
+⚠️ **An open stake claim counts as in flight (added in implementation review).** The slot is taken when
+`ClaimAndDebit` commits, but the bet row only appears after the on-chain transfer and `RegisterBet` (seconds
+later; the Finalized preflight alone is ~13 s). Without this, a run end evaluated in that window (the previous
+round's settlement, or the planner self-heal) would pause the run while its Nth stake is live. The check also
+looks for this player's `BetDebit` claim that is neither linked to a bet nor compensated.
 - `ExecuteUpdate … SET Enabled = false, WaitingForHouseSince = null, UpdatedDate = now WHERE PlayerId = …
   AND Enabled AND RunStartedAt = @runStartedAt`. The `RunStartedAt` predicate stops a stale evaluation from
   pausing a run the player just restarted.
@@ -314,6 +321,7 @@ stake (`OrbitBetSettlementService.cs:240-246`). The step must therefore land fir
 | `RewardGameConsumer` no-winners exit (`:68-80`) | `ApplySettledRound(game.Id)` | **before** `EvaluateOrbitFloors` (`:77`) |
 | `RewardGameConsumer` normal path | `ApplySettledRound(game.Id)` | after bet statuses are written (`:218`), **before** `EvaluateOrbitFloors` (`:267`) |
 | `RefundInvalidBetConsumer` (`:111-121`) | `ReleaseSlot(...)` then `EvaluateRunEnd(playerId)` (the refunded bet is excluded by status) | before the existing `OnAutoRoundSettled` call |
+| `OrbitPlacementPlannerConsumer` (after `PlanPlacements`) | `EvaluateRunEnd(playerId)` for every `Enabled` enrolment of the opened type at its `BetLimit` | **self-heal (added in implementation):** Cosmic Sprint has no other retry for a missed run end; idempotent, isolated, uses the `(GameParametersId, Enabled)` index |
 
 Both are no-ops for a round with no `OrbitAutoPlaced` bet. Guard with the same "any `OrbitAutoPlaced`"
 check `EvaluateOrbitFloors` uses, so ordinary rounds pay nothing extra.
@@ -382,6 +390,10 @@ like `OrbitAutoRound`). Not sent to Telegram.
 - `hooks/useOrbit.ts`: `effectiveStakeFor` (`:900`) returns `orbit.nextStake` when Orbit is enabled on that
   solo type and `nextStake != null`, else today's expression. Then `isPausedForFunds` (`:913-934`),
   `needsFirstDeposit` (`:961-967`) and `hasFundsForRound` judge the **next** stake, as the backend does.
+  ⚠️ **The client auto-park must not end a stake-steps run** (implementation review, owner decision 2026-10-14):
+  judging the next stake makes `isPausedForFunds` true at the normal end of a double-on-loss run, and the old
+  auto-park would send a real pause, so the next START would reset the run, breaking AC 10. On a solo type with
+  stake steps on, auto-park is skipped: Orbit stays Enabled in NEEDS MONEY and a deposit resumes the same run.
 
 ### 7.2 The LET ORBIT PLAY section (mockup C4c)
 
@@ -649,3 +661,5 @@ Extend `OrbitSoloAutoBetFlowTests.cs` (helpers `SeedPausedAsync` `:405-413`, `Pa
 | Date | Change |
 | --- | --- |
 | 2026-10-14 | Initial spec from refined card #208 (short-mode refinement in the same chat, mockup C4c) + code exploration. Code findings folded in: `StakeIsWithinBounds` would silently idle a compounded stake above `MaximumStake` (fixed by clamping in `OrbitRunStake.Effective`); zero-out runs **before** the solo settlement hook, so steps are applied in a new `ApplySettledRound` **before** `EvaluateOrbitFloors`; there is no Lost bet status (loss = `Made` on a settled round); `PlaceOrbitBetConsumer` never re-checks `Enabled` (the claim's conditional increment carries `Enabled`); a solo limit must be refused **before** a round is opened; there is no shared pause method (run-end pause is a conditional `ExecuteUpdate` + claim release); `monkify-front` has no test framework. Spec-level additions: bet-limit cap 10,000, back-to-base stored as a null %, type change keeps the run settings, `runFinished` / `nextStake` DTO fields. |
+| 2026-10-14 | Implementation review: (1) a self-heal in `OrbitPlacementPlannerConsumer` re-evaluates full runs on every `GameOpenedEvent`, because Cosmic Sprint had no retry for a missed run end; (2) `EvaluateRunEnd` treats an open (unlinked, uncompensated) `BetDebit` claim as in flight, which closes the claim-to-bet window that could pause a run before its Nth stake landed. |
+| 2026-10-14 | Final review (owner chose option B): the frontend auto-park skips a solo stake-steps run so AC 10 holds end to end; `ApplySettledRound` steps only from the player's latest auto bet of the run, so a redelivered older settlement can't overwrite `RunNextStake`; §6.5.1 keeps the base-stake static refusal. |
