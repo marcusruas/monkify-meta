@@ -109,7 +109,7 @@ From `monkify-meta/constraints.md` (full list there):
 | 38 | *(owner)* A donation is a **direct wallet-to-wallet SOL transfer the donor's wallet signs** (the shipped `useConnection.sendToken` path, one approval). It never touches the treasury or Orbit; no donating from an Orbit balance. |
 | 39 | *(owner)* **Every available player can receive** — no opt-in switch. Unavailable profiles (house, self-excluded, malformed) have no button because they render the vague state. |
 | 40 | *(owner)* **Front only** — no backend record, endpoint or table; the only receipt is the explorer link. Caps are therefore UI-only (a raw transfer outside the app was never controllable anyway). |
-| 41 | *(owner)* Amounts: presets **0.01 / 0.05 / 0.1 / 0.5 SOL** + a custom field, **min 0.001, max 1 SOL per donation**, then a confirm step that says the donation is final and non-refundable. *(spec)* Refused before signing: no wallet (→ connect flow, then the sheet), donating to yourself, an active self-exclusion of the donor, a phone wallet-app session (same honest "not supported yet" as joining a Duel), an amount outside the bounds or finer than 9 decimals, more than the wallet balance. A confirmation timeout is never reported as a failure (the money most likely moved). |
+| 41 | *(owner)* Amounts: presets **0.01 / 0.05 / 0.1 / 0.5 SOL** + a custom field, **min 0.001, max 1 SOL per donation**, then a confirm step that says the donation is final and non-refundable. *(spec)* Refused before signing: no wallet (→ connect flow, then the sheet), donating to yourself, an active self-exclusion of the donor, an amount outside the bounds or finer than 9 decimals, more than the wallet balance. A confirmation timeout is never reported as a failure (the money most likely moved). *(owner, 2026-10-13)* **Every wallet path can donate**, the same two a paid bet has: an in-page wallet (desktop extension or the wallet app's own browser) signs through `sendToken`; a phone browser connected through the wallet-app deeplink hops to the wallet app (signAllTransactions) and the app broadcasts on return. |
 
 ---
 
@@ -609,6 +609,13 @@ never tappable — it has no wallet.
   SOL mark — never the amber CTA or the player's theme (owner, 2026-10-13). Profile
   hero: **DONATE SOL** (`lg`, full width on phones). Mini card: **DONATE** (`sm`) next to VIEW FULL PROFILE; it
   closes the card and opens the sheet. Neither shows on your own profile/card.
+- **Phone browser + wallet-app session** (`useMobileWallet` deeplink): `useDonate` builds the unsigned transfer, stashes a
+  `MobilePendingDonation` (`swMobileWalletPendingDonation`) and hops via `signMobileDonation`. The bet and donation
+  stashes are **mutually exclusive** (each hop clears the other — both return as signAllTransactions, so the stash is
+  the only discriminator). `useGame.handleMobileDeeplinkReturn` runs `useDonate().resumeDonationDeeplink` before the
+  paid-bet arm: it reopens the sheet (SENDING → CONFIRMING ON SOLANA… → SENT), broadcasts with
+  `broadcastSignedTransaction`, confirms, debits the header balance. An `errorCode` return reopens the sheet with
+  "Cancelled in your wallet. No SOL was sent." A slow approval (expired blockhash) says nothing was sent.
 - Not covered (owner's call): streamer wallets look like ordinary profiles to the front, so they can be sent
   donations too; the Terms have no donation clause yet.
 
@@ -901,8 +908,9 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
     pick an amount (presets or 0.001–1 SOL) and confirm, then their wallet signs one plain SOL transfer
     straight to that player and the sheet shows SENT with the explorer link; no DONATE on your own profile/card
     or on an unavailable one.
-23. *(donations)* Given no wallet, a self-excluded donor, a phone wallet-app session, an out-of-range amount or
-    more than the wallet balance, when they try to donate, then it is refused before anything is signed.
+23. *(donations)* Given no wallet, a self-excluded donor, an out-of-range amount or more than the wallet balance,
+    when they try to donate, then it is refused before anything is signed. Given a phone browser connected through
+    the wallet app, then DONATE hops to the wallet app to sign and returns to SENT (or "Cancelled", nothing sent).
 
 ---
 
@@ -929,7 +937,10 @@ Modelled on `PlayerStatsFlowTests` (`SeedIsolatedTypeAsync` → `SeedWaitingBets
 10. *(donations)* With a funded devnet keypair in a fake Phantom: open another wallet's profile disconnected →
     DONATE SOL → connect → sheet → 0.002 → SEND → SENT + explorer link; check both balances on-chain. Try 2,
     1e-10 and more than the balance → refused, no signature. Own profile → no button. Leaderboard tag → card →
-    DONATE → card closes, sheet opens for that player.
+    DONATE → card closes, sheet opens for that player. Phone deeplink path: plant a `swMobileWalletSession` with a
+    known shared secret for the funded keypair, donate → the page hops to `phantom.com/ul/v1/signAllTransactions`;
+    decrypt the payload, sign the transfer with the keypair, encrypt `{transactions:[signed]}` and load the
+    `redirect_link` with `nonce` + `data` → SENT, balances move; `?errorCode=4001` → "Cancelled", stash cleared.
 
 ---
 
