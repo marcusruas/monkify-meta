@@ -481,6 +481,9 @@ A second spender of the custody balance: the player, by hand, on any paid type. 
   pushes `{ gameTypeId, roundId, waitingForHouse }` (camelCase JSON string) from Consumers through
   `IHubContext<ActiveGamesHub>` when it opens an auto round (before placing, so the game screen can attach)
   and when it enters "waiting for the house". Never sent to Telegram.
+- **`OrbitRunFinished`** (#208, `GameSettings.OrbitRunFinishedEndpoint`) rides the same group the same way:
+  `OrbitRunService` pushes `{ gameTypeId, gameTypeName, betsPlaced }` from Consumers when a run reaches its
+  bet limit and the enrolment is paused. Never sent to Telegram (a pause moves no money).
 - **Telegram (`ITelegramNotifier`) is an outbound-only integration with no poller and no webhook.**
   Linking is a `t.me/<bot>?start=<code>` deep link plus a VERIFY press making **one** `getUpdates`
   call; the link code and the read offset live in **Redis**, and the offset advances only on a match.

@@ -1,6 +1,15 @@
 # SpaceStroker — "Orbit bet count & stake steps" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped 2026-10-16** — `feature/new-options-for-orbit` merged to `main` in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled in [`../features/new-options-for-orbit.md`](../features/new-options-for-orbit.md).
+> ⚠️ **As built, the code departs from this body in these places (the code wins):**
+> - The read-back sentence was shortened to **one line** in QA (AC19, no scroll): *"20 bets, then pause. Loss: doubles · Win: back to 0.010."* — not §7.2's two-sentence wording.
+> - START **never reads RESUME** while a bet limit or stake steps are set (a START always begins a fresh run), not only after `runFinished` (§7.2).
+> - Changing `BetLimit` on a **paused** enrolment also resets `RunBetsPlaced` (not in §6.2): the counter counts with no limit too.
+> - `EvaluateRunEnd`'s in-flight bet check is **scoped to the current run** (`CreatedDate >= RunStartedAt`), like the open-claim check (§6.6).
+> - Run-state writes go through a new `IOrbitRunStore` / `OrbitRunStore` (EF in-memory cannot `ExecuteUpdate`); NEEDS MONEY on a stepped run reads *"Bet X / N · needs {stake} to go on"* and its toast says Orbit is **waiting** and carries on after a deposit.
+>
+> *Original status:* **Ready for implementation** — refined via Trello card
 > [#208 New options for orbit](https://trello.com/c/CvQ6kWlQ) (2026-10-14).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/new-options-for-orbit` → `.worktrees/new-options-for-orbit/<repo>`.

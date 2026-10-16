@@ -119,8 +119,10 @@ flight when the wallet is registered still settles to custody normally.
   `BetDebit` claim index does **not** bound this: it only exists after `ClaimAndDebit`, so every
   pre-claim failure (no chosen word, low SOL, no committed seed, no free choice) would loop.
 - **Eligible** = enrolment `Enabled`, `GameParametersId` matches the round's type, **not**
-  self-excluded, and the pool balance covers `RequiredAmount` (on a solo type: the effective stake,
-  `Stake ?? RequiredAmount`, against both the settled and the spendable balance). ⚠️ **A player who already has a bet in
+  self-excluded, the run has not reached its **bet limit** (#208), and the pool balance covers
+  `RequiredAmount` (on a solo type: the effective stake, `OrbitRunStake.Effective` = the stepped
+  `RunNextStake ?? Stake ?? RequiredAmount` clamped to the type's bounds, against both the settled and the
+  spendable balance). ⚠️ **A player who already has a bet in
   the round is excluded** — Orbit gets no exemption from the one-bet-per-round rules.
 - ⚠️ **A `ComingSoon` game type is never Orbit-eligible** (see [`games.md`](games.md) §19). Three reads
   enforce it: `GetOrbitHandler` drops it from `eligibleGameTypes` (that is what shapes the UI),
@@ -176,8 +178,8 @@ and `useOrbit().loadHistory` has no caller.
 win or loss never triggers an automatic cash-out: `OrbitBetSettlementService.CreditWin` evaluates the
 threshold (and publishes the win notification) only for an `OrbitAutoPlaced` bet, and
 `RewardGameConsumer.EvaluateOrbitFloors` only looks at players with an auto bet in the round. Every
-place these settings appear says so (*"These rules only watch auto-bets…"*, *"AUTO CASHOUT — AUTO-BETS
-ONLY"*).
+place these settings appear says so (*"These rules only watch auto-bets…"*; since #208 the old *"AUTO CASHOUT —
+AUTO-BETS ONLY"* eyebrow gave way to the rules tabs, and its note rides in the fields' info tips).
 
 ⚠️ **An Enabled enrolment blocks manual play on that type.** While auto-bet is `Enabled` on a game type,
 every manual bet by that player on it, wallet **or** Orbit-paid, is refused with *"Orbit is
@@ -200,6 +202,14 @@ candidate) and `CashOutFloorStoppedPlayers` (`Amount < CashOutFloor` ⇒ send it
 stake sizes the game actually runs, landing exactly on the floor is the rare case and setting a floor
 you are already at is the common one.
 
+⚠️ **A fourth way auto-bet stops by itself: the bet count** (#208, 2026-10-16). A run = one START; with a
+**bet limit** N set, Orbit **pauses** (`Enabled = false`, money stays in custody) once N auto bets of the run
+have settled. It does **not** switch threshold / floor off — whichever fires first wins. On Monkey Duel and
+Hyper Roll the run can also **step the stake** after each win / loss (back to base, or raise by X%, clamped
+at `MaximumStake`). The slot is taken in `OrbitStakePlacer.ClaimAndDebit`, so even Cosmic Sprint's early
+successor-round placement can never exceed N. Full rules in
+[`new-options-for-orbit.md`](new-options-for-orbit.md).
+
 ## 4. Notifications
 
 Orbit bets and settles with nobody watching, so until the third card nothing told the player — a win
@@ -212,6 +222,8 @@ never asked for, was **silent**.
 - **Telegram messages when money leaves custody** — every cash-out, linked with **no poller and no
   webhook**. Per-event toggles.
 - An honest **"paused" state** when Orbit stops betting for lack of funds.
+- An in-app toast when a run **finishes its bet count** (`OrbitRunFinished`, #208) — **never Telegram**,
+  because a pause moves no money.
 - A one-time **invitation into Orbit** for a first-time winner.
 
 ## 5. The player-facing surface
@@ -233,7 +245,9 @@ ORBIT cell) — **no redirect**, an old link hits the catch-all. Orbit is now:
    pill opens the modal's sign-in view instead — the popup never mints a session.
 2. **The Orbit modal** (`OrbitModal`, mockup **M4**) — ORBIT HOLDS + WALLET HOLDS + status tag, a **jump strip** of
    chips, and collapsible sections: **WALLET** (add money + cash out) · **LET ORBIT PLAY**
-   (game tiles, the chosen game's setup, START / PAUSE AUTO-BET, the auto cash-out rules) · **NOTIFICATIONS** (Telegram, only where a
+   (game tiles, the chosen game's setup, START / PAUSE AUTO-BET, and the rules as two tabs since #208:
+   **WHEN TO CASH OUT** — BALANCE OVER / BALANCE UNDER — and **BETS & STAKE** / **HOW MANY BETS** — the
+   bet count and stake steps, see [`new-options-for-orbit.md`](new-options-for-orbit.md)) · **NOTIFICATIONS** (Telegram, only where a
    bot is configured) · **RECOVER A DEPOSIT**, plus a *How Orbit works* link to `/how-to-play#orbit`.
 
 ⚠️ **ONE SECTION OPEN AT A TIME, and the modal is PINNED** (owner, after the first local test): no
@@ -246,8 +260,8 @@ never re-centres or resizes it upward.
 ⚠️ **The auto-bet section picks its game with tiles** (#200, `OrbitGameTiles`, one per
 `eligibleGameTypes` entry). The selected game is the enrolled type when it is still eligible, else the first
 tile, and pressing a tile while paused sends `PATCH { gameParametersId }`. The game, the stake, the Hyper Roll
-mode and multiplier are **locked while Orbit is enabled** (pause → pick → START); the word and the rules stay
-editable. The auto-pointing at the round on screen and the old "switch guard" stay gone: START sends
+mode and multiplier — and since #208 the bet limit and the stake steps — are **locked while Orbit is enabled**
+(pause → pick → START); the word and the cash-out rules stay editable. The auto-pointing at the round on screen and the old "switch guard" stay gone: START sends
 `{ enabled, gameParametersId }` from **any** page with **no navigation**. With zero eligible types the
 section is hidden. The word still gates the stop rules only — money in and money out never depend on it.
 Per-game fields, the stake plate and *"Waiting for the house…"* are in
@@ -290,10 +304,13 @@ Orbit planning for the same round**), the cash-out job, and `SpaceStroker.Api/Co
 The solo loop (#200): `OrbitSoloAutoBetService`, `OrbitSoloLoopStore`, `HangfireOrbitSoloScheduler`,
 `OrbitSoloRoundConsumer` (its own endpoint), `OrbitSoloAutoBetSweepJob`, `Domain/Orbit/Services/OrbitSoloTypes`,
 `OrbitSlotPicker`, `OrbitSoloRoundState`. See [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
+Run limits & stake steps (#208): `OrbitRunService` / `OrbitRunStore`, `Domain/Orbit/Services/OrbitRunStake` +
+`OrbitRunRules`. See [`new-options-for-orbit.md`](new-options-for-orbit.md).
 
 **Frontend (`monkify-front`)** — `src/components/orbit/OrbitQuickPanel.vue` + `OrbitQuickBody.vue` (popup),
 `OrbitModal.vue` + `OrbitSection.vue` + `OrbitSectionStrip.vue` + `sections/OrbitAutoBetSection.vue`
-(state in `src/hooks/useOrbitAutoBet.ts`; `OrbitGameTiles` / `OrbitStakePlate` / `OrbitMultiplierPicker`) /
+(state in `src/hooks/useOrbitAutoBet.ts`; `OrbitGameTiles` / `OrbitStakePlate` / `OrbitMultiplierPicker` /
+`OrbitRulesTabs` / `OrbitStakeStepRow`) /
 `OrbitNotificationsSection.vue` / `OrbitRecoverSection.vue` (modal), `OrbitDepositControl.vue` / `OrbitCashOutControl.vue` (the shared money
 controls), `src/hooks/useOrbitSections.ts`, `src/hooks/useHeaderModals.ts`, `src/hooks/useOrbit.ts`,
 `src/services/orbitService.ts`, and `ArcadeModal`'s `pinned` option — all behind `orbitEnabled`. Design
