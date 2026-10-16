@@ -192,6 +192,8 @@ or card. The home page keeps only a compact strip of the player's own record.
 - A **direct wallet-to-wallet SOL transfer the donor's wallet signs** — never the treasury, never Orbit, no
   backend record, endpoint or table; the explorer link is the only receipt. Every available player can
   receive (no opt-in); streamer wallets look ordinary and can receive too.
+- Three entry points open the one sheet (`requestDonate`): the profile hero, the mini card, and (since
+  2026-10-16) every row of the partner's YOUR PLAYERS roster ([`partner-player-roster.md`](partner-player-roster.md)).
 - Presets **0.01 / 0.05 / 0.1 / 0.5 SOL** or custom **0.001–1 SOL** (≤ 9 decimals), then a confirm step that
   says it is final and non-refundable, then SENT + explorer link. Exact amounts, never truncated.
 - Refused **before anything is signed**: no wallet (→ connect, then the sheet), donating to yourself, an active
