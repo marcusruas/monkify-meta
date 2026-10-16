@@ -39,6 +39,11 @@ the Orbit card → how-it-works → provably fair → **the community panel**.
 - ⚠️ **The token card was not in the owner's list** (it renders nothing without a mint, so it is invisible
   locally). It keeps the slot its own decision gave it — directly after the games — rather than being
   moved or dropped by omission. Confirm with the owner if it should move.
+- **The player's own record is a compact strip since #186** (`HomePlayerStats.vue`, connected only):
+  "YOUR RECORD" over the player's own tag, then rounds · win rate · best streak and **Full profile →**
+  (`/player/{wallet}`), themed in their color profile. Net, gambled, won, biggest win and most played moved
+  to the public profile page — see [`player-profile.md`](player-profile.md). `HomeHero`'s use of the stats
+  (new vs returning, "Play <usual game>") is unchanged.
 - **The partner card** is the same for every visitor and carries no figures — see
   [`partner-self-registration.md`](partner-self-registration.md).
 - **The community panel** (`HomeCommunity.vue`, "JOIN THE GANG") is the app's first set of links to the

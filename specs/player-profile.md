@@ -1,6 +1,19 @@
 # SpaceStroker — "Profile V1" (public player profile + player tags) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-16, `feature/player-profile`)** — distilled in
+> [`../features/player-profile.md`](../features/player-profile.md). ⚠️ **Post-ship drift — the code wins**
+> (front `8a55dfc`, owner's call 2026-10-16): **(1)** there is **no 9th ☰ PROFILE cell** (decision 2, §7.6,
+> AC 2, AC 13) — a header **profile card** (`header/ProfileCard.vue`: avatar in the player's theme + `LV`
+> badge, no name) replaced the ☰ glyph, and the menu opens with an identity block (`ProfileMenuHead.vue`:
+> name, level bar, link to your profile, wallet + Orbit balance rows, Connect wallet when signed out); the
+> grid stays eight cells, now 4×2, with a DISCONNECT button at the foot. The wallet pill's **My profile**
+> entry shipped as specified. **(2)** The header bar shows **one** balance at every width (Orbit pill while
+> Orbit holds money, else the wallet pill; the other collapses), and Orbit's popup and modal gained a
+> **WALLET HOLDS** card — not in this spec. **(3)** DONATE works on the phone wallet-app deeplink path too
+> (§7.8, decision 41) and the duel recent-round thumbnail is a CSS red/blue "VS" split. Everything else
+> matches the body.
+>
+> *Original status: Ready for implementation* — refined via Trello card
 > [#186 Profile V1 — public player profile + player tags (move personal stats here)](https://trello.com/c/cF0gPauc/186-profile-v1-public-player-profile-player-tags-move-personal-stats-here)
 > (refined 2026-10-12, spec 2026-10-13), **plus** [#206 Levelling system](https://trello.com/c/b4U9FiVd/206-levelling-system)
 > folded in on 2026-10-13 (§6.8, decisions 21–28).

@@ -132,7 +132,18 @@ newest first, public. Rendered at `/game/history`.
   this endpoint is page-number addressed.
 - **Verify is link-out only.** The per-row button fetches the round's payload from
   `GET /games/{id}/verification`, copies + downloads the JSON, and points at `public/verify.html`. There
-  is **no in-app replay on the history page** — see [`provably-fair.md`](provably-fair.md).
+  is **no in-app replay on the history page** — see [`provably-fair.md`](provably-fair.md). The flow lives
+  in `src/utils/verifyRound.ts`, shared with the profile page's recent rounds.
+- The **YOU** label on own-bet rows is the player's own tag (#186): tapping it opens their mini profile card.
+
+## 2b. Personal record and the cross-mode last rounds (#186)
+
+A player's own all-time figures (`GET /players/stats`: rounds, bets, win rate, best streak, most played,
+biggest win + multiplier, gambled, won, net) are shown on the **public profile page** `/player/:wallet`, for
+any wallet; home keeps only rounds · win rate · best streak. The profile also lists the **last 10 completed
+rounds across all modes** (one row per round, winning bet else earliest — the same rule as the own-bet
+columns above) and the cosmetic **level** from Σ paid stake since the SOL cutover. Its trophies are **not**
+floored at the cutover; every money figure still is. See [`player-profile.md`](player-profile.md).
 
 ## 3. Where these live in the UI
 
@@ -143,7 +154,7 @@ newest first, public. Rendered at `/game/history`.
   badge** at the top from the global read's `commissionPercentage` — shown **once for the whole page**,
   not per section. See [`money.md`](money.md).
 - **Both are hidden when embedded** (`useEmbed().isEmbedded`) — see [`embedding.md`](embedding.md).
-- The header menu is a **3-column icon pad**, not a list of rows; the embed renders **the same grid**
+- The header menu is a **4-column icon pad** under an identity head, not a list of rows; the embed renders **the same grid**
   with its two survivors (History + Settings), not an alternate layout. See
   [`frontend-ux.md`](frontend-ux.md).
 
