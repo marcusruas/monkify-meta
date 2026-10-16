@@ -293,6 +293,18 @@
   entry per HTTP request (`httpRequest.requestMethod`/`status`/`latency`), emitted by the platform, not
   the app. Silencing those needs a Cloud Logging exclusion filter, not a code change.
 
+## Validating a wallet string — `WalletAddress.IsValid` (#186)
+
+- Use `SpaceStroker.Infrastructure/Services/Players/WalletAddress.IsValid` for any new "is this a Solana
+  public key" check. ⚠️ A bare `try { new PublicKey(w) } catch` is **not enough**: Solnet accepts any base58
+  string (`"bad"` decodes), so the helper also requires a **32-byte** key. Three older private try/catch
+  copies predate it and were left as they are.
+- Integration tests that hit a wallet-validated read must use **real keypairs**
+  (`new Account().PublicKey.Key`), not `stats-{run}-rabbit`-style strings.
+- Public reads keyed on an arbitrary wallet follow the profile/levels shape: invalid and house wallets
+  produce the **same** empty/unavailable answer as an unknown one (HTTP 200, no reason), and only wallets
+  with a `Player` row — or a bounded, capped input — are cached, so a caller cannot mint cache keys.
+
 ## `ErrorMessages.resx` values are player-facing verbatim
 
 Since #158 the frontend renders `ApiResult.messages[].value` **exactly as written** — there is no

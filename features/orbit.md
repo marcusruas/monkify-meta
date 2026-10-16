@@ -223,11 +223,15 @@ collapsed them**: ⚠️ **the `/orbit` page is GONE** (route, `OrbitPage.vue`, 
 ORBIT cell) — **no redirect**, an old link hits the catch-all. Orbit is now:
 
 1. **The quick popup** (`OrbitQuickPanel` + `OrbitQuickBody`, owner-picked mockup **P1**) — what a
-   **signed-in** player gets from the header pill: ORBIT HOLDS + the status tag, **ADD MONEY**, **CASH
-   OUT** (full or partial) and **MORE OPTIONS** → the modal. No auto-bet control. Anchored under the pill
+   **signed-in** player gets from the header pill: the status tag on its own row, then **ORBIT HOLDS**
+   and an amber **WALLET HOLDS** card side by side (wallet icon, white amount — `OrbitStatusBanner`
+   `walletLabel`), **ADD MONEY**, **CASH OUT** (full or partial) and **MORE OPTIONS** → the modal. The
+   wallet card is there because since #186 the header bar shows **one** balance: while Orbit holds money
+   the wallet pill is hidden, and with an empty Orbit the Orbit pill folds to its icon square
+   ([`frontend-ux.md`](frontend-ux.md)). No auto-bet control. Anchored under the pill
    from `lg` up (outside click / Esc close it), an `ArcadeModal` bottom sheet below `lg`. Signed out, the
    pill opens the modal's sign-in view instead — the popup never mints a session.
-2. **The Orbit modal** (`OrbitModal`, mockup **M4**) — ORBIT HOLDS + status tag, a **jump strip** of
+2. **The Orbit modal** (`OrbitModal`, mockup **M4**) — ORBIT HOLDS + WALLET HOLDS + status tag, a **jump strip** of
    chips, and collapsible sections: **WALLET** (add money + cash out) · **LET ORBIT PLAY**
    (game tiles, the chosen game's setup, START / PAUSE AUTO-BET, the auto cash-out rules) · **NOTIFICATIONS** (Telegram, only where a
    bot is configured) · **RECOVER A DEPOSIT**, plus a *How Orbit works* link to `/how-to-play#orbit`.

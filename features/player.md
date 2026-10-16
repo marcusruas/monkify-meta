@@ -40,7 +40,10 @@ filtering, per-round bet limits and self-exclusion off. **Anonymous free bets de
   attribution by days, so `CreatedDate` is not the acquisition date. See
   [`referral-program.md`](referral-program.md).
   so an expiry needs no scheduled job. See [`legal.md`](legal.md).
-- **API/DTOs:** bet responses and SignalR events expose `externalPlayerId` (nullable).
+- **API/DTOs:** bet responses and SignalR events expose `externalPlayerId` (nullable) and, since #186,
+  `isHouse` (true when the bettor is a configured house wallet — read from config, not a column). Every
+  player name in the live surfaces renders through a tappable player tag that opens a mini profile card —
+  see [`player-profile.md`](player-profile.md).
 
 ⚠️ **Two bugs this area has produced twice — both in `GameService.InsertBet`.** It detaches `bet.Game`
 and `bet.Player` before `AddAsync` so EF does not re-insert a persisted graph:
@@ -66,25 +69,39 @@ Display names render wherever players are identified — the own `YOU` label, re
   The handler verifies the signature against the claimed wallet and consumes the nonce. A signature from
   a different keypair, an unsigned body, or a replayed nonce is rejected.
 - ⚠️ **The canonical message is a shared contract.** `UpdatePlayerPreferencesHandler.BuildMessage(wallet,
-  displayName, nonce)` and the frontend's `usePlayerPreferences.ts` must produce **byte-identical**
+  displayName, nonce)` and the frontend's `useDisplayNameSigning.ts` must produce **byte-identical**
   strings; the integration test deliberately calls the handler's own helper to pin this.
 - **The nonce is purpose-scoped**, so a challenge minted for `preferences` cannot be replayed against
   `self-exclusion`, which uses the same mechanism.
 - **A display name may also ride along on a register-bet body** — safe, because that request already
   proves wallet control by carrying a confirmed on-chain transfer from it.
 - **`GET /players/preferences?wallet=<pubkey>` is public and unsigned** (reading a public wallet's chosen
-  nickname discloses nothing). Returns `{ externalPlayerId, displayName }`; `displayName` is `null` when
-  no `Player` row exists, and **no row is created on read**.
-- **No EF migration** — reuses the existing `Player.DisplayName` column.
+  nickname discloses nothing). Returns `{ externalPlayerId, displayName, profileTheme }` (plus the
+  self-exclusion fields); `displayName` / `profileTheme` are `null` when no `Player` row exists, and **no
+  row is created on read**.
+- The name lives in the existing `Player.DisplayName` column.
+
+### Color profile on the same write (#186)
+
+- `Player.ProfileTheme` (`string?`, max 20; migration `AddPlayerProfileTheme`) holds one of 8 preset keys
+  (`amber comet nebula toxic ocean aurora sunset solar`) or `null` = never picked (the front derives a
+  default from the wallet). The PATCH body's `profileTheme`: null = unchanged, `"default"` = clear, a key =
+  set, anything else = the generic validation failure. A theme-only save (no `displayName`) is allowed.
+- ⚠️ **A save that carries a theme signs a different message** — `BuildProfileMessage(wallet, displayName ??
+  "", theme, nonce)` = `Space Stroker profile` / `Wallet:` / `Display name:` / `Theme:` / `Nonce:` lines. A
+  name-only save still signs `BuildMessage` byte-for-byte, so a name signature can never set a theme. Same
+  nonce purpose (`preferences`). The front twin is `buildProfileMessage` in `useDisplayNameSigning.ts`.
+- Full rules (where the theme paints, the levels read that carries it): [`player-profile.md`](player-profile.md).
 
 ## 3. The settings modal
 
-Opened from the header menu button in `GameHeader.vue` (rendered once in `App.vue`, so it is present on
-the lobby and in live play). It holds **three** things, and **only the first is server-backed**:
+Opened from the header menu's SETTINGS cell in `GameHeader.vue` (rendered once in `App.vue`, so it is
+present on the lobby and in live play), and from **EDIT NAME / EDIT THEME** on the owner's profile page.
+It holds **three** things, and **only the first is server-backed**:
 
 | Group | Storage | Notes |
 | --- | --- | --- |
-| **Display name** | `PATCH` (signature-gated) | Shows a "Connect wallet to customize" gate with no wallet |
+| **Display name + COLOR PROFILE** | `PATCH` (signature-gated) | Shows a "Connect wallet to customize" gate with no wallet. The 8-swatch grid opens on the theme in effect (saved pick, else wallet default) and a save sends a theme only when it changed |
 | **Provably-fair client seed** | `localStorage` | Applies instantly, never prompts a signature |
 | **Graphics controls** (light mode + sky density) | `localStorage` | See [`frontend-ux.md`](frontend-ux.md) |
 
@@ -133,13 +150,15 @@ seed and graphics controls are noise at the moment someone just connected to pla
 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Player upsert, identity resolution, duplicate keys |
 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | ⚠️ `InsertBet` capture-then-detach-then-restore |
 | `SpaceStroker.Infrastructure/Handlers/Players/GetWalletNonce/` | Purpose-scoped challenge |
-| `.../Players/GetPlayerPreferences/` · `.../UpdatePlayerPreferences/` | Read; `BuildMessage` + ed25519 verify |
+| `.../Players/GetPlayerPreferences/` · `.../UpdatePlayerPreferences/` | Read; `BuildMessage` / `BuildProfileMessage` + ed25519 verify |
+| `SpaceStroker.Domain/Players/ProfileThemes.cs` | The 8 theme keys |
 | `SpaceStroker.Api/Controllers/PlayersController.cs` | `GET /players/nonce`, `GET`/`PATCH /players/preferences` |
 | `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs` · `BetNotificationEvent` | `DisplayName`, `ExternalPlayerId` |
 
 **Frontend (`monkify-front`)** — `src/components/header/PlayerCustomizationModal.vue`,
 `src/components/header/DisplayNamePrompt.vue`, `src/hooks/useDisplayNamePrompt.ts`,
-`src/hooks/usePlayerPreferences.ts` (nonce → canonical message → sign → PATCH),
+`src/hooks/usePlayerPreferences.ts` (shared name / theme state), `src/hooks/useDisplayNameSigning.ts`
+(nonce → canonical message → sign → PATCH), `src/constants/profileThemes.ts`,
 `src/App.vue` (`isPlayerRoute()`, `refreshPreferences()`), `src/services/mainService.ts`,
 `src/components/game/GameTerminal.vue`, `src/types/index.ts`.
 

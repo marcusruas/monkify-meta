@@ -658,7 +658,8 @@
   ⚠️ **`/soon` is gone** (#129 — practice mode was that placeholder's last consumer); a bookmarked
   `/soon` now falls through the generic catch-all to `/error`.
   **Embedded redirects live in ONE place** — `main.ts`'s existing `beforeEach` reads a single
-  `EMBED_REDIRECT_ROUTES` set (`Home`, `HowToPlay`, `ResponsibleGaming`, `Practice`) and returns
+  `EMBED_REDIRECT_ROUTES` set (`Home`, `HowToPlay`, `ResponsibleGaming`, `Practice`, `Partner`,
+  `Leaderboard`, `Player`) and returns
   `GameLobby`, so
   the rules cannot drift apart. It is registered **before** the analytics `afterEach`, so a framed load
   never counts as a pageview and the component never mounts at all. ⚠️ **Neither new route is an
@@ -1107,6 +1108,23 @@ shipped as a real bug (#149): the root element painted DaisyUI's `base-100` (`#2
   giving `<body>` a `min-height`.
 - The same specificity trap applies to any other bare-element override of a DaisyUI base rule
   (`color` on `html`, etc.). Check the computed value in DevTools rather than assuming your rule won.
+
+## Player names render through `PlayerTag` (#186)
+
+- **Any new surface that names a player uses `components/player/PlayerTag.vue`**, never its own label code:
+  pass `wallet` (+ `displayName`, `you` / `youLabel`, `house` / `houseLabel`). The tag owns the fallback
+  (`publicName`: name → 4…4 wallet → `ANON`), tappability (real wallet, not house, not embedded), the
+  `@click.stop` that keeps it from triggering a parent card's click, and the `LV n` badge.
+- **Per-player decorations come from ONE batched store, not from new payload fields.** `usePlayerLevels`
+  collects the wallets tags ask for, flushes once per ~50 ms tick in chunks of 50 to `GET /players/levels`,
+  keeps a 60 s TTL and swallows failures (a missing badge is the failure mode, never a toast). Adding a
+  per-player cosmetic means extending that read (as the color-profile `themes` map did), not adding a field
+  to bet / duel / leaderboard DTOs or a `SUM` to the bet hot path.
+- **The mini card is mounted once** (`PlayerCard` in `App.vue`, opened through the `usePlayerCard`
+  singleton): a teleported popover from `lg` up (race cards are `overflow:hidden` and the cabinet uses CSS
+  zoom), an `ArcadeModal` bottom sheet below — the `OrbitQuickPanel` two-shells-one-body pattern.
+- **Identity is `useMobileWallet().effectivePublicKey`** (desktop + phone deeplink sessions), never
+  `useWallet().publicKey`.
 
 ## Icons — one registry, two grids, always decorative
 

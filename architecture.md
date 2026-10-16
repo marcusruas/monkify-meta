@@ -178,6 +178,9 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 - **Wallet-proof nonces:** `WalletNonce:{purpose}:{wallet}`, 5-minute TTL, single use — the challenge
   behind the signature-gated `PATCH /players/preferences` and `POST /players/self-exclusion`. The
   purpose segment is what stops a nonce minted for one flow being replayed against the other.
+- **Player profile reads (#186):** `PlayerProfile:{wallet}` (60 s; only wallets with a `Player` row; name,
+  theme and self-exclusion read live on every request) and `PlayerLevel:{wallet}` (60 s, `{ Level, Theme }`,
+  dropped on a theme save).
 - Redis is also the **SignalR backplane** (`AddStackExchangeRedis`) so hub messages fan out across
   instances.
 
@@ -653,6 +656,8 @@ another operator means **deploying the app again with a different `spacestrokers
   went with the launch token; terminal failures still reach `/error` by their own paths.) Endpoints:
   `GET /games/active-types`, `GET /games/{id}`, `POST /games/{id}/bets`, `GET /players/nonce`,
   `GET /players/preferences`, `PATCH /players/preferences`, `POST /players/self-exclusion`,
+  `GET /players/stats`, `GET /players/profile` and the batched `GET /players/levels` (#186 — see
+  `features/player-profile.md`),
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds
@@ -661,12 +666,19 @@ another operator means **deploying the app again with a different `spacestrokers
   `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
   `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`
   `JoinDuelBoard`/`LeaveDuelBoard` channel `{gameTypeId}/DuelBoard` (see `features/monkey-duel.md`).
-- **Player customization:** a **menu button** in `GameHeader.vue` holds **Settings** (opens
-  `PlayerCustomizationModal.vue` — display name only), **Stats** (the Stats page), **Fair** (the
-  fairness modal) and **History** (the Games History page); Stats + Fair are hidden when embedded.
-  Audio (mute/volume) and the wallet cluster stay directly on the header. Saving the display name runs
-  the wallet-proof flow (fetch nonce → sign the canonical message → PATCH), so the modal shows a
-  "Connect wallet to customize" gate with no wallet. **Amounts are token-native everywhere** — there is
+- **Player customization:** the header menu (opened by the **profile card** that replaced the ☰ glyph
+  in #186) is headed by the player's identity block — a link to their own `/player/:wallet` — and holds
+  **Settings** (opens `PlayerCustomizationModal.vue` — display name + color profile), **Stats** (the Stats
+  page), **Fair** (the fairness modal), **History** (the Games History page) and the other destinations;
+  Stats + Fair are hidden when embedded. Audio (mute/volume) and the wallet cluster stay directly on the
+  header, which shows **one** balance (the Orbit pill while Orbit holds money, else the wallet pill).
+  Saving the name or theme runs the wallet-proof flow (fetch nonce → sign the canonical message → PATCH),
+  so the modal shows a "Connect wallet to customize" gate with no wallet.
+- **Player profiles (#186):** `/player/:wallet` (`PlayerProfilePage.vue`) is public for any wallet and
+  reads `GET /players/profile` + `GET /players/stats`; every live player name is a `PlayerTag` that opens
+  the one mini `PlayerCard` mounted in `App.vue`; level badges and color profiles for all visible tags come
+  from one batched `GET /players/levels` (≤ 50 wallets, 60 s cache). Donations are a front-only
+  wallet-signed SOL transfer — no backend. See `features/player-profile.md`. **Amounts are token-native everywhere** — there is
   no preferred display currency and no FX conversion. See `features/player-customization-modal.md`
   and `features/games-history.md`.
 - **Games history:** `GameHistoryPage.vue` at `/game/history` (route `GameHistory`,
