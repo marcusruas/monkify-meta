@@ -384,8 +384,8 @@ branch of `DependencyInjection.cs`. Global + DM share the budget.
 - **Route:** `GET /chat/staff` (anonymous, `GetChatStaffHandler`, config only) →
   `{ admins: string[], moderators: string[] }`: blanks dropped, trimmed, deduped (ordinal — base58 is
   case-sensitive), a wallet in both lists kept only as an admin.
-- **Client:** `useStaffRoles` fetches it once per load; `StaffBadge.vue` shows **ADM** (magenta) / **MOD**
-  (cyan) beside the name on global chat lines, the DM conversation rows and thread header, and the profile
+- **Client:** `useStaffRoles` fetches it once per load; `StaffBadge.vue` shows **ADM** (yellow) / **MOD**
+  (red) beside the name on global chat lines, the DM conversation rows and thread header, and the profile
   hero (`size="lg"`). Resolved client-side like the level square, so a config change also badges older
   messages. **Display only** — the badge grants no powers (moderation stays on the `AdminToken`).
 - **Tests:** `GetChatStaffHandlerTests` (lists returned, empty default, admin wins, blanks/trim/dedupe,
