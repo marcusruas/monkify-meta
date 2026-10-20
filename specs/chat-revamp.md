@@ -475,7 +475,7 @@ re-authenticating), reset DM state.
   340px column** under the header (`z-furniture`), **not a modal** — no backdrop, scroll lock or focus
   trap, so the page stays usable while chatting. It publishes `--chat-dock-w` on `<html>` and `<main>`
   (`.chat-dock-aware`) pads by it, so the page reflows instead of being covered. Collapses to a 48px rail
-  (unread count + expand); open/collapsed is remembered in `localStorage` (`ss_chat_dock`, desktop only);
+  (unread count + expand); it **opens on every desktop page load** (owner, 2026-10-20 — mobile starts closed, and narrowing below `lg` closes it);
   the header button toggles it; in-chat profile links keep it open (`dismissForNavigation` closes only the
   mobile sheet); a collapsed column does not count as "thread on screen" for DM read state. Mobile
   (`useIsMobile`): full-screen modal sheet (`useOverlayStack`, `useFocusTrap`, `useBodyScrollLock`).
@@ -728,3 +728,4 @@ Replace `GameChatTests.cs` with `ChatFlowTests.cs`:
 | 2026-10-19 | Initial spec from the refined card + same-chat refinement; code exploration added decisions #13–#15 (token separation, client-resolved level, Player row at mint) and the hub-rebind / app-wide-start / mobile-hop frontend findings. |
 | 2026-10-20 | Owner QA: the modal drawer blocked betting while chat was open. Desktop chat is now a docked, non-modal column that pushes the page (Claude Design option 1a), with a collapsible rail; mobile keeps the full-screen sheet (§7.4). |
 | 2026-10-20 | Owner QA: two chats on the game screen. Removed the game's own chat panel (desktop cabinet + mobile CHAT segment); the docked GLOBAL \| DMs chat is the only one (decision #3, §7.4). |
+| 2026-10-20 | Owner QA: the docked chat opens on every desktop load (no localStorage memory); Edson's GIF now scales with his column (max-height ladder + object-contain) instead of being squeezed by the docked chat. |
