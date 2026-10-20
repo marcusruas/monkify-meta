@@ -471,10 +471,15 @@ re-authenticating), reset DM state.
   icon (new entry in `constants/icons.ts`) + numeric badge `totalUnread` (`99+` cap). Hidden when
   embedded / Practice. Fits the 54px mobile bar.
 - **`components/chat/ChatDrawer.vue`** mounted once in `App.vue` (beside `<player-card/>`),
-  `<Teleport to="#app">` (the header's `backdrop-filter` traps `fixed` children). Desktop: right slide-in
-  panel (~400px, `z-modal`), overlay click / Esc closes (`useOverlayStack`, `useFocusTrap`,
-  `useBodyScrollLock`). Mobile (`useIsMobile`): full-screen. Tabs **GLOBAL | DMs** (DMs tab shows the
-  unread count).
+  `<Teleport to="#app">` (the header's `backdrop-filter` traps `fixed` children). Desktop: a **docked
+  340px column** under the header (`z-furniture`), **not a modal** — no backdrop, scroll lock or focus
+  trap, so the page stays usable while chatting. It publishes `--chat-dock-w` on `<html>` and `<main>`
+  (`.chat-dock-aware`) pads by it, so the page reflows instead of being covered. Collapses to a 48px rail
+  (unread count + expand); open/collapsed is remembered in `localStorage` (`ss_chat_dock`, desktop only);
+  the header button toggles it; in-chat profile links keep it open (`dismissForNavigation` closes only the
+  mobile sheet); a collapsed column does not count as "thread on screen" for DM read state. Mobile
+  (`useIsMobile`): full-screen modal sheet (`useOverlayStack`, `useFocusTrap`, `useBodyScrollLock`).
+  Tabs **GLOBAL | DMs** (DMs tab shows the unread count).
 - **`components/chat/GlobalChatView.vue`** — the message list + composer extracted from
   `GameChatPanel.vue` (keeps the `LV` square / theme / profile link rendering via `usePlayerLevels`), plus:
   room title "GLOBAL CHAT" + "N online"; per-message **reply** action; quote line `↪ name: snippet` (or
@@ -721,3 +726,4 @@ Replace `GameChatTests.cs` with `ChatFlowTests.cs`:
 | Date | Change |
 | --- | --- |
 | 2026-10-19 | Initial spec from the refined card + same-chat refinement; code exploration added decisions #13–#15 (token separation, client-resolved level, Player row at mint) and the hub-rebind / app-wide-start / mobile-hop frontend findings. |
+| 2026-10-20 | Owner QA: the modal drawer blocked betting while chat was open. Desktop chat is now a docked, non-modal column that pushes the page (Claude Design option 1a), with a collapsible rail; mobile keeps the full-screen sheet (§7.4). |
