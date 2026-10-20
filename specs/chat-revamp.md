@@ -71,7 +71,7 @@ From `monkify-meta/constraints.md` (full list there):
 | --- | --- |
 | 1 | Global chat **and** DMs ship together in #205 (one spec, one branch). |
 | 2 | **One single app-wide room.** Per-type rooms removed; no channel picker. |
-| 3 | **Everywhere:** header chat button opens a drawer (desktop, ≥`lg`) / full-screen sheet (mobile) on every page, tabs **GLOBAL \| DMs**. The game screen's docked `GameSidePanel` and the mobile `GAME \| CHAT` segment show the same global room. Hidden when embedded (`useEmbed().isEmbedded`) and on the `Practice` route. |
+| 3 | **Everywhere:** header chat button opens a drawer (desktop, ≥`lg`) / full-screen sheet (mobile) on every page, tabs **GLOBAL \| DMs**. The game screen has **no chat of its own** (owner, 2026-10-20): `GameSidePanel` / `GameChatPanel` are removed and the mobile strip keeps only GAME. Hidden when embedded (`useEmbed().isEmbedded`) and on the `Practice` route. |
 | 4 | **One wallet signature → a 7-day chat session** required for **any** send (global + DM). Server derives sender wallet + display name from the session + `Player` row; client values are ignored. Reading global needs nothing. `SendChatMessage` / `SendPlayerChatMessage` / `JoinChat` / `LeaveChat` are **removed** (stale tabs cannot send until refreshed — accepted). |
 | 5 | **Open DMs:** any signed-in player can DM any player wallet that has a `Player` row, except **self** and **house wallets**. Recipient can **block**. |
 | 6 | **DM retention 30 days** — new `Chat.DirectMessageRetentionDays` (committed 30), purged by the existing daily `game-chat-purge` job. A thread opens with the last **50**, paged older via a `before` cursor. |
@@ -491,9 +491,9 @@ re-authenticating), reset DM state.
   asking for funds, seed phrases or keys."*, "LOAD OLDER" on scroll-top / button, composer). Composer
   disabled with *"This player is unavailable."* when `available === false`; when the owner is
   self-excluded: *"Direct messages are unavailable while self-excluded."* (owner-only copy, not a leak).
-- **`GameChatPanel.vue`** becomes a thin wrapper rendering `GlobalChatView` (docked/maximized props kept);
-  `GameSidePanel` / `GameMobileTabs` unchanged otherwise; the mobile unread **dot** keeps working off
-  `useGlobalChat().lastLiveMessage` (live only, not mine).
+- **Game screen chat removed (owner QA 2026-10-20):** `GameSidePanel.vue`, `GameChatPanel.vue` and
+  `useChatUnread.ts` are deleted; `GamePage` renders terminal + monkey only; `GameMobileTabs` is a GAME
+  label strip (kept as the terminal's top bezel); the mobile unread dot and `lastLiveMessage` are gone.
 - **MESSAGE buttons:** `PlayerProfilePage.vue` hero next to DONATE (~L344) and `PlayerCardBody.vue` button
   row (~L197), shown when available and not own wallet → `requestMessage`.
 - **No wallet:** "CONNECT WALLET TO CHAT" (existing copy) in both tabs; DMs tab shows the connect CTA.
@@ -607,7 +607,7 @@ terms/privacy copy for DMs (stays with #202's legal pass); migrating old per-typ
 | 12 | `types/chat.ts`, `types/index.ts` | New types; move `ChatMessage` |
 | 13 | `constants/icons.ts` (+ icon asset) | `chat` icon |
 | 14 | `components/chat/{ChatButton,ChatDrawer,GlobalChatView,ChatComposer,DirectMessagesView}.vue` | New |
-| 15 | `components/game/GameChatPanel.vue` | Wrapper around `GlobalChatView` |
+| 15 | `components/game/GameChatPanel.vue`, `GameSidePanel.vue`, `hooks/useChatUnread.ts` | **Deleted** — the docked app-wide chat is the only chat |
 | 16 | `components/GameHeader.vue` | Chat button, app-wide start |
 | 17 | `App.vue` | Mount `ChatDrawer` |
 | 18 | `pages/PlayerProfilePage.vue`, `components/player/PlayerCardBody.vue` | MESSAGE button |
@@ -727,3 +727,4 @@ Replace `GameChatTests.cs` with `ChatFlowTests.cs`:
 | --- | --- |
 | 2026-10-19 | Initial spec from the refined card + same-chat refinement; code exploration added decisions #13–#15 (token separation, client-resolved level, Player row at mint) and the hub-rebind / app-wide-start / mobile-hop frontend findings. |
 | 2026-10-20 | Owner QA: the modal drawer blocked betting while chat was open. Desktop chat is now a docked, non-modal column that pushes the page (Claude Design option 1a), with a collapsible rail; mobile keeps the full-screen sheet (§7.4). |
+| 2026-10-20 | Owner QA: two chats on the game screen. Removed the game's own chat panel (desktop cabinet + mobile CHAT segment); the docked GLOBAL \| DMs chat is the only one (decision #3, §7.4). |
