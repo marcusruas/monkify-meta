@@ -116,8 +116,8 @@ code — the platform's first automated outbound payment to someone who is not a
   wallet count, no bet count. A partner with one referred player would otherwise learn exactly what
   that player wagered. ⚠️ **The STATEMENT still holds that line; the partner page no longer does.**
   `GET /referrals/me/wagers` lists the referred PLAYERS themselves, one row each — an owner decision
-  of 2026-09-18 with that exact trade-off on the table. Wallets leave the server **truncated**
-  (`7Xf4…9kQa`) and the statement itself stays totals-only (it is cached). ⚠️ The partner's own
+  of 2026-09-18 with that exact trade-off on the table. Wallets are **displayed truncated**
+  (`7Xf4…9kQa`; since 2026-10-16 each row also carries the full address, for DONATE) and the statement itself stays totals-only (it is cached). ⚠️ The partner's own
   `PayoutWallet` is **not** one of those rows, matching the self-referral guard the earnings predicate
   has always carried. See [`partner-player-roster.md`](partner-player-roster.md).
 - `/partner` is unlisted: not in the header menu — its in-app links are the cold home hero's BECOME A

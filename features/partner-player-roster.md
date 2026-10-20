@@ -19,7 +19,10 @@ it: **one row per player who
 arrived through the partner's link**, ranked with the **biggest wager at the top**. A row says who
 the player is (their public display name when they chose one, over their truncated wallet), what they
 **wagered**, what that **generated in commission** for the partner, and when they were **first** and
-**last** seen.
+**last** seen. Each row ends in a **DONATE** button (2026-10-16) that opens the same DONATE SOL sheet the
+profile page uses ([`player-profile.md`](player-profile.md) → DONATE SOL): a direct wallet-to-wallet
+transfer the partner signs, never touching the treasury. It spans the card under the four figures below
+1200px, and is its own 116px column above it.
 
 ## What it changed, and why
 
@@ -38,8 +41,11 @@ The roster simply applies the same exclusion to what is listed, so the two can n
 
 What survives of #177's stance, and must not be widened without another decision:
 
-- **Wallets are TRUNCATED server-side** (`7Xf4…9kQa`) before they leave the API. The endpoint never
-  returns a full address, so a partner cannot walk away with a list of player addresses.
+- **Wallets are DISPLAYED truncated** (`7Xf4…9kQa`, the `wallet` field — what the table prints and the
+  search box matches). ⚠️ **Reversed in part on 2026-10-16 (owner):** each row now ALSO carries the full
+  address in `walletAddress`, because DONATE has to send to it (and the donor's wallet shows it on
+  approval anyway). A partner CAN now collect their players' full addresses; the owner chose that over a
+  resolve-on-click endpoint. The front never prints `walletAddress`.
 - **Display names are the PUBLIC ones** — the same `Player.DisplayName` the leaderboard shows. A name
   here exposes nothing the public boards do not.
 - The **statement** (`/referrals/me`) is still totals-only, and stays that way: it is cached, and a
@@ -200,7 +206,9 @@ have **no** app-side rule — a deliberate gap, not an oversight to "fix" withou
   the ranking is asserted as an invariant over the page (every figure ≤ the one above it).
 - `SpaceStroker.Tests/UnitTests/Handlers/Referrals/GetReferralPlayersHandlerTests.cs` — 14 cases,
   including the partner's own wallet, wagered-vs-revenue on an unsettled and a refunded bet, the
-  window moving every figure, and the search by fragment and by pasted truncated form.
+  window moving every figure, the search by fragment and by pasted truncated form, and
+  `DisplaysTheTruncatedWallet_AndCarriesTheFullAddressForDonate` (replaced `NeverReturnsAFullWalletAddress`
+  on 2026-10-16). The integration flow asserts `walletAddress` is the full address.
 - `SpaceStroker.Tests/UnitTests/Api/RateLimitSettingsTests.cs` — the rule is in the pinned exact set.
 
 ## The commission basis is uniform, on purpose (owner, 2026-09-21)

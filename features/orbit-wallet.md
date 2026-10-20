@@ -237,7 +237,9 @@ carry the request id (the Orbit history shows the refund).
   finishes (≈5 s after `Ended`, and on `RewardForWinnersCompleted` / `NotEnoughPlayersToStart` /
   `ErrorWhenProcessingRewards`), because the private win channel only fires for auto bets.
 - **Which balance pays is always visible.** The header pill that will pay (violet `OrbitLauncher` or amber
-  `WalletButtons`) gets the `.lit` state; the other is unchanged. The stake LCD digits in `GameConsole` are
+  `WalletButtons`) gets the `.lit` state; the other is unchanged. ⚠️ Since #186 only one pill is expanded:
+  while Orbit holds money the wallet pill is hidden, otherwise the Orbit pill is an icon square
+  ([`frontend-ux.md`](frontend-ux.md)). The stake LCD digits in `GameConsole` are
   **violet when Orbit pays and green when the wallet pays** (the LCD's own green; null keeps the default).
 - **Out-of-Orbit-funds signal** (`useOrbitOutOfFunds.ts`): when the Orbit balance **drops** and stops covering
   the current game's stake (same wallet and game type), the Orbit pill's digits turn red

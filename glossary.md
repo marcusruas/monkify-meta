@@ -263,8 +263,8 @@
 - **Display name** — optional `Player.DisplayName` (1–20 chars, trimmed). Set via the customization
   modal (`PATCH /players/preferences`), which is **signature-gated**: the endpoint is public and a
   wallet address is not a secret, so the write carries an ed25519 signature over a purpose-scoped
-  single-use nonce. Rendered on bet DTOs and recent-bets SignalR events for self and others; falls
-  back to a truncated `externalPlayerId`. See `features/player-customization-modal.md`.
+  single-use nonce. Rendered on bet DTOs and recent-bets SignalR events for self and others (through
+  the **player tag**); falls back to a truncated `externalPlayerId`. See `features/player.md`.
 - **Wallet-proof nonce** — a single-use challenge for any write that must prove control of a wallet.
   `GET /players/nonce?wallet=…&purpose=…` issues it into Redis under
   `WalletNonce:{purpose}:{wallet}` (5 min), and the handler consumes it on use. It is
@@ -272,6 +272,38 @@
   them **`jackpot-entry`**, the Space Jackpot holder entry, #196) — so a challenge minted for one flow
   cannot be replayed against the other. *(There is no preferred display currency and no FX rate table:
   every game settles in the one configured token, so there is nothing to convert.)*
+- **Player profile** (#186) — the public page `/player/:wallet` for **any** wallet (connected or not):
+  name, short wallet, joined date (`Player.CreatedDate` = first seen), level, the personal record, the
+  trophy shelf and the last 10 rounds across all modes. Read via `GET /players/profile?wallet=`. A
+  malformed, house or actively self-excluded wallet gets the same vague **"Profile unavailable"**
+  (`{ available: false }`, HTTP 200). See `features/player-profile.md`.
+- **Player tag** — `PlayerTag.vue`, how every live player name renders (race cards, bet list, Duel rooms
+  and opponent, leaderboard rows/podium, History YOU, home strip). Tappable → the mini profile card, unless
+  it is a house bettor (`isHouse` / VS HOUSE) or the app is embedded (then plain text). Carries the `LV`
+  badge.
+- **Mini profile card** — `PlayerCard.vue`, mounted once in `App.vue`: the popover (from `lg`) / bottom
+  sheet (below) a player tag opens over the current screen — name, level, short wallet, joined, rounds · win
+  rate · net, 3 latest trophies, VIEW FULL PROFILE, DONATE. Never navigates or pauses the round.
+- **Header profile card** — `header/ProfileCard.vue`, the header-menu trigger that replaced the ☰ glyph
+  (2026-10-16): avatar tile in the player's color profile + `LV` badge, no name; grey guest tile signed out.
+  The menu it opens is headed by `ProfileMenuHead` (identity + level bar + wallet and Orbit balances).
+- **Achievement / trophy** — one of **10** fixed unlocks on the profile (`firstSprintWin` … `explorer`),
+  **derived on read** from completed rounds (no table); unlock date = the earliest qualifying round. Every
+  real round counts (free, holder, Orbit); streamer play bets and active streamer wallets never unlock one;
+  **not** floored at the SOL cutover.
+- **Level** (#206) — a cosmetic `LV n` (0–200) from **gambled** = Σ paid stake in completed rounds of every
+  type since `SettlementCutoverUtc` (free, holder and streamer play add nothing; Orbit counts), looked up in
+  the static `PlayerLevels` table (L1 0.2 · L2 0.5 · L3 1 SOL, then ×≈1.1253 per level, L120 ≈ 1M SOL).
+  Level 0 shows no badge; house wallets never have one. Tags read it from the batched
+  `GET /players/levels?wallets=` (≤ 50, 60 s cache); profile and card also show progress to the next level.
+- **Color profile / profile theme** — `Player.ProfileTheme`: one of 8 preset keys (`amber`, `comet`,
+  `nebula`, `toxic`, `ocean`, `aurora`, `sunset`, `solar`), or `null` = the **wallet-derived default**
+  computed on the front. Set in SETTINGS through the signed `PATCH /players/preferences` (the message then
+  includes `Theme:`). Paints identity surfaces only — never buttons, the wallet pill, red losses or Orbit
+  violet.
+- **Donation (DONATE SOL)** — a front-only, donor-signed direct SOL transfer to another player's wallet from
+  their profile or mini card (0.001–1 SOL; presets 0.01/0.05/0.1/0.5). No backend record; the explorer link
+  is the receipt. Works on in-page wallets and phone wallet-app deeplink sessions.
 - **Game chat message** — a plain-text line in a **chat room** sent over
   `ActiveGamesHub.SendChatMessage(gameTypeId, gameId, displayName, text)`; attributed by client-resolved
   **display name**; carries a server `id` and `sentAt`; persisted to `GameChatMessage` (with `GameTypeId` and
@@ -394,8 +426,8 @@
   `features/orbit-auto-bet-engine.md`, `features/orbit-notifications.md` and
   `features/orbit-ui-overhaul.md`.
 - **Orbit quick popup vs the Orbit modal** (#198) — Orbit's two player-facing surfaces since the `/orbit`
-  page was deleted. The **quick popup** hangs off the header pill for a signed-in player: balance, status,
-  add money, cash out, MORE OPTIONS. The **modal** is everything: WALLET · LET ORBIT PLAY (game tiles, #200) ·
+  page was deleted. The **quick popup** hangs off the header pill for a signed-in player: status, ORBIT
+  HOLDS + WALLET HOLDS (#186 — the bar shows only one balance), add money, cash out, MORE OPTIONS. The **modal** is everything: WALLET · LET ORBIT PLAY (game tiles, #200) ·
   NOTIFICATIONS · RECOVER A DEPOSIT, **one section open at a time**, pinned so it never jumps. (Before
   #198 the pair was "the panel vs the `/orbit` page" — a mid-round panel plus a five-tab page.)
 - **`.arcade-frame--orbit`** — Orbit's own page material (void-deep fill, 2px violet-deep frame), the
@@ -478,6 +510,19 @@
 - **`OrbitAutoRound`** — private-channel (`orbit/{playerId}`) SignalR event
   `{ gameTypeId, roundId, waitingForHouse }`, pushed by the solo loop when it opens an auto round or starts
   waiting; the game screen attaches to the round (`useGame.attachRound`).
+- **`OrbitRunFinished`** (#208) — private-channel (`orbit/{playerId}`) SignalR event
+  `{ gameTypeId, gameTypeName, betsPlaced }`, pushed by `OrbitRunService` when a run reaches its bet limit
+  and Orbit pauses; the SPA shows a toast. Never sent to Telegram.
+- **Orbit run** (#208) — one START (paused → enabled) of auto-bet: `RunStartedAt` stamps it, `RunBetsPlaced`
+  counts its claimed auto bets (net of refunds), `RunNextStake` carries a solo run's stepped stake. A pause
+  ends it; the next START begins a fresh one. Distilled in `features/new-options-for-orbit.md`.
+- **Bet limit** (#208) — `OrbitEnrollment.BetLimit`: auto bets per run (null = no limit, max 10,000). The
+  slot is taken in `OrbitStakePlacer.ClaimAndDebit`; reaching it **pauses** Orbit (money stays), it never
+  cashes out. UI: **PLAY [n] BETS**.
+- **Stake steps** (#208) — on Monkey Duel / Hyper Roll with `StakeStepsEnabled` (UI **CHANGE STAKE**): after a
+  win / loss the next stake is the **base** (`Stake ?? RequiredAmount`; null %, **BACK TO BASE**) or the
+  settled stake × (1 + X/100) (**RAISE BY**, 0–1000%, truncated to lamports), clamped to
+  `[RequiredAmount, MaximumStake]`. A refund leaves it unchanged. Computed by `OrbitRunStake`.
 - **Auto stake in flight** — `OrbitDto.autoStakeInFlight`: an `OrbitAutoPlaced` bet of the player sits in an
   unsettled round, so its stake is out of the balance and a win may still come back. The SPA's auto-park
   never switches Orbit off inside this window.

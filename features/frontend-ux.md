@@ -56,23 +56,41 @@ an app-wide icon system"*.
 There is now **one pixel-art icon language**: a shared registry (`src/constants/icons.ts`) rendered by
 one component (`ui/AppIcon.vue`). Every page and feature carries an **identity mark**.
 
-⚠️ **The ☰ header menu is a 3-column icon pad, not a list of rows** — **eight** cells since #198 removed
-Orbit's (Home · Practice · Stats · Fair · How to play · History · Responsible · Settings; the ninth slot is
-deliberately left empty — Orbit is reached from its header pill), 24px pixel marks over VT323
-labels, with a pixel glyph on the trigger. **The embed renders the same grid** with its two survivors
-(History + Settings), **not an alternate layout**. Stats and Fair are hidden when embedded. The
-dismissal contract (opens on click, closes on item click or outside click, **no hover**) is unchanged,
+⚠️ **The header menu's trigger is a PROFILE CARD, not a ☰ glyph** (#186, owner 2026-10-16,
+`header/ProfileCard.vue`): the player's avatar tile in their color profile + `LV` badge + a chevron, **no
+name at any width**; signed out, a grey guest tile. It opens the same menu (the docs still call it "the ☰
+menu").
+
+⚠️ **The menu is an identity head over a 4-column icon pad, not a list of rows** (`.menu-pad`, 336px).
+From the top:
+1. **`header/ProfileMenuHead.vue`** — avatar, name, `LV`, a 10-segment level bar and
+   `x / y SOL gambled → LV n`, linking to your own `/player/:wallet` (a plain block when embedded); then a
+   **wallet row** (balance, tap copies the address) and an **Orbit row** (balance, opens Orbit; not when
+   embedded). Signed out: **Connect wallet**. Mounted only while the menu is open, so its profile read
+   costs nothing until then. This block is the way to your own profile — **there is no PROFILE cell**.
+2. The phone-only audio strip.
+3. The grid: **eight** cells in a 4×2 pad (Home · Practice · Stats · Fair · How to play · History ·
+   Responsible · Settings), 24px pixel marks over VT323 labels. **The embed renders the same grid** with
+   its two survivors (History + Settings), **not an alternate layout**.
+4. The token row (when a mint is configured), then a **DISCONNECT** button when a wallet is connected.
+
+The dismissal contract (opens on click, closes on item click or outside click, **no hover**) is unchanged,
 and the dev Admin shortcut is long gone.
 
-⚠️ **The pad has TWO full-width strips around that grid, and a tenth cell is not an option.** The audio
-slider sits above it; the token row (when a mint is configured) sits at its foot. Both are the same
-device, mirrored — keep them in step. A tenth *cell* would start a fourth row the grid can never fill,
-and the token row is the only destination in the pad that **leaves the app**, which a cell would
-misrepresent as a page. See [`token-launch.md`](token-launch.md).
+⚠️ **A ninth cell is not an option.** It would start a third row the 4-column grid can never fill; the
+audio strip and the token row stay full-width strips around the grid (keep them in step), and the token row
+is the only destination in the pad that **leaves the app**, which a cell would misrepresent as a page. See
+[`token-launch.md`](token-launch.md).
 
 ⚠️ **The header BAR carries no promotional control.** It is the funding/round strip — wallet, balance,
 audio — and a token pill shipped there for one build before being pulled: an always-on outbound CTA
 competed with the in-game primary actions on every screen, mid-round included.
+
+⚠️ **The bar shows ONE balance, at every width** (#186, owner 2026-10-16): while Orbit holds money
+(session + balance > 0) the Orbit pill shows its balance and the wallet pill is **hidden** (`v-show` —
+`WalletButtons` registers the desktop connect trigger on mount); otherwise the wallet pill shows its balance
+and the Orbit pill folds to its icon square (`OrbitLauncher compact` → `door-compact`). The other balance is
+one tap away in the menu head and in Orbit's **WALLET HOLDS** card ([`orbit.md`](orbit.md)).
 
 ⚠️ **The bar DOES carry a game selector since 2026-10-02** (`header/GameSwitcher.vue`, owner's request) — it
 is navigation, the same class of object as the ☰ pad, not promotion. Before it, changing game from inside
@@ -96,8 +114,9 @@ one meant wordmark → home → scroll → card.
 - ⚠️ **The phone bar's cluster stepped down to make room**: `.app-header`'s control height is 32px (was
   36px), the pills lose padding and gap, and below `md` the balance figure is 15px (was 17px) and the
   signed-out ORBIT word tightens. The SOL tag stays 7px (6px was once reported as too small). Measured at
-  360px with a wallet connected: ~41px of slack between the selector square and the Orbit pill. Re-measure with a
-  three-digit balance in both pills before changing any of those numbers.
+  360px with a wallet connected: ~41px of slack between the selector square and the Orbit pill (measured
+  before #186, when both pills carried a number; only one is expanded now and the ☰ glyph became the wider
+  profile card). Re-measure with a three-digit balance in the expanded pill before changing any of those numbers.
 - New coarse icon `games` (four tiles) — not a gamepad, which is `practice`, and not three bars, which is
   `menu`.
 

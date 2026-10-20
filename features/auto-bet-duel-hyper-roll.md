@@ -46,12 +46,15 @@ a gap and goes again. The game screen follows each auto round live, and the leve
   `OrbitRequestInvalid`.
 - **Stake**: solo types only, `> 0`, at most **9 dp**, `RequiredAmount ≤ stake ≤ GameParameters.MaximumStake`
   (the duel's ceiling is seeded from `Duel.MaximumStake`). A null ceiling **fails closed**. Null stake ⇒ the
-  type's `RequiredAmount`. Never clamped or resized silently.
+  type's `RequiredAmount`. Never clamped or resized silently. ⚠️ Since #208 this is the **base** stake: with
+  stake steps on, the run's stepped `RunNextStake` is what is actually staked, and only that stepped value is
+  clamped to `[RequiredAmount, MaximumStake]` — see [`new-options-for-orbit.md`](new-options-for-orbit.md).
 - **Board mode**: Hyper Roll only, matched case-insensitively against `GameBoardModes`, stored as the row's
   name. Null ⇒ the default mode (lowest `Position`).
 - **Multiplier**: Hyper Roll only, must be on the **effective** mode's ladder. Switching mode with a stored
   multiplier the new ladder lacks resets it to RANDOM rather than refusing.
-- ⚠️ **Locked while Enabled:** game type, stake, mode and multiplier. A patch that would *change* one of them
+- ⚠️ **Locked while Enabled:** game type, stake, mode and multiplier (and since #208 the bet limit, CHANGE STAKE
+  and both step percentages). A patch that would *change* one of them
   on an enabled enrolment is refused; re-sending the stored value is not a change. `enabled: false` in the
   same patch counts first, so "pause + switch" works in one call. The **word, auto-pick and cash-out rules
   stay editable** while running.
@@ -64,8 +67,9 @@ a gap and goes again. The game screen follows each auto round live, and the leve
 - **A running duel needs a playable word** (`Choice` or `AutoPickChoice`), judged on the result of the
   patch, so clearing the word on a running duel is refused too. Hyper Roll needs none.
 - **Enable** on a solo type (paused → enabled only) clears `WaitingForHouseSince` and `NextSoloRoundAt`, then
-  publishes `OrbitSoloRoundDueEvent` instead of `GameOpenedEvent`. A repeat `enabled: true` while running
-  does not reset the gap. **Pause** clears the waiting flag and leaves `SoloRoundId`: the round in flight
+  publishes `OrbitSoloRoundDueEvent` instead of `GameOpenedEvent`; on **any** type it also starts a fresh
+  **run** (#208: `RunStartedAt = now`, counter 0, next stake = base). A repeat `enabled: true` while running
+  does not reset the gap or the run. **Pause** clears the waiting flag and leaves `SoloRoundId`: the round in flight
   settles normally.
 
 ### The solo loop (`OrbitSoloAutoBetService.RunOnce`)
@@ -84,9 +88,11 @@ places at most one stake.
    hook is the fast path). A deleted round is finished at once. ⚠️ **A round in `ErrorWhenProcessingRewards`
    holds the loop forever**, until an operator resolves the payout.
 3. **Gap**: if `NextSoloRoundAt` is in the future, reschedule for the remainder and return.
-4. **Static refusals** (no lease, no write): a stake outside the type's current bounds (e.g. after a config
-   change), a duel with no word and no auto-pick, or a stored duel word the type rejects. These are logged
-   and the loop idles until a settings change or deposit re-triggers it.
+4. **Static refusals** (no lease, no write): a **base** stake outside the type's current bounds (e.g. after a
+   config change), a duel with no word and no auto-pick, or a stored duel word the type rejects. These are
+   logged and the loop idles until a settings change or deposit re-triggers it. **Run full** (#208,
+   `OrbitRunRules.ReachedLimit`) ⇒ evaluate the run end and return, **before** a round is opened. Past these,
+   the tick stakes `OrbitRunStake.Effective` (the stepped, clamped next stake) in steps 6, 7 and 10.
 5. **Lease**: a conditional `ExecuteUpdate` on `SoloLeaseUntil` (`SoloLeaseSeconds`, 60), taken **before** any
    round exists. Its value is a **token**: only the tick that holds it may record a round or release it.
    0 rows ⇒ another tick owns the player.
@@ -110,7 +116,9 @@ places at most one stake.
     `orbit-solo:{roundId:N}`). The loop itself never writes a ledger row.
 11. **Outcome**: `Placed` ⇒ clear waiting; settlement drives the next tick. `InsufficientFunds` ⇒ clear the
     round, no reschedule. `TransferFailed` ⇒ clear the round, gap, reschedule. `RegistrationRefused` (case B,
-    money returns via `OrbitStakeReconciliationJob`) ⇒ clear the round, enter waiting. `InDoubt` **and
+    money returns via `OrbitStakeReconciliationJob`) ⇒ clear the round, enter waiting. `RunLimitReached` (#208,
+    the claim refused the run's (N+1)th slot) ⇒ hand the round back, release the lease, evaluate the run end,
+    no reschedule. `InDoubt` **and
     `AlreadyClaimed`** ⇒ **hold** `SoloRoundId`; settlement or the sweep moves the loop on. Any exception ⇒
     log Error, drop the lease, hand back a round the placer never touched (keep one it did), retry after the
     gap. A transfer is never retried inside a tick.
@@ -131,13 +139,14 @@ places at most one stake.
 
 ### Settlement, refunds, liveness
 
-- `RewardGameConsumer` calls `OnAutoRoundSettled` **after** `EvaluateOrbitFloors` on both its paths, and
+- `RewardGameConsumer` calls `IOrbitRunService.ApplySettledRound` (#208: stake step + run end) **before**
+  `EvaluateOrbitFloors`, and `OnAutoRoundSettled` **after** it, on both its paths, and
   `RefundInvalidBetConsumer` calls it for a refunded `OrbitAutoPlaced` bet (duel give-up, backstop refusal).
   It clears `SoloRoundId` (only when it matches), sets `NextSoloRoundAt = now + gap` and schedules the next
   tick. A failure there never fails the settlement or refund; the sweep recovers it.
 - Threshold, floor, stop-loss, the Orbit win toast and Telegram apply **unchanged** (the bet is
   `OrbitAutoPlaced`). `EvaluateZeroOut` compares the balance with the **effective stake** for a solo
-  enrolment.
+  enrolment — since #208 the stepped next stake (`OrbitRunStake.Effective`) — and skips a paused enrolment.
 - A **deposit** on a solo enrolment publishes `OrbitSoloRoundDueEvent` instead of the shared re-plan.
 - **Consumers startup** publishes a due event for every Enabled solo enrolment (`KickOrbitSoloLoops`).
 - **Hangfire `orbit-solo-autobet-sweep`** (every minute, `OrbitSoloAutoBetSweepJob`) reads only and
@@ -187,7 +196,8 @@ places at most one stake.
 - **Waiting**: *"Waiting for the house…"* under the status line (tag stays RUNNING) and in the game
   terminal.
 - **Funds**: START blockers, `needsFirstDeposit` and `isPausedForFunds` compare with the **effective stake**
-  (`effectiveStakeFor`). ⚠️ **The client auto-park never fires while `autoStakeInFlight`**: an all-in stake
+  (`effectiveStakeFor`; since #208 the run's `nextStake` while enabled). ⚠️ **The client auto-park skips a
+  solo stake-steps run** (#208): it stays Enabled in NEEDS MONEY so a deposit resumes the same run. ⚠️ **The client auto-park never fires while `autoStakeInFlight`**: an all-in stake
   reads 0.00 until settlement, and the tab once parked a loop seconds before a 3× win landed.
 - **Game screen** (`useGame`): `orbitAutoPlaysSoloGame` (Orbit enabled on the solo type on screen). The page
   never opens a board or looks up a duel of its own then. It attaches to `currentAutoRoundId` on load (after

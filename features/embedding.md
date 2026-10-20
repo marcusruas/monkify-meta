@@ -24,6 +24,10 @@
 - **Fills the frame:** `html, body, #app { height: 100% }`, so the game fills 100%×100% of the host's
   box with no letterbox.
 - **No frame-busting:** in embedded mode no in-app action performs a top-level navigation.
+- **No player profiles in a frame** (#186): `/player/:wallet` (route `Player`) is in `main.ts`'s
+  `EMBED_REDIRECT_ROUTES` and redirects to the lobby; every player tag renders as **plain text** (no mini
+  card, `LV` badge still shown); the header menu's identity block is not a link. See
+  [`player-profile.md`](player-profile.md).
 - **Frame header:** the committed `nginx.conf` sends `Content-Security-Policy: frame-ancestors *` and no
   `X-Frame-Options`. ⚠️ The production host must match — a **deploy-time dependency**, not fully
   committable in-repo.

@@ -200,10 +200,11 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   contract (`gambleRace`).
 - Money carries the `sol.svg` brand mark. ⚠️ The hall of fame's multiplier takes **no** mark — it is a
   ratio, not money.
-- ⚠️ **`/leaderboard` gets NO ☰ menu cell.** The pad is a 3-column grid and a tenth cell is not an
-  option (since #198 removed Orbit's cell there are eight, and the free ninth slot was deliberately not
-  given to anything) ([`frontend-ux.md`](frontend-ux.md)); it is reached from the home section and
+- ⚠️ **`/leaderboard` gets NO ☰ menu cell.** The pad is a 4×2 grid of eight cells since #186 and a ninth
+  cell is not an option ([`frontend-ux.md`](frontend-ux.md)); it is reached from the home section and
   `/game/stats`, and is unlisted like `/partner`. It joins `EMBED_REDIRECT_ROUTES`.
+- **Rows and podium names are player tags** (#186): tapping one opens that player's mini profile card, and
+  each carries its `LV n` badge — see [`player-profile.md`](player-profile.md).
 - No SignalR group and no polling — fetch on mount and on `visibilitychange`.
 - The home section **hides itself when every visible board is empty**, so on a fresh database it looks
   identical to the feature being absent. `/leaderboard` always renders.

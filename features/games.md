@@ -576,9 +576,12 @@ Every newly created round opens with **one paid bet already on it**, from a dedi
 all three game types. A round never reads as a dead game, and — because the seeded bet counts as a
 distinct player — **a single real player is enough to start a round**.
 
-⚠️ **The seeded bet is an ORDINARY bet, and that is the defining property.** No marker column, no DTO
-field, no flag, no migration, no payment-validation bypass, no payout redirect, **no branch anywhere**.
-It is indistinguishable from any player's bet in the database and in every payload. That works because
+⚠️ **The seeded bet is an ORDINARY bet, and that is the defining property.** No marker column, no
+migration, no payment-validation bypass, no payout redirect, **no branch in any money path**. It is
+indistinguishable from any player's bet in the database. The one display-only exception (#186): bet
+payloads (`BetDto`, `BetNotificationEvent`) carry an additive **`isHouse`**, computed from the configured
+house wallets at read time, so the front renders the seed bet's name as plain text instead of a tappable
+player tag ([`player-profile.md`](player-profile.md)). That works because
 the house wallet is **both the transfer's sender and the bet's own `Wallet`**, so
 `SolanaService.ValidateBetPayment` resolves both lookups and the shipped validator passes untouched.
 

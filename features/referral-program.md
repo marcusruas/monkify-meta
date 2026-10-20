@@ -153,8 +153,8 @@ good at.
 
 - ⚠️ **One deliberate exception, added 2026-09-21:** the partner's own player roster
   ([`partner-player-roster.md`](partner-player-roster.md)) lists the players carrying their code, one
-  row each — to the partner, behind their session, with wallets truncated and only the public display
-  name. Nothing about a code reaches a PLAYER-facing contract, which is what the rest of this section
+  row each — to the partner, behind their session, with wallets displayed truncated (the full address
+  rides along for DONATE since 2026-10-16) and only the public display name. Nothing about a code reaches a PLAYER-facing contract, which is what the rest of this section
   is about.
 - `ReferralCode` appears on **no** DTO, no SignalR event and no public endpoint — not `BetDto`, not
   `BetNotificationEvent`, not games history, stats or the verification payload. A partner's code is a
