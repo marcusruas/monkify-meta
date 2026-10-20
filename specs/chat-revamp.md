@@ -374,6 +374,23 @@ branch of `DependencyInjection.cs`. Global + DM share the budget.
 `GameTypeId == null && CreatedDate ≥ cutoff` (reversed), map replies, refill. Anonymous. Delete
 `GetGameChat*` and `GamesController`'s `{parametersId}/chat` route.
 
+### 6.9a Staff badges (`GET /chat/staff`) — added 2026-10-20 (owner)
+
+- **Config:** `GeneralSettings.Admins` and `GeneralSettings.Moderators` (`List<string>` of wallet public keys,
+  default empty) in `spacestrokersettings.json` (local: `Moderators = ["ExsE5Hu941GRUttwLSWQqGL8SqiB81gYsTtuHgA4Kv7k"]`
+  as a test mod). Public data → deploy `appConfig` as flattened keys `GeneralSettings:Moderators:0`,
+  `GeneralSettings:Admins:0`, … (no key = empty list; never a secret). Documented in `secrets.example.json`
+  (`_comment_staff`).
+- **Route:** `GET /chat/staff` (anonymous, `GetChatStaffHandler`, config only) →
+  `{ admins: string[], moderators: string[] }`: blanks dropped, trimmed, deduped (ordinal — base58 is
+  case-sensitive), a wallet in both lists kept only as an admin.
+- **Client:** `useStaffRoles` fetches it once per load; `StaffBadge.vue` shows **ADM** (magenta) / **MOD**
+  (cyan) beside the name on global chat lines, the DM conversation rows and thread header, and the profile
+  hero (`size="lg"`). Resolved client-side like the level square, so a config change also badges older
+  messages. **Display only** — the badge grants no powers (moderation stays on the `AdminToken`).
+- **Tests:** `GetChatStaffHandlerTests` (lists returned, empty default, admin wins, blanks/trim/dedupe,
+  case kept).
+
 ### 6.10 Persistence consumer (`Consumers/ChatMessagePersisted/*`)
 
 `ChatMessagePersistedEvent(Guid Id, string DisplayName, string Text, DateTime SentAt, string Wallet,
@@ -729,3 +746,4 @@ Replace `GameChatTests.cs` with `ChatFlowTests.cs`:
 | 2026-10-20 | Owner QA: the modal drawer blocked betting while chat was open. Desktop chat is now a docked, non-modal column that pushes the page (Claude Design option 1a), with a collapsible rail; mobile keeps the full-screen sheet (§7.4). |
 | 2026-10-20 | Owner QA: two chats on the game screen. Removed the game's own chat panel (desktop cabinet + mobile CHAT segment); the docked GLOBAL \| DMs chat is the only one (decision #3, §7.4). |
 | 2026-10-20 | Owner QA: the docked chat opens on every desktop load (no localStorage memory); Edson's GIF now scales with his column (max-height ladder + object-contain) instead of being squeezed by the docked chat. |
+| 2026-10-20 | Owner request: staff badges — `GeneralSettings.Admins` / `Moderators` wallet lists, `GET /chat/staff`, ADM / MOD badge in chat, DMs and the profile (§6.9a). |
