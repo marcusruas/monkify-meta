@@ -10,8 +10,11 @@
 
 Orbit's auto-bet used to play only **Cosmic Sprint**, because it rode the shared round rhythm
 (`GameOpenedEvent` → planner → one bet per round). A player can now point auto-bet at **Monkey Duel
-(VS HOUSE)** or **Hyper Roll** instead, **one game at a time**, with a stake they set; for Hyper Roll they
-also pick a board mode and a multiplier (or RANDOM). Both are **solo** games with no shared round and no
+(VS HOUSE)** or **Hyper Roll** instead, **one game at a time**, with a stake they set. (Hyper Roll is
+**stake only** since Word Lines, #209, 2026-10-22: the mode and multiplier pickers are gone, an enrollment's
+old `BoardMode` / `Multiplier` are ignored, the loop bets `spin` and prices coverage at 10× — see
+[`hyper-roll-word-lines.md`](hyper-roll-word-lines.md). The mode/slot-picker rules below describe the
+pre-#209 behaviour.) Both are **solo** games with no shared round and no
 rollover, so a **second engine loop** opens the player's own round, bets it, waits for settlement, pauses
 a gap and goes again. The game screen follows each auto round live, and the lever stays locked.
 
@@ -156,10 +159,11 @@ places at most one stake.
 
 ### Pace: known limitation
 
-- Config: `Operator.Token.Orbit.SoloRoundGapSeconds` = **5** (committed), `SoloLeaseSeconds` = 60 (code default).
-- ⚠️ **The real round-to-round time is ~10–30 s, not 5 s.** It adds up the 5 s gap, Hangfire's Postgres
+- Config: `Operator.Token.Orbit.SoloRoundGapSeconds` = **4** (committed + code default since 2026-10-15; was 5),
+  `SoloLeaseSeconds` = 60 (code default).
+- ⚠️ **The real round-to-round time is ~10–30 s, not 4 s.** It adds up the 4 s gap, Hangfire's Postgres
   schedule polling (~15 s by default; the scheduled tick fires on the next poll), the on-chain custody →
-  treasury transfer, and for a duel the 2 s start countdown, on top of the round itself. The owner chose not
+  treasury transfer, and for a duel the start countdown (0 s for a House duel since 2026-10-22), on top of the round itself. The owner chose not
   to change the backend for this at ship (2026-10-06). The lever would be a non-Hangfire delay (e.g. a
   MassTransit scheduled message) or a shorter Hangfire poll interval.
 

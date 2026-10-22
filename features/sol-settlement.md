@@ -54,9 +54,14 @@ no mint, no associated token account, nothing to unwrap.
   transaction with an address-lookup table carries some accounts in `meta.loadedAddresses`; guessing
   there would compare an unrelated account's balance against the stake.
 - **Payouts and refunds skip the token-account lookup entirely** — the destination is the wallet.
-- ⚠️ **A transfer below the rent-exempt minimum (890,880 lamports) is refused before signing.** Such
-  a transfer fails on-chain against an unfunded destination, and retrying it would loop forever. Both
-  ticket prices clear the floor comfortably; a **partial** refund can fall under it.
+- ⚠️ **A transfer below the rent-exempt minimum (890,880 lamports) is checked against the destination
+  before signing** (`SolanaService.BuildSignedTransfer`, refined 2026-10-15 for Word Lines, #209). Solana
+  only rejects a transfer that leaves the **destination** in (0, minimum), so below the minimum the service
+  reads the destination balance (`getBalance`, Consumers retry policy + fallback; a missing account is 0) and
+  refuses only when **balance + amount** is still under the floor, or when the read fails (fail closed,
+  logged Error) — retrying such a transfer would loop forever. At or above the minimum nothing changes and no
+  extra RPC call is made. This lets a 0.3× Word Lines bad word at the 0.002 SOL minimum (600,000 lamports)
+  and small partial refunds reach funded wallets.
 - **The memo still matters.** A Solana signature is deterministic over the message, and Orbit places
   concurrent identical custody→house transfers; without a distinguishing memo the second is rejected
   as a replayed signature and its player is debited with no bet. Native transport does not change this.

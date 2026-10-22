@@ -17,6 +17,11 @@
 - **Free bets (`Amount == 0`) are excluded from every money figure** — pot, payout, total-paid,
   hottest-choice tally — but **counted in participation** (a round of only free bets still increments
   rounds played, and history's `BetCount` includes them).
+- **Hyper Roll Word Lines rounds (`BoardMode = LINES`, #209) pay every bet, so "won" means credited >
+  stake** in history (`WON x` vs `BACK x`), player stats (win rate, streaks), global and per-type stats.
+  `TotalPaidOut` and the biggest-payout / biggest-multiplier figures still count every credit. History rows
+  carry `OutcomeKey` / `OutcomePay`; legacy word rounds are unchanged. See
+  [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
 - **Space Jackpot holder tickets follow the same split** (#196,
   [`space-jackpot-refactor.md`](space-jackpot-refactor.md)). Holder **credits** — real SOL, but the
   house's own money given away — are excluded from global and per-type `TotalPaidOut`, winners-paid and

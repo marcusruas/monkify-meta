@@ -3,6 +3,12 @@
 > Status: **shipped.** Authoritative spec: [`../specs/hyper-roll-modes.md`](../specs/hyper-roll-modes.md)
 > (merged via `feature/hyper-roll-modes` on 2026-09-24). Extends [`hyper-roll.md`](hyper-roll.md).
 > Trello [#193](https://trello.com/c/Uyo3eq6g).
+>
+> ⛔ **Retired by Word Lines (2026-10-22, #209):** Hyper Roll no longer has modes. The reconciler deletes its
+> `GameBoardModes` rows, `mode` is ignored on `boards`, the mode keys and the reroll route are gone, and
+> Orbit ignores an enrollment's `BoardMode` / `Multiplier`. This doc now only describes **legacy rounds**
+> (`BoardMode` AVERAGE / SUPER / HYPER) still shown in history and verify. Current rules:
+> [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
 
 ## What it does
 

@@ -111,6 +111,13 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 - A duel starts **as soon as both bets are in** — no `MinimumWaitPeriodForBets` hold — after
   `DuelTimeUntilGameStarts` (**2 s** since 2026-09-29, was 3 s — the VS splash follows the server's
   `startDate`, so it needs no frontend constant). A one-bet room past the window just stays open.
+- **A House duel starts on the pull** (2026-10-22, shipped with #209): `DuelHouseTimeUntilGameStarts` = **0**
+  (committed; null or negative falls back to `DuelTimeUntilGameStarts`). `GameSettings.SecondsUntilGameStarts`
+  takes `isDuelHouse`, which `GameService` passes as `game.DuelKind == House`. House rounds therefore skip the
+  VS splash; open PvP rooms keep the 2 s countdown.
+- **House duels are one pull, like Hyper Roll** (front, `DuelConsole.vue`): the lever on a finished House
+  result closes it and places the next House bet with the remembered word and the same stake (tag
+  `PLAY x`, "PULL THE LEVER TO PLAY AGAIN."); with no word ready it just ENDs. PvP results keep END.
 - No rollover, no startup open, no startup re-plan, **never seeded by the house seed bet**
   (`HouseSeedBetService` skips `IsDuel` types), never planned by Orbit's shared-round engine, no lottery.
 - **Orbit auto-bet (#200, 2026-10-06): VS HOUSE only.** The type is in Orbit's `eligibleGameTypes`. An

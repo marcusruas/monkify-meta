@@ -11,6 +11,13 @@
 > and HYPER (8, the board described below). Ladders, the per-mode multiplier map, the 74-word pool,
 > `GameBoardModes`, `Game.BoardMode` and the mode keys are in [`hyper-roll-modes.md`](hyper-roll-modes.md);
 > where this doc says "the board" or "the ladder", read **the HYPER mode**.
+>
+> 🔁 **Reworked into Word Lines (2026-10-22, #209):** new rounds are a **stake-only 5×3 grid** drawn from a
+> 13-row outcome table at **98% RTP** (0.3×–10×, every spin pays), with no word to pick, no modes and **no
+> reroll** — see [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md). This doc remains the reference for
+> what Word Lines **still shares** (treasury bankroll, coverage lock, maintenance switch, stake bounds, solo
+> rounds, board TTL/cleanup, Orbit-paid and streamer bets). The word pool, ladder, board draw and word-key
+> console below describe **legacy rounds only** (`BoardMode` ≠ `LINES`), which still settle and verify.
 
 ## What it does
 
@@ -72,19 +79,20 @@ Every round belongs to **one player** (solo rounds).
 - **One player per round.** `POST /games/{gameTypeId}/boards` opens an anonymous board (a `WaitingBets`
   round with `BoardExpiresAt`). The first and only bet binds `Game.OwnerPlayerId`, and any second bet on
   that round is refused (paid → refunded).
-- **Reroll in place:** `POST /games/rounds/{roundId}/reroll` replaces the 8 board rows and rotates the
-  server seed. It is allowed only while the round has no bet. `GET /games/rounds/{roundId}` restores a board
-  or re-attaches to a running round after a reload.
+- **No reroll** (removed by Word Lines, #209: the route and handler are gone, a stale client gets a 404).
+  `GET /games/rounds/{roundId}` restores a board, re-attaches to a running round after a reload, and returns
+  the grid + hits of a settled Word Lines round.
 - **The bet starts the round immediately** (`HouseEdgeTimeUntilGameStarts = 0`). Hyper Roll has **no automatic
   rollover**: the next board comes from a lever pull or a page reload.
-- **A round types for ~4.5 s** (since 2026-09-29; was ~10 s). Hyper Roll paces on its own window,
+- **A round types for ~2 s** (Word Lines, 2026-10-22: `HouseEdgeTarget*` = 2 / 2 / 2; was ~4.5 s from
+  2026-09-29 and ~10 s before). The rest of this bullet is the original ~4.5 s analysis. Hyper Roll paces on its own window,
   `GeneralSettings:Games:HouseEdgeTarget*` (mean 3–6 s, p95 6 — committed config, no deploy override).
   Because the winner is always the weighted draw, every round runs to its character cap, and the cap is
   the 500K ceiling, so the round lasts exactly the mean target (measured 4.53–4.55 s locally). ⚠️ That is
   ~111K characters/s, twice the race's rate: a CPU-starved Consumers instance would stretch it silently,
   so judge it by real round times after a deploy, not by the config. Practice mirrors it
   (`PRACTICE_HYPER_ROLL_TIMINGS.runMs = 4500`).
-- **Unbet boards expire** after `HouseEdgeBoardTtlMinutes` (30) idle, and each read, pre-check or reroll resets
+- **Unbet boards expire** after `HouseEdgeBoardTtlMinutes` (30) idle, and each read or pre-check resets
   the timer. The Hangfire job `house-edge-board-cleanup` deletes them every
   `HouseEdgeBoardCleanupIntervalMinutes` (5).
 - Opening a board broadcasts nothing (no `GameReceived`, no `GameOpenedEvent`). Chat for house-edge types
@@ -172,6 +180,9 @@ Every round belongs to **one player** (solo rounds).
 
 ### Frontend
 
+> Legacy word-board UI. Word Lines replaced the keys, table and mode keys with the grid, the PAYS plate and
+> HALF / ×2 / MAX stake keys — see [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md) → Frontend.
+
 - The console shows the 8 official key sprites recoloured into a rarity ladder: `4×` grey, `6×` green,
   `8×` blue, `9×` purple, `10×` **gold** with a sparkle. The terminal table is `KEY WORD MULT PAYS`, and the
   header reads `YOU vs THE HOUSE` + stake. The stake plate has `−`/`+` keys (0.01 grid), **MIN / MAX** keys
@@ -219,7 +230,7 @@ Every round belongs to **one player** (solo rounds).
   `ValueObjects/HouseEdgeSlot.cs`, `ProvablyFair.cs` (`WeightedFallbackIndex`), `SpaceStrokerTyper.cs`.
 - `SpaceStroker.Domain/Bets/Services/BetDomainService.cs`: `HouseEdgeChoiceIsValid`,
   `CalculateHouseEdgeReward`.
-- `SpaceStroker.Infrastructure/Handlers/Games/`: `OpenHouseEdgeBoard`, `RerollHouseEdgeBoard`,
+- `SpaceStroker.Infrastructure/Handlers/Games/`: `OpenHouseEdgeBoard`,
   `GetHouseEdgeRound`, `CheckBetAvailability`, `RegisterBet` (backstop), `GetGameVerification`.
 - `SpaceStroker.Infrastructure/Services/Games/HouseEdgeCoverageService.cs` (advisory lock + coverage),
   `HouseEdgeReconciler.cs` (startup self-heal), `GameService.cs`.
@@ -229,7 +240,7 @@ Every round belongs to **one player** (solo rounds).
 - Orbit auto-bet (#200): `Services/Orbit/OrbitSoloAutoBetService.cs`, `Domain/Orbit/Services/OrbitSlotPicker.cs`
   — see [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
 - `SpaceStroker.Api/Controllers/GamesController.cs`: `POST {gameTypeId}/boards`, `GET rounds/{roundId}`,
-  `POST rounds/{roundId}/reroll`, `POST {gameTypeId}/availability`.
+  `POST {gameTypeId}/availability`.
 - Config: `SpaceStroker.Common/spacestrokersettings.json` → `DefaultGames[Hyper Roll].HouseEdge`
   and `GeneralSettings:Games:HouseEdge*`.
 - Tests: `SpaceStroker.Tests` (`HouseEdgeRulesTests`, `HouseEdgeBoardTests`, `HouseEdgeCoverageTests`,
@@ -241,7 +252,7 @@ Every round belongs to **one player** (solo rounds).
 **Frontend (`monkify-front/src`)**
 - `components/game/GameConsole.vue`, `GameTerminal.vue`, `HyperRollModeDial.vue`, `HyperRollWinFx.vue`,
   `GameStatsPanel.vue`, `GameFairPanel.vue`. `components/game-selection/GameTypeCard.vue`.
-- `hooks/useGame.ts` (board open/reroll/restore, availability pre-check, stake), `hooks/useLiveGames.ts`,
+- `hooks/useGame.ts` (board open/restore, availability pre-check, stake), `hooks/useLiveGames.ts`,
   `hooks/usePracticeHyperRoll.ts`.
 - `utils/houseEdge.ts`, `utils/provablyFair.ts` + `public/verify.html` (KEEP-IN-SYNC),
   `utils/gameArt.ts` / `gameArchetype.ts`, `services/mainService.ts`, `types/index.ts`.

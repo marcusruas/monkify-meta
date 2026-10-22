@@ -127,8 +127,9 @@ or card. The home page keeps only a compact strip of the player's own record.
   + progress bar (`gambled / nextLevelAt SOL gambled`, `MAX LEVEL` at the cap; fine print *"Total gambled,
   not deposited — Orbit re-bets what it wins."*). Owner: **EDIT NAME** and **EDIT THEME** (both open
   SETTINGS). Visitor on an available profile: **DONATE SOL**.
-- Record: headline **GAMBLED · WON · BETS** (GAMBLED = the level basis), then NET · WIN RATE · BIGGEST WIN ·
-  ROUNDS · BEST STREAK · MOST PLAYED. NET is never the lead and never red-framed. Owner: a **Responsible
+- Record: headline **GAMBLED · WON · BETS** (GAMBLED = the level basis), then **BIGGEST WIN · BEST STREAK ·
+  MOST PLAYED** (trimmed 2026-10-22, shipped with #209: NET, WIN RATE and ROUNDS removed; three across on
+  desktop, MOST PLAYED full width under the other two on a phone). NET is never the lead and never red-framed. Owner: a **Responsible
   gaming** link by the record. Copy says "gamble", never "wager".
 - Trophy shelf (locked = greyed + hint; unlocked = title + date), then recent rounds. The Monkey Duel row
   thumbnail is a CSS red/blue stepped split with "VS" (the lobby card's art), not a poster.
@@ -183,8 +184,8 @@ or card. The home page keeps only a compact strip of the player's own record.
 
 ### Home
 
-- **YOUR RECORD is a compact strip** (`HomePlayerStats.vue`): own `PlayerTag`, rounds · win rate · best
-  streak and **Full profile →**, themed in the player's color. Net / gambled / won / biggest win / most
+- **YOUR RECORD is a compact strip** (`HomePlayerStats.vue`): own `PlayerTag`, **rounds** (win rate and best
+  streak removed 2026-10-22) and **Full profile →**, themed in the player's color. Net / gambled / won / biggest win / most
   played live only on the profile. Section order and `HomeHero` are unchanged.
 
 ### DONATE SOL (front only)

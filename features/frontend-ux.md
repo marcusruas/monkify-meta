@@ -349,8 +349,14 @@ everywhere else it renders the calm default sky.
 One cohesive AI-generated (Suno) **warm arcade-chiptune** identity. **Entirely frontend, display-only —
 audio never affects bets, settlement, winners or game state.**
 
-- Background music follows the game lifecycle (idle / starting / random running); a menu track plays
-  while browsing games.
+- ⛔ **No music at all since 2026-10-22 (#209, owner's call): sound effects only.** The lobby loop, the
+  waiting-bets loop, the three race loops and the Game Starting jingle were removed with their assets and
+  `playLoopingAudio` / `preloadAudios`; `GameAudio` / `PracticeAudio` stay mounted only to clear leftover
+  audio (and keep `GamePage` multi-root). An 8-bit **lever-pull** arpeggio (`lever_pull.mp3`) plays on every
+  valid pull (bet, NEW ROUND, manual rollover, duel post/join/cancel, practice consoles); the automatic
+  rollover is silent and an invalid pull keeps the error buzz. Every mode's **loss sting** is now Edson's
+  curse (`word-lines/edson-swore.wav`, garbled blips, no bleep) instead of `lose.mp3`. Word Lines' own SFX are
+  in [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
 - Own-bet, button and error SFX; **bettors-only** victory/lose cues at end of round.
 - Header **mute + volume**, persisted to `localStorage`, governing everything through a master gain.
 - ⚠️ **The master gain starts at 20%, not 100% (owner's call, 2026-08-13)** —
