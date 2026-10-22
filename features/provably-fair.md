@@ -43,6 +43,12 @@ reproducible.
   always the fallback, drawn by `WeightedFallbackIndex`: a uniform draw over the board's **published
   integer weights** (32-bit rejection sampling on the same `|fallback` block). The weights ship in the
   verification payload and are always read, never recomputed. See [`hyper-roll.md`](hyper-roll.md).
+  **Word Lines (#209, 2026-10-22):** the same draw runs over the round's **13 outcome rows**
+  (`GameBoardChoices` = the published table, sorted ordinally by key) and picks the result row; the 5×3 grid
+  is then built with ordinary randomness and is presentation only. `GET /games/{id}/verification` adds
+  `BoardMode = LINES`, the grid and the hits. The algorithm is unchanged; a **V4 known-answer vector** over the
+  13 weights is pinned in `ProvablyFairTests` and quoted in `provablyFair.ts` / `verify.html`. See
+  [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
 - **Client seed + nonce (Stake-style).** Each player holds a persistent client seed (localStorage,
   rotatable in the header gear modal); each bet carries an incrementing `nonce` and sends
   `Bet.Seed = HMAC-SHA256(key = clientSeed, msg = String(nonce))`. ⚠️ **The raw `clientSeed` never leaves

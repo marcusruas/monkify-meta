@@ -110,7 +110,7 @@ Source of truth: `monkify-backend` `SpaceStroker.Consumers/DefaultGameParameters
 | Card | Real type | Must say | Must never say |
 | --- | --- | --- | --- |
 | **Cosmic Sprint** | 6X Main Sprint | One **6-character alphanumeric** race (A–Z + 0–9); tag `6 CHARS · A–Z + 0–9` | "6 letters / 6 numbers" — there is no letters-only or numbers-only variant |
-| **Hyper Roll** | Hyper Roll (`IsHouseEdge`) | **Pick 1 of 8 words**, set your stake, the house pays the multiplier — **up to 10×**, no house cut | "Back a beast", a pot, or "first one spelled wins the pot" — Hyper Roll is player-vs-house (replaced Beast Mode 2026-09-22 on the LP) |
+| **Hyper Roll** | Hyper Roll (`IsHouseEdge`) | **Word Lines** (#209, 2026-10-22): tag `5×3 GRID · UP TO 10X`; blurb "Pull the lever: Edson types a 5×3 grid and words on 10 lines pay – every spin pays 0.3× to 10×." Terms clause: 13 published results, 0.3×–10× of the stake, no house cut, provably fair, **98%** RTP, a result below 1× pays back less than the stake (`LAST_UPDATED` 15 October 2026) | "Pick a word", "back a beast", a pot, "first one spelled wins the pot", or 91.84% — Hyper Roll is player-vs-house with no picking |
 | **Space Jackpot** | Space Jackpot (`HolderOnly`) | **Free daily draw for $STROKE holders** (#196, 2026-10-01); tag `FREE FOR HOLDERS · DAILY`; blurb "Hold $STROKE, grab a free ticket, one holder bags the daily jackpot." | A ticket price, "the pot fattens", a refund, or the $STROKE winner bonus — entry is free and the house funds the pot. Also never "every 4h" |
 
 **Mode art:** each card has its own animated GIF with a static first-frame poster (poster at rest, GIF on

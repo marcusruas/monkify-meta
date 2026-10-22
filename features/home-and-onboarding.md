@@ -29,7 +29,9 @@ first-time player has no reason to open.
 why the LP's play CTA targets the **bare origin** and not a route — see [`lp.md`](lp.md).
 
 **Section order (owner's list, 2026-10-02):** hero → the mode picker → **the token card** → the
-leaderboard → **the partner card** (#199) → the player's own record → everyone's numbers (THE FLOOR) →
+leaderboard → **the partner card** (#199) → the player's own record → everyone's numbers (THE FLOOR — since
+2026-10-22 its count tile is **"Bets made"** (`totalBetsPlaced`, every individual bet: a Hyper Roll spin and a
+Sprint bet each count once) instead of "Rounds played", and "Biggest pot" carries its SOL unit) →
 the Orbit card → how-it-works → provably fair → **the community panel**.
 
 - ⚠️ **Everything below the leaderboard was reordered on 2026-10-02.** It used to run explainers → Orbit →
@@ -40,7 +42,8 @@ the Orbit card → how-it-works → provably fair → **the community panel**.
   locally). It keeps the slot its own decision gave it — directly after the games — rather than being
   moved or dropped by omission. Confirm with the owner if it should move.
 - **The player's own record is a compact strip since #186** (`HomePlayerStats.vue`, connected only):
-  "YOUR RECORD" over the player's own tag, then rounds · win rate · best streak and **Full profile →**
+  "YOUR RECORD" over the player's own tag, then **rounds** (win rate and best streak removed 2026-10-22) and
+  **Full profile →**
   (`/player/{wallet}`), themed in their color profile. Net, gambled, won, biggest win and most played moved
   to the public profile page — see [`player-profile.md`](player-profile.md). `HomeHero`'s use of the stats
   (new vs returning, "Play <usual game>") is unchanged.

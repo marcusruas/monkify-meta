@@ -117,7 +117,7 @@
   by `SpaceStroker.Consumers` at startup **create-only by name**: a type is inserted only when no row
   with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
   admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
-  (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER since 2026-09-24 — see `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
+  (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER from 2026-09-24, reworked into stake-only **Word Lines** on 2026-10-22 — see `features/hyper-roll-word-lines.md`, `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
   (daily **holder lottery** — free for $STROKE holders since 2026-10-01, see **Holder lottery**). The
   exceptions to "never rewritten" are the **three single-field startup self-heals**:
   `AllowFreeBet = !IsProduction()` (holder defaults skipped), `AllowOrbit` and `ComingSoon` from config,
@@ -174,7 +174,24 @@
   **`POST /admin/bets/refund { paymentSignature }`** action (the only producer of `NeedsRefunding`),
   which marks a bet for refund by its indexed `Bet.Signature` (blocks Rewarded/Refunded/free;
   idempotent). See `features/refund-safeguards.md`.
-- **PresetChoice** — predefined winnable choices for a game type.
+- **PresetChoice** — predefined winnable choices for a game type. For Hyper Roll (Word Lines) it is the
+  3–5-letter **word pool** the grid generator draws from, and `Multiplier` is the **space flag** (2 = space
+  word, 1 = normal).
+- **Word Lines** — Hyper Roll since #209 (2026-10-22): a stake-only 5×3 letter grid read along **10
+  paylines** from reel 1; one weighted draw picks a row of the **outcome table** and the server builds a grid
+  showing exactly that row. Rounds carry `Game.BoardMode = "LINES"` and every bet's choice is `spin`. See
+  `features/hyper-roll-word-lines.md`.
+- **Outcome table (Word Lines)** — the published 13-row paytable (`key:pay:weight`, Σ weights 1,000,000,
+  98% RTP, 0.3×–10×), config `HouseEdge.Outcomes` → `GameParameters.OutcomeTable`, copied into each round's
+  `GameBoardChoices`.
+- **Bad word** — the Word Lines `bad` row (43.66%): no word on any line or reel, the middle row shows
+  `#@%!&`, pays **0.3×**. Shown as "SO CLOSE!", never as a win.
+- **Space word** — one of the 20 original 4/5-letter Hyper Roll words (mars, orbit, …); on a Word Lines line
+  it pays **×2** (`spacefour` 2.8×, `spacefive` 5×).
+- **Echo / down word / wild (Word Lines)** — echo: the same 4-letter word on two lines, both doubled (5.6×);
+  down word: a 3-letter word read top→bottom on one reel (0.5×); wild: a 4-letter word with one `?` (1.4×).
+- **Won (Word Lines)** — a spin counts as won only when its payout is **above the stake**; 0.3× / 0.5× results
+  are paid but are losses in history, stats, Orbit toasts and Orbit's step rule.
 - **Choice exclusivity / `ExclusiveChoice`** — in **free-text** game types (empty `PresetChoices`),
   each typed sequence is exclusive to the **first** player who bets it in a round; a different player
   taking the same normalized choice is rejected (`ErrorMessages.ChoiceAlreadyTaken`) and **auto-refunded**
@@ -500,7 +517,7 @@
   `OrbitEnrollment.Stake` through the unchanged `OrbitStakePlacer`, and after settlement waits
   `SoloRoundGapSeconds` before the next. One round in flight per player (`SoloRoundId`), guarded by a
   token **lease** (`SoloLeaseUntil`) taken before any round opens. See `features/auto-bet-duel-hyper-roll.md`.
-- **`SoloRoundGapSeconds`** — `Operator.Token.Orbit.SoloRoundGapSeconds` (committed **5**): the pause between
+- **`SoloRoundGapSeconds`** — `Operator.Token.Orbit.SoloRoundGapSeconds` (committed **4** since 2026-10-15, was 5): the pause between
   one solo auto round settling and the next opening, an ops brake. ⚠️ The observed round-to-round time is
   ~10–30 s (Hangfire's ~15 s schedule polling + the on-chain transfer + the duel's 2 s countdown).
 - **Waiting for the house (Orbit)** — the solo loop's state when the maintenance switch is off or coverage

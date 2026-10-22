@@ -1,6 +1,13 @@
 # SpaceStroker — "Hyper Roll Word Lines" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-22)** — merged from `feature/hyper-roll-word-lines` into `main` (`monkify-backend`,
+> `monkify-front`, `monkify-meta`) and `master` (`monkify-lp`). Distilled in
+> [`../features/hyper-roll-word-lines.md`](../features/hyper-roll-word-lines.md); the code wins where they differ.
+> Post-ship notes (beyond this spec): stake keys are HALF / ×2 / MAX; the result is traced square by square
+> (233 / 80 / 200 / 233 ms); the native-SOL guard now allows sub-rent-exempt payouts to funded wallets;
+> Orbit solo gap 4 s; practice `runMs` 1600 with the grid at ~1.2 s.
+>
+> Originally: **Ready for implementation** — refined via Trello card
 > [#209 Hyper Roll rework — Word Lines (5×3 grid, 10 paylines, 98% RTP)](https://trello.com/c/0BtXXjVp) (2026-10-15).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/hyper-roll-word-lines` → `.worktrees/hyper-roll-word-lines/<repo>`

@@ -664,7 +664,7 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds
-  since #200), `POST /games/rounds/{roundId}/reroll`,
+  since #200; also the grid + hits of a settled Word Lines round — the reroll route was removed by #209),
   `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), and for Monkey Duel
   `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
   `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`
