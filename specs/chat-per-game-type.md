@@ -1,5 +1,8 @@
 # SpaceStroker — "Chat per game type" Feature — Implementation Spec
 
+> ⚠️ **Superseded on 2026-10-22 by [`chat-revamp.md`](chat-revamp.md)** (one global room, chat sessions,
+> DMs). Current rules: [`../features/chat.md`](../features/chat.md).
+
 > **Status: Shipped** — merged `feature/chat-per-game-type` → `main` on 2026-09-16 (monkify-backend,
 > monkify-front, monkify-meta). Distilled rules: [`../features/game-chat.md`](../features/game-chat.md).
 > One naming deviation from §6.1: the limit constant is `Services/Chat/ChatHistory.Limit`, not

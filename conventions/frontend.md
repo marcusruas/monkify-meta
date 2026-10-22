@@ -86,10 +86,11 @@
   round rollovers, game-type switches and trips back to the lobby. A round change is a **group swap**
   (`attachToGame` → `JoinGame` + bind `{gameId}/…`; `detachFromGame` → unbind + `LeaveGame`), never a
   reconnect; `GameReceived` is bound **once** for the tab via `onBroadcast`. `useGame` consumes it and
-  handles `…/Terminal`, `…/DisplaySpeed`, `…/Status` and `…/Bets` per round. **Game chat is a separate
-  channel keyed by game type** (`attachToChat(gameTypeId)` → `JoinChat` + bind `{gameTypeId}/ChatMessage`;
-  a call for the room already joined is a no-op, so rollover leaves chat alone; `onreconnected` re-joins it
-  and fires `onChatRejoined` so `useGame` backfills history — see `features/game-chat.md`). Rules when
+  handles `…/Terminal`, `…/DisplaySpeed`, `…/Status` and `…/Bets` per round. **Chat is a separate,
+  app-wide channel on the same socket** (`joinGlobalChat(handlers)` → `JoinGlobalChat`;
+  `authenticateChat(token, dmHandlers)` → `AuthenticateChat`; `onreconnected` — and a REBUILT connection
+  from `ensureConnected` — re-runs both and fires the `chatRejoined` hook so history, conversations and
+  unread backfill — see `features/chat.md`). Rules when
   touching it: **unbind before joining** (a handler that
   outlives its round double-pushes bets and double-counts the pot), `onreconnected` re-joins **only**
   the current `gameId`, and `ensureConnected` is single-flight so a rollover racing a mount cannot open
@@ -720,7 +721,7 @@
     for the live game's. A factory makes *"this state cannot outlive its page"* **structural** rather
     than a rule to remember. Use this shape for any second instance of an existing screen.
   - **An explicit import ban is the isolation mechanism.** Nothing on the practice path may import
-    `useGame`, `useNearMiss`, `useGameHub`, `useGameChat`, `useIdleDisconnect`, `mainService` or
+    `useGame`, `useNearMiss`, `useGameHub`, the chat composables, `useIdleDisconnect`, `mainService` or
     `solana-wallets-vue`; what is genuinely shared is the **pure** layer (`utils/nearMiss.ts`,
     `formatGameAmount`, the art and audio assets). ⚠️ `useNearMiss` in particular is a module singleton
     shared with the live screen — calling it from a second surface puts its rows on a real round.

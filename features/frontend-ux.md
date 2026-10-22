@@ -134,9 +134,9 @@ Mobile engages **below `lg` (1024px)** — reusing the `GameMonkey hidden lg:blo
 phones are covered. Portrait **and** landscape, standalone **and** inside an iframe.
 
 - **Lobby:** 1-column condensed cards.
-- **Game:** a `GAME | CHAT` segmented view, **absolutely stacked so a hidden view cannot intercept
-  taps**; full-width fluid terminal + compact bet panel (**no amount field** — the lever *is* PLACE
-  BET); monkey hidden; unread dot on chat.
+- **Game:** a `GAME` label strip (the terminal's top bezel — the CHAT segment and its unread dot left
+  with #205; chat is the app-wide sheet from the header button); full-width fluid terminal + compact bet
+  panel (**no amount field** — the lever *is* PLACE BET); monkey hidden.
 - **Mobile crypto wallet connect** is a single modal with multi-wallet **deeplinks** into the
   Phantom/Solflare in-app browser, reusing `sendToken`. ⚠️ An **already-hydrated deeplink session never
   fires the wallet watcher**, which is why the name prompt also evaluates on mount — see
@@ -375,17 +375,11 @@ audio never affects bets, settlement, winners or game state.**
 
 ## 6. Chat
 
-A lightweight chat on `/game`, in the right-side panel, attributed to each player's **display name**
-(the same identity as bets and winners). Full rules: [`game-chat.md`](game-chat.md).
-
-- ⚠️ **One room per GAME TYPE, not per round** — the same tab connection, a separate group
-  (`chat:{gameTypeId}`). Rollover and `Ended` neither clear nor lock it; only a game-type switch does.
-- Opening or refreshing the game shows the **last 100 messages** of the type within `Chat.RetentionDays`
-  (committed 2), merged with live messages by server id. Only **live** messages light the mobile unread dot.
-- DB persistence via event → consumer (audit + history fallback), daily purge. Client-side 200-char / 1 s
-  limits; no wallet → read-only.
-- The side panel keeps its arcade-cabinet chrome (collapse / dock-rail / maximize) but is **chat-only**
-  since Stats and Fair became menu destinations — see [`stats-and-history.md`](stats-and-history.md).
+One app-wide chat on **every page** (not embedded, not practice): a header button (sound → chat → Orbit →
+wallet → profile) toggles a docked 340px desktop column that pushes the page and collapses to a 48px rail,
+or a full-screen sheet on mobile. Tabs **GLOBAL | DMs | 🔔 donations**. The desktop open/collapsed/closed
+state is remembered in `localStorage` (`space-stroker.chat-dock`). The game screen has no chat panel of
+its own. Full rules: [`chat.md`](chat.md).
 
 ## 7. Money animations and misc
 
@@ -396,7 +390,7 @@ A lightweight chat on `/game`, in the right-side panel, attributed to each playe
 
 `src/styles/arcade.css` + `colors.css` + `tailwind.config.js` (tokens), `src/constants/icons.ts` +
 `src/components/ui/AppIcon.vue`, `src/components/GameHeader.vue` (icon pad),
-`src/components/game/{GameTerminal,GameConsole,GameMonkey,GameSidePanel,GameChatPanel}.vue`,
+`src/components/game/{GameTerminal,GameConsole,GameMonkey}.vue`, `src/components/chat/*.vue`,
 `src/components/game/ConsolePlate.vue` + `consolePlate.ts` + `assets/game/console/plate.png` (the shared
 console plate, its lever and its well grid),
 `src/components/GameBackground.vue` + `TorpedoSpawner.vue`, `src/hooks/{usePerfMode,useIsMobile,useChatUnread}.ts`,

@@ -106,7 +106,7 @@ returned.
 
 ## 3. The in-app FAIR panel
 
-- **Housing:** `GameSidePanel` is **chat-only**; `GameFairPanel` renders inside the header-menu **Fair
+- **Housing:** the game screen has no side panel (chat is app-wide since #205); `GameFairPanel` renders inside the header-menu **Fair
   modal** (`GameFairModal`) — an always-on how-to-verify explainer above the reused panel. Off `/game` it
   shows a "watch a round to verify it" empty state (no fetch). ⚠️ **Hidden when embedded**
   (`useEmbed()`). See [`embedding.md`](embedding.md) and [`stats-and-history.md`](stats-and-history.md).

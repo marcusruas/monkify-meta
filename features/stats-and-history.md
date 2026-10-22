@@ -152,9 +152,9 @@ floored at the cutover; every money figure still is. See [`player-profile.md`](p
 
 ## 3. Where these live in the UI
 
-- ⚠️ **Neither is a side-panel tab any more.** `GameSidePanel` is **chat-only** (its arcade-cabinet
-  chrome — collapse / dock-rail / maximize — kept). Stats and Fair became header-menu destinations; the
-  mobile segmented control is `GAME | CHAT`.
+- ⚠️ **Neither is a side-panel tab any more.** Stats and Fair are header-menu destinations, and the
+  side panel itself is gone: chat moved to the app-wide drawer (#205, `features/chat.md`), so the game
+  screen is terminal + monkey and the mobile strip is a `GAME` label.
 - **Stats** is a dedicated page (`/game/stats`, route `GameStats`) with **one page-level house-cut
   badge** at the top from the global read's `commissionPercentage` — shown **once for the whole page**,
   not per section. See [`money.md`](money.md).
@@ -237,7 +237,7 @@ visitor rather than to "referral / www.spacestroker.com".
 | `Migrations/*_AddQueryCoveringIndexes.cs` | The covering indexes the window filter depends on |
 
 **Frontend (`monkify-front`)** — `src/pages/GameStatsPage.vue`, `src/pages/GameHistoryPage.vue`,
-`src/components/game/GameStatsPanel.vue`, `src/components/game/GameSidePanel.vue` (chat-only),
+`src/components/game/GameStatsPanel.vue`,
 `src/hooks/useAmountFormatter.ts`, `src/services/mainService.ts`, `src/types/index.ts`, plus the GA4
 consent banner and `gtag` bootstrap in both `monkify-front` and `monkify-lp`.
 

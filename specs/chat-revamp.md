@@ -1,7 +1,8 @@
 # SpaceStroker — "Chat revamp" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
-> [Chat revamp](https://trello.com/c/il70nAG8/205-chat-revamp) (#205, 2026-10-19).
+> **Status: Shipped** — merged `feature/chat-revamp` → `main` on 2026-10-22 (monkify-backend,
+> monkify-front, monkify-meta). Distilled rules: [`../features/chat.md`](../features/chat.md).
+> Refined via Trello card [Chat revamp](https://trello.com/c/il70nAG8/205-chat-revamp) (#205, 2026-10-19).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Level: **`Feature`**.
 >
@@ -484,7 +485,8 @@ re-authenticating), reset DM state.
 
 ### 7.4 UI
 
-- **`components/chat/ChatButton.vue`** in `GameHeader` right cluster (before the menu root): pixel `chat`
+- **`components/chat/ChatButton.vue`** in `GameHeader` right cluster, **right after the audio control**
+  (owner, 2026-10-22: order is sound → chat → Orbit → wallet → profile card): pixel `chat`
   icon (new entry in `constants/icons.ts`) + numeric badge `totalUnread` (`99+` cap). Hidden when
   embedded / Practice. Fits the 54px mobile bar.
 - **`components/chat/ChatDrawer.vue`** mounted once in `App.vue` (beside `<player-card/>`),
@@ -492,7 +494,10 @@ re-authenticating), reset DM state.
   340px column** under the header (`z-furniture`), **not a modal** — no backdrop, scroll lock or focus
   trap, so the page stays usable while chatting. It publishes `--chat-dock-w` on `<html>` and `<main>`
   (`.chat-dock-aware`) pads by it, so the page reflows instead of being covered. Collapses to a 48px rail
-  (unread count + expand); it **opens on every desktop page load** (owner, 2026-10-20 — mobile starts closed, and narrowing below `lg` closes it);
+  (unread count + expand); on desktop it **remembers the player's last state** — open, collapsed or
+  closed — in `localStorage` (`space-stroker.chat-dock`) and reloads into it; first visit starts open
+  (owner, 2026-10-22, replacing "open on every load"). Mobile starts closed and never writes the
+  preference; narrowing below `lg` closes it without saving, widening back restores the preference;
   the header button toggles it; in-chat profile links keep it open (`dismissForNavigation` closes only the
   mobile sheet); a collapsed column does not count as "thread on screen" for DM read state. Mobile
   (`useIsMobile`): full-screen modal sheet (`useOverlayStack`, `useFocusTrap`, `useBodyScrollLock`).
@@ -748,3 +753,4 @@ Replace `GameChatTests.cs` with `ChatFlowTests.cs`:
 | 2026-10-20 | Owner QA: the docked chat opens on every desktop load (no localStorage memory); Edson's GIF now scales with his column (max-height ladder + object-contain) instead of being squeezed by the docked chat. |
 | 2026-10-20 | Owner request: staff badges — `GeneralSettings.Admins` / `Moderators` wallet lists, `GET /chat/staff`, ADM / MOD badge in chat, DMs and the profile (§6.9a). |
 | 2026-10-21 | Owner request: donation notifications (Claude Design "Donation notifications — chat bell", 1c toast + 1b tab). New `Donations` table (`AddDonations` migration, unique `Signature`); `POST /chat/donations` (anonymous — the donor's client reports its confirmed DONATE transfer, the API verifies it on chain as native SOL donor → recipient via `ValidateIncomingTransfer`, min 0.001, idempotent per signature, one vague `DonationNotVerified`); `GET /chat/donations` + `POST /chat/donations/read` (chat session). Live `DonationReceived` / `DonationsRead` on the recipient's DM group (not sent when the recipient blocked the donor; still recorded). Front: a third, icon-only bell tab (RECENT / TOP DONORS, totals), unread donations on the header chat badge, and a 6 s arrival toast under the header. Integration test `DonationFlowTests`. |
+| 2026-10-22 | Owner request: header chat button moves right after the audio control; the desktop chat dock remembers open / collapsed / closed across reloads (`localStorage`, first visit open), superseding the 2026-10-20 "opens on every desktop load" (§7.4). |

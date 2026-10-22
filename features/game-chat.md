@@ -1,5 +1,10 @@
 # Feature — Game chat (per game type)
 
+> ⚠️ **SUPERSEDED on 2026-10-22 by [`chat.md`](chat.md)** (Chat revamp, #205). Per-type rooms,
+> `JoinChat` / `SendChatMessage` / `SendPlayerChatMessage`, `GET /games/{parametersId}/chat`,
+> `GameSidePanel` / `GameChatPanel` and the client-trusted display name no longer exist. Kept as history
+> only — do not use it to describe current behavior.
+
 > Status: **shipped.** Authoritative specs: [`../specs/chat-per-game-type.md`](../specs/chat-per-game-type.md)
 > (the per-type room + history, merged via `feature/chat-per-game-type` on 2026-09-16, Trello #185) on top
 > of [`../specs/game-chat.md`](../specs/game-chat.md) (v2 — identity, limits, persistence, purge; 2026-07-03).

@@ -319,15 +319,23 @@
   includes `Theme:`). Paints identity surfaces only — never buttons, the wallet pill, red losses or Orbit
   violet.
 - **Donation (DONATE SOL)** — a front-only, donor-signed direct SOL transfer to another player's wallet from
-  their profile or mini card (0.001–1 SOL; presets 0.01/0.05/0.1/0.5). No backend record; the explorer link
-  is the receipt. Works on in-page wallets and phone wallet-app deeplink sessions.
-- **Game chat message** — a plain-text line in a **chat room** sent over
-  `ActiveGamesHub.SendChatMessage(gameTypeId, gameId, displayName, text)`; attributed by client-resolved
-  **display name**; carries a server `id` and `sentAt`; persisted to `GameChatMessage` (with `GameTypeId` and
-  the sender's round `GameId`) for audit and as the history fallback. See `features/game-chat.md`.
-- **Chat room** — the chat of one **game type** (SignalR group `chat:{gameTypeId}`), not of a round: it
-  survives rollover and `Ended`, and on load shows the last 100 messages of the type within
-  `Chat.RetentionDays` (`GET /games/{parametersId}/chat`). See `features/game-chat.md`.
+  their profile or mini card (0.001–1 SOL; presets 0.01/0.05/0.1/0.5). The money never touches the backend;
+  after it confirms, the donor's client reports it (`POST /chat/donations`), the API verifies it on chain and
+  records a `Donation` row so the recipient gets the chat **donations bell** (see `features/chat.md`). The
+  explorer link is the receipt. Works on in-page wallets and phone wallet-app deeplink sessions.
+- **Global chat** — the ONE app-wide chat room (SignalR group `chat:global`), readable by anyone, shown on
+  every page except embed/practice; last 100 messages within `Chat.RetentionDays` via `GET /chat`. Messages
+  persist to `GameChatMessage` (`GameTypeId == null`). See `features/chat.md`.
+- **Chat session** — a 7-day credential minted by one wallet signature (`POST /chat/session`, nonce purpose
+  `chat-session`, token payload prefixed `chat:`) required for every chat send; the server derives the
+  sender's wallet and display name from it. Never interchangeable with an Orbit/referral token. Sent as
+  `X-Chat-Session` on HTTP. See `features/chat.md`.
+- **Direct message (DM)** — a private chat message between two player wallets (`DirectMessage`), persisted
+  before delivery to the per-wallet group `dm:{wallet}`, kept `Chat.DirectMessageRetentionDays` (30). A
+  refused DM (blocked, self-excluded, house, self, unknown) shows only "This player is unavailable." See
+  `features/chat.md`.
+- **Chat block / chat mute** — a block (`ChatBlock`) is a player stopping another wallet's DMs to them;
+  a mute (`ChatMute`) is an admin silencing a wallet's global + DM sends until a time. Both drop silently.
 - **Game-type stats** — all-time aggregated stats for one **game type** (`GameParameters`),
   served read-only by the public `GET /games/{parametersId}/stats`: biggest pot
   ever split, biggest single payout, rounds played, total paid out, and (preset types only) the
