@@ -1,8 +1,22 @@
 # SpaceStroker — "Profile V2" (Edson profile icons + notifications feed) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-23, branch `feature/profile-v2`)** in `monkify-backend`, `monkify-front` and
+> `monkify-meta` — distilled in [`../features/profile-v2.md`](../features/profile-v2.md). Refined via Trello card
 > [#202 Profile V2 — Edson profile icons + notifications feed](https://trello.com/c/FWV5xDzH) (refined
 > 2026-10-22, spec 2026-10-22).
+> ⚠️ **Post-ship notes — the code wins:** **(1)** the profile's *unavailable* body lists the free keys only, never
+> staff keys (so it leaks no staff membership; §6.3 said "+ staff keys when allowed"). **(2)** `golden: true` rides
+> on the last fresh trophy (catalog order) of the run that completes all 10, not on "max unlock round == this
+> game" (rounds can settle out of order). **(3)** `jackpotWon` is one per **wallet** (Σ credits of its winning
+> bets, `holder` = any holder ticket), not per bet. **(4)** `RoundSettledConsumer` adds a **loss gate** (skip the
+> derivation when all the player's counting bets in the round lost and they already played that type). Both the
+> gate and the derivation count a Word Lines (`LINES`) bet as won when credited more than its stake (S8 of
+> `hyper-roll-word-lines.md`), fixed during the ship — before, LINES rounds never counted as wins for trophies. **(5)** The avatar guard runs after **every** successful bet refund, not only paid ones;
+> the refund notification shows the amount actually returned. **(6)** Rode along: a Word Lines (`LINES`) bet
+> counts as won for trophies and recent rounds when credited more than its stake (`hyper-roll-word-lines` S8);
+> Hyper Hit still needs a `HYPER` board 10× word. **(7)** Extra surface: open duel room cards show the owner's
+> icon. **(8)** Not done: the practice race (`PracticeTerminal.vue`) keeps the initial tiles; `PlayerTag` shows no
+> icon when embedded. **(9)** Rode along (#209 follow-up): no phone beep on the own bet in Cosmic Sprint either.
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/profile-v2` → `.worktrees/profile-v2/<repo>`.
 > Change level: **Feature** — mandatory happy-path integration test (`constraints.md` §3).

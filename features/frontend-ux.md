@@ -57,8 +57,9 @@ There is now **one pixel-art icon language**: a shared registry (`src/constants/
 one component (`ui/AppIcon.vue`). Every page and feature carries an **identity mark**.
 
 ⚠️ **The header menu's trigger is a PROFILE CARD, not a ☰ glyph** (#186, owner 2026-10-16,
-`header/ProfileCard.vue`): the player's avatar tile in their color profile + `LV` badge + a chevron, **no
-name at any width**; signed out, a grey guest tile. It opens the same menu (the docs still call it "the ☰
+`header/ProfileCard.vue`): the player's Edson profile icon on a tile in their color profile (Profile V2,
+[`profile-v2.md`](profile-v2.md)) + `LV` badge + a chevron, **no name at any width**; signed out, a grey
+guest tile with Edson. It opens the same menu (the docs still call it "the ☰
 menu").
 
 ⚠️ **The menu is an identity head over a 4-column icon pad, not a list of rows** (`.menu-pad`, 336px).
@@ -358,6 +359,10 @@ audio never affects bets, settlement, winners or game state.**
   curse (`word-lines/edson-swore.wav`, garbled blips, no bleep) instead of `lose.mp3`. Word Lines' own SFX are
   in [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
 - Own-bet, button and error SFX; **bettors-only** victory/lose cues at end of round.
+- **Edson's phone beep on the player's own bet** (`phone_beep.mp3`, with the call animation) plays only on
+  **Monkey Duel and Space Jackpot**. On **Hyper Roll and Cosmic Sprint** (archetypes `houseEdge` / `race`)
+  the lever-pull sound marks the bet, so the beep is skipped (#209; Sprint since 2026-10-23). Live:
+  `GameMonkey.vue`; practice: `PracticeMonkey.vue` beeps only in the practice duel.
 - Header **mute + volume**, persisted to `localStorage`, governing everything through a master gain.
 - ⚠️ **The master gain starts at 20%, not 100% (owner's call, 2026-08-13)** —
   `DEFAULT_MASTER_VOLUME = 0.2` in `constants/helpers.ts`, which is both the module's own starting
@@ -377,7 +382,8 @@ audio never affects bets, settlement, winners or game state.**
 
 One app-wide chat on **every page** (not embedded, not practice): a header button (sound → chat → Orbit →
 wallet → profile) toggles a docked 340px desktop column that pushes the page and collapses to a 48px rail,
-or a full-screen sheet on mobile. Tabs **GLOBAL | DMs | 🔔 donations**. The desktop open/collapsed/closed
+or a full-screen sheet on mobile. Tabs **GLOBAL | DMs | 🔔 notifications** (donations, trophies, refunds,
+jackpot wins — [`profile-v2.md`](profile-v2.md)). The desktop open/collapsed/closed
 state is remembered in `localStorage` (`space-stroker.chat-dock`). The game screen has no chat panel of
 its own. Full rules: [`chat.md`](chat.md).
 

@@ -109,7 +109,8 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
 - **Games area** (`SpaceStroker.Domain/Games/Entities`): `Game` (carries the provably-fair
   **`ServerSeed`** + **`ServerSeedHash`** committed on the first bet; the old `int? Seed` is removed),
   `GameParameters` (a "game type" — flat, belonging to no tenant), `LotteryParameters`, `PresetChoice`,
-  `GameStatusLog`, **`Player`** (wallet-keyed identity + self-exclusion). A **holder round** (Space
+  `GameStatusLog`, **`Player`** (wallet-keyed identity + self-exclusion; cosmetic `ProfileTheme` and, since
+  Profile V2, `AvatarId` = the equipped Edson icon key, `null` = default). A **holder round** (Space
   Jackpot, #196) carries `Game.HolderMinimum` (N, frozen), `Game.HouseFundedPot` (frozen, house-funded)
   and `Game.HolderEntriesPaused`; its type is flagged by `LotteryParameters.HolderOnly`.
 - **Bets area** (`SpaceStroker.Domain/Bets/Entities`): `Bet` (its `Seed` is a 64-char
@@ -122,6 +123,11 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   or a Space Jackpot **holder ticket**. One holder ticket per wallet per round is enforced by the unique
   partial index `IX_GameBets_GameId_PlayerId_Holder`. `BetStatus.Voided` is a holder ticket struck out
   by the draw recheck.
+- **Chat area** (`SpaceStroker.Domain/Chat/Entities`): `DirectMessage`, `DirectMessageReadState`,
+  `ChatBlock`, `ChatMute`, `Donation`, and **`Notification`** (Profile V2, table `Notifications`: `Wallet`,
+  `Type` (`NotificationTypes`: `donation` / `trophyUnlocked` / `refundIssued` / `jackpotWon`), `DedupKey`,
+  JSON `Payload`, `ReadAt`; unique `(Wallet, Type, DedupKey)` + index `(Wallet, CreatedDate)`; migration
+  `ProfileV2AvatarsAndNotifications`). See `features/chat.md`, `features/profile-v2.md`.
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
 Relationships: `GameParameters 1—* Game 1—* Bet 1—* TransactionLog` (the FK is **nullable** — a refund
@@ -156,8 +162,9 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
 | --- | --- | --- | --- |
 | `BetPlacedEvent` | `RegisterBetHandler` (non-lottery), Hangfire (lottery), `BetPlacedConsumer` flow | `BetPlacedConsumer` | After a minimum wait & min-player check, tries to start the game, then publishes `RunGameEvent`. Refunds bets if a lottery lacks players. For a **holder round** it first runs `HolderDrawRecheck` (batched Token-2022 balance reads; tickets below N are `Voided`, unreadable ones kept) and an under-subscribed holder round refunds nothing. |
 | `RunGameEvent` | `BetPlacedConsumer` | `RunGameConsumer` | Marks game `InProgress`, runs the typer, marks `Ended`, flags winners `NeedsRewarding`, creates the next game, publishes `RewardGameEvent`. |
-| `RewardGameEvent` | `RunGameConsumer` | `RewardGameConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. |
-| `RefundInvalidBetEvent` (carries `BetId` **or**, for a stake rejected before the bet was persisted, the payment signature + wallet) | `RegisterBetHandler`, `BetPlacedConsumer`, `GameTypeDeactivatedConsumer`, `PendingRefundSweepJob` (12h sweep of `NeedsRefunding`) | `RefundInvalidBetConsumer` | Refunds an invalid/rejected/flagged bet via `ISolanaService.RefundTokens` and writes the `Refund` ledger row. Clears the bet to `Refunded` on success (any path); skipped for free bets (`Value == 0`). See `features/refund-safeguards.md`. |
+| `RewardGameEvent` | `RunGameConsumer` | `RewardGameConsumer` | For each winner, calls `ISolanaService.TransferTokensForBet(...)`; updates statuses. Once the round is `RewardForWinnersCompleted` (both the no-winners and the winners exit, never on `ErrorWhenProcessingRewards`) it publishes `RoundSettledEvent` **last**; a publish failure is logged, never thrown. |
+| `RoundSettledEvent(GameId)` (Profile V2) | `RewardGameConsumer` | `RoundSettledConsumer` — **its own receive endpoint**, off the payout path | Creates `trophyUnlocked` notifications for trophies whose **unlock round** is this round, and `jackpotWon` for each credited winner of a jackpot-mode round (`NotificationService`, deduped by the unique index). A failing player is logged and skipped. See `features/profile-v2.md`. |
+| `RefundInvalidBetEvent` (carries `BetId` **or**, for a stake rejected before the bet was persisted, the payment signature + wallet) | `RegisterBetHandler`, `BetPlacedConsumer`, `GameTypeDeactivatedConsumer`, `PendingRefundSweepJob` (12h sweep of `NeedsRefunding`) | `RefundInvalidBetConsumer` | Refunds an invalid/rejected/flagged bet via `ISolanaService.RefundTokens` and writes the `Refund` ledger row. Clears the bet to `Refunded` on success (any path); skipped for free bets (`Value == 0`). After a successful refund of a persisted bet it writes a `refundIssued` notification (paid bets with `Amount > 0` only) and re-validates the player's equipped trophy icon (`PlayerAvatarGuard`); neither can fail the refund. See `features/refund-safeguards.md`. |
 | `GameParametersCreatedEvent` | `CreateGameTypeHandler` | `GameParametersCreatedConsumer` | Opens the first game for a newly created game type (idempotent). |
 | `GameTypeDeactivatedEvent` | `DeactivateGameTypeHandler` | `GameTypeDeactivatedConsumer` | Cancels `WaitingBets` games of a deactivated type (refunds paid bets, skips free). |
 | `BetNotificationEvent` | `GameService.InsertBet` | `BetNotificationConsumer` | Pushes the new bet to subscribers (recent-bets feed). |
@@ -179,8 +186,12 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   behind the signature-gated `PATCH /players/preferences` and `POST /players/self-exclusion`. The
   purpose segment is what stops a nonce minted for one flow being replayed against the other.
 - **Player profile reads (#186):** `PlayerProfile:{wallet}` (60 s; only wallets with a `Player` row; name,
-  theme and self-exclusion read live on every request) and `PlayerLevel:{wallet}` (60 s, `{ Level, Theme }`,
-  dropped on a theme save).
+  theme, icon and self-exclusion read live on every request; dropped on an icon save and when a round
+  unlocks a trophy) and `PlayerLevel:{wallet}` (60 s, `{ Level, Theme, AvatarId }`, dropped on a theme or
+  icon save; the staff-icon check runs after the cache). `TrophiesComplete:{wallet}` (1 h) lets
+  `RoundSettledConsumer` skip players who already hold all 10 trophies.
+- **Staff icon lists** (Profile V2) are plain config, not secrets: `GeneralSettings.PlayerIcons.{Elder,Phantom,Beanie}.Wallets`
+  (committed empty; env `GeneralSettings__PlayerIcons__Elder__Wallets__0`), read live by `PlayerIconRules`.
 - Redis is also the **SignalR backplane** (`AddStackExchangeRedis`) so hub messages fan out across
   instances.
 
@@ -203,11 +214,12 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   and receive `ChatMessage` / `ChatMessageDeleted` / `ChatOnlineCount`. Sending needs a wallet-signed
   **chat session** (`POST /chat/session`, token prefixed `chat:`): `AuthenticateChat(token)` joins the
   server-derived group `dm:{wallet}` (`DirectMessage`, `DirectMessagesRead`, `DonationReceived`,
-  `DonationsRead`); `SendGlobalMessage` / `SendDirectMessage` resolve the sender server-side via
+  `DonationsRead`, and since Profile V2 `NotificationReceived` / `NotificationsRead` — pushed from either
+  host through the Redis backplane); `SendGlobalMessage` / `SendDirectMessage` resolve the sender server-side via
   `IChatService`, which rate-limits per wallet (Redis, 1/s + 20/min), appends global messages to
   `ChatHistory:global` and publishes `ChatMessagePersistedEvent`; DMs are written synchronously before
-  delivery. `GET /chat` serves the last 100 (Redis, DB fallback); DM/donation/block routes live on
-  `ChatController` (`X-Chat-Session`). `ChatPresenceBroadcaster` (API host only) pushes the approximate
+  delivery. `GET /chat` serves the last 100 (Redis, DB fallback); DM/donation/notification/block routes
+  live on `ChatController` (`X-Chat-Session`; `GET /chat/notifications`, `POST /chat/notifications/read`). `ChatPresenceBroadcaster` (API host only) pushes the approximate
   online count every 30s from the Redis sorted set `ChatOnline`. See `features/chat.md`.
 - **A player holds one connection per browser tab.** It is opened lazily on the first game load and
   kept across round rollovers, game-type switches and trips back to the lobby — a round change swaps
@@ -685,8 +697,10 @@ another operator means **deploying the app again with a different `spacestrokers
 - **Player profiles (#186):** `/player/:wallet` (`PlayerProfilePage.vue`) is public for any wallet and
   reads `GET /players/profile` + `GET /players/stats`; every live player name is a `PlayerTag` that opens
   the one mini `PlayerCard` mounted in `App.vue`; level badges and color profiles for all visible tags come
-  from one batched `GET /players/levels` (≤ 50 wallets, 60 s cache). Donations are a front-only
-  wallet-signed SOL transfer — no backend. See `features/player-profile.md`. **Amounts are token-native everywhere** — there is
+  from one batched `GET /players/levels` (≤ 50 wallets, 60 s cache), which since Profile V2 also carries each
+  wallet's Edson icon (`avatars`), drawn by the shared `PlayerAvatar`; the icon picker is mounted once in
+  `App.vue`. Donations are a wallet-signed SOL transfer the backend never moves (it only verifies and records
+  it for the 🔔 feed). See `features/player-profile.md`, `features/profile-v2.md`. **Amounts are token-native everywhere** — there is
   no preferred display currency and no FX conversion. See `features/player-customization-modal.md`
   and `features/games-history.md`.
 - **Games history:** `GameHistoryPage.vue` at `/game/history` (route `GameHistory`,

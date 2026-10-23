@@ -204,7 +204,9 @@ aggregates, tests — but hidden behind fail-closed build-time flags:
   cell is not an option ([`frontend-ux.md`](frontend-ux.md)); it is reached from the home section and
   `/game/stats`, and is unlisted like `/partner`. It joins `EMBED_REDIRECT_ROUTES`.
 - **Rows and podium names are player tags** (#186): tapping one opens that player's mini profile card, and
-  each carries its `LV n` badge — see [`player-profile.md`](player-profile.md).
+  each carries its `LV n` badge — see [`player-profile.md`](player-profile.md). Since Profile V2 (#202) each
+  row and podium tag also shows the player's **Edson profile icon** (24 px, `PlayerTag`'s `avatar` prop;
+  never on a house tag or when embedded) — see [`profile-v2.md`](profile-v2.md).
 - No SignalR group and no polling — fetch on mount and on `visibilitychange`.
 - The home section **hides itself when every visible board is empty**, so on a fresh database it looks
   identical to the feature being absent. `/leaderboard` always renders.

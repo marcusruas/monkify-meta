@@ -7,6 +7,9 @@
 > ⚠️ **The header shipped differently from the spec body** (owner's call, 2026-10-16): there is **no ☰
 > PROFILE cell**. A header **profile card** replaced the ☰ glyph and the menu is headed by who you are; the
 > bar shows **one** balance. §"Header" below is what runs; the spec banner lists the drift. **The code wins.**
+> **Extended by Profile V2** (#202, shipped 2026-10-23, [`profile-v2.md`](profile-v2.md)): the coloured
+> initial tile is now the player's **Edson profile icon** on the same theme tile, each trophy unlocks one
+> icon, and the chat 🔔 tab is a notifications feed that announces new trophies.
 
 ## What it does
 
@@ -29,7 +32,9 @@ or card. The home page keeps only a compact strip of the player's own record.
   hides the profile at once; (5) no row → available and empty (name null, `joinedAt` null, 10 locked
   trophies, no rounds, level 0) and **not cached**; (6) otherwise the body is served from
   `PlayerProfile:{wallet}` (**60 s**) or computed, and `DisplayName` + `ProfileTheme` are stamped from the
-  **live** row onto a copy (`with`), so a rename or theme change shows at once.
+  **live** row onto a copy (`with`), so a rename or theme change shows at once. Profile V2 also stamps
+  `avatarId` (self-healed: a trophy icon whose trophy is gone is cleared) and `unlockedAvatars` live — see
+  [`profile-v2.md`](profile-v2.md).
 - ⚠️ **Unavailable is HTTP 200 `{ available: false }`, byte-identical for malformed, house and
   self-excluded** — never a 400/404, never a reason (`constraints.md` §6). Nothing on the wire marks a
   streamer wallet: an active streamer's profile is simply available with every trophy locked.
@@ -50,10 +55,21 @@ or card. The home page keeps only a compact strip of the player's own record.
   counts even after the wallet is deactivated.
 - ⚠️ **Not floored at `SettlementCutoverUtc`** — trophies are money-free, so USDC-era rounds count (a
   USDC-era streak can unlock *Win streak 5* while the floored Best streak stat shows less; accepted).
-- Won = case-insensitive `Choice == WinningChoice`. Unlock date = the round date (`EndDate ?? CreatedDate`)
-  of the **earliest** qualifying round.
+- **Won** = case-insensitive `Choice == WinningChoice` — **except on a Hyper Roll Word Lines round**
+  (`Game.BoardMode == "LINES"`, where every bet's choice is `spin` and every result pays something): there a
+  bet won when it was **credited more than its stake** (Σ `Credit` rows > `Amount`,
+  [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md) rule S8 — the rule player stats and history already
+  use). This applies to **every** trophy (a LINES win earns `firstHyperRollWin` → the boombox icon, and
+  counts toward `winStreak3` / `winStreak5`) and to the recent-rounds Won / Payout. Since 2026-10-23
+  (#202); before, a LINES round could never count as a win here.
+- Unlock date = the round date (`EndDate ?? CreatedDate`) of the **earliest** qualifying round. Internally
+  each unlock also carries its **unlock round** (`ComputeAchievementUnlocksAsync` → `(Key, At, GameId)`; a
+  streak's round is the one that completes it, explorer's is the latest first-play) — Profile V2 notifies a
+  trophy only when that round is the one settling. The wire `AchievementDto` is unchanged.
+- Each trophy unlocks one Edson icon and all 10 unlock **Golden** ([`profile-v2.md`](profile-v2.md)).
 - Keys (wire identifiers; titles and hints live on the front): `firstSprintWin`, `firstHyperRollWin`,
-  `firstDuelWin`, `jackpotWinner`, `hyperHit` (won a 10×+ word on a `HYPER` board), `rivalSlayer` (won an
+  `firstDuelWin`, `jackpotWinner`, `hyperHit` (won a 10×+ word on a `HYPER` board — a Word Lines 10× result
+  does **not** earn it; only the legacy `HYPER` board's 10× word does), `rivalSlayer` (won an
   `OpenRoom` duel — VS HOUSE does not count), `crowdBeater` (won a Sprint round with **≥ 5** distinct
   players, house wallets excluded, anonymous free bets counted individually), `winStreak3`, `winStreak5`
   (running streak over rounds in date order; a round with any winning bet is a win), `explorer` (played all
@@ -69,6 +85,8 @@ or card. The home page keeps only a compact strip of the player's own record.
   `duelVsHouse`, choice, stake (0 for free / ticket), `entry` (`paid` | `free` | `ticket`; streamer →
   `paid`), won, payout (Σ `Credit` rows; a streamer bet reads `IStreamerLedger.WonFor`; holder credits are
   shown — the money exclusion applies to aggregates, not to one round's row), `viaOrbit` (= `FundedByOrbit`).
+  On a Word Lines round the "winning bet" is the first one credited more than its stake (same rule as the
+  trophies); credits are read for every bet of the ≤ 10 rounds.
 - Each row has **Verify** (the History page's verification download, shared via `utils/verifyRound.ts`). No
   pagination; the owner gets **All history →** `/game/history`.
 
@@ -88,10 +106,11 @@ or card. The home page keeps only a compact strip of the player's own record.
   "Profile unavailable".
 - **`GET /players/levels?wallets=a,b,…`** (public): split, trim, distinct, **first 50** inputs, drop
   malformed and house wallets — **never an error**. Per-wallet cache `PlayerLevel:{wallet}` (**60 s**,
-  value `{ Level, Theme }`, level 0 cached too); all misses go to **one** grouped aggregate plus one indexed
-  read of explicit themes. Response `{ levels: { wallet: n }, themes: { wallet: key } }`: `levels` only for
-  level ≥ 1, `themes` only for wallets with an explicit pick (level 0 included). Absent = no badge / default
-  theme. No gambled figure on this read (hot path).
+  value `{ Level, Theme, AvatarId }`, level 0 cached too); all misses go to **one** grouped aggregate plus
+  one indexed read of explicit themes / icons. Response `{ levels: { wallet: n }, themes: { wallet: key },
+  avatars: { wallet: key } }`: `levels` only for level ≥ 1, `themes` / `avatars` only for wallets with an
+  explicit, still-valid pick (level 0 included; the staff-icon check runs after the cache). Absent = no badge
+  / default theme / Edson. No gambled figure on this read (hot path).
 - Freshness: a level may lag a settled round by up to ~60 s. No level-up notification, no SignalR push.
 
 ### Color profile — 8 preset themes
@@ -115,7 +134,8 @@ or card. The home page keeps only a compact strip of the player's own record.
 - **Theme = identity color only**: the profile hero / avatar / level bar / section rules / trophy frames,
   the mini card's band / avatar / level bar, the race-card avatar tile (the own card keeps its YOU ring), the
   `LV n` badge, the header profile card and menu head. Buttons, links, the wallet pill, red losses and Orbit
-  violet never change.
+  violet never change. Since Profile V2 every avatar tile is the shared `PlayerAvatar`: the player's **Edson
+  icon** on the theme-coloured tile (the initial survives only on house tiles).
 
 ### `/player/:wallet` page
 
@@ -126,7 +146,9 @@ or card. The home page keeps only a compact strip of the player's own record.
 - Header: name (fallback short wallet), short wallet + copy + Solana explorer link, "Joined <date>", level
   + progress bar (`gambled / nextLevelAt SOL gambled`, `MAX LEVEL` at the cap; fine print *"Total gambled,
   not deposited — Orbit re-bets what it wins."*). Owner: **EDIT NAME** and **EDIT THEME** (both open
-  SETTINGS). Visitor on an available profile: **DONATE SOL**.
+  SETTINGS), and the hero icon is a button (*"Change icon"*) that opens the **icon picker**
+  ([`profile-v2.md`](profile-v2.md)); a visitor's icon is not clickable. Visitor on an available profile:
+  **DONATE SOL**.
 - Record: headline **GAMBLED · WON · BETS** (GAMBLED = the level basis), then **BIGGEST WIN · BEST STREAK ·
   MOST PLAYED** (trimmed 2026-10-22, shipped with #209: NET, WIN RATE and ROUNDS removed; three across on
   desktop, MOST PLAYED full width under the other two on a phone). NET is never the lead and never red-framed. Owner: a **Responsible
@@ -150,6 +172,8 @@ or card. The home page keeps only a compact strip of the player's own record.
 - ⚠️ **Self-exclusion is enforced at the card, not per bet**: no exclusion flag is broadcast on bet payloads
   (it would publish exclusion status to every viewer). An excluded player's tag opens a card that says
   "Profile unavailable".
+- Profile V2: `PlayerTag` takes an opt-in `avatar` prop (the player's Edson before the name; never on a house
+  tag, never embedded), used by leaderboard rows and podium — see [`profile-v2.md`](profile-v2.md).
 - `LV n` badge beside the name when the wallet's level ≥ 1 — YOU tags and embedded tags included; never on a
   house tag or at level 0. Levels arrive through `usePlayerLevels` (module store, 60 s TTL, flushed once per
   ~50 ms tick in chunks of 50, one in-flight request per chunk). **A failed read just hides badges** — no
@@ -162,9 +186,9 @@ or card. The home page keeps only a compact strip of the player's own record.
 
 ### Header (as shipped, 2026-10-16)
 
-- **The profile card replaced the ☰ glyph** (`ProfileCard.vue`): the player's avatar tile (initial) in their
-  theme + `LV` badge + a chevron; **no name at any width**. Signed out: a grey guest tile. It opens the same
-  menu as before.
+- **The profile card replaced the ☰ glyph** (`ProfileCard.vue`): the player's Edson icon on their theme tile
+  (Profile V2; was the initial) + `LV` badge + a chevron; **no name at any width**. Signed out: a grey guest
+  tile, still with Edson. It opens the same menu as before.
 - The menu opens with **`ProfileMenuHead`**: an identity block (avatar, name, `LV`, a 10-segment level bar,
   `x / y SOL gambled → LV n`) that links to your own profile (plain block when embedded), then a **wallet
   row** (balance, tap to copy the address) and an **Orbit row** (balance, opens Orbit; hidden when embedded

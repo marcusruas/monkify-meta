@@ -155,6 +155,8 @@ any signature is requested**.
 
 - Pot = `HouseFundedPot`, split equally among the winners (in practice one — see exclusivity above),
   **commission 0** (the whole pot is house-funded).
+- Since Profile V2 (#202) each winning wallet credited > 0 also gets a `jackpotWon` notification in the chat
+  🔔 feed (one per wallet, amount = its credited total, `holder` flag) — see [`profile-v2.md`](profile-v2.md).
 - Paid in **SOL to the player's own wallet** from the house wallet. `RewardGameConsumer` treats a holder
   round as **treasury-funded**, so the running balance guard applies. A redelivered `RewardGameEvent`
   never double-pays (`BetHasAlreadyBeenRewarded`).

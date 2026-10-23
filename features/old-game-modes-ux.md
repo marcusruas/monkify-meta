@@ -55,7 +55,8 @@ this card, and Hyper Roll uses its loss card (no lanes, no "N away"). See
 - **Main tab:** a POT plate (gold frame, `sol.svg`), then a timer plate — boxed `RACE STARTS IN` / `DRAW IN`
   digits when a start time exists, otherwise a `PLAYERS n / m` plate (a Sprint still taking bets has no
   server start time). Space Jackpot adds `YOUR $STROKE` with ELIGIBLE / NOT ENOUGH. Below, **player cards**
-  in two columns (avatar tile from the wallet, public name, word); the viewer's own card is amber with a
+  in two columns (avatar tile — since Profile V2 the player's Edson icon on their theme tile, house cards keep
+  the initial, anonymous free bets show Edson on the card colour — public name, word); the viewer's own card is amber with a
   YOU tag and comes first; overflow ends in `+N MORE`. A voided jackpot ticket shows as voided.
 - **Countdown splash** while the round is starting (server `startDate`).
 - **Race lanes** during the round: one per word, characters away; the viewer's own lanes pinned on top, the

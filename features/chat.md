@@ -1,17 +1,20 @@
-# Feature — Chat (global room, DMs, donations)
+# Feature — Chat (global room, DMs, notifications)
 
 > Status: **shipped.** Authoritative spec: [`../specs/chat-revamp.md`](../specs/chat-revamp.md)
 > (merged via `feature/chat-revamp` on 2026-10-22, Trello [#205](https://trello.com/c/il70nAG8)).
 > Supersedes [`game-chat.md`](game-chat.md) (one room per game type) and the client-trusted identity of
 > [`../specs/game-chat.md`](../specs/game-chat.md). The daily purge, the Redis-list history shape and the
 > 200-char limit carry over.
+> **Profile V2** (#202, 2026-10-23, [`profile-v2.md`](profile-v2.md)) turned the donations bell into the
+> **NOTIFICATIONS** feed (donations, trophies, refunds, jackpot wins) and put each player's Edson icon in the
+> global chat and DMs.
 
 ## What it does
 
 One app-wide chat room reachable from **every page**, plus private **direct messages** between players
-and a **donations** bell. On desktop the chat is a docked 340px column beside the page (it pushes the page,
+and a 🔔 **notifications** feed. On desktop the chat is a docked 340px column beside the page (it pushes the page,
 it never covers it) that can collapse to a 48px rail; on mobile it is a full-screen sheet. Tabs:
-**GLOBAL | DMs | 🔔 (donations)**. Anyone can read the global room; **sending anything** needs a
+**GLOBAL | DMs | 🔔 (notifications)**. Anyone can read the global room; **sending anything** needs a
 **7-day chat session** created by one wallet signature, so the **server** — not the browser — decides who
 the sender is.
 
@@ -38,6 +41,7 @@ the sender is.
 - SignalR group `chat:global` on `ActiveGamesHub`. `JoinGlobalChat()` is anonymous (and registers presence);
   `AuthenticateChat(token)` → `bool`, joins the caller's DM group `dm:{wallet}` (name derived server-side) and
   is re-called after every reconnect; `SendGlobalMessage(text, replyToId)`.
+- Each message shows the sender's Edson icon (20 px `PlayerAvatar`) before the name; the `LV` square stays.
 - Events (camelCase objects): `ChatMessage` (`{ id, displayName, text, sentAt, wallet, replyTo }`),
   `ChatMessageDeleted` `{ id }`, `ChatOnlineCount` `{ count }`.
 - Send order: text 1–200 chars → active mute → rate limit → reply lookup (not found ⇒ sent **without** a
@@ -70,20 +74,27 @@ the sender is.
   (moves `LastReadAt` forward only, pushes `DirectMessagesRead` to the owner's group); `POST|DELETE
   /chat/blocks/{wallet}` (idempotent; blocks DMs only, history kept).
 - Unread = messages **from** the counterpart newer than `DirectMessageReadState.LastReadAt`. Header badge =
-  total unread DMs + unread donations (`99+` cap).
+  total unread DMs + unread **notifications** (`99+` cap); a click opens DMs first when they have unread,
+  else the 🔔 tab. Conversation rows (32 px) and the thread head (24 px) show the counterpart's Edson icon.
 - A self-excluded player keeps global chat and can read old threads, but cannot send or receive DMs
   (owner-only copy: *"Direct messages are unavailable while self-excluded."*).
 - Every thread shows the fixed notice *"Staff will never DM you asking for funds, seed phrases or keys."*
 - Admins cannot read or delete DMs.
 
-**Donations bell**
+**Donations (feed into the 🔔 NOTIFICATIONS tab)**
 - After a DONATE transfer confirms, the donor's client calls `POST /chat/donations` (anonymous — the chain is
   the proof). The API verifies it on chain as native SOL donor → recipient (`ValidateIncomingTransfer`),
   minimum **0.001 SOL**, and records it once per signature (`Donations`, unique `Signature`); any refusal is
   the vague `DonationNotVerified`. The backend never moves this money.
 - Live `DonationReceived` to the recipient's DM group (not sent when the recipient blocked the donor — the
-  row is still recorded); toast under the header for 6 s. `GET /chat/donations` (session: RECENT + TOP
-  DONORS, totals) and `POST /chat/donations/read` (pushes `DonationsRead`). Donations are **not** purged.
+  row is still recorded). `GET /chat/donations` (session: RECENT + TOP DONORS, totals) and
+  `POST /chat/donations/read` (pushes `DonationsRead`) stay for TOP DONORS and old clients. Donations are
+  **not** purged.
+- Since Profile V2 each recorded donation also writes a `donation` **notification** (same block rule for the
+  push). The 🔔 tab is the general feed — `donation`, `trophyUnlocked`, `refundIssued`, `jackpotWon` — with
+  segments **ALL | TOP DONORS**; the unread count and the 6 s toast come **only** from notifications
+  (`NotificationReceived`), and `POST /chat/notifications/read` also stamps the wallet's donations read.
+  Full rules: [`profile-v2.md`](profile-v2.md).
 
 **Abuse and moderation**
 - Per-wallet server limit **1 msg/s and 20/min** (global + DM share the budget), fixed windows
@@ -125,7 +136,7 @@ DMs and read states older than `DirectMessageRetentionDays` (30), expired mutes.
   rate limiters, presence + `ChatPresenceBroadcaster`.
 - `SpaceStroker.Infrastructure/Services/Wallets/WalletSessionService.cs` — `MintChat`, `ValidateChatAndGetWallet`.
 - `SpaceStroker.Infrastructure/Handlers/Chat/*` (session, global history, staff, conversations, thread,
-  read, blocks, donations) and `Handlers/Admin/{DeleteChatMessage,GetChatMutes,SetChatMute,RemoveChatMute}`.
+  read, blocks, donations, notifications) and `Handlers/Admin/{DeleteChatMessage,GetChatMutes,SetChatMute,RemoveChatMute}`.
 - `SpaceStroker.Api/Controllers/ChatController.cs`, `Api/Chat/ChatSessionAccessor.cs`, `AdminController.cs`.
 - `SpaceStroker.Domain/Chat/` — `ChatReply`, entities `DirectMessage`, `DirectMessageReadState`, `ChatBlock`,
   `ChatMute`, `Donation`; `Games/Entities/GameChatMessage.cs` (nullable `GameTypeId`/`GameId`, reply
@@ -137,10 +148,11 @@ DMs and read states older than `DirectMessageRetentionDays` (30), expired mutes.
   integration `ChatFlowTests.cs` (happy path, block, moderation, token separation) and `DonationFlowTests.cs`.
 
 **monkify-front**
-- Hooks: `useChatSession.ts`, `useGlobalChat.ts`, `useDirectMessages.ts`, `useDonations.ts`,
+- Hooks: `useChatSession.ts`, `useGlobalChat.ts`, `useDirectMessages.ts`, `useDonations.ts` (TOP DONORS),
+  `useNotifications.ts` (feed, unread, toast),
   `useChatDrawer.ts` (dock state + persistence), `useStaffRoles.ts`, chat parts of `useGameHub.ts`
   (`joinGlobalChat`, `authenticateChat`, rebind on a rebuilt connection), deeplink arm in `useMobileWallet.ts`.
-- Components: `components/chat/{ChatButton,ChatDrawer,GlobalChatView,ChatComposer,DirectMessagesView,DonationsView,DonationToast,StaffBadge}.vue`
+- Components: `components/chat/{ChatButton,ChatDrawer,GlobalChatView,ChatComposer,DirectMessagesView,NotificationsView,NotificationToast,StaffBadge}.vue`
   (drawer mounted once in `App.vue`), `components/admin/ChatModerationManager.vue`, MESSAGE buttons in
   `pages/PlayerProfilePage.vue` and `components/player/PlayerCardBody.vue`, header slot in `GameHeader.vue`.
 - `services/chatService.ts` (`X-Chat-Session`), `services/adminService.ts` (moderation), `types/chat.ts`.

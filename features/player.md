@@ -76,7 +76,7 @@ Display names render wherever players are identified — the own `YOU` label, re
 - **A display name may also ride along on a register-bet body** — safe, because that request already
   proves wallet control by carrying a confirmed on-chain transfer from it.
 - **`GET /players/preferences?wallet=<pubkey>` is public and unsigned** (reading a public wallet's chosen
-  nickname discloses nothing). Returns `{ externalPlayerId, displayName, profileTheme }` (plus the
+  nickname discloses nothing). Returns `{ externalPlayerId, displayName, profileTheme, avatarId }` (plus the
   self-exclusion fields); `displayName` / `profileTheme` are `null` when no `Player` row exists, and **no
   row is created on read**.
 - The name lives in the existing `Player.DisplayName` column.
@@ -92,6 +92,18 @@ Display names render wherever players are identified — the own `YOU` label, re
   name-only save still signs `BuildMessage` byte-for-byte, so a name signature can never set a theme. Same
   nonce purpose (`preferences`). The front twin is `buildProfileMessage` in `useDisplayNameSigning.ts`.
 - Full rules (where the theme paints, the levels read that carries it): [`player-profile.md`](player-profile.md).
+
+### Profile icon on the same write (Profile V2, #202)
+
+- `Player.AvatarId` (`string?`, max 20; migration `20261023005356_ProfileV2AvatarsAndNotifications`, no
+  backfill) holds the equipped Edson icon key, or `null` = never picked / cleared = the default Edson. The
+  PATCH body's `avatarId`: null = unchanged, `"default"` = clear, a catalog key = set (only if the wallet has
+  it unlocked — checked **after** the signature).
+- ⚠️ **A save that carries an icon signs a third message** — `BuildProfileIconMessage(wallet, displayName ??
+  "", theme ?? "", icon, nonce)` = the profile lines plus `Icon:` before `Nonce:`. Name-only and theme-only
+  saves still sign `BuildMessage` / `BuildProfileMessage` byte-for-byte. A refused icon (unknown, locked,
+  staff not allowed) is the generic validation failure and writes nothing. Front twin:
+  `buildProfileIconMessage`. Full rules: [`profile-v2.md`](profile-v2.md).
 
 ## 3. The settings modal
 
@@ -150,8 +162,9 @@ seed and graphics controls are noise at the moment someone just connected to pla
 | `SpaceStroker.Infrastructure/Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Player upsert, identity resolution, duplicate keys |
 | `SpaceStroker.Infrastructure/Services/Games/GameService.cs` | ⚠️ `InsertBet` capture-then-detach-then-restore |
 | `SpaceStroker.Infrastructure/Handlers/Players/GetWalletNonce/` | Purpose-scoped challenge |
-| `.../Players/GetPlayerPreferences/` · `.../UpdatePlayerPreferences/` | Read; `BuildMessage` / `BuildProfileMessage` + ed25519 verify |
+| `.../Players/GetPlayerPreferences/` · `.../UpdatePlayerPreferences/` | Read; `BuildMessage` / `BuildProfileMessage` / `BuildProfileIconMessage` + ed25519 verify |
 | `SpaceStroker.Domain/Players/ProfileThemes.cs` | The 8 theme keys |
+| `SpaceStroker.Domain/Players/PlayerIcons.cs` · `Infrastructure/Services/Players/PlayerIconRules.cs` | The 24 icon keys and who may use them (Profile V2) |
 | `SpaceStroker.Api/Controllers/PlayersController.cs` | `GET /players/nonce`, `GET`/`PATCH /players/preferences` |
 | `SpaceStroker.Infrastructure/Contracts/Games/BetDto.cs` · `BetNotificationEvent` | `DisplayName`, `ExternalPlayerId` |
 

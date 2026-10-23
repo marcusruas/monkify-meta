@@ -200,7 +200,9 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   `GameTypeCard` — there is no poster file by design. The lobby's live-round snapshot **skips** duel
   types (`GET /games/{type}` has no shared round and would toast a 400).
 - The machine: `DuelTabs` (VS HOUSE / OPEN DUELS N) · `DuelCard` (two corners either side of VS, red =
-  you, blue = rival) · `DuelBoard` (room grid, `+ OPEN YOUR OWN DUEL` tile first) · `DuelPlate` (pure
+  you, blue = rival) · `DuelBoard` (room grid, `+ OPEN YOUR OWN DUEL` tile first; since Profile V2 each
+  open room card shows its owner's Edson icon as a 34 px tile spanning the card's three lines,
+  [`profile-v2.md`](profile-v2.md)) · `DuelPlate` (pure
   view: word LCD + `?`, − / stake LCD / +, slide switch, UP/DOWN, SORT/OK/CLEAR; since 2026-10-02 it
   mounts on the shared `ConsolePlate`, which owns the plate, the lever and the row grid, so its keys and
   rows match every other game's — see `frontend-ux.md` → "The game console") + `DuelConsole`

@@ -305,6 +305,20 @@
   produce the **same** empty/unavailable answer as an unknown one (HTTP 200, no reason), and only wallets
   with a `Player` row — or a bounded, capped input — are cached, so a caller cannot mint cache keys.
 
+## Player notifications — `INotificationService.CreateAsync` (Profile V2, #202)
+
+- To tell a player something happened (the chat 🔔 feed), call
+  `INotificationService.CreateAsync(wallet, type, dedupKey, payload, push)` — never insert `Notification`
+  rows or push `NotificationReceived` by hand. Add the type to `NotificationTypes` and its copy to the
+  front's `utils/notificationCopy.ts` + `types/chat.ts`.
+- Pick a **natural idempotency key** for `dedupKey` (signature, bet id, game id, trophy key): the unique
+  `(Wallet, Type, DedupKey)` index makes a MassTransit redelivery or a retried request insert and push
+  nothing (`CreateAsync` returns null).
+- Call it **after** the money / state change is saved and wrap it so it can never fail that operation (log
+  a warning; in a consumer sharing the scoped context, `ChangeTracker.Clear()` after a failure so the next
+  save does not retry the failed row). Heavy detection work belongs in its own consumer / receive endpoint
+  off the payout path, as `RoundSettledConsumer` does.
+
 ## `ErrorMessages.resx` values are player-facing verbatim
 
 Since #158 the frontend renders `ApiResult.messages[].value` **exactly as written** — there is no

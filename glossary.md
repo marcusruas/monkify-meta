@@ -297,17 +297,23 @@
 - **Player tag** — `PlayerTag.vue`, how every live player name renders (race cards, bet list, Duel rooms
   and opponent, leaderboard rows/podium, History YOU, home strip). Tappable → the mini profile card, unless
   it is a house bettor (`isHouse` / VS HOUSE) or the app is embedded (then plain text). Carries the `LV`
-  badge.
+  badge; with the opt-in `avatar` prop (leaderboards) also the player's profile icon.
 - **Mini profile card** — `PlayerCard.vue`, mounted once in `App.vue`: the popover (from `lg`) / bottom
   sheet (below) a player tag opens over the current screen — name, level, short wallet, joined, rounds · win
   rate · net, 3 latest trophies, VIEW FULL PROFILE, DONATE. Never navigates or pauses the round.
 - **Header profile card** — `header/ProfileCard.vue`, the header-menu trigger that replaced the ☰ glyph
-  (2026-10-16): avatar tile in the player's color profile + `LV` badge, no name; grey guest tile signed out.
+  (2026-10-16): the player's Edson profile icon on a tile in their color profile + `LV` badge, no name; grey
+  guest tile (still Edson) signed out.
   The menu it opens is headed by `ProfileMenuHead` (identity + level bar + wallet and Orbit balances).
 - **Achievement / trophy** — one of **10** fixed unlocks on the profile (`firstSprintWin` … `explorer`),
   **derived on read** from completed rounds (no table); unlock date = the earliest qualifying round. Every
   real round counts (free, holder, Orbit); streamer play bets and active streamer wallets never unlock one;
-  **not** floored at the SOL cutover.
+  **not** floored at the SOL cutover. A bet won when its choice matches the winning choice, except on a
+  Hyper Roll Word Lines (`LINES`) round, where it won when credited more than its stake. Each trophy unlocks
+  one Edson profile icon.
+- **Unlock round** — the round that unlocked a trophy (`AchievementUnlock.GameId`: the earliest qualifying
+  round; for a win streak the round that completes it; for explorer the latest first-play). Internal only;
+  a `trophyUnlocked` notification is created only when the settling round **is** the unlock round.
 - **Level** (#206) — a cosmetic `LV n` (0–200) from **gambled** = Σ paid stake in completed rounds of every
   type since `SettlementCutoverUtc` (free, holder and streamer play add nothing; Orbit counts), looked up in
   the static `PlayerLevels` table (L1 0.2 · L2 0.5 · L3 1 SOL, then ×≈1.1253 per level, L120 ≈ 1M SOL).
@@ -321,8 +327,26 @@
 - **Donation (DONATE SOL)** — a front-only, donor-signed direct SOL transfer to another player's wallet from
   their profile or mini card (0.001–1 SOL; presets 0.01/0.05/0.1/0.5). The money never touches the backend;
   after it confirms, the donor's client reports it (`POST /chat/donations`), the API verifies it on chain and
-  records a `Donation` row so the recipient gets the chat **donations bell** (see `features/chat.md`). The
+  records a `Donation` row (and a `donation` notification) so the recipient sees it in the chat 🔔
+  **notifications feed** (see `features/chat.md`, `features/profile-v2.md`). The
   explorer link is the receipt. Works on in-page wallets and phone wallet-app deeplink sessions.
+- **Profile icon / Edson icon / avatar** (Profile V2, #202) — the pixel-art Edson portrait drawn for a player
+  on a tile in their color profile (`PlayerAvatar.vue`) everywhere a player is shown; house tiles keep the
+  plain initial. 24 keys in `PlayerIcons`: 10 free, 10 **trophy icons** (one per trophy), **Golden** (all 10
+  trophies) and 3 staff icons. Unlocks are derived on read, never stored. Picked in the **icon picker**
+  (owner's `/player/:wallet` hero) and saved through the signed `PATCH /players/preferences` (`avatarId`;
+  the message gains an `Icon:` line). See `features/profile-v2.md`.
+- **Avatar id** — `Player.AvatarId` (`string?`, max 20): the equipped icon key; `null` = never picked /
+  cleared = the default **Edson** (`edson`). The wire value `"default"` clears it. A trophy icon whose
+  trophy is lost (bet refunded) is cleared back to `null` by `PlayerAvatarGuard`.
+- **Staff icon** — `elder`, `phantom`, `beanie`: each usable only by wallets in its own config list
+  `GeneralSettings:PlayerIcons:<Elder|Phantom|Beanie>:Wallets` (independent of ADM/MOD; committed empty),
+  checked live on every read.
+- **Notification (🔔 feed)** — one row in `Notifications` for a wallet: `donation`, `trophyUnlocked`,
+  `refundIssued` or `jackpotWon`, unique per `(Wallet, Type, DedupKey)` (signature / trophy key / bet id /
+  game id), pushed live as `NotificationReceived` to `dm:{wallet}`. The chat's NOTIFICATIONS tab lists them
+  (`GET /chat/notifications`, needs a chat session) and drives the chat button's unread count and the 6 s
+  toast. Never purged, never backfilled. See `features/profile-v2.md`.
 - **Global chat** — the ONE app-wide chat room (SignalR group `chat:global`), readable by anyone, shown on
   every page except embed/practice; last 100 messages within `Chat.RetentionDays` via `GET /chat`. Messages
   persist to `GameChatMessage` (`GameTypeId == null`). See `features/chat.md`.

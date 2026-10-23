@@ -77,7 +77,8 @@ provably-fair weighted draw picks **one result row** from a published 13-row tab
   when the **destination's balance + amount** would still be under the minimum, or when that balance read
   fails (fail closed, logged Error). See [`sol-settlement.md`](sol-settlement.md).
 - **"Won" means payout > stake** for `LINES` rounds: history, player/global/per-type stats, the front's
-  `myWon`, Orbit's win notification and Orbit's #208 win/loss step rule. `TotalPaidOut` still counts every
+  `myWon`, Orbit's win notification and Orbit's #208 win/loss step rule, and (since 2026-10-23, #202) the
+  profile's trophies and recent-rounds Won / Payout ([`player-profile.md`](player-profile.md)). `TotalPaidOut` still counts every
   credit. A 0.3×/0.5× result is never called a win.
 
 ### The grid generator (`SpaceStroker.Domain/Games/Services/WordLinesGrid.cs`)
