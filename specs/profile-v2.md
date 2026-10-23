@@ -154,23 +154,23 @@ today: `20261021142416_AddDonations`.
 | `1.Edson.png` | `edson` | Edson | default, free |
 | `2.Edson.png` (suit) | `suit` | Suit | free |
 | `3.BlueEdson.png` | `blue-hoodie` | Blue Hoodie | free |
-| `4.BrasilEdson.png` | `canary-jersey` | Canary Jersey | free |
-| `5.StonedEdson.png` | `chill` | Chill | free |
+| `4.BrasilEdson.png` | `brasil` | Brazil | free |
+| `5.StonedEdson.png` | `stoned` | Weed | free |
 | `7.GremioEdson.png` | `blue-jersey` | Blue Jersey | free |
-| `9.brokeEdson.png` | `fry-cook` | Fry Cook | free |
-| `10.PepeEdson.png` | `frog` | Frog | free |
+| `9.brokeEdson.png` | `broke` | Fries in the Bag | free |
+| `10.PepeEdson.png` | `pepe` | Pepe | free |
 | `15.CopeEdson.png` | `copium` | Copium | free |
-| `18.NoirEdson.png` | `detective` | Detective | free |
+| `18.NoirEdson.png` | `noir` | Noir | free |
 | `8.RacerEdson.png` | `racer` | Racer | trophy `firstSprintWin` |
 | `20.BoxEdson.png` | `boombox` | Boombox | trophy `firstHyperRollWin` |
-| `17.SolEdson.png` | `sol-shades` | Sol Shades | trophy `hyperHit` |
+| `17.SolEdson.png` | `sol` | Solana | trophy `hyperHit` |
 | `19.WarEdson.png` | `spartan` | Spartan | trophy `firstDuelWin` |
 | `11.GoreEdson.png` | `ghoul` | Ghoul | trophy `rivalSlayer` |
-| `13.PimpEdson.png` | `high-roller` | High Roller | trophy `jackpotWinner` |
+| `13.PimpEdson.png` | `pimp` | Pimp | trophy `jackpotWinner` |
 | `16.GIBBY.png` | `gibby` | Gibby | trophy `crowdBeater` |
-| `14.ColdEdson.png` | `ice-ninja` | Ice Ninja | trophy `winStreak3` |
+| `14.ColdEdson.png` | `cold` | Subzero | trophy `winStreak3` |
 | `12.MasterEdson.png` | `old-master` | Old Master | trophy `winStreak5` |
-| `6.GreekEdson.png` | `toga` | Toga | trophy `explorer` |
+| `6.GreekEdson.png` | `greek` | Greek | trophy `explorer` |
 | `15.GoldEdson.png` | `golden` | Golden | all 10 trophies |
 | `Admin1.png` | `elder` | Elder | staff list `Elder` |
 | `Admin2.png` | `phantom` | Phantom | staff list `Phantom` |
