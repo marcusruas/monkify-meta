@@ -1109,6 +1109,18 @@ shipped as a real bug (#149): the root element painted DaisyUI's `base-100` (`#2
   giving `<body>` a `min-height`.
 - The same specificity trap applies to any other bare-element override of a DaisyUI base rule
   (`color` on `html`, etc.). Check the computed value in DevTools rather than assuming your rule won.
+- **Text colour too.** DaisyUI's `color: hsla(var(--bc))` follows the OS `prefers-color-scheme`. A
+  light-mode phone therefore gets **dark** inherited text, so `html:root, body` also sets
+  `color: var(--color-ink)` (prod fix 2026-10-26: sound/chat header icons rendered dark).
+
+## Tailwind `/opacity` on a `var()` colour is silently dropped
+
+The theme colours in `tailwind.config.js` are bare `var(--color-…)` values with no `<alpha-value>`
+placeholder. Tailwind 3 cannot apply an opacity modifier to them, so `text-ink/75`, `border-cyan/60`
+and the like are **never generated**: no warning, and the element just inherits. Use
+`color-mix` in an arbitrary value instead, e.g.
+`text-[color:color-mix(in_oklab,var(--color-ink)_75%,transparent)]`. Plain `text-ink` with no
+modifier works. To check one, grep the built CSS for the class or read the computed colour.
 
 ## Player names render through `PlayerTag` (#186)
 

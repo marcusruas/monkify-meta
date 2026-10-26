@@ -144,11 +144,38 @@ provably-fair weighted draw picks **one result row** from a published 13-row tab
   `TRACE_LETTER` 80 ms per square, `TRACE_WORD_GAP` 200 ms, `TRACE_END` 233 ms — 50% faster than the first
   cut, owner 2026-10-22) with SVG polylines and line-number badges. On `bad` the middle row flips to a red
   `#@%!&`. The terminal prints one line per hit (`↓ REEL n` for a down word) and the result line.
+  - **Reduced motion** (prod fix 2026-10-26): the spin is gentle, not skipped. The reels roll at 0.32 s per
+    loop with no blur, stop with a 500 ms first stop and 200 ms gaps and no bounce, and the word trace still
+    plays. Pulses, shake and scanlines stay off. It used to jump straight to the result popup, which read
+    as "no animation" on phones with reduced motion or battery saver on.
+- **Solo-round safety net** (prod fix 2026-10-26, `useGame.ts`). SignalR frames dropped on a socket hiccup
+  used to leave the reels spinning until a reload. A round is "unsettled" when it has a bet and status
+  WaitingBets/GameStarting/InProgress, or it is a `LINES` round with status Ended–RewardForWinnersCompleted
+  and no grid yet. The front re-reads it with `GET /games/rounds/{id}` and merges the answer forward-only.
+  - **When:** on hub reconnect (`useGameHub().onGameRejoined`), when the tab becomes visible again, and from
+    a 2 s watchdog after 8 s with no progress (then every 4 s at most).
+  - **400 refusal** (abrupt end / not enough players): the round becomes GameEndedAbruptely and the
+    terminal says "This round ended early. Check Games History for your bet."
+  - **No progress for 60 s:** the round is marked stalled (`soloRoundStalled`). The reels stop, the
+    terminal says "THIS ROUND IS DELAYED. CHECK GAMES HISTORY FOR YOUR BET.", the lever unlocks, and that
+    round id is never restored as the stored board again.
+  - **Pull spin limits:** `reelShouldSpin` no longer spins on NotEnoughPlayersToStart, which is final for
+    a solo round. A pull with no bet showing stops after 90 s.
+  - **Backend:** the server-side sweeper for stuck rounds is Trello card #214.
 - **Console:** `WordLinesPlate.vue` (engraved **PAYS** LCD — idle `-.-×`, scrambling while spinning, the paid
   total coloured by tier afterwards — plus 10 payline lamps) replaces the 8 word keys. `HyperRollModeDial`
   shows `10 LN` / `10×` readouts with HELP and MAX, no mode keys. The stake keys are **HALF / ×2 / MAX**
   around the LCD (bounds 0.002–0.1 SOL, 0.01 grid, last-stake memory unchanged). **One pull**: the lever
   on a finished spin opens the next round and bets it at the same stake (`SPIN <stake>`).
+  - **Play-again pull spins at once** (prod fix 2026-10-26). `useWordLinesReel.pullingNext` spins the reels
+    and hides the old result while the next board opens; opening takes ~1 s of round-trips on a phone. The
+    flag lifts once the board is open and `markPulled` takes over, or after a 20 s cap.
+  - **MAX** (prod fix 2026-10-26, `setMaxStake`) counts the balance that actually pays. That is the Orbit
+    balance when Orbit pays this bet (usable, not auto-playing this game, and the session wallet is the
+    connected one; streamers always use Orbit), else the wallet balance minus 0.001 SOL fee headroom,
+    capped at the table max. Below the minimum, the stake stays and the terminal says "Not enough SOL for
+    more than the <min> minimum stake." MAX used to read the wallet only, so an Orbit-funded player stayed
+    at 0.002.
 - **Result banner** (`HyperRollWinFx.vue`, `variant` prop; tiers by pay `< 1` gray, `< 2` green, `< 5` blue,
   `< 8` purple, else gold):
   - `win` (pay > 1): "YOU WON!", count-up, coins; screen shake from 5×; max-win sting and gold ring from 8×.
