@@ -34,7 +34,8 @@ or card. The home page keeps only a compact strip of the player's own record.
   `PlayerProfile:{wallet}` (**60 s**) or computed, and `DisplayName` + `ProfileTheme` are stamped from the
   **live** row onto a copy (`with`), so a rename or theme change shows at once. Profile V2 also stamps
   `avatarId` (self-healed: a trophy icon whose trophy is gone is cleared) and `unlockedAvatars` live — see
-  [`profile-v2.md`](profile-v2.md).
+  [`profile-v2.md`](profile-v2.md). Since #213 it also stamps `partnerCode` + `partnerLinkedAt` live (null
+  on Unavailable and on the no-row body) — see [`partner-code-on-profile.md`](partner-code-on-profile.md).
 - ⚠️ **Unavailable is HTTP 200 `{ available: false }`, byte-identical for malformed, house and
   self-excluded** — never a 400/404, never a reason (`constraints.md` §6). Nothing on the wire marks a
   streamer wallet: an active streamer's profile is simply available with every trophy locked.
@@ -147,8 +148,10 @@ or card. The home page keeps only a compact strip of the player's own record.
   + progress bar (`gambled / nextLevelAt SOL gambled`, `MAX LEVEL` at the cap; fine print *"Total gambled,
   not deposited — Orbit re-bets what it wins."*). Owner: **EDIT NAME** and **EDIT THEME** (both open
   SETTINGS), and the hero icon is a button (*"Change icon"*) that opens the **icon picker**
-  ([`profile-v2.md`](profile-v2.md)); a visitor's icon is not clickable. Visitor on an available profile:
-  **DONATE SOL**.
+  ([`profile-v2.md`](profile-v2.md)); a visitor's icon is not clickable. Owner, not embedded (#213): a
+  dashed **+ PARTNER CODE** button (hidden for streamer wallets) that links a partner once, or, once
+  linked, a **PARTNER · CODE** badge with "since <date>" ([`partner-code-on-profile.md`](partner-code-on-profile.md)).
+  Visitor on an available profile: **DONATE SOL**.
 - Record: headline **GAMBLED · WON · BETS** (GAMBLED = the level basis), then **BIGGEST WIN · BEST STREAK ·
   MOST PLAYED** (trimmed 2026-10-22, shipped with #209: NET, WIN RATE and ROUNDS removed; three across on
   desktop, MOST PLAYED full width under the other two on a phone). NET is never the lead and never red-framed. Owner: a **Responsible

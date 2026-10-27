@@ -32,17 +32,21 @@ good at.
   `Player` row is created by five different paths (a paid bet, an Orbit session, the display-name
   prompt on wallet connect, self-exclusion, the house seed) and can predate attribution by days.
 - **An existing player cannot be claimed.** Someone who has already bet has a row, and a code arriving
-  later finds it non-NULL.
+  later finds it non-NULL. ⚠️ Since #213 a player whose row is still NULL can link a code **themselves**,
+  once, from their profile ([`partner-code-on-profile.md`](partner-code-on-profile.md)); it earns only on
+  bets placed after linking.
+- **One writer.** Every write of `ReferralCode`/`ReferredAt` goes through
+  `IPlayerReferralWriter.TryLinkAsync`, an atomic `UPDATE … WHERE "ReferralCode" IS NULL` (#213). The bet
+  path no longer saves the whole player row, which could write a stale NULL over a fresh link.
 
 ### The code is only accepted where wallet control is already proven
 
-- Two write sites: `POST /games/{id}/bets` (which carries a confirmed on-chain transfer from that
-  wallet) and `POST /orbit/session` (nonce + ed25519 signature). Both already prove the caller owns
-  the wallet, so the referral rides along on a proof that was being demanded anyway.
-- ⚠️ There is deliberately **no** `POST /players/referral`. Player endpoints are public and a wallet
-  address is not a secret, so an unsigned write keyed on one would let anyone attribute any wallet on
-  the chain to their own code — the same reasoning that makes `PATCH /players/preferences`
-  signature-gated.
+- Three write sites: `POST /games/{id}/bets` (which carries a confirmed on-chain transfer from that
+  wallet), `POST /orbit/session` (nonce + ed25519 signature) and, since #213, `POST /players/partner-code`
+  (its own `partner-code` nonce + signature). All three prove the caller owns the wallet.
+- ⚠️ There is still **no unsigned** referral write. Player endpoints are public and a wallet address is
+  not a secret, so an unsigned write keyed on one would let anyone attribute any wallet on the chain to
+  their own code — the same reasoning that makes `PATCH /players/preferences` signature-gated.
 - On the Orbit path the write happens **after** `OrbitProof.TryConsume` succeeds, never before.
 
 ### One stamp site covers Orbit
@@ -156,7 +160,10 @@ good at.
   row each — to the partner, behind their session, with wallets displayed truncated (the full address
   rides along for DONATE since 2026-10-16) and only the public display name. Nothing about a code reaches a PLAYER-facing contract, which is what the rest of this section
   is about.
-- `ReferralCode` appears on **no** DTO, no SignalR event and no public endpoint — not `BetDto`, not
+- ⚠️ **Second exception, added 2026-10-27 (#213, owner decision):** `GET /players/profile` returns the
+  player's own linked `partnerCode` + `partnerLinkedAt`, so the profile badge can show it. Player-level
+  only; anyone can therefore look up which partner referred a wallet.
+- Otherwise `ReferralCode` appears on **no** DTO, no SignalR event and no public endpoint — not `BetDto`, not
   `BetNotificationEvent`, not games history, stats or the verification payload. A partner's code is a
   commercial arrangement, not public information, and adding it to a shipped contract is not
   reversible.
@@ -193,6 +200,8 @@ good at.
 | `.../Handlers/Games/RegisterBet/RegisterBetHandler.cs` | Resolve → NULL-only player write → `_bet.ReferralCode = player?.ReferralCode` |
 | `.../Handlers/Games/RegisterBet/RegisterBetRequestBody.cs` | `ReferralCode` (on the body, unlike `FundedByOrbit`) |
 | `.../Handlers/Orbit/CreateOrbitSession/CreateOrbitSessionHandler.cs` | Same NULL-only write, after the proof |
+| `.../Services/Referrals/PlayerReferralWriter.cs` | The single atomic write-once writer (#213) |
+| `.../Handlers/Players/LinkPartnerCode/LinkPartnerCodeHandler.cs` | Profile self-link (#213) |
 | `SpaceStroker.Infrastructure/DependencyInjection.cs` | `ReferralDirectory` singleton — a duplicate code fails the host at startup |
 
 **Frontend (`monkify-front`)** — `src/utils/referral.ts` (stash, 30-day window, shape check),
