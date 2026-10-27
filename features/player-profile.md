@@ -182,8 +182,8 @@ or card. The home page keeps only a compact strip of the player's own record.
   ~50 ms tick in chunks of 50, one in-flight request per chunk). **A failed read just hides badges** — no
   toast, no retry loop.
 - `PlayerCard` is mounted once in `App.vue`: from `lg` up a teleported popover anchored to the tag; below `lg`
-  an `ArcadeModal` bottom sheet. Body: name, level + bar, short wallet + copy, joined date, rounds · win rate
-  · net, the 3 most recent trophies (else "No trophies yet"), **VIEW FULL PROFILE** and **DONATE** (not on
+  an `ArcadeModal` bottom sheet. Body: name, level + bar, short wallet + copy, joined date, **GAMBLED · WON · BETS**
+  (the profile's headline record, same sources; no win rate, net or rounds since 2026-10-27), the 3 most recent trophies (else "No trophies yet"), **VIEW FULL PROFILE** and **DONATE** (not on
   your own card). ⚠️ It never navigates or pauses anything on its own — the round keeps running underneath;
   it closes on route change. Profile reads are single-flighted and memoised 30 s per wallet.
 
