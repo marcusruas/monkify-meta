@@ -104,7 +104,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 
 | # | Decision | Why |
 | --- | --- | --- |
-| S1 | **Round play token.** `POST /games/{typeId}/boards` on a Key Mines type returns a one-time random `playToken` (32 bytes, base64url) and stores **only its SHA-256** on `Game.KeyMinesTokenHash`. Press and cash-out require header **`X-Round-Token`**; a mismatch is the vague 400. The SPA keeps the token with the stored board (`readStoredBoard`/`storeBoard`). | ⚠️ **Gap the card did not resolve.** A wallet-paid bet has no session, and round ids are public (history, feed, verification). Without a secret, anyone could press keys on someone else's round and lose their stake. A per-board token proves "I opened this board" for every bet source with no per-press signature. Lost token (other device) ⇒ the 5-min sweep settles the round, so no money is ever stranded. |
+| S1 | **Round play token** (✅ confirmed by the owner 2026-10-27). `POST /games/{typeId}/boards` on a Key Mines type returns a one-time random `playToken` (32 bytes, base64url) and stores **only its SHA-256** on `Game.KeyMinesTokenHash`. Press and cash-out require header **`X-Round-Token`**; a mismatch is the vague 400. The SPA keeps the token with the stored board (`readStoredBoard`/`storeBoard`). | ⚠️ **Gap the card did not resolve.** A wallet-paid bet has no session, and round ids are public (history, feed, verification). Without a secret, anyone could press keys on someone else's round and lose their stake. A per-board token proves "I opened this board" for every bet source with no per-press signature. Lost token (other device) ⇒ the 5-min sweep settles the round, so no money is ever stranded. |
 | S2 | **`Game.BoardMode = "KEYS"`** (`KeyMinesRules.BoardMode`) marks a Key Mines round; history, verify and the front branch on it, like `LINES`. | The column is already carried by history, verification and `ActiveGameDto`. |
 | S3 | **No `GameBoardChoices` rows** for a Key Mines round; coverage prices it with `HouseEdgeRoundBook.FlatMultiplier = ladder[lastStep]`. | The ladder is a formula, not rows (decision on the card). `FlatMultiplier` already exists for exactly this. |
 | S4 | **The bet starts the round in its own transaction:** inside `RegisterHouseEdgeBet`, after the solo claim, a conditional `WaitingBets → InProgress` update sets `StartDate`, `KeyMinesJamCount`, `KeyMinesJamKeys` (derived now, §6.3), `KeyMinesPressedKeys = ""` and `KeyMinesLastActionAt = now`. `BetPlacedConsumer` **returns early** for `IsKeyMines` (no `TryStartGame`, no `RunGameEvent`). | The jams depend on the bet seed (the prefix includes it), so they can only be derived once the bet exists; doing it in the same transaction means a bet never exists without its jams. |
@@ -114,7 +114,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | S8 | **Inactivity refund ends the round `GameEndedAbruptely`** with `KeyMinesEnd = "refund"`, sets the bet `NeedsRefunding` and publishes `RefundInvalidBetEvent` (with `FundedByOrbit`/streamer flags as the existing per-bet refund paths do). | It leaves `UnsettledStatuses`, so exposure is released; stats ignore it; the 12 h pending-refund sweep is the retry. |
 | S9 | **Keys = `qwertyuiopasdfghjklzxcvbnm`** (`KeyMinesRules.Keys`, the draw pool in this exact order). Pressed keys and jams are stored as lowercase letter strings in press / pick order. | Fixed, published order is what makes the draw reproducible. |
 | S10 | **Bump `ActiveParameters:v4` → `:v5`.** | `GameParametersDto` gains `IsKeyMines`, `JamOptions`, `MaxPayoutPerRound`. |
-| S11 | **Rate limits** (AspNetCoreRateLimit `GeneralRules`): `post:/games/*/press` **240/m**, `post:/games/*/cashout` **30/m**, per IP. | A full 1-jam clear is 25 presses; generous enough for fast play, tight enough to stop scripted grinding. |
+| S11 | **Rate limits** (AspNetCoreRateLimit `GeneralRules`): `post:/games/rounds/*/press` **240/m**, `post:/games/rounds/*/cashout` **30/m**, per IP. | A full 1-jam clear is 25 presses; generous enough for fast play, tight enough to stop scripted grinding. |
 | S12 | **Verification cache:** `GetGameVerificationHandler`'s cache gate requires `CharactersTyped.HasValue`; for `KEYS` rounds it requires `KeyMinesEnd != null` instead. | A typer-less round would otherwise never be cached (harmless but wasteful). |
 
 ---
@@ -197,8 +197,8 @@ reads it) so config is the single source.
 `GeneralSettings:Games` (next to `HouseEdgeBoardTtlMinutes` :152): `KeyMinesInactivityMinutes: 5`,
 `KeyMinesSweepIntervalMinutes: 1` (same names on `GameSettings.cs`, code defaults 5 / 1).
 
-`IpRateLimiting:GeneralRules` (next to `boards` :101): `post:/games/*/press` 240/1m,
-`post:/games/*/cashout` 30/1m.
+`IpRateLimiting:GeneralRules` (next to `boards` :101): `post:/games/rounds/*/press` 240/1m,
+`post:/games/rounds/*/cashout` 30/1m.
 
 Seeding / reconcile:
 
@@ -285,8 +285,8 @@ public static class KeyMinesLadder {
 
 Routes (`GamesController`, `[Route("games")]`):
 
-- `POST /games/{roundId}/press` body `{ key }` → `KeyMinesMoveDto`.
-- `POST /games/{roundId}/cashout` (no body) → `KeyMinesMoveDto`.
+- `POST /games/rounds/{roundId}/press` body `{ key }` → `KeyMinesMoveDto` (route shape of the shipped `rounds/{roundId}/duel-cancel`).
+- `POST /games/rounds/{roundId}/cashout` (no body) → `KeyMinesMoveDto`.
 - Both require `X-Round-Token`. Handlers: `Handlers/Games/PressKeyMinesKey/*`, `Handlers/Games/CashOutKeyMines/*`.
 
 ```csharp
@@ -495,11 +495,11 @@ sequenceDiagram
   SPA->>API: POST /games/{type}/bets {J3, 0.01, signature}
   API->>DB: [coverage lock] bet + claim + InProgress + jams
   loop each key
-    SPA->>API: POST /games/{id}/press {key} + X-Round-Token
+    SPA->>API: POST /games/rounds/{id}/press {key} + X-Round-Token
     API->>DB: conditional update (PressedKeys)
     API-->>SPA: safe, step, multiplier
   end
-  SPA->>API: POST /games/{id}/cashout + X-Round-Token
+  SPA->>API: POST /games/rounds/{id}/cashout + X-Round-Token
   API->>DB: Ended, CashedStep, bet NeedsRewarding
   API->>Consumers: RewardGameEvent
   Consumers->>DB: Credit stake × ladder[k], RewardForWinnersCompleted
