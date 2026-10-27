@@ -1,6 +1,8 @@
 # Space Stroker — "Partner code on the profile page" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-10-27, merged from `feature/partner-code-on-profile` in `monkify-backend`,
+> `monkify-front` and `monkify-meta`). Distilled in [`features/partner-code-on-profile.md`](../features/partner-code-on-profile.md).
+> Refined via Trello card
 > [#213 Enter a partner (referral) code on the profile page](https://trello.com/c/dGgU5VOY) (2026-10-26).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`. `monkify-lp` NOT affected.
 > Level: **`Feature`**.

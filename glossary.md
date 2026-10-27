@@ -298,6 +298,11 @@
   and opponent, leaderboard rows/podium, History YOU, home strip). Tappable → the mini profile card, unless
   it is a house bettor (`isHouse` / VS HOUSE) or the app is embedded (then plain text). Carries the `LV`
   badge; with the opt-in `avatar` prop (leaderboards) also the player's profile icon.
+- **Partner code** — a referral partner's code (`ReferralPartner.Code`). A player gets one either from a
+  `?ref=` link before their first bet or Orbit enrolment, or (#213) by linking it once from their own profile
+  (`POST /players/partner-code`). Stored write-once on `Player.ReferralCode`; it earns the partner only on
+  bets placed after it was set. Player-facing copy says "partner", never "streamer". See
+  `features/referral-program.md`, `features/partner-code-on-profile.md`.
 - **Mini profile card** — `PlayerCard.vue`, mounted once in `App.vue`: the popover (from `lg`) / bottom
   sheet (below) a player tag opens over the current screen — name, level, short wallet, joined, rounds · win
   rate · net, 3 latest trophies, VIEW FULL PROFILE, DONATE. Never navigates or pauses the round.
