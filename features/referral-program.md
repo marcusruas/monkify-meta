@@ -35,6 +35,8 @@ good at.
   later finds it non-NULL. ⚠️ Since #213 a player whose row is still NULL can link a code **themselves**,
   once, from their profile ([`partner-code-on-profile.md`](partner-code-on-profile.md)); it earns only on
   bets placed after linking.
+- **A partner's own code never sticks to their own wallet**, on any path, and two partners can never carry each
+  other's codes (partner-code-for-partners, 2026-10-27). Both are writer-level refusals, silent on `?ref=`.
 - **One writer.** Every write of `ReferralCode`/`ReferredAt` goes through
   `IPlayerReferralWriter.TryLinkAsync`, an atomic `UPDATE … WHERE "ReferralCode" IS NULL` (#213). The bet
   path no longer saves the whole player row, which could write a stale NULL over a fresh link.

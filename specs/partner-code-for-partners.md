@@ -1,6 +1,6 @@
 # Space Stroker — "Partners can link a partner code" — Implementation Spec
 
-> **Status: Implemented** on `feature/partner-code-for-partners` (`monkify-backend` + this doc in `monkify-meta`).
+> **Status: Shipped** (2026-10-27, merged from `feature/partner-code-for-partners`) (`monkify-backend` + this doc in `monkify-meta`).
 > `monkify-front` and `monkify-lp` NOT affected. Requested directly by the owner on 2026-10-27 (no Trello card).
 > Extends [`partner-code-on-profile.md`](partner-code-on-profile.md) (#213). Level: **`Feature`**.
 >

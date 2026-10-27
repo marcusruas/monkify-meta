@@ -21,6 +21,15 @@ which only works before a player's first bet or Orbit enrolment.
   `UPDATE … WHERE "ReferralCode" IS NULL` (and creates the `Player` row when missing, retrying the
   update once on a 23505 from a concurrent insert). No player or admin path changes or clears a linked
   code. An ops correction is hand SQL.
+- **Partners can link too, but never their own code and never a mutual pair** (partner-code-for-partners,
+  2026-10-27, [`../specs/partner-code-for-partners.md`](../specs/partner-code-for-partners.md)). A wallet that is
+  some partner's `PayoutWallet` may link another partner's code. The writer itself refuses (so `?ref=` bets and
+  Orbit sessions obey it too, silently) the partner's **own** code and a code whose partner wallet already carries
+  the caller's code ("That partner already uses your partner code, so you can't use theirs."). Only direct pairs;
+  longer chains are allowed. Partner-wallet links take `pg_advisory_xact_lock(PlayerReferralWriter.AdvisoryLockKey)`
+  so two partners cannot cross-link at the same instant. ⚠️ Before this, a partner betting through their own
+  YOUR LINK got their own code stamped (it never earned) and lost the button for good; migration
+  `ClearPartnerSelfReferrals` cleared those rows. Mutual pairs linked before 2026-10-27 were left as they are.
 - **Only bets after linking earn.** Nothing new in the earnings code: `RegisterBetHandler` stamps
   `Bet.ReferralCode` from the player row at placement (re-resolved through the directory, so an inactive
   partner stamps NULL). Earlier bets keep `ReferralCode = NULL`. No backfill, no re-stamping.
@@ -84,6 +93,7 @@ which only works before a player's first bet or Orbit enrolment.
 **Tests** — unit: `LinkPartnerCodeHandlerTests` (16 cases), `RegisterBetHandlerTests.ABetWithoutReferral_DoesNotClearALinkedCode`,
 `GetPlayerProfileHandlerTests`, `GetWalletNonceHandlerTests`, `RateLimitSettingsTests`, with
 `Shared/InMemoryPlayerReferralWriter.cs` standing in because EF InMemory cannot `ExecuteUpdate`.
-Integration: `PartnerCodeLinkFlowTests` (happy path where only bets after linking earn, second link
+Integration: `PartnerToPartnerLinkFlowTests` (partner links another partner's code, reverse refused, own `?ref=`
+does not stick, concurrent cross-links → one wins), `PartnerCodeLinkFlowTests` (happy path where only bets after linking earn, second link
 refused, unknown code after a valid proof, wrong-purpose nonce is vague) and
 `PlayerReferralWriterSqlTests` (the real conditional SQL: set once, create-when-missing, concurrent links).
