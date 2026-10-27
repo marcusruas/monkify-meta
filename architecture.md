@@ -183,7 +183,8 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   `ActiveParameters:{operatorId}` / `Operator:{operatorId}`). Anything that mutates game types
   invalidates the former.
 - **Wallet-proof nonces:** `WalletNonce:{purpose}:{wallet}`, 5-minute TTL, single use — the challenge
-  behind the signature-gated `PATCH /players/preferences` and `POST /players/self-exclusion`. The
+  behind the signature-gated `PATCH /players/preferences` and `POST /players/self-exclusion` (and,
+  since #213, `POST /players/partner-code` under its own `partner-code` purpose). The
   purpose segment is what stops a nonce minted for one flow being replayed against the other.
 - **Player profile reads (#186):** `PlayerProfile:{wallet}` (60 s; only wallets with a `Player` row; name,
   theme, icon and self-exclusion read live on every request; dropped on an icon save and when a round
@@ -676,7 +677,8 @@ another operator means **deploying the app again with a different `spacestrokers
   went with the launch token; terminal failures still reach `/error` by their own paths.) Endpoints:
   `GET /games/active-types`, `GET /games/{id}`, `POST /games/{id}/bets`, `GET /players/nonce`,
   `GET /players/preferences`, `PATCH /players/preferences`, `POST /players/self-exclusion`,
-  `GET /players/stats`, `GET /players/profile` and the batched `GET /players/levels` (#186 — see
+  `POST /players/partner-code` (#213 — one-time signed partner link, see
+  `features/partner-code-on-profile.md`), `GET /players/stats`, `GET /players/profile` and the batched `GET /players/levels` (#186 — see
   `features/player-profile.md`),
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
