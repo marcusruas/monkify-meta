@@ -446,7 +446,9 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   under them in every state; the jam keys are enabled only before the bet (the picked one stays lit when
   locked), CASH OUT only in a live round from step 1 (`—` otherwise). No NOW / PAID / countdown readouts.
   **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
-  to a fresh board.
+  to a fresh (unbet) board. **One pull on a result** (or ENTER) opens the next board and bets it with the same
+  stake and jams — no second pull. **ENTER pulls the lever** in every state (ignored in fields and under a
+  dialog).
 - Keyboard input: physical key presses map to the on-screen keys while the round is live (ignored while an
   input has focus).
 
@@ -754,3 +756,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-27 | Initial spec from the refined card (#204) after a code pass over `GameParameters`/`Game`, `SpaceStrokerDbContext`, `spacestrokersettings.json`, `OperatorSettings`, `HouseEdgeRules`/`HouseEdgeCoverage(Service)`, `HouseEdgeReconciler`, `GameService` (open/Ended/CloseOngoingGames), `RegisterBetHandler`, `BetPlacedConsumer`, `RunGameConsumer`, `BetDomainService`, `RewardGameConsumer`, `BetPreChecks`, availability, verification, the Orbit wager paths, profile/leaderboard services, Hangfire wiring, the integration harness, and the front (archetype maps, `useGame`, console/terminal, practice, guide, history, fair panel, verify) and LP. Added S1 (round play token) for the wallet-bet ownership gap. |
 | 2026-10-28 | Owner design V4 (Claude Design, 5 versions): letters-only screen (paired steps over the keyboard, Hyper Roll reel blocks), jam keys as board sprites, and colour / win card / fanfare on Hyper Roll's tier ladder instead of fixed hazard yellow (§7.4). Verification moves to the header FAIR panel. |
 | 2026-10-28 | Right plate fixed layout: jam keys over CASH OUT in every state, enabled per state (§7.4). |
+| 2026-10-28 | ENTER pulls the lever; one pull on a result starts the next round (§7.4). |
