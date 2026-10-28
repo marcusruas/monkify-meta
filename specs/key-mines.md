@@ -88,7 +88,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 2 | **Payout cap 10 SOL per round** (`MaxPayoutPerRound`; was 1 SOL, owner 2026-10-28) **and a 100× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 100`; that step auto-cashes. At a 0.1 SOL stake the ceiling always binds first (10 SOL = 100×). |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
-| 5 | **Lobby badge: fixed copy `UP TO 250X`.** The real best reachable step at the minimum stake is 267.66× (10 jams, step 9); "500×" (cap ÷ min) is unreachable and must never appear. |
+| 5 | **Lobby badge: fixed copy `UP TO 100X`** (owner, 2026-10-28: the 100× multiplier ceiling; it was `UP TO 250X` under the old 1 SOL cap). A figure the ladder cannot reach must never appear. |
 | 6 | **Inactivity window 5 min.** ≥ 1 safe press ⇒ auto-cash at the current step (a **win**, shown as **AUTO CASH**). 0 presses ⇒ the stake is **refunded**. Hangfire sweep every minute. |
 | 7 | **`IsHouseEdge = true` + new `IsKeyMines`.** `IsKeyMines` is checked **first** in every typer / weighted-draw / Word Lines branch, which steps aside. |
 | 8 | **Round state = nullable columns on `Game`** (§4.1). |
@@ -410,7 +410,7 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   at a typewriter, one key smoking — placeholder ships).
 - Every archetype-keyed map: `GuideModeCards.vue` `BLURB` (98) / `ARCHETYPE_LABEL` (121) / `ARCHETYPE_ACCENT`
   (131) (⚠️ a missing key crashes the block); `GameTypeCard.vue` `tag` (145) = `'26 KEYS · PICK YOUR JAMS'`,
-  `badges` (274) = `1P · VS HOUSE` + `UP TO 250X`, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
+  `badges` (274) = `1P · VS HOUSE` + `UP TO 100X`, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
   `header/GameSwitcher.vue` (134/318); `useLiveGames.ts:101`; `GameStatsPanel.vue` (65-120) /
   `GameStatsPage.vue` (345-356); `admin/GameTypeList.vue` `modeLabel` (23); `PlayerProfilePage.vue` `ART`
   (208) + rows meta (214-236).
@@ -442,9 +442,9 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   then pops into the new one with a small pixel burst (`utils/pixelBurst.ts`, a canvas over the screen); a
   gold break also shakes the board. Reduced motion: the instant repaint, no particles. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
   so its colour, coins, shake, gold ring and fanfare (`playWinSting`) all follow the paid multiplier exactly
-  as a Hyper Roll win. Each safe press plays the next of **18 key beeps** (`utils/keyMinesSfx.ts`, owner
-  2026-10-28): the trace tick's pure-sine blip climbing the F-major scale from F4 to B♭6, the 18th repeating
-  after that; a jam plays Edson's curse.
+  as a Hyper Roll win. Each safe press plays the next of **26 key beeps** (`utils/keyMinesSfx.ts`, owner
+  2026-10-28): the trace tick's pure-sine blip climbing a semitone per press from F4 to F♯6, one per key (a
+  round has at most 25 safe presses); a jam plays Edson's curse.
 - **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.1), the jam count as the stake
   plate's own `−` / LCD / `+` (labels `-1` / `JAMS` / `+1`, stepping through `jamOptions`), lever/START.
   **The right plate never changes layout** (owner, 2026-10-28): the jam stepper on top and `CASH OUT FOR
@@ -454,7 +454,9 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   screen allows. No NOW / PAID / countdown readouts.
   **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
   to a fresh (unbet) board. **One pull on a result** (or ENTER) opens the next board and bets it with the same
-  stake and jams (or the jams just picked) — no second pull. **SPACE pulls the lever and ENTER cashes out**
+  stake and jams (or the ones just picked) — no second pull. The **stake plate is editable on a result**
+  too (owner, 2026-10-28): it shows the round's stake and any change bets on the next board; it locks only
+  while a round is live. **SPACE pulls the lever and ENTER cashes out**
   (owner, 2026-10-28; ENTER does nothing when there is nothing to cash), ignored in fields and under a dialog;
   a focused button's own Enter / Space click is swallowed. Under "USE YOUR KEYBOARD!" a small line reads
   `SPACE: PULL THE LEVER · ENTER: CASH OUT` (desktop only).
@@ -723,7 +725,7 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 16. Given a self-exclusion or HouseEdgeEnabled = false set after a bet was placed, when the owner presses or cashes out, then both still work; new Key Mines bets are refused.
 17. Given a cashed-out Key Mines win, when trophies are derived, then GameModeClassifier returns the Key Mines mode, firstHyperRollWin is NOT unlocked, explorer still requires only the four original modes, winStreak3/5 count the win, and the Hall of Fame ranks its multiplier.
 18. Given a reload mid-round, when the page opens, then GET /games/rounds/{id} restores pressed keys, step and the ladder window without exposing jams, and the player can continue.
-19. Given the lobby, when it renders, then Key Mines shows as archetype key-mines with badges 1P · VS HOUSE and UP TO 250X, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
+19. Given the lobby, when it renders, then Key Mines shows as archetype key-mines with badges 1P · VS HOUSE and UP TO 100X, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
 20. Given /how-to-play and /game/practice?mode=key-mines, when opened, then a HOW KEY MINES WORKS section (five-step GuideRail, live-cabinet crops, no stale figures) is present and a front-only practice round plays with random jams and no backend call.
 21. Given monkify-lp, when built, then GameModes.vue has a Key Mines card in lobby order, the mode-count copy and roadmap line include it, and terms.astro has an owner-reviewed Key Mines clause (vs house, 98% RTP, 1 SOL per-round cap, inactivity auto-cash) with LAST_UPDATED bumped.
 
@@ -737,7 +739,7 @@ refused with the same vague 400 (integration case inside test 8/9).
 1. Rebuild the local stack (this card **has** a migration). Copy the hub `yarn.lock` into the front worktree
    before building; verify the served bundle changed.
 2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.1.
-3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 250X`.
+3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 100X`.
 4. Play with free bets on (dev toggle) and with a paid devnet bet: ready → press safe keys (ladder advances,
    letters fill the steps row, colours climb green → blue → purple → gold) → cash out (paid amount =
    stake × ladder[k]; the win card wears the paid multiplier's tier).
@@ -770,3 +772,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Key bindings: SPACE pulls the lever, ENTER cashes out, shown as a small line in the terminal (§7.4). |
 | 2026-10-28 | Tier break animation: design V2 shockwave repaint (Claude Design, 5 versions) (§7.4). |
 | 2026-10-28 | Shockwave without the square ring; 18 rising key beeps replace the 8 Hyper Roll trace ticks (§7.4). |
+| 2026-10-28 | Owner: the stake is editable on a result for the next round (it used to lock until the next board opened); 26 key beeps a semitone apart replace the 18 (§7.4). |
