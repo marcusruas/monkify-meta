@@ -441,10 +441,12 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   as a Hyper Roll win. Safe presses tick up Word Lines' trace scale; a jam plays Edson's curse.
 - **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.05), the jam keys `1 · 3 · 5 · 10`
   as the board's number-key sprites (`buttons/button{n}-gray|gold.png`, picked one gold and pressed in,
-  engraved `JAMS`; ⚠️ `button10-*` is a stand-in until the 10 key is drawn), the first-key LCD, lever/START.
-  **Live:** NOW / CASH OUT FOR readouts; CASH OUT enabled from step 1. **Jam:** the jam's step and key red,
-  every jam revealed. **Cashed:** the win card + `PAID` on the plate, 9 s hold then rollover to a fresh
-  board.
+  engraved `JAMS`; ⚠️ `button10-*` is a stand-in until the 10 key is drawn), lever/START.
+  **The right plate never changes layout** (owner, 2026-10-28): the jam keys on top and `CASH OUT FOR <amount>`
+  under them in every state; the jam keys are enabled only before the bet (the picked one stays lit when
+  locked), CASH OUT only in a live round from step 1 (`—` otherwise). No NOW / PAID / countdown readouts.
+  **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
+  to a fresh board.
 - Keyboard input: physical key presses map to the on-screen keys while the round is live (ignored while an
   input has focus).
 
@@ -751,3 +753,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | --- | --- |
 | 2026-10-27 | Initial spec from the refined card (#204) after a code pass over `GameParameters`/`Game`, `SpaceStrokerDbContext`, `spacestrokersettings.json`, `OperatorSettings`, `HouseEdgeRules`/`HouseEdgeCoverage(Service)`, `HouseEdgeReconciler`, `GameService` (open/Ended/CloseOngoingGames), `RegisterBetHandler`, `BetPlacedConsumer`, `RunGameConsumer`, `BetDomainService`, `RewardGameConsumer`, `BetPreChecks`, availability, verification, the Orbit wager paths, profile/leaderboard services, Hangfire wiring, the integration harness, and the front (archetype maps, `useGame`, console/terminal, practice, guide, history, fair panel, verify) and LP. Added S1 (round play token) for the wallet-bet ownership gap. |
 | 2026-10-28 | Owner design V4 (Claude Design, 5 versions): letters-only screen (paired steps over the keyboard, Hyper Roll reel blocks), jam keys as board sprites, and colour / win card / fanfare on Hyper Roll's tier ladder instead of fixed hazard yellow (§7.4). Verification moves to the header FAIR panel. |
+| 2026-10-28 | Right plate fixed layout: jam keys over CASH OUT in every state, enabled per state (§7.4). |
