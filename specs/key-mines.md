@@ -425,15 +425,26 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 - `GamePage.vue` `onPlate` (45-50) adds `isKeyMines`. `GameConsole.vue` (865) and `GameTerminal.vue`
   (~1058) get a **first** branch to new `KeyMinesConsole.vue` / `KeyMinesScreen.vue` (self-contained like the
   duel screen), on `ConsolePlate.vue`. `GameMonkey.vue:113` handles the archetype.
-- Identity (prototype): hazard yellow + ivory keycaps with chrome rims, hazard-stripe band, Press Start 2P /
-  VT323 (already loaded, `public/index.html:19`), phosphor only for the typed line, red only for a jam, amber
-  CASH OUT, cyan CRT frame. New tokens in `assets/styles/colors.css` + `tailwind.config.js` (`--color-hazard`).
-- **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.05), jam segment `1 · 3 · 5 · 10`,
-  `COMMIT <hash prefix>` line, lever/START. **Live:** 26 keys; pressed keys lit with their step number;
-  `YOU TYPED:` line; 8-cell ladder window with NEXT highlighted; NOW / CASH OUT FOR readouts; CASH OUT
-  enabled from step 1. **Jam:** the pressed jam red, all jams revealed, seed line + VERIFY. **Cashed:** `YOU
-  WON! CONGRATS!` + `PAID:` via `formatPayout` (`utils/money.ts:201`), `AUTO CASH` when `end = idle`, 9 s
-  hold then rollover to a fresh board.
+- **Screen (owner design V4, 2026-10-28): letters only.** The tube holds two things, in Hyper Roll's
+  terminal look (green on black, the reel blocks of `WordLinesGrid`): the **paired steps** row
+  (`KeyMinesLadder.vue`, an 8-step `ladderWindow` with lead 6 so the first letters stay in view) — each
+  pressed letter in a race-lane square (`RaceLanes` cells) over the multiplier that press reached in a reel
+  block — and the **keyboard** (`KeyMinesKeyboard.vue`), 26 reel blocks. No title, chips, CRT box, seed /
+  COMMIT / VERIFY lines. One status line appears at the bottom only when needed (PLACING BET, the
+  `blockedLine`, a refusal, the read-only note), plus the dev FREE BET toggle in dev builds. The commit and
+  the post-round check live in the header's FAIR panel.
+- **Colour = Hyper Roll's tier ladder** (`keyMinesTier` = `tierForPay`: green < 2×, blue < 5×, purple < 8×,
+  gold ≥ 8×; `WORD_LINES_TIER_HEX/RIM`). A reached multiplier fills in its own tier, NEXT is outlined in the
+  tier it would reach, a safe key fills in the tier of the step it reached, the NOW / PAID readouts wear the
+  tier. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
+  so its colour, coins, shake, gold ring and fanfare (`playWinSting`) all follow the paid multiplier exactly
+  as a Hyper Roll win. Safe presses tick up Word Lines' trace scale; a jam plays Edson's curse.
+- **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.05), the jam keys `1 · 3 · 5 · 10`
+  as the board's number-key sprites (`buttons/button{n}-gray|gold.png`, picked one gold and pressed in,
+  engraved `JAMS`; ⚠️ `button10-*` is a stand-in until the 10 key is drawn), the first-key LCD, lever/START.
+  **Live:** NOW / CASH OUT FOR readouts; CASH OUT enabled from step 1. **Jam:** the jam's step and key red,
+  every jam revealed. **Cashed:** the win card + `PAID` on the plate, 9 s hold then rollover to a fresh
+  board.
 - Keyboard input: physical key presses map to the on-screen keys while the round is live (ignored while an
   input has focus).
 
@@ -715,8 +726,9 @@ refused with the same vague 400 (integration case inside test 8/9).
 2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.05.
 3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 250X`.
 4. Play with free bets on (dev toggle) and with a paid devnet bet: ready → press safe keys (ladder advances,
-   `YOU TYPED:`) → cash out (paid amount = stake × ladder[k]).
-5. Hit a jam: red key, all jams revealed, VERIFY opens the fair panel; `verify.html` reproduces the jams.
+   letters fill the steps row, colours climb green → blue → purple → gold) → cash out (paid amount =
+   stake × ladder[k]; the win card wears the paid multiplier's tier).
+5. Hit a jam: red key, all jams revealed; FAIR (header) verifies the round; `verify.html` reproduces the jams.
 6. Reload mid-round: keys and step restore; continue and cash out.
 7. Leave a round idle 5 min: AUTO CASH in history; a bet with no press is refunded.
 8. Restart the consumers container mid-round: continue and cash out.
@@ -738,3 +750,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | Date | Change |
 | --- | --- |
 | 2026-10-27 | Initial spec from the refined card (#204) after a code pass over `GameParameters`/`Game`, `SpaceStrokerDbContext`, `spacestrokersettings.json`, `OperatorSettings`, `HouseEdgeRules`/`HouseEdgeCoverage(Service)`, `HouseEdgeReconciler`, `GameService` (open/Ended/CloseOngoingGames), `RegisterBetHandler`, `BetPlacedConsumer`, `RunGameConsumer`, `BetDomainService`, `RewardGameConsumer`, `BetPreChecks`, availability, verification, the Orbit wager paths, profile/leaderboard services, Hangfire wiring, the integration harness, and the front (archetype maps, `useGame`, console/terminal, practice, guide, history, fair panel, verify) and LP. Added S1 (round play token) for the wallet-bet ownership gap. |
+| 2026-10-28 | Owner design V4 (Claude Design, 5 versions): letters-only screen (paired steps over the keyboard, Hyper Roll reel blocks), jam keys as board sprites, and colour / win card / fanfare on Hyper Roll's tier ladder instead of fixed hazard yellow (§7.4). Verification moves to the header FAIR panel. |
