@@ -448,8 +448,10 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   screen allows. No NOW / PAID / countdown readouts.
   **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
   to a fresh (unbet) board. **One pull on a result** (or ENTER) opens the next board and bets it with the same
-  stake and jams (or the jams just picked) — no second pull. **ENTER or SPACE pulls the lever** in every
-  state (ignored in fields and under a dialog; a focused button's own Enter / Space click is swallowed).
+  stake and jams (or the jams just picked) — no second pull. **SPACE pulls the lever and ENTER cashes out**
+  (owner, 2026-10-28; ENTER does nothing when there is nothing to cash), ignored in fields and under a dialog;
+  a focused button's own Enter / Space click is swallowed. Under "USE YOUR KEYBOARD!" a small line reads
+  `SPACE: PULL THE LEVER · ENTER: CASH OUT` (desktop only).
 - Keyboard input: physical key presses map to the on-screen keys while the round is live (ignored while an
   input has focus).
 
@@ -759,3 +761,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Right plate fixed layout: jam keys over CASH OUT in every state, enabled per state (§7.4). |
 | 2026-10-28 | ENTER pulls the lever; one pull on a result starts the next round (§7.4). |
 | 2026-10-28 | Owner: jams 1–10 on a stake-style −/+ stepper, changeable on a result for the next round; SPACE pulls the lever too; a new tier repaints every reached step and key; keyboard 10% smaller; max stake 0.1 SOL, cap 10 SOL, 100× multiplier ceiling (decisions 2–4, §7.4). The jam draw stays uniform: any spread-out draw makes some keys safer than the ladder prices them. |
+| 2026-10-28 | Key bindings: SPACE pulls the lever, ENTER cashes out, shown as a small line in the terminal (§7.4). |
