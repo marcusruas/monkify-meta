@@ -442,7 +442,9 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   then pops into the new one with a small pixel burst (`utils/pixelBurst.ts`, a canvas over the screen); a
   gold break also shakes the board. Reduced motion: the instant repaint, no particles. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
   so its colour, coins, shake, gold ring and fanfare (`playWinSting`) all follow the paid multiplier exactly
-  as a Hyper Roll win. Safe presses tick up Word Lines' trace scale; a jam plays Edson's curse.
+  as a Hyper Roll win. Each safe press plays the next of **18 key beeps** (`utils/keyMinesSfx.ts`, owner
+  2026-10-28): the trace tick's pure-sine blip climbing the F-major scale from F4 to B♭6, the 18th repeating
+  after that; a jam plays Edson's curse.
 - **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.1), the jam count as the stake
   plate's own `−` / LCD / `+` (labels `-1` / `JAMS` / `+1`, stepping through `jamOptions`), lever/START.
   **The right plate never changes layout** (owner, 2026-10-28): the jam stepper on top and `CASH OUT FOR
@@ -767,3 +769,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Owner: jams 1–10 on a stake-style −/+ stepper, changeable on a result for the next round; SPACE pulls the lever too; a new tier repaints every reached step and key; keyboard 10% smaller; max stake 0.1 SOL, cap 10 SOL, 100× multiplier ceiling (decisions 2–4, §7.4). The jam draw stays uniform: any spread-out draw makes some keys safer than the ladder prices them. |
 | 2026-10-28 | Key bindings: SPACE pulls the lever, ENTER cashes out, shown as a small line in the terminal (§7.4). |
 | 2026-10-28 | Tier break animation: design V2 shockwave repaint (Claude Design, 5 versions) (§7.4). |
+| 2026-10-28 | Shockwave without the square ring; 18 rising key beeps replace the 8 Hyper Roll trace ticks (§7.4). |
