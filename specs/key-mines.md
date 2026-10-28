@@ -436,7 +436,11 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 - **Colour = Hyper Roll's tier ladder** (`keyMinesTier` = `tierForPay`: green < 2×, blue < 5×, purple < 8×,
   gold ≥ 8×; `WORD_LINES_TIER_HEX/RIM`). A reached multiplier fills in its own tier, NEXT is outlined in the
   tier it would reach. **Every reached step and every safe key wear the tier the round has reached so
-  far** (owner, 2026-10-28): crossing into a new colour repaints the whole run. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
+  far** (owner, 2026-10-28): crossing into a new colour repaints the whole run.
+  The repaint is a **pixel shockwave** (owner, 2026-10-28, design V2): a square pixel ring rolls out of
+  the key that broke the tier; each earlier key and letter keeps its old colour until the ring reaches it,
+  then pops into the new one with a small pixel burst (`utils/pixelBurst.ts`, a canvas over the screen); a
+  gold break also shakes the board. Reduced motion: the instant repaint, no particles. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
   so its colour, coins, shake, gold ring and fanfare (`playWinSting`) all follow the paid multiplier exactly
   as a Hyper Roll win. Safe presses tick up Word Lines' trace scale; a jam plays Edson's curse.
 - **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.1), the jam count as the stake
@@ -762,3 +766,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | ENTER pulls the lever; one pull on a result starts the next round (§7.4). |
 | 2026-10-28 | Owner: jams 1–10 on a stake-style −/+ stepper, changeable on a result for the next round; SPACE pulls the lever too; a new tier repaints every reached step and key; keyboard 10% smaller; max stake 0.1 SOL, cap 10 SOL, 100× multiplier ceiling (decisions 2–4, §7.4). The jam draw stays uniform: any spread-out draw makes some keys safer than the ladder prices them. |
 | 2026-10-28 | Key bindings: SPACE pulls the lever, ENTER cashes out, shown as a small line in the terminal (§7.4). |
+| 2026-10-28 | Tier break animation: design V2 shockwave repaint (Claude Design, 5 versions) (§7.4). |
