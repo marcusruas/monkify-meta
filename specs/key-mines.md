@@ -24,15 +24,15 @@
 | | Hyper Roll (Word Lines) | **Key Mines** |
 |---|---|---|
 | Game type | `IsHouseEdge` | `IsHouseEdge` **+ new `IsKeyMines`** |
-| What the player chooses | Stake | Stake **+ jam count `M ∈ {1,3,5,10}`** |
+| What the player chooses | Stake | Stake **+ jam count `M ∈ {1..10}`** |
 | Bet `Choice` | `spin` | **`J{M}`** (`J1`, `J3`, `J5`, `J10`) |
 | What decides the round | One weighted draw by the typer | **The player's presses** against `M` hidden jams |
 | Typer / `RunGameEvent` | Yes (~2 s) | **None** |
 | What is provably fair | The drawn outcome row | **The jam set** (`M` picks without replacement from the seed keystream) |
 | Payout | `stake × row pay` | **`stake × ladder[k]`** at cash-out after `k` safe presses; 0 on a jam |
 | RTP | 98% | **98%, exact at every step** |
-| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 1 SOL`** (the cap truncates the ladder) |
-| Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.05 SOL** |
+| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 10 SOL` and `ladder[lastStep] ≤ 100×`** (the cap and the ceiling truncate the ladder) |
+| Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.1 SOL** |
 | Round end | Typer finishes | Jam, cash-out, cap/full-clear auto-cash, or **5-min inactivity** sweep |
 | Consumers restart mid-round | `GameEndedAbruptely` + manual review | **Survives** |
 | Orbit auto-bet | Yes | **No** (`AllowOrbit = false`) |
@@ -85,9 +85,9 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | # | Decision |
 | --- | --- |
 | 1 | **Variant 1a only:** classic QWERTY, the player presses the keys. Other prototype frames are follow-ups. |
-| 2 | **Payout cap 1 SOL per round** (`MaxPayoutPerRound`). The ladder is truncated at the last step with `stake × ladder[k] ≤ 1`; that step auto-cashes. |
-| 3 | **Stake bounds 0.002 – 0.05 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
-| 4 | **Jam counts `{1,3,5,10}`**, a config list validated at startup. Adding 15/20 later is config only. |
+| 2 | **Payout cap 10 SOL per round** (`MaxPayoutPerRound`; was 1 SOL, owner 2026-10-28) **and a 100× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 100`; that step auto-cashes. At a 0.1 SOL stake the ceiling always binds first (10 SOL = 100×). |
+| 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
+| 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
 | 5 | **Lobby badge: fixed copy `UP TO 250X`.** The real best reachable step at the minimum stake is 267.66× (10 jams, step 9); "500×" (cap ÷ min) is unreachable and must never appear. |
 | 6 | **Inactivity window 5 min.** ≥ 1 safe press ⇒ auto-cash at the current step (a **win**, shown as **AUTO CASH**). 0 presses ⇒ the stake is **refunded**. Hangfire sweep every minute. |
 | 7 | **`IsHouseEdge = true` + new `IsKeyMines`.** `IsKeyMines` is checked **first** in every typer / weighted-draw / Word Lines branch, which steps aside. |
@@ -179,8 +179,8 @@ Latest existing migration: `20261027141713_ClearPartnerSelfReferrals`.
   "AllowOrbit": false,
   "HouseEdge": {
     "RtpPercent": 98,
-    "MaximumStake": 0.05,
-    "KeyMines": { "JamOptions": [1, 3, 5, 10], "MaxPayoutPerRound": 1.0 }
+    "MaximumStake": 0.1,
+    "KeyMines": { "JamOptions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "MaxPayoutPerRound": 10.0 }
   }
 }
 ```
@@ -435,20 +435,21 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   the post-round check live in the header's FAIR panel.
 - **Colour = Hyper Roll's tier ladder** (`keyMinesTier` = `tierForPay`: green < 2×, blue < 5×, purple < 8×,
   gold ≥ 8×; `WORD_LINES_TIER_HEX/RIM`). A reached multiplier fills in its own tier, NEXT is outlined in the
-  tier it would reach, a safe key fills in the tier of the step it reached, the NOW / PAID readouts wear the
-  tier. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
+  tier it would reach. **Every reached step and every safe key wear the tier the round has reached so
+  far** (owner, 2026-10-28): crossing into a new colour repaints the whole run. Red only for a jam. The cash-out card is `HyperRollWinFx variant="win"` with **no colour override**,
   so its colour, coins, shake, gold ring and fanfare (`playWinSting`) all follow the paid multiplier exactly
   as a Hyper Roll win. Safe presses tick up Word Lines' trace scale; a jam plays Edson's curse.
-- **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.05), the jam keys `1 · 3 · 5 · 10`
-  as the board's number-key sprites (`buttons/button{n}-gray|gold.png`, picked one gold and pressed in,
-  engraved `JAMS`; ⚠️ `button10-*` is a stand-in until the 10 key is drawn), lever/START.
-  **The right plate never changes layout** (owner, 2026-10-28): the jam keys on top and `CASH OUT FOR <amount>`
-  under them in every state; the jam keys are enabled only before the bet (the picked one stays lit when
-  locked), CASH OUT only in a live round from step 1 (`—` otherwise). No NOW / PAID / countdown readouts.
+- **Ready:** stake plate (HALF / ×2 / MAX like Word Lines, bounds 0.002–0.1), the jam count as the stake
+  plate's own `−` / LCD / `+` (labels `-1` / `JAMS` / `+1`, stepping through `jamOptions`), lever/START.
+  **The right plate never changes layout** (owner, 2026-10-28): the jam stepper on top and `CASH OUT FOR
+  <amount>` under it in every state; the stepper is enabled before the bet **and on a result** (the pick then
+  shows on the LCD and applies when the next board opens — by the lever or the 9 s hold), locked while live;
+  CASH OUT only in a live round from step 1 (`—` otherwise). The keyboard is 10% smaller than the width the
+  screen allows. No NOW / PAID / countdown readouts.
   **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
   to a fresh (unbet) board. **One pull on a result** (or ENTER) opens the next board and bets it with the same
-  stake and jams — no second pull. **ENTER pulls the lever** in every state (ignored in fields and under a
-  dialog).
+  stake and jams (or the jams just picked) — no second pull. **ENTER or SPACE pulls the lever** in every
+  state (ignored in fields and under a dialog; a focused button's own Enter / Space click is swallowed).
 - Keyboard input: physical key presses map to the on-screen keys while the round is live (ignored while an
   input has focus).
 
@@ -686,8 +687,8 @@ Order **Consumers → API → front**, back to back, off-peak; LP after the app 
   money lost). Deploy the front right after the API. The old API (until the new revision is live) cannot
   open a working Key Mines board either — same vague refusal.
 - `ActiveParameters:v5` rebuilds on first read.
-- Treasury: the per-round worst case is 1 SOL; coverage already blocks a bet the treasury can't cover.
-- Prove it: `/games/active-types` lists Key Mines with `isKeyMines: true`, `jamOptions [1,3,5,10]`,
+- Treasury: the per-round worst case is 10 SOL (0.1 × 100×); coverage already blocks a bet the treasury can't cover.
+- Prove it: `/games/active-types` lists Key Mines with `isKeyMines: true`, `jamOptions [1..10]`, `maximumStake 0.1`, `maxPayoutPerRound 10`,
   `rtpPercent 98`; one `POST /games/{type}/boards` returns `boardMode: KEYS` + a `playToken`.
 
 ---
@@ -705,7 +706,7 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 7. Given a Key Mines round InProgress with presses, when Consumers restarts, then the round is NOT moved to GameEndedAbruptely, its bet is NOT NeedsManualAnalysis, and the owner can keep pressing and cash out afterwards (integration test).
 8. Given concurrent press/cash-out requests (or a press racing the sweep) on one round, when they land together, then exactly one state change wins, the others get a vague 400, and money moves at most once; repeating a cash-out returns the same result.
 9. Given a non-owner, an ended round, a repeated key, an invalid key or a non-Key-Mines round, when press or cash-out is called, then it is refused with a vague 400 and nothing changes.
-10. Given a bet with jam count outside {1,3,5,10} or a stake outside 0.002–0.05 SOL, when it is placed, then it is refused (vague InvalidAmount / invalid choice) and a verified paid stake is refunded.
+10. Given a bet with jam count outside {1..10} or a stake outside 0.002–0.1 SOL, when it is placed, then it is refused (vague InvalidAmount / invalid choice) and a verified paid stake is refunded.
 11. Given unsettled Key Mines rounds, when coverage is evaluated (bet backstop and /availability), then each round reserves stake × ladder[lastStep] (≤ 1 SOL) next to Hyper Roll and jackpot exposure, a bet the treasury cannot cover is refused with the maintenance message, and streamer play rounds reserve nothing.
 12. Given an opened board, when the round ends, then GET /games/{id}/verification exposes the server seed and jam keys, and recomputing the M picks without replacement from HMAC-SHA256(serverSeed, prefix + "|jams") in ProvablyFair.cs, provablyFair.ts and verify.html matches the stored jams and a pinned known-answer vector (integration round-trip). Before the end, no endpoint reveals a jam.
 13. Given a player with a funded Orbit balance, when they bet Key Mines via POST /orbit/wagers and cash out a win, then the win is credited to Orbit custody (CreditWin) and no wallet signature was needed (integration test).
@@ -727,7 +728,7 @@ refused with the same vague 400 (integration case inside test 8/9).
 
 1. Rebuild the local stack (this card **has** a migration). Copy the hub `yarn.lock` into the front worktree
    before building; verify the served bundle changed.
-2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.05.
+2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.1.
 3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 250X`.
 4. Play with free bets on (dev toggle) and with a paid devnet bet: ready → press safe keys (ladder advances,
    letters fill the steps row, colours climb green → blue → purple → gold) → cash out (paid amount =
@@ -757,3 +758,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Owner design V4 (Claude Design, 5 versions): letters-only screen (paired steps over the keyboard, Hyper Roll reel blocks), jam keys as board sprites, and colour / win card / fanfare on Hyper Roll's tier ladder instead of fixed hazard yellow (§7.4). Verification moves to the header FAIR panel. |
 | 2026-10-28 | Right plate fixed layout: jam keys over CASH OUT in every state, enabled per state (§7.4). |
 | 2026-10-28 | ENTER pulls the lever; one pull on a result starts the next round (§7.4). |
+| 2026-10-28 | Owner: jams 1–10 on a stake-style −/+ stepper, changeable on a result for the next round; SPACE pulls the lever too; a new tier repaints every reached step and key; keyboard 10% smaller; max stake 0.1 SOL, cap 10 SOL, 100× multiplier ceiling (decisions 2–4, §7.4). The jam draw stays uniform: any spread-out draw makes some keys safer than the ladder prices them. |
