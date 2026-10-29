@@ -14,7 +14,7 @@
 > to stop. **Key Mines** is a solo player-vs-house **Mines** game on Edson's 26-key QWERTY: the player
 > picks a stake and how many keys hide a jam (1, 3, 5 or 10), presses keys one at a time to climb a
 > multiplier ladder, and cashes out whenever they want. A jam loses the stake. The treasury pays at
-> **98% RTP, exact at every step**. Prototype (variant **1a**):
+> **95% RTP, exact at every step** (owner 2026-10-29, was 98%). Prototype (variant **1a**):
 > https://claude.ai/design/p/2b5051fc-9a7c-4434-b030-f73a4dbfefce?file=Key+Mines+Playable.html
 
 ---
@@ -30,7 +30,7 @@
 | Typer / `RunGameEvent` | Yes (~2 s) | **None** |
 | What is provably fair | The drawn outcome row | **The jam set** (`M` picks without replacement from the seed keystream) |
 | Payout | `stake × row pay` | **`stake × ladder[k]`** at cash-out after `k` safe presses; 0 on a jam |
-| RTP | 98% | **98%, exact at every step** |
+| RTP | 98% | **95%, exact at every step** (owner 2026-10-29, was 98%: matches Solpump Mines) |
 | Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 12 SOL` and `ladder[lastStep] ≤ 120×`** (the cap and the ceiling truncate the ladder) |
 | Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.1 SOL** |
 | Round end | Typer finishes | Jam, cash-out, cap/full-clear auto-cash, or **5-min inactivity** sweep |
@@ -85,7 +85,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | # | Decision |
 | --- | --- |
 | 1 | **Variant 1a only:** classic QWERTY, the player presses the keys. Other prototype frames are follow-ups. |
-| 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at 98%. The steps between 100× and 120× (2 jams step 23 = 106.17×, 4 jams step 17 = 116.28×, 7 jams step 11 = 100.18×, 8 jams step 10 and 10 jams step 8 = 118.96×) stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 118.96 = 11.896 SOL. |
+| 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at the RTP. At 95% the top steps are unchanged (2 jams step 23 = 102.92×, 4 jams step 17 = 112.72×, 8 jams step 10 and 10 jams step 8 = 115.32×; 7 jams step 11 = 97.11×) and stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 115.32 = 11.532 SOL. (At 98% these were 106.17×, 116.28×, 118.96× and 100.18×.) |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
 | 5 | **No top-multiplier badge** (owner, 2026-10-29): the card shows `1P · VS HOUSE` only, and the LP tag likewise. The top depends on the jams and the stake, so no single figure is advertised (it was `UP TO 250X`). |
@@ -98,7 +98,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 12 | **Hall of Fame counts Key Mines** (it is type-agnostic: `Won / Amount`). **Explorer stays the four original modes.** `GameModeClassifier` returns a new `keyMines` mode, checked before `IsHouseEdge`, so a Key Mines win never unlocks `firstHyperRollWin`/`hyperHit` nor counts as Hyper Roll for explorer. Key Mines wins **do** count for `winStreak3`/`winStreak5`. |
 | 13 | **Practice mode included** (`/game/practice?mode=key-mines`, front-only). |
 | 14 | **Mid-round:** self-exclusion, the maintenance switch and a restart refuse **new bets only**; press and cash-out on a bet round always work. |
-| 15 | **Won = payout > stake.** Every cash-out is ≥ 1.0192×, so a cash-out is a win; a jam is a loss. |
+| 15 | **Won = payout > stake.** At 95% RTP every cash-out pays more than the stake EXCEPT 1 jam cashed at step 1 (0.95 × 26/25 = ×0.988), which counts as a loss in stats; a jam is a loss. (At 98% the floor was ×1.0192.) |
 | 16 | **Big-payout pause** (owner, 2026-10-29): a settled cash-out paying **more than 5 SOL** (`GeneralSettings:Games:KeyMinesPauseWhenPaidAbove`, 0 = off) pauses the type: `GameParameters.AutoPausedAt` / `AutoPausedReason` are stamped once, and from then on every new-bet path refuses with the vague maintenance message and the lobby card shows MAINTENANCE. Decided on the amount **owed**, just before the transfer, so a win the treasury then fails to cover still pauses. Rounds already live finish and pay. Nothing in code clears it — a human re-opens the type by nulling both columns (+ `ActiveParameters` cache drop). (§6.5) |
 | 17 | **Cosmic Sprint is switched off** (owner, 2026-10-29): `ComingSoon: true` in `DefaultGames`, so the startup self-heal gates it, the deactivation path refunds its waiting round, and the lobby hides it. Key Mines takes its lobby slot **and its card art** (`cosmicsprint-poster.png` / `.gif`). Lobby order: **Hyper Roll, Key Mines, Monkey Duel, Space Jackpot** (`SHOWN_ORDER`; race and preset stay listed at the end in case they return). LP: same four cards in the same order, `lg:grid-cols-4`, roadmap "4 game modes live". |
 
@@ -379,7 +379,7 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 ### 6.9 Read paths and contracts
 
 - **`GameParametersDto`**: `IsKeyMines`, `JamOptions: int[]`, `MaxPayoutPerRound`. `RtpPercent` 98 (STATS
-  badge `98% RTP`), `CommissionPercentage` 0, `Outcomes`/`Modes`/`PresetChoices` empty. Cache key `:v5` (S10).
+  badge `95% RTP`), `CommissionPercentage` 0, `Outcomes`/`Modes`/`PresetChoices` empty. Cache key `:v5` (S10).
 - **`ActiveGameDto`** (live round via `GET /games/rounds/{id}` and `GET /games/{typeId}?wallet=`):
   `KeyMinesJamCount`, `KeyMinesPressedKeys`, `KeyMinesStep`, `KeyMinesEnd`, `KeyMinesCashedStep`, and
   `KeyMinesJamKeys` **only when the round is in `GameEndedStatus`**. Never the token or its hash.
@@ -800,3 +800,4 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 | 2026-10-29 | Owner: multiplier ceiling 120× (was 100×; briefly 112.8×), so 10 jams reach step 8 at 118.96× (decision 2); no top-multiplier badge on the card or the LP (decision 5). Kept: with many jams the ladder still ends before every safe key is pressed (10 jams: step 7 of 16); shrinking the board to match was declined, since it would need a repriced ladder. |
 | 2026-10-29 | Owner: payout cap 10 → 12 SOL so the 100–120× top steps stay reachable at the 0.1 SOL max stake (at 10 SOL, 10 jams topped out at ×56.4 above 0.084 SOL). Create-only: an existing DB moves by guarded SQL + an `ActiveParameters` cache drop (decision 3). |
 | 2026-10-29 | Owner: XP bar 1 (Classic XP, of 5 Claude Design versions) replaces the paired-steps row — LAST / NOW / NEXT over one block per step (§7.4); Edson presses one key per safe press (monkeyPressing.gif frames); big-payout pause above 5 SOL (decision 16, §6.5, AC 23); Cosmic Sprint switched off, Key Mines takes its lobby slot and art, lobby order Hyper Roll · Key Mines · Monkey Duel · Space Jackpot, LP likewise (decision 17). |
+| 2026-10-29 | Owner: Key Mines RTP 95% (was 98%), matching Solpump Mines (its 25-slot / 10-mine ladder backs out to 95.0%). Config `HouseEdge.RtpPercent` (the startup reconciler heals it into the DB), practice + front fallbacks, mockup and the terms clause. Top steps unchanged; worst case 11.532 SOL; 1 jam step 1 now pays ×0.988 (decision 15). |
