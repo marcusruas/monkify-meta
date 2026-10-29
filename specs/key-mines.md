@@ -31,7 +31,7 @@
 | What is provably fair | The drawn outcome row | **The jam set** (`M` picks without replacement from the seed keystream) |
 | Payout | `stake × row pay` | **`stake × ladder[k]`** at cash-out after `k` safe presses; 0 on a jam |
 | RTP | 98% | **98%, exact at every step** |
-| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 10 SOL` and `ladder[lastStep] ≤ 120×`** (the cap and the ceiling truncate the ladder) |
+| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 12 SOL` and `ladder[lastStep] ≤ 120×`** (the cap and the ceiling truncate the ladder) |
 | Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.1 SOL** |
 | Round end | Typer finishes | Jam, cash-out, cap/full-clear auto-cash, or **5-min inactivity** sweep |
 | Consumers restart mid-round | `GameEndedAbruptely` + manual review | **Survives** |
@@ -85,7 +85,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | # | Decision |
 | --- | --- |
 | 1 | **Variant 1a only:** classic QWERTY, the player presses the keys. Other prototype frames are follow-ups. |
-| 2 | **Payout cap 10 SOL per round** (`MaxPayoutPerRound`; was 1 SOL, owner 2026-10-28) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at 98%. The steps between 100× and 120× (2 jams step 23 = 106.17×, 4 jams step 17 = 116.28×, 7 jams step 11 = 100.18×, 8 jams step 10 and 10 jams step 8 = 118.96×) are cut by the 10 SOL cap at stakes near 0.1 SOL, so the worst case stays 10 SOL. |
+| 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at 98%. The steps between 100× and 120× (2 jams step 23 = 106.17×, 4 jams step 17 = 116.28×, 7 jams step 11 = 100.18×, 8 jams step 10 and 10 jams step 8 = 118.96×) stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 118.96 = 11.896 SOL. |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
 | 5 | **No top-multiplier badge** (owner, 2026-10-29): the card shows `1P · VS HOUSE` only, and the LP tag likewise. The top depends on the jams and the stake, so no single figure is advertised (it was `UP TO 250X`). |
@@ -180,7 +180,7 @@ Latest existing migration: `20261027141713_ClearPartnerSelfReferrals`.
   "HouseEdge": {
     "RtpPercent": 98,
     "MaximumStake": 0.1,
-    "KeyMines": { "JamOptions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "MaxPayoutPerRound": 10.0 }
+    "KeyMines": { "JamOptions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "MaxPayoutPerRound": 12.0 }
   }
 }
 ```
@@ -697,7 +697,7 @@ Order **Consumers → API → front**, back to back, off-peak; LP after the app 
   money lost). Deploy the front right after the API. The old API (until the new revision is live) cannot
   open a working Key Mines board either — same vague refusal.
 - `ActiveParameters:v5` rebuilds on first read.
-- Treasury: the per-round worst case is 10 SOL (the cap); coverage already blocks a bet the treasury can't cover.
+- Treasury: the per-round worst case is 11.896 SOL (12 SOL cap); coverage already blocks a bet the treasury can't cover.
 - Prove it: `/games/active-types` lists Key Mines with `isKeyMines: true`, `jamOptions [1..10]`, `maximumStake 0.1`, `maxPayoutPerRound 10`,
   `rtpPercent 98`; one `POST /games/{type}/boards` returns `boardMode: KEYS` + a `playToken`.
 
@@ -774,3 +774,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Shockwave without the square ring; 18 rising key beeps replace the 8 Hyper Roll trace ticks (§7.4). |
 | 2026-10-28 | Owner: the stake is editable on a result for the next round (it used to lock until the next board opened); 26 key beeps a semitone apart replace the 18 (§7.4). |
 | 2026-10-29 | Owner: multiplier ceiling 120× (was 100×; briefly 112.8×), so 10 jams reach step 8 at 118.96× (decision 2); no top-multiplier badge on the card or the LP (decision 5). Kept: with many jams the ladder still ends before every safe key is pressed (10 jams: step 7 of 16); shrinking the board to match was declined, since it would need a repriced ladder. |
+| 2026-10-29 | Owner: payout cap 10 → 12 SOL so the 100–120× top steps stay reachable at the 0.1 SOL max stake (at 10 SOL, 10 jams topped out at ×56.4 above 0.084 SOL). Create-only: an existing DB moves by guarded SQL + an `ActiveParameters` cache drop (decision 3). |
