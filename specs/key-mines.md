@@ -99,6 +99,8 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 13 | **Practice mode included** (`/game/practice?mode=key-mines`, front-only). |
 | 14 | **Mid-round:** self-exclusion, the maintenance switch and a restart refuse **new bets only**; press and cash-out on a bet round always work. |
 | 15 | **Won = payout > stake.** Every cash-out is ≥ 1.0192×, so a cash-out is a win; a jam is a loss. |
+| 16 | **Big-payout pause** (owner, 2026-10-29): a settled cash-out paying **more than 5 SOL** (`GeneralSettings:Games:KeyMinesPauseWhenPaidAbove`, 0 = off) pauses the type: `GameParameters.AutoPausedAt` / `AutoPausedReason` are stamped once, and from then on every new-bet path refuses with the vague maintenance message and the lobby card shows MAINTENANCE. Decided on the amount **owed**, just before the transfer, so a win the treasury then fails to cover still pauses. Rounds already live finish and pay. Nothing in code clears it — a human re-opens the type by nulling both columns (+ `ActiveParameters` cache drop). (§6.5) |
+| 17 | **Cosmic Sprint is switched off** (owner, 2026-10-29): `ComingSoon: true` in `DefaultGames`, so the startup self-heal gates it, the deactivation path refunds its waiting round, and the lobby hides it. Key Mines takes its lobby slot **and its card art** (`cosmicsprint-poster.png` / `.gif`). Lobby order: **Hyper Roll, Key Mines, Monkey Duel, Space Jackpot** (`SHOWN_ORDER`; race and preset stay listed at the end in case they return). LP: same four cards in the same order, `lg:grid-cols-4`, roadmap "4 game modes live". |
 
 ### 3.1 Spec-time decisions (flag at implementation start)
 
@@ -334,6 +336,16 @@ repeat, the stored result).
 - A jam round reaches the consumer with no `NeedsRewarding` bet and is closed `RewardForWinnersCompleted` by
   the existing early path (:68) — confirm it sets that status; if it does not, add it for `KEYS` rounds
   (stats only count `RewardForWinnersCompleted`).
+- **Big-payout pause (decision 16).** For a Key Mines winner, once `CalculateRewardForBet` returns the amount
+  owed and before the treasury check / transfer, `KeyMinesPause.TripAsync` runs: if the amount is more than
+  `KeyMinesPauseWhenPaidAbove` it stamps `AutoPausedAt` + `AutoPausedReason` (`ExecuteUpdate … WHERE
+  AutoPausedAt IS NULL`, so the first trip wins), drops the `ActiveParameters` blob and logs at **Error**. A
+  failure is logged and never blocks the payout. The pause is read **fresh from the DB** (`IsPausedAsync`, never
+  the 12 h blob) in `RegisterHouseEdgeBet` (paid ⇒ refunded), `CheckBetAvailability`, `PlaceOrbitWagerHandler`
+  (both branches) and `PlaceManualOrbitBetConsumer`; `GameParametersDto.UnderMaintenance` is true while it is set.
+  Migration `KeyMinesAutoPause` adds the two nullable columns. Re-open by hand:
+  `UPDATE "GameParameters" SET "AutoPausedAt" = NULL, "AutoPausedReason" = NULL WHERE "IsKeyMines";` then drop
+  `ActiveParameters:v5`.
 
 ### 6.6 Inactivity sweep — new `Jobs/KeyMinesInactivitySweepJob.cs` (Consumers)
 
@@ -406,8 +418,8 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 - `utils/gameArchetype.ts`: add `'keyMines'` to the union and resolve `if (game.isKeyMines) return 'keyMines'`
   **before** `isHouseEdge` (:19+). `utils/gameCatalogue.ts:20` `SHOWN_ORDER`: insert `'keyMines'` after
   `'houseEdge'`.
-- `utils/gameArt.ts` (:42/:61/:72/:117): `'key-mines'` art + poster placeholder in `assets/types/` (brief: Edson
-  at a typewriter, one key smoking — placeholder ships).
+- `utils/gameArt.ts` (:42/:61/:72/:117): `'key-mines'` wears Cosmic Sprint's poster + GIF (decision 17, owner
+  2026-10-29); `assets/types/key-mines.png` stays on the profile page only.
 - Every archetype-keyed map: `GuideModeCards.vue` `BLURB` (98) / `ARCHETYPE_LABEL` (121) / `ARCHETYPE_ACCENT`
   (131) (⚠️ a missing key crashes the block); `GameTypeCard.vue` `tag` (145) = `'26 KEYS · PICK YOUR JAMS'`,
   `badges` (274) = `1P · VS HOUSE` only, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
@@ -425,11 +437,18 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 - `GamePage.vue` `onPlate` (45-50) adds `isKeyMines`. `GameConsole.vue` (865) and `GameTerminal.vue`
   (~1058) get a **first** branch to new `KeyMinesConsole.vue` / `KeyMinesScreen.vue` (self-contained like the
   duel screen), on `ConsolePlate.vue`. `GameMonkey.vue:113` handles the archetype.
-- **Screen (owner design V4, 2026-10-28): letters only.** The tube holds two things, in Hyper Roll's
-  terminal look (green on black, the reel blocks of `WordLinesGrid`): the **paired steps** row
-  (`KeyMinesLadder.vue`, an 8-step `ladderWindow` with lead 6 so the first letters stay in view) — each
-  pressed letter in a race-lane square (`RaceLanes` cells) over the multiplier that press reached in a reel
-  block — and the **keyboard** (`KeyMinesKeyboard.vue`), 26 reel blocks. No title, chips, CRT box, seed /
+- **Screen (owner design V4, 2026-10-28; XP bar 2026-10-29).** The tube holds two things, in Hyper Roll's
+  terminal look (green on black): the **XP bar** (`KeyMinesXpBar.vue`, owner's pick "XP bar 1, Classic XP" of
+  five Claude Design versions) — a Minecraft-style experience bar with one block per step up to
+  `lastReachable`, filled in the reached tier, the NOW multiplier above it like the level number, `◀ LAST` at its
+  left end and `NEXT ▶` at its right end (only these three multipliers are shown; NEXT reads MAX at the top
+  step, is struck through in red on a jam, and the next block blinks while live) — and the **keyboard**
+  (`KeyMinesKeyboard.vue`), 26 reel blocks. The tier-break shockwave holds the bar's old tier until it reaches
+  the NOW number (`data-xp-hit`); every other safe press just pops it. It replaced the paired-steps row
+  (`KeyMinesLadder.vue`, deleted).
+- **Edson presses one key per safe press** (owner, 2026-10-29): `GameMonkey.vue` plays the two frames of
+  `monkeyPressing.gif` as still PNGs (`monkeyPressDown.png` 180 ms, then `monkeyPressRest.png` 650 ms, then
+  idle) instead of the 700 ms typing burst. Still frames, so a quick second press restarts the press. No title, chips, CRT box, seed /
   COMMIT / VERIFY lines. One status line appears at the bottom only when needed (PLACING BET, the
   `blockedLine`, a refusal, the read-only note), plus the dev FREE BET toggle in dev builds. The commit and
   the post-round check live in the header's FAIR panel.
@@ -725,12 +744,17 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 16. Given a self-exclusion or HouseEdgeEnabled = false set after a bet was placed, when the owner presses or cashes out, then both still work; new Key Mines bets are refused.
 17. Given a cashed-out Key Mines win, when trophies are derived, then GameModeClassifier returns the Key Mines mode, firstHyperRollWin is NOT unlocked, explorer still requires only the four original modes, winStreak3/5 count the win, and the Hall of Fame ranks its multiplier.
 18. Given a reload mid-round, when the page opens, then GET /games/rounds/{id} restores pressed keys, step and the ladder window without exposing jams, and the player can continue.
-19. Given the lobby, when it renders, then Key Mines shows as archetype key-mines with the badge 1P · VS HOUSE only, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
+19. Given the lobby, when it renders, then the cards read Hyper Roll, Key Mines, Monkey Duel, Space Jackpot (Cosmic Sprint hidden), Key Mines shows with Cosmic Sprint's art and the badge 1P · VS HOUSE only, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
 20. Given /how-to-play and /game/practice?mode=key-mines, when opened, then a HOW KEY MINES WORKS section (five-step GuideRail, live-cabinet crops, no stale figures) is present and a front-only practice round plays with random jams and no backend call.
 21. Given monkify-lp, when built, then GameModes.vue has a Key Mines card in lobby order, the mode-count copy and roadmap line include it, and terms.astro has an owner-reviewed Key Mines clause (vs house, 98% RTP, 1 SOL per-round cap, inactivity auto-cash) with LAST_UPDATED bumped.
 
 Spec-time additions (S1): 22. Given a press or cash-out without the board's `X-Round-Token`, then it is
 refused with the same vague 400 (integration case inside test 8/9).
+
+23. (owner, 2026-10-29) Given a Key Mines cash-out owing more than 5 SOL, when it settles, then the type is paused
+(`AutoPausedAt` set once, reason names the round), it reads as under maintenance, and new wallet / availability /
+Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) while the winning round still settles
+(integration test `ACashOutOverFiveSol_PausesTheType_AndTheRoundStillSettles`).
 
 ---
 
@@ -775,3 +799,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Owner: the stake is editable on a result for the next round (it used to lock until the next board opened); 26 key beeps a semitone apart replace the 18 (§7.4). |
 | 2026-10-29 | Owner: multiplier ceiling 120× (was 100×; briefly 112.8×), so 10 jams reach step 8 at 118.96× (decision 2); no top-multiplier badge on the card or the LP (decision 5). Kept: with many jams the ladder still ends before every safe key is pressed (10 jams: step 7 of 16); shrinking the board to match was declined, since it would need a repriced ladder. |
 | 2026-10-29 | Owner: payout cap 10 → 12 SOL so the 100–120× top steps stay reachable at the 0.1 SOL max stake (at 10 SOL, 10 jams topped out at ×56.4 above 0.084 SOL). Create-only: an existing DB moves by guarded SQL + an `ActiveParameters` cache drop (decision 3). |
+| 2026-10-29 | Owner: XP bar 1 (Classic XP, of 5 Claude Design versions) replaces the paired-steps row — LAST / NOW / NEXT over one block per step (§7.4); Edson presses one key per safe press (monkeyPressing.gif frames); big-payout pause above 5 SOL (decision 16, §6.5, AC 23); Cosmic Sprint switched off, Key Mines takes its lobby slot and art, lobby order Hyper Roll · Key Mines · Monkey Duel · Space Jackpot, LP likewise (decision 17). |
