@@ -31,7 +31,7 @@
 | What is provably fair | The drawn outcome row | **The jam set** (`M` picks without replacement from the seed keystream) |
 | Payout | `stake × row pay` | **`stake × ladder[k]`** at cash-out after `k` safe presses; 0 on a jam |
 | RTP | 98% | **98%, exact at every step** |
-| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 10 SOL` and `ladder[lastStep] ≤ 100×`** (the cap and the ceiling truncate the ladder) |
+| Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 10 SOL` and `ladder[lastStep] ≤ 112.8×`** (the cap and the ceiling truncate the ladder) |
 | Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.1 SOL** |
 | Round end | Typer finishes | Jam, cash-out, cap/full-clear auto-cash, or **5-min inactivity** sweep |
 | Consumers restart mid-round | `GameEndedAbruptely` + manual review | **Survives** |
@@ -85,10 +85,10 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | # | Decision |
 | --- | --- |
 | 1 | **Variant 1a only:** classic QWERTY, the player presses the keys. Other prototype frames are follow-ups. |
-| 2 | **Payout cap 10 SOL per round** (`MaxPayoutPerRound`; was 1 SOL, owner 2026-10-28) **and a 100× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 100`; that step auto-cashes. At a 0.1 SOL stake the ceiling always binds first (10 SOL = 100×). |
+| 2 | **Payout cap 10 SOL per round** (`MaxPayoutPerRound`; was 1 SOL, owner 2026-10-28) **and a 112.8× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 112.8`; that step auto-cashes. Only two ladders have a step between 100× and 112.8× (2 jams step 23 = 106.17×, 7 jams step 11 = 100.18×); at a 0.1 SOL stake the 10 SOL cap ends those two first, so the worst case stays 10 SOL. |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
-| 5 | **Lobby badge: fixed copy `UP TO 100X`** (owner, 2026-10-28: the 100× multiplier ceiling; it was `UP TO 250X` under the old 1 SOL cap). A figure the ladder cannot reach must never appear. |
+| 5 | **Lobby badge: fixed copy `UP TO 106X`**: the best reachable step under the 112.8× ceiling (2 jams, step 23, 106.17×, at stakes up to 0.094 SOL). It was `UP TO 250X` under the old 1 SOL cap. A figure the ladder cannot reach must never appear, so not `112.8X`. |
 | 6 | **Inactivity window 5 min.** ≥ 1 safe press ⇒ auto-cash at the current step (a **win**, shown as **AUTO CASH**). 0 presses ⇒ the stake is **refunded**. Hangfire sweep every minute. |
 | 7 | **`IsHouseEdge = true` + new `IsKeyMines`.** `IsKeyMines` is checked **first** in every typer / weighted-draw / Word Lines branch, which steps aside. |
 | 8 | **Round state = nullable columns on `Game`** (§4.1). |
@@ -410,7 +410,7 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   at a typewriter, one key smoking — placeholder ships).
 - Every archetype-keyed map: `GuideModeCards.vue` `BLURB` (98) / `ARCHETYPE_LABEL` (121) / `ARCHETYPE_ACCENT`
   (131) (⚠️ a missing key crashes the block); `GameTypeCard.vue` `tag` (145) = `'26 KEYS · PICK YOUR JAMS'`,
-  `badges` (274) = `1P · VS HOUSE` + `UP TO 100X`, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
+  `badges` (274) = `1P · VS HOUSE` + `UP TO 106X`, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
   `header/GameSwitcher.vue` (134/318); `useLiveGames.ts:101`; `GameStatsPanel.vue` (65-120) /
   `GameStatsPage.vue` (345-356); `admin/GameTypeList.vue` `modeLabel` (23); `PlayerProfilePage.vue` `ART`
   (208) + rows meta (214-236).
@@ -697,7 +697,7 @@ Order **Consumers → API → front**, back to back, off-peak; LP after the app 
   money lost). Deploy the front right after the API. The old API (until the new revision is live) cannot
   open a working Key Mines board either — same vague refusal.
 - `ActiveParameters:v5` rebuilds on first read.
-- Treasury: the per-round worst case is 10 SOL (0.1 × 100×); coverage already blocks a bet the treasury can't cover.
+- Treasury: the per-round worst case is 10 SOL (the cap); coverage already blocks a bet the treasury can't cover.
 - Prove it: `/games/active-types` lists Key Mines with `isKeyMines: true`, `jamOptions [1..10]`, `maximumStake 0.1`, `maxPayoutPerRound 10`,
   `rtpPercent 98`; one `POST /games/{type}/boards` returns `boardMode: KEYS` + a `playToken`.
 
@@ -725,7 +725,7 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 16. Given a self-exclusion or HouseEdgeEnabled = false set after a bet was placed, when the owner presses or cashes out, then both still work; new Key Mines bets are refused.
 17. Given a cashed-out Key Mines win, when trophies are derived, then GameModeClassifier returns the Key Mines mode, firstHyperRollWin is NOT unlocked, explorer still requires only the four original modes, winStreak3/5 count the win, and the Hall of Fame ranks its multiplier.
 18. Given a reload mid-round, when the page opens, then GET /games/rounds/{id} restores pressed keys, step and the ladder window without exposing jams, and the player can continue.
-19. Given the lobby, when it renders, then Key Mines shows as archetype key-mines with badges 1P · VS HOUSE and UP TO 100X, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
+19. Given the lobby, when it renders, then Key Mines shows as archetype key-mines with badges 1P · VS HOUSE and UP TO 106X, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
 20. Given /how-to-play and /game/practice?mode=key-mines, when opened, then a HOW KEY MINES WORKS section (five-step GuideRail, live-cabinet crops, no stale figures) is present and a front-only practice round plays with random jams and no backend call.
 21. Given monkify-lp, when built, then GameModes.vue has a Key Mines card in lobby order, the mode-count copy and roadmap line include it, and terms.astro has an owner-reviewed Key Mines clause (vs house, 98% RTP, 1 SOL per-round cap, inactivity auto-cash) with LAST_UPDATED bumped.
 
@@ -739,7 +739,7 @@ refused with the same vague 400 (integration case inside test 8/9).
 1. Rebuild the local stack (this card **has** a migration). Copy the hub `yarn.lock` into the front worktree
    before building; verify the served bundle changed.
 2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.1.
-3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 100X`.
+3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` / `UP TO 106X`.
 4. Play with free bets on (dev toggle) and with a paid devnet bet: ready → press safe keys (ladder advances,
    letters fill the steps row, colours climb green → blue → purple → gold) → cash out (paid amount =
    stake × ladder[k]; the win card wears the paid multiplier's tier).
@@ -773,3 +773,4 @@ refused with the same vague 400 (integration case inside test 8/9).
 | 2026-10-28 | Tier break animation: design V2 shockwave repaint (Claude Design, 5 versions) (§7.4). |
 | 2026-10-28 | Shockwave without the square ring; 18 rising key beeps replace the 8 Hyper Roll trace ticks (§7.4). |
 | 2026-10-28 | Owner: the stake is editable on a result for the next round (it used to lock until the next board opened); 26 key beeps a semitone apart replace the 18 (§7.4). |
+| 2026-10-29 | Owner: multiplier ceiling 112.8× (was 100×, decision 2); lobby badge `UP TO 106X`, the best reachable step (decision 5). Kept: with many jams the ladder still ends before every safe key is pressed (10 jams: step 7 of 16); shrinking the board to match was declined, since it would need a repriced ladder. |
