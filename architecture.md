@@ -128,6 +128,11 @@ Two deployable .NET hosts share the same domain/infrastructure libraries:
   `Type` (`NotificationTypes`: `donation` / `trophyUnlocked` / `refundIssued` / `jackpotWon`), `DedupKey`,
   JSON `Payload`, `ReadAt`; unique `(Wallet, Type, DedupKey)` + index `(Wallet, CreatedDate)`; migration
   `ProfileV2AvatarsAndNotifications`). See `features/chat.md`, `features/profile-v2.md`.
+- **`PlayerIconPurchase`** (#212, `SpaceStroker.Domain/Players/Entities`, table `PlayerIconPurchases`):
+  one row per $STROKE burn made to unlock a burn icon, keyed by wallet (not `Player.Id`): `Wallet`, `IconKey`,
+  unique `BurnSignature`, `Amount`, `PriceAtPurchase`, `Memo`, `Status` (`Unlocked` 1 / `Unmatched` 2, int),
+  `UnmatchedReason`; index `(Wallet, Status)`; migration `AddPlayerIconPurchases`. See
+  `features/token-integration.md`.
 - All entities extend `TableEntity` (`Id: Guid`, `CreatedDate`, `UpdatedDate`).
 
 Relationships: `GameParameters 1—* Game 1—* Bet 1—* TransactionLog` (the FK is **nullable** — a refund
@@ -679,7 +684,8 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /players/preferences`, `PATCH /players/preferences`, `POST /players/self-exclusion`,
   `POST /players/partner-code` (#213 — one-time signed partner link, see
   `features/partner-code-on-profile.md`), `GET /players/stats`, `GET /players/profile` and the batched `GET /players/levels` (#186 — see
-  `features/player-profile.md`),
+  `features/player-profile.md`), `POST /players/icon-purchases` (anonymous; the on-chain burn is the proof),
+  `GET /players/stroke-balance` and `GET /players/icon-prices` (#212 — see `features/token-integration.md`),
   `GET /games/stats` (global stats), `GET /games/{parametersId}/stats`,
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds

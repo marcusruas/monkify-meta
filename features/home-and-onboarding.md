@@ -41,6 +41,13 @@ the Orbit card → how-it-works → provably fair → **the community panel**.
 - ⚠️ **The token card was not in the owner's list** (it renders nothing without a mint, so it is invisible
   locally). It keeps the slot its own decision gave it — directly after the games — rather than being
   moved or dropped by omission. Confirm with the owner if it should move.
+- **The token card is the app's buy point since #212** (`HomeTokenCard.vue`, `id="swap"`): copy, contract
+  bar and mechanics on the left, an integrated **Jupiter Plugin swap** (SOL → $STROKE, connected wallet
+  passed through) in a compact right column; below the two-column width the swap sits behind a **GET** key.
+  Fallback `Swap on Jupiter ↗` (new tab) when the plugin cannot load or the session cannot sign; pump.fun is
+  a small `Also on pump.fun ↗` link. Every Buy / GET $STROKE link in the app lands here (`/#swap`, same
+  tab), scrolls to it and pulses it. The HomeCommunity pump.fun tile scrolls up to it too. Details in
+  [`token-integration.md`](token-integration.md).
 - **The player's own record is a compact strip since #186** (`HomePlayerStats.vue`, connected only):
   "YOUR RECORD" over the player's own tag, then **rounds** (win rate and best streak removed 2026-10-22) and
   **Full profile →**

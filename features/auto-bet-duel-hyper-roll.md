@@ -220,7 +220,8 @@ places at most one stake.
 ### Rode along: one result standard across modes (QA, `8dfc5bc`)
 
 Distilled into [`monkey-duel.md`](monkey-duel.md), [`hyper-roll.md`](hyper-roll.md) and
-[`old-game-modes-ux.md`](old-game-modes-ux.md): the duel races in Sprint's `RaceLanes` (your word only) and
+[`old-game-modes-ux.md`](old-game-modes-ux.md): the duel races in Sprint's `RaceLanes` (your word only at the time; both words since #212, see
+`monkey-duel.md`) and
 ends on Sprint's `RaceResultFx` card. The VS splash shows the drawn house word. The duel's win/lose sting
 now plays. Hyper Roll keeps **no lanes** and uses the loss card without "N away". Every mode's typer
 highlights the winning word.

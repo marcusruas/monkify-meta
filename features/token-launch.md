@@ -248,9 +248,9 @@ Moving a section without rebalancing those puts two similar backdrops next to ea
 
 | Surface | Where | Notes |
 | --- | --- | --- |
-| `HomeTokenCard.vue` | `/`, **second** section — after the mode picker, before "how it works" | Coin + contract bar left, heading + copy + CTAs right |
-| `GuideToken.vue` | `/how-to-play`, **second-to-last** section | The surface that states the real figures |
-| The token row | Foot of the ☰ menu pad | Opens **pump.fun in a new tab** |
+| `HomeTokenCard.vue` (`id="swap"`) | `/`, **second** section — after the mode picker, before "how it works" | Since #212: copy + contract bar + mechanics on the left, the **Jupiter swap** in a compact right column (behind a GET key on a narrow card); pump.fun is a small secondary `Also on pump.fun ↗` link. See [`token-integration.md`](token-integration.md) |
+| `GuideToken.vue` | `/how-to-play`, **second-to-last** section | The surface that states the real figures; its buy button reads `Get $STROKE` and goes to `/#swap` |
+| The token row | Foot of the ☰ menu pad | Goes to **`/#swap`, same tab** (since #212; was pump.fun in a new tab) |
 
 - ⚠️ **The home card is SECOND, not under the hero — and it was under the hero for exactly one build.**
   Refinement had put it first on the grounds that the coin is the campaign for this window; the owner
@@ -263,8 +263,14 @@ Moving a section without rebalancing those puts two similar backdrops next to ea
   mid-round included. Its replacement is a **full-width strip at the foot of the ☰ pad** — not a tenth
   grid cell, which would start a fourth row the pad can never fill, and which would promise a page when
   this is the only destination in the pad that **leaves the app**.
-- ⚠️ **New tab is load-bearing.** A player mid-round keeps their route, their game state and their
-  SignalR connection. Never `router.push`, never same-tab.
+- ⚠️ **REVERSED for buy links (owner, 2026-10-26, #212): every Buy / GET $STROKE link goes to `/#swap`
+  same-tab** via `useSwapTarget().goToSwap(source)`, which scrolls to and highlights the Home swap card
+  (already on Home → no navigation, it bumps a focus tick so a second click still scrolls). Surfaces: the ☰
+  token row, GameTerminal and RaceScreen `GET $STROKE →`, GuideToken, the HomeCommunity pump.fun tile, the
+  icon picker, the jackpot notice and the profile popup `$STROKE` row. Leaving a game page mid-round is
+  accepted (placed bets settle server-side). The old rule ("new tab is load-bearing, never `router.push`")
+  now applies **only to the non-buy external links**: Chart ↗, every Solscan ↗, the Streamflow vesting link,
+  the swap card's `Swap on Jupiter ↗` fallback and `Also on pump.fun ↗` stay **new tab**.
 - **Every surface also hides when embedded** (`useEmbed().isEmbedded`) — see
   [`embedding.md`](embedding.md).
 
@@ -309,6 +315,13 @@ that file rather than a one-line slip in a template.
 ⚠️ **THE ONE EXCEPTION is the `1,000,000,000` total** (the guide's lede and its supply eyebrow). It is
 the denominator every percentage is read against, it cannot be restated as a percentage, and it is the
 app-only disclosure this whole section exists to protect. `formatTokens` survives for exactly that.
+
+#### ⚠️ THE THIRD EXCEPTION — player balances and burn prices are COUNTS (#212, 2026-10-30)
+
+The icon picker (burn price, `YOU HOLD` line), the profile popup `$STROKE` row and the first-time Space
+Jackpot notice (`Hold at least N`, `You hold X`) state **token counts** of the player's own balance or a
+configured price. Scoped to those three surfaces; supply shares everywhere else stay percentages. See
+[`token-integration.md`](token-integration.md).
 
 #### ⚠️ THE SECOND EXCEPTION — the Feedbacker Program states COUNTS, on purpose (2026-08-17)
 
@@ -365,7 +378,11 @@ glyph.
 ## 8. Analytics
 
 One event, `token_click`, carrying a **`source` label and nothing else** — no wallet, no amount, no mint.
-Values: `home_buy`, `home_read_more`, `menu`, `guide_buy`, `guide_supply`.
+Values: `home_buy`, `home_read_more`, `menu`, `guide_buy`, `guide_supply`, plus (since #212)
+`home_community`, `game_terminal`, `race_screen`, `icon_picker`, `jackpot_notice`, `menu_balance`,
+`home_jupiter`. ⚠️ Since #212 `menu`, `guide_buy`, `home_community` and the other buy sources mean "went to
+the in-app swap card", not "left for pump.fun"; `home_buy` is now the secondary pump.fun link and
+`home_jupiter` the `Swap on Jupiter ↗` fallback.
 
 ⚠️ **The address bars are NOT instrumented, and the Streamflow `Verify ↗` link follows them.** Neither
 the mint's `Solscan ↗` nor the treasury's fires anything, so the new vesting link does not either —

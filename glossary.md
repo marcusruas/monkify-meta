@@ -337,16 +337,33 @@
   explorer link is the receipt. Works on in-page wallets and phone wallet-app deeplink sessions.
 - **Profile icon / Edson icon / avatar** (Profile V2, #202) — the pixel-art Edson portrait drawn for a player
   on a tile in their color profile (`PlayerAvatar.vue`) everywhere a player is shown; house tiles keep the
-  plain initial. 24 keys in `PlayerIcons`: 10 free, 10 **trophy icons** (one per trophy), **Golden** (all 10
-  trophies) and 3 staff icons. Unlocks are derived on read, never stored. Picked in the **icon picker**
+  plain initial. 38 keys in `PlayerIcons`: 10 free, 10 **trophy icons** (one per trophy), **Golden** (all 10
+  trophies), 3 staff icons and (since #212) 14 **burn icons**. Unlocks are derived on read, except burn icons,
+  which are stored in `PlayerIconPurchases`. Picked in the **icon picker**
   (owner's `/player/:wallet` hero) and saved through the signed `PATCH /players/preferences` (`avatarId`;
   the message gains an `Icon:` line). See `features/profile-v2.md`.
 - **Avatar id** — `Player.AvatarId` (`string?`, max 20): the equipped icon key; `null` = never picked /
   cleared = the default **Edson** (`edson`). The wire value `"default"` clears it. A trophy icon whose
-  trophy is lost (bet refunded) is cleared back to `null` by `PlayerAvatarGuard`.
+  trophy is lost (bet refunded) is cleared back to `null` by `PlayerAvatarGuard`; a burn icon never is.
 - **Staff icon** — `elder`, `phantom`, `beanie`: each usable only by wallets in its own config list
   `GeneralSettings:PlayerIcons:<Elder|Phantom|Beanie>:Wallets` (independent of ADM/MOD; committed empty),
   checked live on every read.
+- **Burn icon** (#212) — a profile icon of unlock kind `Burn` (`hobo` … `eddie`, 14): unlocked by burning its
+  configured $STROKE price (`GeneralSettings:PlayerIcons:BurnPrices:<key>`) from the player's own wallet in one
+  legacy tx (Token-2022 `BurnChecked` + Memo `spacestroker-icon:<key>`), verified on-chain by
+  `POST /players/icon-purchases`. Ownership is **permanent** and stored, never derived. See
+  `features/token-integration.md`.
+- **Icon purchase / `PlayerIconPurchases`** — one row per burn signature (unique): `Wallet`, `IconKey`,
+  `BurnSignature`, `Amount`, `PriceAtPurchase`, `Memo`, `Status` (`Unlocked` = 1 / `Unmatched` = 2),
+  `UnmatchedReason`. Only `Unlocked` rows unlock. The first persisted icon inventory.
+- **Unmatched burn** — a burn proven on-chain that does not qualify for the icon (below price, wrong memo, no
+  price configured, extra top-level programs, two or more memos): recorded `Status = 2` with a private reason,
+  logged at Error, never unlocks, the player sees the generic refusal. Resolved only by a manual DB fix.
+- **Clean burn** — `IconBurnCheck` with `Outcome = Burned` and a null `Reason`; the only shape that can unlock.
+- **Swap card / `/#swap`** (#212) — the Jupiter Plugin swap inside the Home `$STROKE` card; every Buy / GET
+  $STROKE link in the app routes there same-tab (`useSwapTarget().goToSwap`). Fallback `Swap on Jupiter ↗`.
+- **Duel quick play** — pulling the Monkey Duel lever with an empty word field: a themed word is picked for
+  that round only (`pickDuelWord`), not remembered. See `features/monkey-duel.md`.
 - **Notification (🔔 feed)** — one row in `Notifications` for a wallet: `donation`, `trophyUnlocked`,
   `refundIssued` or `jackpotWon`, unique per `(Wallet, Type, DedupKey)` (signature / trophy key / bet id /
   game id), pushed live as `NotificationReceived` to `dm:{wallet}`. The chat's NOTIFICATIONS tab lists them

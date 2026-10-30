@@ -116,8 +116,11 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   takes `isDuelHouse`, which `GameService` passes as `game.DuelKind == House`. House rounds therefore skip the
   VS splash; open PvP rooms keep the 2 s countdown.
 - **House duels are one pull, like Hyper Roll** (front, `DuelConsole.vue`): the lever on a finished House
-  result closes it and places the next House bet with the remembered word and the same stake (tag
-  `PLAY x`, "PULL THE LEVER TO PLAY AGAIN."); with no word ready it just ENDs. PvP results keep END.
+  result closes it and places the next House bet with the remembered word (or, with an empty field, a word
+  picked at the pull) and the same stake (tag `PLAY x`, "PULL THE LEVER TO PLAY AGAIN."); only a half-typed
+  word makes it just END. PvP results keep END. Since #212 **the console unlocks as soon as the round is
+  over**: on the result screen the word, stake and board keys work (touching one waves the result off), and
+  a pull starts a new round. It stays locked only while a round or a bet is in flight.
 - No rollover, no startup open, no startup re-plan, **never seeded by the house seed bet**
   (`HouseSeedBetService` skips `IsDuel` types), never planned by Orbit's shared-round engine, no lottery.
 - **Orbit auto-bet (#200, 2026-10-06): VS HOUSE only.** The type is in Orbit's `eligibleGameTypes`. An
@@ -134,8 +137,16 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   (measured 3.52 s over 10 local rounds, range 0.2–7.3 s) — not 5. ⚠️ The cap/mean ratio (1.44) is kept
   at or above the race's 1.35 on purpose: a tighter cap would push more rounds to the fallback. Expect a
   high **fallback** share (~40–43% in 2-bet free-text rounds, `typer-refactoring.md`).
-- **The word carries over.** After a bet lands, `DuelConsole` stores the word per wallet
-  (`utils/duelWord.ts`, `localStorage` key `space-stroker.duel-word.<wallet>`) and pre-fills it on the
+- **Quick play: an empty word field is playable** (owner, 2026-10-29, shipped with #212). On a first visit the
+  field is **empty** (never pre-filled) and the screen prompts *"TYPE A 6-LETTER WORD, OR JUST PULL AND WE'LL
+  PICK ONE FOR YOU."* Pulling with an empty field picks a themed real word at that moment
+  (`utils/duelQuickWord.ts` `pickDuelWord(length, avoid)`, 12 six-letter words, disjoint from the house pool
+  and self-non-overlapping; on JOIN it avoids the room's word). The picked word is a normal bet choice, is
+  **not remembered**, stays in the field while its round runs and is cleared once the round is over. Only a
+  half-typed word holds the lever back. Front-only; the practice duel and the guide (`TYPE A WORD, OR DON'T`)
+  say the same.
+- **A typed word carries over.** After a bet lands with a word the player typed, `DuelConsole` stores it per
+  wallet (`utils/duelWord.ts`, `localStorage` key `space-stroker.duel-word.<wallet>`) and pre-fills it on the
   next round. **Orbit's word wins** when the player is enrolled with one. It fills only an empty field or
   one it filled itself — never over the player's typing — and a field the player clears stays clear.
   Device-local by design; the backend knows nothing about it.
@@ -209,9 +220,15 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   (live logic) · `DuelVsSplash`. **OK arms everything on the board**: JOIN a room, OPEN from the `+`
   tile, CANCEL your own. Lever tag `READY → PULL → PLACING… → LIVE`; the result lever is **END — no
   rematch**.
-- **The race and result use Cosmic Sprint's standard** (since 2026-10-06, #200 QA `8dfc5bc`): during the
-  round the screen shows `RaceLanes` with **your word only** (the rival's word is never raced on screen),
-  the typer stream filling the rest, and on the result the lanes give way to the outcome lines. The result
+- **The race and result use Cosmic Sprint's standard** (since 2026-10-06, #200 QA `8dfc5bc`; revised with
+  #212, 2026-10-29). A House pull runs **reveal beat → race → result**: a short word-vs-word reveal (your
+  word against `??????`, the house word typing itself in once drawn; skipped for a round found already
+  running, instant under reduced motion), then `RaceLanes` races **both words** (yours as `YOU`, theirs as
+  `HOUSE` / `RIVAL`; the house lane eases in once drawn), the typer stream filling the rest, and on the
+  result the lanes give way to plain outcome lines: *"EDSON TYPED YOUR WORD: X."* / *"EDSON TYPED THE
+  HOUSE'S WORD: X."* + *"NOT YOURS (Y)."*, and when the character cap hit first (`winnerWasTyped` false,
+  ~40% of rounds) *"NEITHER WORD CAME UP BEFORE THE LIMIT."* + *"YOU WON THE FAIR DRAW."* / *"THE FAIR DRAW
+  WENT TO THE HOUSE."* ⚠️ Never claim a word was typed when the fair draw decided. The result
   moment is Sprint's **`RaceResultFx`** card (`YOU WON!` + the duel payout `S × (2 − rate)` / `NOT THIS
   TIME` + `-stake`), shown to the duel's own player. ⚠️ The old dedicated **DUEL WON / DUEL LOST banner and
   the near-miss dock are gone.** The winning word lights up yellow at the end of the stream

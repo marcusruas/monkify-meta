@@ -1,6 +1,11 @@
 # SpaceStroker — "Token integration" ($STROKE burn icons, balance, in-app swap, jackpot notice) — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped (2026-10-30, branch `feature/token-integration`)** in `monkify-backend`,
+> `monkify-front` and `monkify-meta`. Distilled in
+> [`../features/token-integration.md`](../features/token-integration.md); where this spec and the code
+> disagree, the code wins. See the post-ship note in §15.
+>
+> *(Original status:)* **Ready for implementation** — refined via Trello card
 > [#212 Improve token integration within app](https://trello.com/c/5DDoD8Qk) (refined 2026-10-26, spec 2026-10-26).
 > Repos affected: `monkify-backend`, `monkify-front`, and this doc in `monkify-meta`. **Not** `monkify-lp`.
 > Branch / worktree: `feature/token-integration` → `.worktrees/token-integration/<repo>`.
@@ -683,3 +688,4 @@ Run with `scripts/run_integration_tests.bat` (Docker required).
 | --- | --- |
 | 2026-10-26 | Initial spec from refined card #212 (+ backend/front code exploration). Spec-time calls: strict tx shape, mint-wide delta as supply proof, single table with `Status`, overpay/already-owned handling, purchase does not equip, adapter-wallet-only burns (mobile deeplink deferred, flagged), `GET /players/icon-prices`, retryable `IconBurnPending`. |
 | 2026-10-30 | Burn icons: the `burn-01` … `burn-10` placeholders replaced by the owner's 14 final icons (`hobo` … `eddie`, §5.1, §7.1); prices stay 10000 each. |
+| 2026-10-30 | **Shipped.** Post-ship notes (code wins): decision #12 softened, a proven burn with extra top-level programs is recorded `Unmatched` (`extra-instructions`) and one with two or more memos `Unmatched` (`multiple-memos`, first memo read), never refused unrecorded (ComputeBudget still allowed); a memo naming a **different** catalog burn key is refused with **no row** (anti-grief, signatures are public); zero-amount burns and non-signature-shaped input are refused before/without RPC; memo NULs stripped before storing. Front: the signed tx must match the built one exactly or it is never broadcast, the price is re-read before signing (price consent), the stash also lives in memory, and only the final refusal (or a provably expired burn) clears it. Picker gained a PROFILE PREVIEW aside (`ArcadeModal` second panel); Home card swap sits in a compact right column (GET key on phones), themed via `jupiterTheme.ts` (plugin-1.0.17). Integration suite: 7 tests (concurrent replay added). Rode along: Monkey Duel quick play + reveal/result rework (`features/monkey-duel.md`). |

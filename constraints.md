@@ -151,6 +151,12 @@ agents work different features at once without colliding.
   unknown nonce and a replayed nonce all return the one `JackpotEntryInvalid` sentence, an unreadable
   balance returns *"Your entry could not be processed. Please try again."*, and a paused or closed
   round is the generic `GameNotValidForBets`. See `features/space-jackpot-refactor.md`.
+- **Burn icon purchases (#212) use two sentences only.** Every refusal of `POST /players/icon-purchases`
+  (bad shape, replayed signature for another wallet or icon, self-excluded, not a burn, unmatched burn) is
+  the one `IconUnlockRefused` *"That icon could not be unlocked."*; the only other message is the
+  retryable `IconBurnPending` *"Your burn could not be confirmed yet. Please try again."* (the chain could
+  not be read yet), the same kind of "unreadable, try again" sentence as the jackpot balance read. Real
+  reasons are logged only. See `features/token-integration.md`.
 
 ## 7. Asking the user to decide — pick the answer mode first, then give the trade-offs
 

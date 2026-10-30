@@ -34,12 +34,17 @@ won) with a live push, a toast and an unread count, so a player learns the momen
 | `greek` | Greek | trophy `explorer` |
 | `golden` | Golden | all 10 trophies |
 | `elder` · `phantom` · `beanie` | Elder · Phantom · Beanie | staff list `GeneralSettings:PlayerIcons:<Elder\|Phantom\|Beanie>:Wallets` |
+| `hobo` · `bandit` · `mage` · `bag` · `space` · `west` · `nerdson` · `sailor` · `droid` · `cave` · `mexico` · `sombrero` · `chedson` · `eddie` | Hobo · Bandit · Mage · Bag · Space · West · Nerdson · Sailor · Droid · Cave · Mexico · Sombrero · Chedson · Eddie | **`Burn`**: burn the icon's $STROKE price from your own wallet (token integration #212, [`token-integration.md`](token-integration.md)) |
 
 - Keys are exact and case-sensitive. A unit test pins that every trophy rule names a real
   `AchievementKeys.Ordered` key and each trophy maps to exactly one icon. **No level-gated icons** (volume
   rewards are an anti-goal).
-- **Unlocks are derived on read** from the trophy derivation (`PlayerIconRules.Unlocked`: free + earned
-  trophy icons + Golden + allowed staff icons) — there is no inventory table.
+- **Unlocks are derived on read** for free, trophy, Golden and staff icons (`PlayerIconRules.Unlocked`).
+  ⚠️ **Exception since #212: burn icons are a persisted inventory.** A `Burn` icon is unlocked iff the
+  wallet has a `PlayerIconPurchases` row with `Status = Unlocked` for its key (`IPlayerIconPurchases.OwnedKeysAsync`,
+  passed into every `Unlocked` / `UnlockedOrdered` caller). Ownership is **permanent** (selling the tokens never
+  removes it) and the `PlayerAvatarGuard` never clears a burn pick. Full rules in
+  [`token-integration.md`](token-integration.md).
 - **Staff lists** are independent of `Admins` / `Moderators`, cleaned like the chat staff lists (trim, drop
   blanks, ordinal distinct) and **read live** on every call; committed **empty** (real wallets go in the
   deploy env, e.g. `GeneralSettings__PlayerIcons__Elder__Wallets__0`). Staff may also pick any player icon
@@ -81,7 +86,8 @@ won) with a live push, a toast and an unread count, so a player learns the momen
   `PlayerProfile:` cache entries are dropped. It runs on every profile read (from the achievements in hand,
   so a loss may take up to the 60 s profile TTL to show there) and after every successful bet refund (at
   once). The write re-checks the value it read, so a pick the player just made is never wiped. The player is
-  not notified and re-picks if the trophy comes back. Free icons never lapse; staff icons are checked live.
+  not notified and re-picks if the trophy comes back. Free icons and burn icons never lapse; staff icons are
+  checked live.
 - A self-excluded wallet's icon still shows on the batched levels read (like levels and themes, accepted).
 
 ### Where the icon shows (`PlayerAvatar`)
@@ -104,7 +110,10 @@ won) with a live push, a toast and an unread count, so a player learns the momen
   opens it over any page without navigating mid-round; it only ever opens for the connected wallet.
 - `ArcadeModal` titled `PROFILE ICON`: a grid (4 columns on a phone, 6 on desktop) of the 21 player icons in
   catalog order, then the staff icons present in `unlockedAvatars`. Locked = greyed + *"Unlock: <trophy
-  title>"*; Golden shows *"n/10 trophies"*.
+  title>"*; Golden shows *"n/10 trophies"*. Since #212 the burn icons follow as their own group (only when
+  the token is live and the app is not embedded), and a **PROFILE PREVIEW** side panel (ArcadeModal's optional
+  second panel, desktop; a compact strip on phones) shows the selected icon with its state line
+  (`EQUIPPED` / `OWNED` / price). See [`token-integration.md`](token-integration.md).
 - **NEW chip** is client-side: `localStorage` `space-stroker.icons-seen.{wallet}`; the first open seeds it
   with the free icons (never NEW); each open writes the current unlocked set. Storage failure → no NEW tags.
 - SAVE sends `"default"` for Edson only when the stored value is not already null. Success → toast

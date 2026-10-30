@@ -234,7 +234,18 @@ any signature is requested**.
   YOUR $STROKE ✓/✗, POT, DRAW IN, YOUR TICKET, TICKET VOIDED, JACKPOT PAUSED. Lobby card: **FREE FOR
   HOLDERS · ≥ N**, the pot, the countdown, PAUSED.
 - Copy everywhere: **"Token holders get a free daily lottery draw."** `HomeTokenCard.vue` is the verbatim
-  twin of the LP's `TokenSection.vue` — they move together.
+  twin of the LP's `TokenSection.vue` — they move together. ⚠️ One owner-sanctioned divergence (2026-10-27,
+  #212): the app card's mechanic title reads **"Play Space Jackpot free"** and drops the *"Hold the day's
+  minimum $STROKE at the draw."* sentence to save height; the LP and the guide keep it.
+- **First-time notice (#212):** the first time a browser opens a holder-only type
+  (`LotteryParameters.HolderOnly`, never the name), a one-time `ArcadeModal` (`JackpotHolderNotice.vue`,
+  `useFirstJackpotNotice.ts`, `localStorage` `space-stroker.jackpot.first-visit-seen`) explains the free
+  draw, today's minimum N, `You hold X` (connected only) and the entry + draw balance checks, with a
+  **GET $STROKE** CTA to `/#swap`. Eligible wallets get a confirmation row instead. Gated on `tokenLive` and
+  not embedded; a blocked open (another modal, boot recovery, idle disconnect, terms not accepted) is
+  retried on the next trigger and not marked seen; storage failure counts as seen. See
+  [`token-integration.md`](token-integration.md).
+- The terminal's below-N **GET $STROKE →** link goes to the Home swap card (`/#swap`, same tab) since #212.
 - ⚠️ **The rule "nothing may imply the token can be used to place bets" is deliberately reversed for this
   mode.** The token still never **stakes** a bet; holding it grants a **free** Space Jackpot entry. Do
   not "fix" the copy back — see [`token-launch.md`](token-launch.md) §4.
