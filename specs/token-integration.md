@@ -20,7 +20,7 @@
 
 | Area | Today | **After this feature** |
 | --- | --- | --- |
-| Spending $STROKE | nothing to spend it on | ~10 **burn icons**: the player burns a fixed per-icon price (config) from their own wallet, the backend verifies the burn on-chain and records ownership **permanently** |
+| Spending $STROKE | nothing to spend it on | 14 **burn icons**: the player burns a fixed per-icon price (config) from their own wallet, the backend verifies the burn on-chain and records ownership **permanently** |
 | Icon unlocks | derived on read, no inventory table (`features/profile-v2.md`) | derived **plus** the new `PlayerIconPurchases` rows (first persisted icon inventory) |
 | $STROKE balance | only on the jackpot screen (`YOUR $STROKE` plate via holder eligibility) | also a `$STROKE` row in the header profile popup and a balance line in the icon picker, from a new `GET /players/stroke-balance` |
 | Buying | pump.fun / LP in a **new tab** from 5 surfaces | a **Jupiter Plugin** swap (SOL → $STROKE) inside the Home `$STROKE` card; **every** buy link goes to `/#swap` same-tab, scrolls to the card and highlights it; pump.fun becomes a small secondary link |
@@ -67,7 +67,7 @@ From the card (owner, 2026-10-26) plus spec-time calls marked *(spec)*.
 | # | Decision |
 | --- | --- |
 | 1 | All four parts ship in **one** card/branch. The app-review extras (USD value, post-win buy nudge, "$STROKE spent" stat, feed entry for burns, public holder badge) are **rejected**, out of scope. |
-| 2 | **~10 burn icons** with **placeholder art and placeholder keys/names** (`burn-01` … `burn-10`, "Burn 1" … "Burn 10"); the owner swaps in final art, keys and names before deploy. New unlock kind **`Burn`** (backend `PlayerIcons.UnlockKind` + front `PlayerIconUnlock`). |
+| 2 | **14 burn icons** with the owner's **final art, keys and names** (2026-10-30, §5.1; they replaced the `burn-01` … `burn-10` placeholders before any deploy, so no rows were orphaned). New unlock kind **`Burn`** (backend `PlayerIcons.UnlockKind` + front `PlayerIconUnlock`). |
 | 3 | Price is **per icon, fixed, in $STROKE (UI units), in config**: `GeneralSettings:PlayerIcons:BurnPrices:<key>`. Placeholder **10,000** each. A Burn icon with **no price configured is not purchasable** (fail closed: hidden from the picker, purchase refused). |
 | 4 | **Real burn from the player's own wallet** (not a burn wallet, not the treasury): one legacy transaction with Token-2022 **`BurnChecked`** of exactly the price from the player's ATA for `Operator:Token:HolderToken`, plus a **Memo v2** instruction `spacestroker-icon:<key>` binding it to the icon. |
 | 5 | The **burn signature proves the wallet** (the wallet is fee payer + burn authority), so no extra message signature or nonce. |
@@ -155,11 +155,30 @@ Additive (new table + 2 indexes), no backfill. Never hand-edit the model snapsho
 ### 5.1 Catalog (`SpaceStroker.Domain/Players/PlayerIcons.cs`)
 
 - `enum UnlockKind { Free, Trophy, AllTrophies, Staff, Burn }` (append; nothing persists the enum).
-- Append 10 rules `new IconRule("burn-01", UnlockKind.Burn)` … `"burn-10"` after the staff icons (catalog
-  order = picker order; burn icons render as their own group, §7.1).
-- Keys stay ≤ 20 chars, exact, case-sensitive. Placeholder keys are replaced by the owner's final keys in
-  **both** repos before deploy (a key rename after real purchases would orphan rows, so it must happen
-  before go-live).
+- Append 14 `UnlockKind.Burn` rules after the staff icons, in this order (catalog order = picker order;
+  burn icons render as their own group, §7.1). Art = the owner's `21.HoboEdson.png` … `34.Eddie.png`
+  (480 px, transparent background, same framing as the Profile V2 set), file number order:
+
+  | # | Key | Name | Source art |
+  | --- | --- | --- | --- |
+  | 1 | `hobo` | Hobo | `21.HoboEdson.png` |
+  | 2 | `bandit` | Bandit | `22.BanditEdson.png` |
+  | 3 | `mage` | Mage | `23.MageEdson.png` |
+  | 4 | `bag` | Bag | `24.BagEdson.png` |
+  | 5 | `space` | Space | `25.SpaceEdson.png` |
+  | 6 | `west` | West | `26.WestEdson.png` |
+  | 7 | `nerdson` | Nerdson | `27.Nerdson.png` |
+  | 8 | `sailor` | Sailor | `28.SailorEdson.png` |
+  | 9 | `droid` | Droid | `29.DroidEdson.png` |
+  | 10 | `cave` | Cave | `30.CaveEdson.png` |
+  | 11 | `mexico` | Mexico | `31.mexicoEdson.png` |
+  | 12 | `sombrero` | Sombrero | `32.SombreroEdson.png` |
+  | 13 | `chedson` | Chedson | `33.Chedson.png` |
+  | 14 | `eddie` | Eddie | `34.Eddie.png` |
+
+- Keys stay ≤ 20 chars, exact, case-sensitive, identical in **both** repos, and must not change after
+  go-live (a key rename after real purchases would orphan `PlayerIconPurchases` rows). The memo is
+  `spacestroker-icon:<key>`.
 
 ### 5.2 Prices (`Domain/Configs/Entities/GeneralSettings.cs` → `PlayerIconSettings`)
 
@@ -170,10 +189,10 @@ public Dictionary<string, decimal> BurnPrices { get; set; } = new(StringComparer
 `Common/spacestrokersettings.json`, under the existing `PlayerIcons` block:
 
 ```json
-"BurnPrices": { "burn-01": 10000, "burn-02": 10000, "...": 10000, "burn-10": 10000 }
+"BurnPrices": { "hobo": 10000, "bandit": 10000, "...": 10000, "eddie": 10000 }
 ```
 
-Env override: `GeneralSettings__PlayerIcons__BurnPrices__burn-01=25000`. A helper
+Env override: `GeneralSettings__PlayerIcons__BurnPrices__hobo=25000`. A helper
 `PlayerIconSettings.BurnPriceFor(key)` returns the price only when the key is a `Burn` icon **and** the
 price is `> 0` **and** `price × 10^Decimals` is a whole number; otherwise `null` (not purchasable). The
 committed `10000` is a placeholder: the owner sets the real values before deploy.
@@ -310,9 +329,9 @@ purchase.
 
 - `PlayerIconUnlock` gains `{ kind: 'burn' }` (the price comes from `GET /players/icon-prices`, not the
   bundle, so the owner can change it without a front deploy).
-- 10 entries `burn-01` … `burn-10`, names `Burn 1` … `Burn 10`, placeholder art: copies of an existing
-  icon (`edson.png` / `edson-48.png`) saved as `burn-NN.png` / `burn-NN-48.png`, so the file names are
-  final and the owner only drops in the art.
+- 14 entries, keys/names/order as §5.1, art `<key>.png` (128 px) + `<key>-48.png` (48 px), made like the
+  Profile V2 set: `System.Drawing` `NearestNeighbor` + `PixelOffsetMode.Half` straight from the 480 px
+  source (this reproduces the existing `spartan.png` / `spartan-48.png` pixel for pixel).
 - `PLAYER_ICON_KEYS_FREE` unchanged.
 
 ### 7.2 Token-2022 burn builder (`src/hooks/useConnection.ts` or new `src/utils/iconBurn.ts`)
@@ -514,7 +533,7 @@ review is a DB query), final icon art / keys / names / prices (owner, before dep
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `SpaceStroker.Domain/Players/PlayerIcons.cs` | `UnlockKind.Burn`; 10 `burn-NN` rules |
+| 1 | `SpaceStroker.Domain/Players/PlayerIcons.cs` | `UnlockKind.Burn`; 14 burn rules (§5.1) |
 | 2 | `SpaceStroker.Domain/Players/Entities/PlayerIconPurchase.cs` (new) | entity + `IconPurchaseStatus` |
 | 3 | `SpaceStroker.Domain/Configs/Entities/GeneralSettings.cs` | `PlayerIconSettings.BurnPrices` + `BurnPriceFor` |
 | 4 | `SpaceStroker.Common/spacestrokersettings.json` | `PlayerIcons.BurnPrices` placeholders (10000); 3 rate-limit rules |
@@ -539,7 +558,7 @@ review is a DB query), final icon art / keys / names / prices (owner, before dep
 
 | # | File | Change |
 | --- | --- | --- |
-| 1 | `constants/playerIcons.ts` + `assets/player-icons/burn-NN(.png, -48.png)` | burn kind, 10 placeholder entries |
+| 1 | `constants/playerIcons.ts` + `assets/player-icons/<key>(.png, -48.png)` | burn kind, 14 entries (§5.1) |
 | 2 | `constants/token.ts` | `TOKEN_JUPITER_URL`, `MEMO_PROGRAM_ID` (or in `utils/iconBurn.ts`) |
 | 3 | `utils/iconBurn.ts` (new) or `hooks/useConnection.ts` | `buildIconBurnTransaction` (legacy, BurnChecked + memo) |
 | 4 | `hooks/useIconBurn.ts` (new) | burn → stash → confirm → purchase → retry |
@@ -577,7 +596,7 @@ review is a DB query), final icon art / keys / names / prices (owner, before dep
 
 | Test file | Cases | Expected |
 | --- | --- | --- |
-| `UnitTests/Domain/PlayerIconsTests.cs` | update `UnlockKinds_AreSplit10_10_1_3` → `…_3_10`; burn keys ≤ 20 chars, unique | pinned counts incl. 10 Burn |
+| `UnitTests/Domain/PlayerIconsTests.cs` | update `UnlockKinds_AreSplit10_10_1_3` → `…_3_10`; burn keys ≤ 20 chars, unique | pinned counts incl. 14 Burn |
 | `UnitTests/Services/Players/PlayerIconRulesTests.cs` | burn key unlocked only when purchased; not unlocked without; ordered output includes it | rule honours `purchasedKeys` |
 | `UnitTests/Services/Players/PlayerAvatarGuardTests.cs` | equipped burn icon, zero balance / no trophies → not cleared | permanence (AC5) |
 | `UnitTests/Services/IconBurnVerificationTests.cs` (new, mirrors `IncomingTransferValidationTests`) | valid BurnChecked + memo → `Burned` with amount/memo; **transfer** (Σ delta 0) → NotABurn; wrong mint; wrong authority / fee payer; owner delta ≠ amount; `meta.err` set; extra program instruction; two token instructions; decimals mismatch; no memo → `Burned`, `Memo = null` | §6.1 checks 1–7 |
@@ -586,24 +605,24 @@ review is a DB query), final icon art / keys / names / prices (owner, before dep
 | `UnitTests/Handlers/GetPlayerProfileHandlerTests.cs` | `unlockedAvatars` includes purchased keys (live, not from cache); unavailable body unchanged | §5.3, §6.7 |
 | `UnitTests/Handlers/GetStrokeBalanceHandlerTests.cs` (new) | balance from reader; null → null and not cached; invalid wallet → null; cache hit | §6.3 |
 | `UnitTests/Handlers/GetIconPricesHandlerTests.cs` (new) | only priced burn keys, catalog order; zero / fractional-raw price excluded; token unconfigured → empty | §6.4 |
-| `UnitTests/Configs/PlayerIconSettingsBindingTests.cs` | `BurnPrices` binds from env `GeneralSettings__PlayerIcons__BurnPrices__burn-01` | §5.2 |
+| `UnitTests/Configs/PlayerIconSettingsBindingTests.cs` | `BurnPrices` binds from env `GeneralSettings__PlayerIcons__BurnPrices__hobo` | §5.2 |
 
 ### 11.2 Integration (`SpaceStroker.Tests.Integration`), MANDATORY
 
 New `IconBurnFlowTests.cs` (pattern: `ProfileV2FlowTests`, reuse its `SaveIconAsync` signing helper):
 
-1. **Happy path:** real keypair wallet, `fixture.SolanaService.SetIconBurn(sig, wallet, 10000, "spacestroker-icon:burn-01")`
-   → `POST /players/icon-purchases` 200 → `GET /players/profile` `unlockedAvatars` contains `burn-01` →
-   signed `PATCH /players/preferences` `avatarId=burn-01` 200 → profile `avatarId == "burn-01"` and
-   `GET /players/levels` `avatars[wallet] == "burn-01"`.
+1. **Happy path:** real keypair wallet, `fixture.SolanaService.SetIconBurn(sig, wallet, 10000, "spacestroker-icon:hobo")`
+   → `POST /players/icon-purchases` 200 → `GET /players/profile` `unlockedAvatars` contains `hobo` →
+   signed `PATCH /players/preferences` `avatarId=hobo` 200 → profile `avatarId == "hobo"` and
+   `GET /players/levels` `avatars[wallet] == "hobo"`.
 2. **Replay:** the same POST again → 200, exactly one `PlayerIconPurchases` row; same signature from a
    second wallet → 400 generic.
-3. **Permanence:** `SetHolderBalance(wallet, 0)` → profile still shows `burn-01` equipped and unlocked.
+3. **Permanence:** `SetHolderBalance(wallet, 0)` → profile still shows `hobo` equipped and unlocked.
 4. **Retry after unreadable:** verifier set to unreadable → `IconBurnPending`, no row; switch to readable →
    same signature → 200.
 5. **Self-excluded:** wallet with an active exclusion → 400, verifier not called.
 6. `GET /players/stroke-balance` returns the fake holder balance; `GET /players/icon-prices` lists
-   `burn-01` at 10000.
+   all 14 burn keys, `hobo` at 10000.
 
 Run with `scripts/run_integration_tests.bat` (Docker required).
 
@@ -663,3 +682,4 @@ Run with `scripts/run_integration_tests.bat` (Docker required).
 | Date | Change |
 | --- | --- |
 | 2026-10-26 | Initial spec from refined card #212 (+ backend/front code exploration). Spec-time calls: strict tx shape, mint-wide delta as supply proof, single table with `Status`, overpay/already-owned handling, purchase does not equip, adapter-wallet-only burns (mobile deeplink deferred, flagged), `GET /players/icon-prices`, retryable `IconBurnPending`. |
+| 2026-10-30 | Burn icons: the `burn-01` … `burn-10` placeholders replaced by the owner's 14 final icons (`hobo` … `eddie`, §5.1, §7.1); prices stay 10000 each. |
