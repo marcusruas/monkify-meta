@@ -14,7 +14,7 @@
 > to stop. **Key Mines** is a solo player-vs-house **Mines** game on Edson's 26-key QWERTY: the player
 > picks a stake and how many keys hide a jam (1, 3, 5 or 10), presses keys one at a time to climb a
 > multiplier ladder, and cashes out whenever they want. A jam loses the stake. The treasury pays at
-> **95% RTP, exact at every step** (owner 2026-10-29, was 98%). Prototype (variant **1a**):
+> **97% RTP, exact at every step** (owner 2026-11-03, was 95%, before that 98%). Prototype (variant **1a**):
 > https://claude.ai/design/p/2b5051fc-9a7c-4434-b030-f73a4dbfefce?file=Key+Mines+Playable.html
 
 ---
@@ -30,7 +30,7 @@
 | Typer / `RunGameEvent` | Yes (~2 s) | **None** |
 | What is provably fair | The drawn outcome row | **The jam set** (`M` picks without replacement from the seed keystream) |
 | Payout | `stake × row pay` | **`stake × ladder[k]`** at cash-out after `k` safe presses; 0 on a jam |
-| RTP | 98% | **95%, exact at every step** (owner 2026-10-29, was 98%: matches Solpump Mines) |
+| RTP | 98% | **97%, exact at every step** (owner 2026-11-03; was 95% from 2026-10-29, matching Solpump Mines, and 98% before that) |
 | Worst case per round | `stake × 10` (1 SOL at 0.1) | **`stake × ladder[lastStep] ≤ 12 SOL` and `ladder[lastStep] ≤ 120×`** (the cap and the ceiling truncate the ladder) |
 | Stake bounds | 0.002 – 0.1 SOL | **0.002 – 0.1 SOL** |
 | Round end | Typer finishes | Jam, cash-out, cap/full-clear auto-cash, or **5-min inactivity** sweep |
@@ -98,7 +98,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 12 | **Hall of Fame counts Key Mines** (it is type-agnostic: `Won / Amount`). **Explorer stays the four original modes.** `GameModeClassifier` returns a new `keyMines` mode, checked before `IsHouseEdge`, so a Key Mines win never unlocks `firstHyperRollWin`/`hyperHit` nor counts as Hyper Roll for explorer. Key Mines wins **do** count for `winStreak3`/`winStreak5`. |
 | 13 | **Practice mode included** (`/game/practice?mode=key-mines`, front-only). |
 | 14 | **Mid-round:** self-exclusion, the maintenance switch and a restart refuse **new bets only**; press and cash-out on a bet round always work. |
-| 15 | **Won = payout > stake.** No step pays under **×1.01** (owner 2026-11-02, `KeyMinesLadder.MinMultiplier` / `KEY_MINES_MIN_MULTIPLIER`): at 95% RTP only 1 jam step 1 (0.95 × 26/25 = ×0.988) is lifted to ×1.01 (that one step returns 97.1%), so every cash-out is a win; a jam is a loss. |
+| 15 | **Won = payout > stake.** No step pays under **×1.01** (owner 2026-11-02, `KeyMinesLadder.MinMultiplier` / `KEY_MINES_MIN_MULTIPLIER`): at 97% RTP only 1 jam step 1 (0.97 × 26/25 = ×1.0088) is lifted to ×1.01 (that one step returns 97.1%), so every cash-out is a win; a jam is a loss. |
 | 16 | **Big-payout pause** (owner, 2026-10-29): a settled cash-out paying **more than 5 SOL** (`GeneralSettings:Games:KeyMinesPauseWhenPaidAbove`, 0 = off) pauses the type: `GameParameters.AutoPausedAt` / `AutoPausedReason` are stamped once, and from then on every new-bet path refuses with the vague maintenance message and the lobby card shows MAINTENANCE. Decided on the amount **owed**, just before the transfer, so a win the treasury then fails to cover still pauses. Rounds already live finish and pay. Nothing in code clears it — a human re-opens the type by nulling both columns (+ `ActiveParameters` cache drop). (§6.5) |
 | 17 | **Cosmic Sprint is switched off** (owner, 2026-10-29): `ComingSoon: true` in `DefaultGames`, so the startup self-heal gates it, the deactivation path refunds its waiting round, and the lobby hides it. Key Mines takes its lobby slot **and its card art** (`cosmicsprint-poster.png` / `.gif`). Lobby order: **Hyper Roll, Key Mines, Monkey Duel, Space Jackpot** (`SHOWN_ORDER`; race and preset stay listed at the end in case they return). LP: same four cards in the same order, `lg:grid-cols-4`, roadmap "4 game modes live". |
 | 18 | **One live round per wallet** (owner, 2026-11-02, review point 2): a started round holds treasury cover for its best pay until it ends, so one wallet opening many cheap rounds could tie the treasury up. A wallet with a KEYS round still `InProgress` cannot start another until it ends (cash out, jam or the inactivity sweep): `KeyMinesOneLiveRound`, checked under the coverage lock in `RegisterBetHandler` (paid ⇒ refunded, message `KeyMinesRoundAlreadyLive`), and early in `CheckBetAvailability`, `PlaceOrbitWagerHandler` (both branches) and `PlaceManualOrbitBetConsumer`. Many wallets can still each hold one round; the inactivity sweep ends idle ones. |
@@ -380,7 +380,7 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
 ### 6.9 Read paths and contracts
 
 - **`GameParametersDto`**: `IsKeyMines`, `JamOptions: int[]`, `MaxPayoutPerRound`. `RtpPercent` 98 (STATS
-  badge `95% RTP`), `CommissionPercentage` 0, `Outcomes`/`Modes`/`PresetChoices` empty. Cache key `:v5` (S10).
+  badge `97% RTP`), `CommissionPercentage` 0, `Outcomes`/`Modes`/`PresetChoices` empty. Cache key `:v5` (S10).
 - **`ActiveGameDto`** (live round via `GET /games/rounds/{id}` and `GET /games/{typeId}?wallet=`):
   `KeyMinesJamCount`, `KeyMinesPressedKeys`, `KeyMinesStep`, `KeyMinesEnd`, `KeyMinesCashedStep`, and
   `KeyMinesJamKeys` **only when the round is in `GameEndedStatus`**. Never the token or its hash.
@@ -809,4 +809,5 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 | 2026-11-02 | Owner: one live Key Mines round per wallet (decision 18); unit tests in RegisterBetHandlerTests / CheckBetAvailabilityHandlerTests, integration `OneLiveRoundPerWallet_SecondBoardRefused_UntilTheFirstEnds`. |
 | 2026-11-03 | Owner: lobby art is design option B "Big Bang" (Claude Design, 3 options): Cosmic Sprint's typing Edson, the keyboard blows up at 2s, BOOM!, he flies back in. `keymines-poster.png` (10×) + `keymines.gif` (2×, 5s loop, pixelated in the card). Badge `UP TO 100X` added (decision 5). |
 | 2026-11-03 | Owner: lobby art shortened to a 3s loop with the typing redone as design B2 "Safe Keys" (Claude Design, 3 options): 1.3s of safe keys flashing green and floating 1.1x…5x, a jam flashes red with a "!", 1.2s blast with BOOM!, 0.5s fly-back. GIF 222 KB. |
-| 2026-11-03 | Owner: CASH OUT is a red pixel keycap (Claude Design, 3 options; C chosen, fixed red instead of the multiplier tier colour): bold CASH OUT over a dark readout of the pay, drawn by `utils/cashKeyArt.ts` at 10× like the other sprites, the mock's `×… NOW` engraving dropped (no room on the plate). Playable mock: 97% RTP (the game stays 95%), new lobby card. |
+| 2026-11-03 | Owner: CASH OUT is a red pixel keycap (Claude Design, 3 options; C chosen, fixed red instead of the multiplier tier colour): bold CASH OUT over a dark readout of the pay, drawn by `utils/cashKeyArt.ts` at 10× like the other sprites, the mock's `×… NOW` engraving dropped (no room on the plate). Playable mock: 97% RTP, new lobby card. |
+| 2026-11-03 | Owner: Key Mines RTP 97% (was 95%), the same as the playable mock. Config `HouseEdge.RtpPercent` (the startup reconciler heals it into the DB), practice + front fallbacks (`?? 97`), the terms clause (`LAST_UPDATED` 3 November 2026) and the floor comments. Unchanged: the ×1.01 floor (still lifts only 1 jam step 1, now ×1.0088), the 12 SOL cap and the 120× ceiling. |
