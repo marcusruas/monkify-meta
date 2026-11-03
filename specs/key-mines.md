@@ -470,7 +470,10 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   **The right plate never changes layout** (owner, 2026-10-28): the jam stepper on top and `CASH OUT FOR
   <amount>` under it in every state; the stepper is enabled before the bet **and on a result** (the pick then
   shows on the LCD and applies when the next board opens — by the lever or the 9 s hold), locked while live;
-  CASH OUT only in a live round from step 1 (`—` otherwise). The keyboard is 10% smaller than the width the
+  CASH OUT only in a live round from step 1 (`-` otherwise). CASH OUT is a **red pixel keycap** (owner
+  2026-11-03, Claude Design option C in a fixed red): 32×15 sprite px on the console grid, the MAX key's red
+  ramp, bold `CASH OUT` over a dark readout of the pay; it never changes colour with the multiplier, and it
+  fades to 45% when off like every sprite key (`utils/cashKeyArt.ts`). The keyboard is 10% smaller than the width the
   screen allows. No NOW / PAID / countdown readouts.
   **Jam:** the jam's step and key red, every jam revealed. **Cashed:** the win card, 9 s hold then rollover
   to a fresh (unbet) board. **One pull on a result** (or ENTER) opens the next board and bets it with the same
@@ -806,3 +809,4 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 | 2026-11-02 | Owner: one live Key Mines round per wallet (decision 18); unit tests in RegisterBetHandlerTests / CheckBetAvailabilityHandlerTests, integration `OneLiveRoundPerWallet_SecondBoardRefused_UntilTheFirstEnds`. |
 | 2026-11-03 | Owner: lobby art is design option B "Big Bang" (Claude Design, 3 options): Cosmic Sprint's typing Edson, the keyboard blows up at 2s, BOOM!, he flies back in. `keymines-poster.png` (10×) + `keymines.gif` (2×, 5s loop, pixelated in the card). Badge `UP TO 100X` added (decision 5). |
 | 2026-11-03 | Owner: lobby art shortened to a 3s loop with the typing redone as design B2 "Safe Keys" (Claude Design, 3 options): 1.3s of safe keys flashing green and floating 1.1x…5x, a jam flashes red with a "!", 1.2s blast with BOOM!, 0.5s fly-back. GIF 222 KB. |
+| 2026-11-03 | Owner: CASH OUT is a red pixel keycap (Claude Design, 3 options; C chosen, fixed red instead of the multiplier tier colour): bold CASH OUT over a dark readout of the pay, drawn by `utils/cashKeyArt.ts` at 10× like the other sprites, the mock's `×… NOW` engraving dropped (no room on the plate). Playable mock: 97% RTP (the game stays 95%), new lobby card. |
