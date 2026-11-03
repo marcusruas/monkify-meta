@@ -88,7 +88,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at the RTP. At 95% the top steps are unchanged (2 jams step 23 = 102.92×, 4 jams step 17 = 112.72×, 8 jams step 10 and 10 jams step 8 = 115.32×; 7 jams step 11 = 97.11×) and stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 115.32 = 11.532 SOL. (At 98% these were 106.17×, 116.28×, 118.96× and 100.18×.) |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
-| 5 | **No top-multiplier badge** (owner, 2026-10-29): the card shows `1P · VS HOUSE` only, and the LP tag likewise. The top depends on the jams and the stake, so no single figure is advertised (it was `UP TO 250X`). |
+| 5 | **Headline badge `UP TO 100X`** (owner, 2026-11-03, reversing 2026-10-29's "no top-multiplier badge"): the lobby card shows `1P · VS HOUSE` and `UP TO 100X`. The ladder's real top is ~119× (10 jams, step 8); the owner chose the round figure. The LP tag is unchanged. |
 | 6 | **Inactivity window 5 min.** ≥ 1 safe press ⇒ auto-cash at the current step (a **win**, shown as **AUTO CASH**). 0 presses ⇒ the stake is **refunded**. Hangfire sweep every minute. |
 | 7 | **`IsHouseEdge = true` + new `IsKeyMines`.** `IsKeyMines` is checked **first** in every typer / weighted-draw / Word Lines branch, which steps aside. |
 | 8 | **Round state = nullable columns on `Game`** (§4.1). |
@@ -423,7 +423,7 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   2026-10-29); `assets/types/key-mines.png` stays on the profile page only.
 - Every archetype-keyed map: `GuideModeCards.vue` `BLURB` (98) / `ARCHETYPE_LABEL` (121) / `ARCHETYPE_ACCENT`
   (131) (⚠️ a missing key crashes the block); `GameTypeCard.vue` `tag` (145) = `'26 KEYS · PICK YOUR JAMS'`,
-  `badges` (274) = `1P · VS HOUSE` only, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
+  `badges` (274) = `1P · VS HOUSE` + `UP TO 100X`, chip "from <min> SOL" (393), `.accent-keyMines` CSS;
   `header/GameSwitcher.vue` (134/318); `useLiveGames.ts:101`; `GameStatsPanel.vue` (65-120) /
   `GameStatsPage.vue` (345-356); `admin/GameTypeList.vue` `modeLabel` (23); `PlayerProfilePage.vue` `ART`
   (208) + rows meta (214-236).
@@ -745,7 +745,7 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 16. Given a self-exclusion or HouseEdgeEnabled = false set after a bet was placed, when the owner presses or cashes out, then both still work; new Key Mines bets are refused.
 17. Given a cashed-out Key Mines win, when trophies are derived, then GameModeClassifier returns the Key Mines mode, firstHyperRollWin is NOT unlocked, explorer still requires only the four original modes, winStreak3/5 count the win, and the Hall of Fame ranks its multiplier.
 18. Given a reload mid-round, when the page opens, then GET /games/rounds/{id} restores pressed keys, step and the ladder window without exposing jams, and the player can continue.
-19. Given the lobby, when it renders, then the cards read Hyper Roll, Key Mines, Monkey Duel, Space Jackpot (Cosmic Sprint hidden), Key Mines shows with Cosmic Sprint's art and the badge 1P · VS HOUSE only, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
+19. Given the lobby, when it renders, then the cards read Hyper Roll, Key Mines, Monkey Duel, Space Jackpot (Cosmic Sprint hidden), Key Mines shows its own Big Bang art (typing Edson, blows up 2s into the hover GIF) and the badges 1P · VS HOUSE and UP TO 100X, all modes fit one desktop row at 1024/1280/1440px, and GuideModeCards renders without error.
 20. Given /how-to-play and /game/practice?mode=key-mines, when opened, then a HOW KEY MINES WORKS section (five-step GuideRail, live-cabinet crops, no stale figures) is present and a front-only practice round plays with random jams and no backend call.
 21. Given monkify-lp, when built, then GameModes.vue has a Key Mines card in lobby order, the mode-count copy and roadmap line include it, and terms.astro has an owner-reviewed Key Mines clause (vs house, 98% RTP, 1 SOL per-round cap, inactivity auto-cash) with LAST_UPDATED bumped.
 
@@ -764,7 +764,7 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 1. Rebuild the local stack (this card **has** a migration). Copy the hub `yarn.lock` into the front worktree
    before building; verify the served bundle changed.
 2. `/games/active-types`: Key Mines with `isKeyMines`, `jamOptions`, `rtpPercent 98`, min 0.002 / max 0.1.
-3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badge `1P · VS HOUSE` only.
+3. Lobby: five cards on one row at 1024/1280/1440; Key Mines badges `1P · VS HOUSE` + `UP TO 100X`; hovering the card plays the Big Bang GIF.
 4. Play with free bets on (dev toggle) and with a paid devnet bet: ready → press safe keys (ladder advances,
    letters fill the steps row, colours climb green → blue → purple → gold) → cash out (paid amount =
    stake × ladder[k]; the win card wears the paid multiplier's tier).
@@ -804,3 +804,4 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 | 2026-10-29 | Owner: Key Mines RTP 95% (was 98%), matching Solpump Mines (its 25-slot / 10-mine ladder backs out to 95.0%). Config `HouseEdge.RtpPercent` (the startup reconciler heals it into the DB), practice + front fallbacks, mockup and the terms clause. Top steps unchanged; worst case 11.532 SOL; 1 jam step 1 now pays ×0.988 (decision 15). |
 | 2026-11-02 | Owner: ×1.01 floor on every step (decision 15; only 1 jam step 1 moves, ×0.988 → ×1.01), terms clause says so. Bar shows PULL THE LEVER! / PRESS A KEY! before the first press, USE YOUR KEYBOARD dropped, key hints bigger. Cosmic Sprint wording removed from the home hero, home how-it-works, the race guide, Orbit help, trophies (its two only show once won) and the terms. |
 | 2026-11-02 | Owner: one live Key Mines round per wallet (decision 18); unit tests in RegisterBetHandlerTests / CheckBetAvailabilityHandlerTests, integration `OneLiveRoundPerWallet_SecondBoardRefused_UntilTheFirstEnds`. |
+| 2026-11-03 | Owner: lobby art is design option B "Big Bang" (Claude Design, 3 options): Cosmic Sprint's typing Edson, the keyboard blows up at 2s, BOOM!, he flies back in. `keymines-poster.png` (10×) + `keymines.gif` (2×, 5s loop, pixelated in the card). Badge `UP TO 100X` added (decision 5). |
