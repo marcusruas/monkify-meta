@@ -477,9 +477,11 @@ A second spender of the custody balance: the player, by hand, on any paid type. 
 `features/orbit-wallet.md`.
 
 - **API:** `POST /orbit/wagers` (session-only, rate-limited 30/min) runs cheap pre-checks, stores a
-  `Pending` result in Redis (`OrbitWager:{playerId}:{requestId}`, 15 min) and publishes
-  `PlaceManualOrbitBetEvent`. It never signs or debits. `GET /orbit/wagers/{requestId}` (120/min) reads the
-  result, with the ledger authoritative for `Placed`.
+  `Pending` result in Redis (`OrbitWager:{playerId}:{requestId}`, 15 min), publishes
+  `PlaceManualOrbitBetEvent`, then **holds the request** (`Orbit:WagerSyncWaitMs`, 4 s default) re-reading
+  that result so the common case answers `Placed`/`Refused` in the same round trip; a slower placement
+  answers `Pending`. It never signs or debits. `GET /orbit/wagers/{requestId}` (120/min) is the SPA's
+  fallback poll, with the ledger authoritative for `Placed`.
 - **Consumers:** `PlaceManualOrbitBetConsumer`, on **its own receive endpoint** so a burst of manual bets
   never delays the auto engine. Both it and `PlaceOrbitBetConsumer` call the shared `OrbitStakePlacer`:
   claim + debit (one transaction) → stamp signature + `LastValidBlockHeight` on the claim → house-signed
