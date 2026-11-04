@@ -101,7 +101,8 @@ ships — there is one catalogue and one deployment:
 
 | Name          | Charset | Len | Mode                                                                                 |
 | ------------- | ------- | --- | ------------------------------------------------------------------------------------ |
-| Cosmic Sprint | Letters | 6   | Free-type race                                                                        |
+| Cosmic Sprint | Letters | 6   | Free-type race — **`ComingSoon: true` since 2026-10-29** (switched off; hidden from the lobby, Key Mines took its slot) |
+| Key Mines     | Letters | 3   | **Player-vs-house Mines** (`IsHouseEdge` + `IsKeyMines`, #204): solo round, bet `J{M}` (1–10 jams of 26 keys), stake 0.002–0.1 SOL, press keys to climb a 97%-RTP ladder and cash out; 12 SOL / 120× per-round cap — see [`key-mines.md`](key-mines.md) |
 | Hyper Roll    | Letters | 10  | **Player-vs-house** (`IsHouseEdge`): solo round, three board modes (AVERAGE 5 words / SUPER 6 / HYPER 8), pick 1 board word, free stake 0.002–0.1 SOL, paid `stake × multiplier` (3×–10×) from the treasury at a flat per-mode RTP (91.50 / 91.14 / 91.84%) — see [`hyper-roll.md`](hyper-roll.md) and [`hyper-roll-modes.md`](hyper-roll-modes.md) |
 | Space Jackpot | Letters | 6   | **Holder lottery** (`HolderOnly`): free for wallets holding ≥ N $STROKE, house-funded pot frozen per round, drawn daily at 22:00 UTC — see [`space-jackpot-refactor.md`](space-jackpot-refactor.md) |
 

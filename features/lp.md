@@ -102,7 +102,7 @@ phone placements, so a desktop-percentage scene would drop sprites onto the page
 - Every animation honours `prefers-reduced-motion`, and every section holds on portrait + landscape
   phones.
 
-## ⚠️ The three mode cards must match the seeded Main game types
+## ⚠️ The mode cards must match the seeded Main game types
 
 Source of truth: `monkify-backend` `SpaceStroker.Consumers/DefaultGameParameters.cs` →
 `GenerateMainDefaultParameters`. The copy must not contradict it.
@@ -111,6 +111,7 @@ Source of truth: `monkify-backend` `SpaceStroker.Consumers/DefaultGameParameters
 | --- | --- | --- | --- |
 | **Cosmic Sprint** | 6X Main Sprint | One **6-character alphanumeric** race (A–Z + 0–9); tag `6 CHARS · A–Z + 0–9` | "6 letters / 6 numbers" — there is no letters-only or numbers-only variant |
 | **Hyper Roll** | Hyper Roll (`IsHouseEdge`) | **Word Lines** (#209, 2026-10-22): tag `5×3 GRID · UP TO 10X`; blurb "Pull the lever: Edson types a 5×3 grid and words on 10 lines pay – every spin pays 0.3× to 10×." Terms clause: 13 published results, 0.3×–10× of the stake, no house cut, provably fair, **98%** RTP, a result below 1× pays back less than the stake (`LAST_UPDATED` 15 October 2026) | "Pick a word", "back a beast", a pot, "first one spelled wins the pot", or 91.84% — Hyper Roll is player-vs-house with no picking |
+| **Key Mines** (#204, 2026-11-03) | Key Mines (`IsHouseEdge` + `IsKeyMines`) | Lobby order Hyper Roll · **Key Mines** · Monkey Duel · Space Jackpot (`lg:grid-cols-4`, roadmap "4 game modes live"); tag `1P · VS HOUSE`; blurb "Press Edson's keys one at a time and cash out whenever you like. Hit a jammed key and the stake is gone."; takes **Cosmic Sprint's slot and art** (Cosmic Sprint is switched off, no card). Terms clause: vs the house, no house cut, 97% at every step, no step under 1.01×, 12 SOL / 120× per-round cap, 5-min inactivity auto-cash or refund, provably-fair jams | A top multiplier on the LP tag, a house cut, a typer / Edson-types wording |
 | **Space Jackpot** | Space Jackpot (`HolderOnly`) | **Free daily draw for $STROKE holders** (#196, 2026-10-01); tag `FREE FOR HOLDERS · DAILY`; blurb "Hold $STROKE, grab a free ticket, one holder bags the daily jackpot." | A ticket price, "the pot fattens", a refund, or the $STROKE winner bonus — entry is free and the house funds the pot. Also never "every 4h" |
 
 **Mode art:** each card has its own animated GIF with a static first-frame poster (poster at rest, GIF on
@@ -159,7 +160,7 @@ reuses until it has its own art — stays contained and bottom-anchored. All thr
 | `src/components/PixelText.vue` · `PumpMark.vue` · `PixelIcon.vue` · `src/icons.ts` | ⚠️ Press Start 2P's `$`/`!` are drawn wrong and glyphs like `●` fall outside the self-hosted subset — display copy goes through `PixelText`, marks are drawn geometry, never a bare character |
 | `src/components/Header.vue` · `Footer.vue` | Coin + wordmark + PLAY NOW + gated `Token` nav item · "BET ON THE MONKEY" |
 | `src/components/HeroTypingPill.vue` | The cosmetic local LIVE pill |
-| `src/components/GameModes.vue` | The three-card `modes` array, GIF + poster imports, `cover`/`object-top`, reduced-motion swap |
+| `src/components/GameModes.vue` | The four-card `modes` array (Hyper Roll, Key Mines, Monkey Duel, Space Jackpot), GIF + poster imports, `cover`/`object-top`, reduced-motion swap |
 | `src/components/StoryCarousel.vue` | EDSON.LOG terminal (painted slides kept) |
 | `src/components/SpaceRoadmap.vue` | Star map, no-emoji items, no perk box |
 | `src/components/SectionSpaceArt.vue` · `ContentSection.vue` · `SpaceBackground.vue` | Drifting scenery, tints, parallax |

@@ -116,8 +116,9 @@
 - **DefaultGames** — the game-type definitions under `GeneralSettings:Operator:DefaultGames`, seeded
   by `SpaceStroker.Consumers` at startup **create-only by name**: a type is inserted only when no row
   with that name exists, and an existing row is never rewritten (so a restart cannot resurrect an
-  admin-deactivated type or mutate one under a live round). Three ship today — **Cosmic Sprint**
-  (6-char race), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER from 2026-09-24, reworked into stake-only **Word Lines** on 2026-10-22 — see `features/hyper-roll-word-lines.md`, `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
+  admin-deactivated type or mutate one under a live round). The lobby shows **Hyper Roll**, **Key Mines**,
+  **Monkey Duel** and **Space Jackpot**; **Cosmic Sprint** (6-char race) is `ComingSoon` since 2026-10-29. Defaults: **Cosmic Sprint**
+  (6-char race), **Key Mines** (#204, player-vs-house Mines, `IsHouseEdge` + `IsKeyMines`, see **Key Mines**), **Hyper Roll** (player-vs-house, `IsHouseEdge`; replaced Beast Mode on 2026-09-18; three board modes AVERAGE / SUPER / HYPER from 2026-09-24, reworked into stake-only **Word Lines** on 2026-10-22 — see `features/hyper-roll-word-lines.md`, `features/hyper-roll.md` and `features/hyper-roll-modes.md`) and **Space Jackpot**
   (daily **holder lottery** — free for $STROKE holders since 2026-10-01, see **Holder lottery**). The
   exceptions to "never rewritten" are the **three single-field startup self-heals**:
   `AllowFreeBet = !IsProduction()` (holder defaults skipped), `AllowOrbit` and `ComingSoon` from config,
@@ -190,6 +191,19 @@
   it pays **×2** (`spacefour` 2.8×, `spacefive` 5×).
 - **Echo / down word / wild (Word Lines)** — echo: the same 4-letter word on two lines, both doubled (5.6×);
   down word: a 3-letter word read top→bottom on one reel (0.5×); wild: a 4-letter word with one `?` (1.4×).
+- **Key Mines** — the solo player-vs-house Mines type (#204, 2026-11-03): pick a stake and **M jams** (1–10)
+  hidden among Edson's 26 keys, press keys to climb a ladder that returns 97% at every step, cash out any time;
+  a jam loses the stake. Rounds carry `Game.BoardMode = "KEYS"`, bets `Choice = "J{M}"`. See
+  `features/key-mines.md`.
+- **Jam (Key Mines)** — a hidden losing key; the round's jam set is `M` picks without replacement from the
+  seed keystream (`HMAC(serverSeed, prefix|jams)`), revealed only after the round ends.
+- **Ladder / step (Key Mines)** — `ladder[k] = 0.97 · C(26,k) / C(26−M,k)` after `k` safe presses (floor ×1.01),
+  truncated at the last step under the 12 SOL per-round cap and the 120× ceiling; that step auto-cashes.
+- **Auto cash (Key Mines)** — a round with ≥ 1 safe press and 5 min without action is cashed out at its current
+  step by the inactivity sweep (a win, shown AUTO CASH); with 0 presses it is refunded instead.
+- **Key Mines pause / low-treasury pause** — production only: once the treasury is seen under 8 SOL
+  (`KeyMinesPauseWhenTreasuryBelow`) every Key Mines type gets `AutoPausedAt` and refuses new bets
+  (MAINTENANCE) until a human nulls it.
 - **Won (Word Lines)** — a spin counts as won only when its payout is **above the stake**; 0.3× / 0.5× results
   are paid but are losses in history, stats, Orbit toasts and Orbit's step rule.
 - **Choice exclusivity / `ExclusiveChoice`** — in **free-text** game types (empty `PresetChoices`),
