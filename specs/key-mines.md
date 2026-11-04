@@ -99,7 +99,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | 13 | **Practice mode included** (`/game/practice?mode=key-mines`, front-only). |
 | 14 | **Mid-round:** self-exclusion, the maintenance switch and a restart refuse **new bets only**; press and cash-out on a bet round always work. |
 | 15 | **Won = payout > stake.** No step pays under **×1.01** (owner 2026-11-02, `KeyMinesLadder.MinMultiplier` / `KEY_MINES_MIN_MULTIPLIER`): at 97% RTP only 1 jam step 1 (0.97 × 26/25 = ×1.0088) is lifted to ×1.01 (that one step returns 97.1%), so every cash-out is a win; a jam is a loss. |
-| 16 | **Big-payout pause** (owner, 2026-10-29): a settled cash-out paying **more than 5 SOL** (`GeneralSettings:Games:KeyMinesPauseWhenPaidAbove`, 0 = off) pauses the type: `GameParameters.AutoPausedAt` / `AutoPausedReason` are stamped once, and from then on every new-bet path refuses with the vague maintenance message and the lobby card shows MAINTENANCE. Decided on the amount **owed**, just before the transfer, so a win the treasury then fails to cover still pauses. Rounds already live finish and pay. Nothing in code clears it — a human re-opens the type by nulling both columns (+ `ActiveParameters` cache drop). (§6.5) |
+| 16 | **Low-treasury pause** (owner, 2026-11-03, **production only**; replaces the 2026-10-29 "cash-out over 5 SOL" pause): once the treasury wallet (the one that pays the players) is seen **under 8 SOL** (`GeneralSettings:Games:KeyMinesPauseWhenTreasuryBelow`, 0 = off), **every** Key Mines type is paused: `GameParameters.AutoPausedAt` / `AutoPausedReason` are stamped once, and from then on every new-bet path refuses with the vague maintenance message and the lobby card shows MAINTENANCE. Seen at three points: the availability pre-check and the bet backstop (the balance coverage just read; the bet is refused, paid ⇒ refunded) and after **any** treasury-paid round settles (Hyper Roll, House duel and holder rounds drain the same wallet). An unread balance never pauses (coverage already fails closed on it). Rounds already live finish and pay. Nothing in code clears it, refilling included — a human re-opens the type by nulling both columns (+ `ActiveParameters` cache drop). (§6.5) |
 | 17 | **Cosmic Sprint is switched off** (owner, 2026-10-29): `ComingSoon: true` in `DefaultGames`, so the startup self-heal gates it, the deactivation path refunds its waiting round, and the lobby hides it. Key Mines takes its lobby slot **and its card art** (`cosmicsprint-poster.png` / `.gif`). Lobby order: **Hyper Roll, Key Mines, Monkey Duel, Space Jackpot** (`SHOWN_ORDER`; race and preset stay listed at the end in case they return). LP: same four cards in the same order, `lg:grid-cols-4`, roadmap "4 game modes live". |
 | 18 | **One live round per wallet** (owner, 2026-11-02, review point 2): a started round holds treasury cover for its best pay until it ends, so one wallet opening many cheap rounds could tie the treasury up. A wallet with a KEYS round still `InProgress` cannot start another until it ends (cash out, jam or the inactivity sweep): `KeyMinesOneLiveRound`, checked under the coverage lock in `RegisterBetHandler` (paid ⇒ refunded, message `KeyMinesRoundAlreadyLive`), and early in `CheckBetAvailability`, `PlaceOrbitWagerHandler` (both branches) and `PlaceManualOrbitBetConsumer`. Many wallets can still each hold one round; the inactivity sweep ends idle ones. |
 
@@ -337,11 +337,16 @@ repeat, the stored result).
 - A jam round reaches the consumer with no `NeedsRewarding` bet and is closed `RewardForWinnersCompleted` by
   the existing early path (:68) — confirm it sets that status; if it does not, add it for `KEYS` rounds
   (stats only count `RewardForWinnersCompleted`).
-- **Big-payout pause (decision 16).** For a Key Mines winner, once `CalculateRewardForBet` returns the amount
-  owed and before the treasury check / transfer, `KeyMinesPause.TripAsync` runs: if the amount is more than
-  `KeyMinesPauseWhenPaidAbove` it stamps `AutoPausedAt` + `AutoPausedReason` (`ExecuteUpdate … WHERE
-  AutoPausedAt IS NULL`, so the first trip wins), drops the `ActiveParameters` blob and logs at **Error**. A
-  failure is logged and never blocks the payout. The pause is read **fresh from the DB** (`IsPausedAsync`, never
+- **Low-treasury pause (decision 16).** `IKeyMinesTreasuryGuard.PauseIfTreasuryLowAsync(balance, seenAt)` (scoped,
+  `Services/Games/KeyMinesTreasuryGuard.cs`) answers "too low" only when `IHostEnvironment.IsProduction()` and
+  `KeyMinesRules.TreasuryIsTooLow(balance, KeyMinesPauseWhenTreasuryBelow)` (strictly under; null balance or a threshold
+  ≤ 0 ⇒ never). On "too low" it calls `KeyMinesPause.PauseAllAsync` in its **own scope** (the bet path runs inside the
+  bet's transaction, and the refund must not roll the pause back): `ExecuteUpdate … WHERE IsKeyMines AND AutoPausedAt
+  IS NULL` (first trip wins), drops the `ActiveParameters` blob and logs at **Error**; a failed write is logged and the
+  answer is still "too low". Callers: `CheckBetAvailability` (after coverage, ⇒ maintenance), `RegisterHouseEdgeBet`
+  (after coverage, before the fail-closed refusal, ⇒ maintenance + refund) and `RewardGameConsumer` after the payout
+  loop of any treasury-funded round, with the running balance left (balance − fee reserve − every amount owed; never
+  blocks settlement). The pause is read **fresh from the DB** (`IsPausedAsync`, never
   the 12 h blob) in `RegisterHouseEdgeBet` (paid ⇒ refunded), `CheckBetAvailability`, `PlaceOrbitWagerHandler`
   (both branches) and `PlaceManualOrbitBetConsumer`; `GameParametersDto.UnderMaintenance` is true while it is set.
   Migration `KeyMinesAutoPause` adds the two nullable columns. Re-open by hand:
@@ -755,10 +760,12 @@ From the Trello card's **Acceptance Criteria** checklist (21 items):
 Spec-time additions (S1): 22. Given a press or cash-out without the board's `X-Round-Token`, then it is
 refused with the same vague 400 (integration case inside test 8/9).
 
-23. (owner, 2026-10-29) Given a Key Mines cash-out owing more than 5 SOL, when it settles, then the type is paused
-(`AutoPausedAt` set once, reason names the round), it reads as under maintenance, and new wallet / availability /
-Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) while the winning round still settles
-(integration test `ACashOutOverFiveSol_PausesTheType_AndTheRoundStillSettles`).
+23. (owner, 2026-11-03) Given production and a treasury seen under 8 SOL (a Key Mines availability check or bet, or
+after any treasury-paid round), then every Key Mines type is paused (`AutoPausedAt` set once, reason names the
+balance), it reads as under maintenance, and new wallet / availability / Orbit-manual bets are refused with the
+maintenance message (paid ⇒ refunded); outside production, or at 8 SOL or more, nothing is paused (integration test
+`ATreasuryUnderEightSol_InProduction_PausesKeyMines_Once`; unit tests `KeyMinesTreasuryGuardTests`, the two handlers'
+`KeyMines_TreasuryUnderTheFloor_*`, `RewardGameConsumerTests.TreasuryPaidRound_AsksTheKeyMinesGuard_*`).
 
 ---
 
@@ -811,3 +818,4 @@ Orbit-manual bets are refused with the maintenance message (paid ⇒ refunded) w
 | 2026-11-03 | Owner: lobby art shortened to a 3s loop with the typing redone as design B2 "Safe Keys" (Claude Design, 3 options): 1.3s of safe keys flashing green and floating 1.1x…5x, a jam flashes red with a "!", 1.2s blast with BOOM!, 0.5s fly-back. GIF 222 KB. |
 | 2026-11-03 | Owner: CASH OUT is a red pixel keycap (Claude Design, 3 options; C chosen, fixed red instead of the multiplier tier colour): bold CASH OUT over a dark readout of the pay, drawn by `utils/cashKeyArt.ts` at 10× like the other sprites, the mock's `×… NOW` engraving dropped (no room on the plate). Playable mock: 97% RTP, new lobby card. |
 | 2026-11-03 | Owner: Key Mines RTP 97% (was 95%), the same as the playable mock. Config `HouseEdge.RtpPercent` (the startup reconciler heals it into the DB), practice + front fallbacks (`?? 97`), the terms clause (`LAST_UPDATED` 3 November 2026) and the floor comments. Unchanged: the ×1.01 floor (still lifts only 1 jam step 1, now ×1.0088), the 12 SOL cap and the 120× ceiling. |
+| 2026-11-03 | Owner: the Key Mines pause now trips on a **low treasury** instead of a big payout — production only, treasury under 8 SOL (`KeyMinesPauseWhenTreasuryBelow`, replaces `KeyMinesPauseWhenPaidAbove`), pauses every Key Mines type, checked on the availability check, the bet backstop and after any treasury-paid round; still re-opened by hand. Same columns, no migration. Decision 16, §6.5, AC 23. |
