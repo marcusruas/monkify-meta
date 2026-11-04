@@ -696,8 +696,9 @@ another operator means **deploying the app again with a different `spacestrokers
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds
   since #200; also the grid + hits of a settled Word Lines round — the reroll route was removed by #209),
   `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), for Key Mines
-  `POST /games/rounds/{roundId}/press` and `POST /games/rounds/{roundId}/cashout` (header `X-Round-Token`, the
-  per-board secret returned once by `boards`; see `features/key-mines.md`), and for Monkey Duel
+  `POST /games/rounds/{roundId}/press` and `POST /games/rounds/{roundId}/cashout` (form fields `key` +
+  `playToken` — the per-board secret returned once by `boards` — sent as a preflight-free form post; the
+  legacy header `X-Round-Token` shape is still read; see `features/key-mines.md`), and for Monkey Duel
   `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
   `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`
   `JoinDuelBoard`/`LeaveDuelBoard` channel `{gameTypeId}/DuelBoard` (see `features/monkey-duel.md`).
