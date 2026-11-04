@@ -282,6 +282,11 @@ FK — anonymous free bets have no `Player`). There is **no** `Operator`, `Opera
   automatic rollover, so the next board is opened by the player (`POST /games/{gameTypeId}/boards`). See
   `features/hyper-roll.md`. Since #184 the same job also sweeps **Monkey Duel** shells
   (`IsHouseEdge || DuelKind != null`) — only unowned, unbet rounds; a posted duel room never expires.
+- **Key Mines inactivity sweep:** recurring job `key-mines-inactivity-sweep` (every
+  `GeneralSettings.Games.KeyMinesSweepIntervalMinutes`, default 1) runs `KeyMinesInactivitySweepJob`: a KEYS
+  round idle for `KeyMinesInactivityMinutes` (5) auto-cashes at its step (≥ 1 press) or is refunded (0 presses),
+  and rounds stuck `Ended` are re-driven to `RewardGameConsumer`. Key Mines rounds are excluded from
+  `CloseOngoingGames`, so they survive a Consumers restart. See `features/key-mines.md`.
 - **Monkey Duel house side:** no consumer and no house bet since `specs/duel-treasury-house.md` — the
   creator's bet draws the house word into `Game.HouseWord` inside `RegisterBetHandler` (duel lock →
   shared treasury lock), and the treasury pays a winner. The duel word pool self-heals at startup via
@@ -684,7 +689,9 @@ another operator means **deploying the app again with a different `spacestrokers
   `GET /games/{parametersId}/history`, `GET /games/{id}/verification`, and for Hyper Roll
   `POST /games/{gameTypeId}/boards`, `GET /games/rounds/{roundId}` (also serves **House** duel rounds
   since #200; also the grid + hits of a settled Word Lines round — the reroll route was removed by #209),
-  `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), and for Monkey Duel
+  `POST /games/{gameTypeId}/availability` (see `features/hyper-roll.md`), for Key Mines
+  `POST /games/rounds/{roundId}/press` and `POST /games/rounds/{roundId}/cashout` (header `X-Round-Token`, the
+  per-board secret returned once by `boards`; see `features/key-mines.md`), and for Monkey Duel
   `POST /games/{gameTypeId}/duels`, `GET /games/{gameTypeId}/duels`,
   `POST /games/rounds/{roundId}/duel-cancel` (wallet proof), plus the `ActiveGamesHub`
   `JoinDuelBoard`/`LeaveDuelBoard` channel `{gameTypeId}/DuelBoard` (see `features/monkey-duel.md`).

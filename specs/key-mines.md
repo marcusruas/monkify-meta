@@ -1,6 +1,9 @@
 # SpaceStroker — "Key Mines" Feature — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** (2026-11-03, `feature/key-mines` → `main` in `monkify-backend`, `monkify-front`,
+> `monkify-meta`, → `master` in `monkify-lp`). Distilled in [`../features/key-mines.md`](../features/key-mines.md);
+> this spec stays the design archive — the revision log (§16) holds the owner changes made during the build.
+> Refined via Trello card
 > [#204 Key Mines — mines game on Edson's keyboard (variant 1a, 98% RTP)](https://trello.com/c/KQyT1Ini) (2026-10-27).
 > Repos affected: `monkify-backend`, `monkify-front`, `monkify-lp`, and this doc in `monkify-meta`.
 > Branch / worktree: `feature/key-mines` → `.worktrees/key-mines/<repo>` (`monkify-lp` is based on
@@ -85,7 +88,7 @@ Owner decisions from the refined card (2026-10-27, short mode).
 | # | Decision |
 | --- | --- |
 | 1 | **Variant 1a only:** classic QWERTY, the player presses the keys. Other prototype frames are follow-ups. |
-| 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at the RTP. At 95% the top steps are unchanged (2 jams step 23 = 102.92×, 4 jams step 17 = 112.72×, 8 jams step 10 and 10 jams step 8 = 115.32×; 7 jams step 11 = 97.11×) and stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 115.32 = 11.532 SOL. (At 98% these were 106.17×, 116.28×, 118.96× and 100.18×.) |
+| 2 | **Payout cap 12 SOL per round** (`MaxPayoutPerRound`; owner 2026-10-29, was 10 SOL, before that 1 SOL) **and a 120× multiplier ceiling** (`KeyMinesLadder.MaxMultiplier`, a code constant mirrored as `KEY_MINES_MAX_MULTIPLIER`; owner 2026-10-29, was 100×, chosen so 10 jams reach step 8 at 118.96×). The ladder is truncated at the last step with `stake × ladder[k] ≤ cap` and `ladder[k] ≤ 120`; that step auto-cashes, and every step stays at the RTP. At 97% the top steps (2 jams step 23 = 105.08×, 4 jams step 17 = 115.09×, 8 jams step 10 and 10 jams step 8 = 117.75×; 7 jams step 11 = 99.16×) stay reachable at every stake: 12 SOL is 120× of the 0.1 SOL max stake, so the ceiling, not the cap, ends every ladder and the worst case is 0.1 × 117.75 = 11.775 SOL. (At 95% these were 102.92×, 112.72×, 115.32× and 97.11×; at 98%, 106.17×, 116.28×, 118.96× and 100.18×.) |
 | 3 | **Stake bounds 0.002 – 0.1 SOL and the cap are create-only**, like Hyper Roll. Moving them on an existing DB is guarded SQL + an `ActiveParameters` cache drop; the front controls move with them. |
 | 4 | **Jam counts `{1..10}`** (was `{1,3,5,10}`, owner 2026-10-28), a config list validated at startup. |
 | 5 | **Headline badge `UP TO 100X`** (owner, 2026-11-03, reversing 2026-10-29's "no top-multiplier badge"): the lobby card shows `1P · VS HOUSE` and `UP TO 100X`. The ladder's real top is ~119× (10 jams, step 8); the owner chose the round figure. The LP tag is unchanged. |
@@ -725,7 +728,7 @@ Order **Consumers → API → front**, back to back, off-peak; LP after the app 
   money lost). Deploy the front right after the API. The old API (until the new revision is live) cannot
   open a working Key Mines board either — same vague refusal.
 - `ActiveParameters:v5` rebuilds on first read.
-- Treasury: the per-round worst case is 11.896 SOL (12 SOL cap); coverage already blocks a bet the treasury can't cover.
+- Treasury: the per-round worst case is 11.775 SOL at 97% (12 SOL cap, 120× ceiling); coverage already blocks a bet the treasury can't cover.
 - Prove it: `/games/active-types` lists Key Mines with `isKeyMines: true`, `jamOptions [1..10]`, `maximumStake 0.1`, `maxPayoutPerRound 10`,
   `rtpPercent 98`; one `POST /games/{type}/boards` returns `boardMode: KEYS` + a `playToken`.
 
