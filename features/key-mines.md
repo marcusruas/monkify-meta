@@ -28,8 +28,14 @@ It is the first mode where the player decides when to stop.
   create-only) **and** `ladder[k] ≤ 120×` (`KeyMinesLadder.MaxMultiplier`). At 97% the 120× ceiling ends every
   ladder (top: 117.75× for 8 and 10 jams), so the worst case is **0.1 × 117.75 = 11.775 SOL**. Reaching the
   last step, or clearing every safe key, auto-cashes.
-- **Play:** `POST /games/rounds/{id}/press` `{key}` and `POST /games/rounds/{id}/cashout`, both requiring
-  header **`X-Round-Token`** (a mismatch, a repeated key, an ended or non-Key-Mines round → the vague 400).
+- **Play:** `POST /games/rounds/{id}/press` and `POST /games/rounds/{id}/cashout`, sent as a **form post**
+  (`application/x-www-form-urlencoded`, fields `key` + `playToken`) — a CORS "simple request", so the browser
+  never pays an OPTIONS preflight round trip before a press (one trip per press; from India a trip measures
+  ~300 ms and a third of presses were paying the preflight on top — the browser caches preflights per URL, and
+  the URL holds the round id, for only 5 s). The original shape — JSON `{key}` + header **`X-Round-Token`**,
+  body-less cash-out — is still read (`KeyMinesMoveInput`) so a tab on the previous bundle finishes its round.
+  A mismatch, a repeated key, an ended or non-Key-Mines round → the vague 400. **Never add a custom header to
+  these two calls** in the front; it would bring the preflight back.
   Each end is **one conditional update** on `(Id, InProgress, PressedKeys = expected)`, so press vs press vs
   cash-out vs sweep is race-safe: exactly one wins, money never moves twice. Rate limits 240/min (press),
   30/min (cash-out) per IP.
@@ -80,7 +86,8 @@ It is the first mode where the player decides when to stop.
   branches in `RegisterBetHandler`, `CheckBetAvailabilityHandler`, `PlaceOrbitWagerHandler`,
   `PlaceManualOrbitBetConsumer`, `RewardGameConsumer`, `HouseEdgeCoverageService`, `GameService`.
 - **Migrations:** `20261027225633_KeyMines`, `20261029190402_KeyMinesAutoPause` (additive).
-- **API:** `GamesController` — `rounds/{roundId}/press`, `rounds/{roundId}/cashout`; config
+- **API:** `GamesController` — `rounds/{roundId}/press`, `rounds/{roundId}/cashout` (input read by
+  `Controllers/KeyMinesMoveInput.cs`: form fields first, the legacy JSON + header shape second); config
   `spacestrokersettings.json` (`HouseEdge` block of Key Mines, rate limits, `KeyMines*` game settings).
 - **Front:** `components/game/KeyMinesConsole.vue`, `KeyMinesScreen.vue`, `KeyMinesKeyboard.vue`,
   `KeyMinesXpBar.vue`, `keyMines.ts`; `hooks/useKeyMines.ts`, `useLiveKeyMines.ts`, `usePracticeKeyMines.ts`;
