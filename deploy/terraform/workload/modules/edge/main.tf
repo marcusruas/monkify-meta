@@ -216,10 +216,6 @@ resource "google_compute_target_https_proxy" "https" {
   project          = var.project_id
   url_map          = google_compute_url_map.lb.id
   ssl_certificates = [google_compute_managed_ssl_certificate.cert.id]
-  # HTTP/3 (QUIC) pinned on rather than left to Google's default. It does nothing for distance, but a lost
-  # packet on a lossy mobile link no longer stalls every request behind it, and a reconnecting client
-  # resumes its session without a fresh handshake — the far-away (India) player path. In-place update.
-  quic_override = "ENABLE"
 }
 
 resource "google_compute_global_address" "lb_ip" {
