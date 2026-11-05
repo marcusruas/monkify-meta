@@ -500,6 +500,13 @@ branches in `RegisterBetHandler` :153/:157/:736, `BetDomainService` :27/:315, `B
   with `storeBoard` (`useGame.ts:134`). Restore on reload through `getHouseEdgeRound` (`:120`) and resume
   presses with the stored token. No token (other device) ⇒ the screen shows the round read-only with *"This
   round finishes on its own in a few minutes."*
+  **Token storage (fix shipped 2026-11-05, front `906435c`):** the token is ALSO kept per round in
+  `localStorage['keyMines:playTokens']` (`{ [roundId]: { token, at } }`, newest 24, `rememberPlayToken`), written
+  the moment any `/boards` answer carries one (including a pre-opened board that is later discarded), and
+  `storedPlayToken` reads it before the board slot. Reason: the per-type slot `hyperRoll:board:<typeId>` is one
+  value per type and is rewritten by every open / pre-open adoption / lever pull from this tab or any other tab
+  of the same browser; on launch day four players' own live rounds went read-only (the slot pointed at another
+  round, so `hasToken` was false) until the 5-min sweep refunded or auto-cashed them. The slot stays as fallback.
 - Bet via the existing `runBet` (`useGame.ts:1737`) with `choice = 'J' + M`: bounds + fee headroom, then
   `checkGameAvailability` (`:199`) with that choice, then the wallet / Orbit (`placeFromOrbit` :1606) /
   streamer source from `nextBetSource` (:644). Add Key Mines to `isStreamerPlayable` (:624). The stake
