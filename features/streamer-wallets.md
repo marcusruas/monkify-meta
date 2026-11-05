@@ -8,7 +8,7 @@
 ## What it does
 
 Lets a streamer demo the game live without the house giving away real SOL. A small set of **registered
-streamer wallets** (config, not an admin UI) gets a fixed **3.7 SOL play-money balance**, shown in the
+streamer wallets** (config or a manual row in `StreamerWallets`, not an admin UI) gets a fixed **3 SOL play-money balance**, shown in the
 violet Orbit pill exactly like an Orbit balance, and spends it on the two player-vs-house games —
 **Hyper Roll** and **Monkey Duel VS HOUSE**. The balance moves up and down on screen; **no on-chain
 transfer ever happens**, the treasury is never read or touched, and play money can never be cashed out.
@@ -20,9 +20,12 @@ per wallet and game type, like the duel word carry-over.
 
 ## Core rules
 
-### Registration — config → DB reconciler (Consumers startup)
+### Registration — the `StreamerWallets` table is the source of truth
 
-- Config: `GeneralSettings:Operator:Streamers` → `InitialBalance` (committed **3.7**), `Wallets[]`
+> Changed 2026-11-05 (`feature/streamer-table-source`): config is **insert-only** and the seed is **3 SOL**
+> (was 3.7). Before, a wallet missing from config was deactivated on every Consumers start.
+
+- Config: `GeneralSettings:Operator:Streamers` → `InitialBalance` (committed **3**), `Wallets[]`
   (`{ Wallet, Active = true }`), `TopUps[]` (`{ Id, Wallet, Amount }`). The committed
   `spacestrokersettings.json` carries **empty** lists; real wallets are **public keys** and go in
   `deploy/secrets.<env>.json` → **`appConfig`** (plain env vars, no Terraform binding). ⚠️ The binder
@@ -32,24 +35,28 @@ per wallet and game type, like the duel word carry-over.
   1. Normalise: trim, dedupe (first entry wins). **`MOCK_`-prefixed values are skipped silently**
      (the HouseWallets convention); blanks skipped; non-base58 / not 32–44 chars →
      `Log.Error("STREAMERS — skipping invalid wallet entry …")`.
-  2. Every existing row is flipped to match config: listed `Active: true` → active; absent or
-     `Active: false` → **deactivated, never deleted** (the FK `StreamerTransactions → StreamerWallets` is
-     **`Restrict`**: a wallet with history can never be deleted).
-  3. Missing wallets are inserted with `Balance = 0` (a racing instance's `23505` adopts its row).
-  4. **Only ACTIVE wallets are seeded**, once: one transaction inserting a `Seed` row + `Balance +=
+  2. Config wallets **missing from the table** are inserted with `Balance = 0` and their configured `Active`
+     flag (a racing instance's `23505` adopts its row). **An existing row is never touched**: config never
+     activates, deactivates or deletes it. Dropping a wallet from config does nothing; to stop a streamer,
+     set `Active = false` on its row (never delete it — the FK `StreamerTransactions → StreamerWallets` is
+     **`Restrict`**).
+  3. Everything below follows the table's **ACTIVE rows**, whatever inserted them — so a row inserted **by
+     hand** (`Active = true`, `Balance = 0`) is a streamer and gets seeded on the next Consumers start.
+  4. **Only ACTIVE rows are seeded**, once: one transaction inserting a `Seed` row + `Balance +=
      InitialBalance`; the filtered unique index `IX_StreamerTransactions_Seed` makes a second seed lose on
-     `23505`. A wallet listed `Active: false` gets no play money until it is first activated; a
-     **reactivated** wallet that was seeded before is **not** re-seeded. `InitialBalance ≤ 0` → Error, no seed.
+     `23505`. An inactive row gets no play money until it is first activated; a **reactivated** wallet that
+     was seeded before is **not** re-seeded. `InitialBalance ≤ 0` → Error, no seed. Changing
+     `InitialBalance` never re-prices a wallet that is already seeded.
   5. Top-ups: each `Id` applies **exactly once** (unique `TopUpId`), only to a known wallet and only for
      `Amount > 0` (else Error + skipped). ⚠️ A reused id is silently skipped — ids must be unique forever.
-  6. A **newly inserted** wallet that already holds a real Orbit balance > 0 → `Log.Warning("STREAMERS —
+  6. A wallet being **seeded** (its first activation) that already holds a real Orbit balance > 0 → `Log.Warning("STREAMERS —
      wallet … has a real Orbit balance; it is hidden while streaming, cash it out first")`. The real balance
      is untouched, just invisible while the wallet streams.
   7. **Every run, for every active streamer**, any `Enabled` `OrbitEnrollment` is switched off
      (`Enabled = false`, `WaitingForHouseSince = null` — the #200 solo loop's waiting flag), with a Warning.
      Idempotent; it also self-heals an enrolment re-enabled by any other path.
-- **No admin endpoint, no in-app registration.** Adding, removing or topping up a streamer is a config
-  change + a **full** deploy (see Ops below).
+- **No admin endpoint, no in-app registration.** Adding or topping up a streamer is a config change + a
+  **full** deploy, or (adding / removing / reactivating) a row edit + a Consumers restart — see Ops below.
 
 ### The play ledger
 
@@ -210,12 +217,16 @@ per wallet and game type, like the duel word carry-over.
 
 ## Ops
 
-- **Add / remove / top up** (any env): edit `deploy/secrets.<env>.json` → `appConfig`:
-  `GeneralSettings:Operator:Streamers:Wallets:<n>:Wallet` (+ optional `…:<n>:Active: false`),
-  `GeneralSettings:Operator:Streamers:TopUps:<n>:{Id,Wallet,Amount}` (a new, never-reused `Id`), then run a
-  **full** `dotnet run -- deploy --env <env>`. ⚠️ A component deploy (`deploy consumers` / `deploy api`) only
-  pushes an image — it does not `terraform apply`, so **appConfig changes never reach Cloud Run**. Removing a
-  wallet = delete its entry (or `Active: false`) → deactivated on the next Consumers start.
+- **Add / top up via config** (any env): edit `deploy/secrets.<env>.json` → `appConfig`:
+  `GeneralSettings:Operator:Streamers:Wallets:<n>:Wallet` (+ optional `…:<n>:Active: false`, applied only on
+  insert), `GeneralSettings:Operator:Streamers:TopUps:<n>:{Id,Wallet,Amount}` (a new, never-reused `Id`), then
+  run a **full** `dotnet run -- deploy --env <env>`. ⚠️ A component deploy (`deploy consumers` / `deploy api`)
+  only pushes an image — it does not `terraform apply`, so **appConfig changes never reach Cloud Run**.
+- **Add via the table**: `INSERT` a `StreamerWallets` row (`Wallet`, `Active = true`, `Balance = 0`) — do **not**
+  set a balance by hand — then restart Consumers; the startup pass seeds it and disables its auto-bet. Until that
+  restart the wallet already streams, with a 0 balance and its auto-bet still on.
+- **Remove / reactivate**: `UPDATE "StreamerWallets" SET "Active" = false|true` on the row (never delete it).
+  Takes effect at once for bets; removing a wallet from config does **nothing**.
 - Local stack: put the env vars (`GeneralSettings__Operator__Streamers__Wallets__0__Wallet=…`) on **both**
   `api` and `consumers` in the untracked `docker-compose.override.yml` and recreate those containers.
 - Migration `20261007033746_AddStreamerWallets` (two new tables + indexes only; regenerated on top of #200's
@@ -264,5 +275,5 @@ per wallet and game type, like the duel word carry-over.
   `OrbitSoloAutoBetServiceTests`, `OrbitSoloAutoBetSweepJobTests`.
 - Integration (mandatory): `StreamerWalletsFlowTests` — Hyper Roll happy path (play win credited, zero
   transfers, no `TransactionLog`, leaderboard/stats money unchanged, round in history), House duel settling
-  to the ledger, refusals (wallet bet refunded, balance unchanged), reconciler idempotency + deactivation,
+  to the ledger, refusals (wallet bet refunded, balance unchanged), reconciler idempotency + the table as source of truth (config never deactivates/reactivates; a hand-inserted row is seeded),
   and a streamer's solo auto-bet enrolment disabled and never staking.

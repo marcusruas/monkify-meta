@@ -12,7 +12,11 @@
 >   answer is any wallet's, with no lookup (anti-probing, `constraints.md` §6). The **OpenRoom streamer branch
 >   was removed** from both routes — an open room answers/opens like anyone's and the `RegisterBetHandler`
 >   guard refuses the play bet.
-> - **§6.1 reconciler:** seeds **active** wallets only (a wallet listed `Active: false` gets no seed until
+> - **§6.1 reconciler (changed 2026-11-05, `feature/streamer-table-source`):** the `StreamerWallets` TABLE is
+>   the source of truth — config only inserts missing wallets and never activates/deactivates a row; seeding
+>   and the enrolment switch-off follow the table's active rows (a hand-inserted row is seeded); the seed is
+>   **3 SOL** (was 3.7). The Orbit-balance Warning now fires when a wallet is first seeded.
+> - **§6.1 reconciler (as first built):** seeds **active** wallets only (a wallet listed `Active: false` gets no seed until
 >   activated); `MOCK_` values are skipped **silently** (no Error); the Orbit-balance Warning fires for newly
 >   inserted wallets; and on **every** run it disables any `Enabled` Orbit enrolment of an active streamer
 >   (`Enabled = false`, #200's `WaitingForHouseSince = null`).
