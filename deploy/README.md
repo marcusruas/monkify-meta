@@ -358,10 +358,11 @@ perfectly cheerful `PASS`.
 
 Streamer wallets are **public keys**, so they live in `appConfig`, never `secrets` (no Terraform binding):
 `GeneralSettings:Operator:Streamers:Wallets:<n>:Wallet` (optional `…:<n>:Active: false`) and
-`GeneralSettings:Operator:Streamers:TopUps:<n>:{Id,Wallet,Amount}`; `InitialBalance` defaults to 3.7. The
+`GeneralSettings:Operator:Streamers:TopUps:<n>:{Id,Wallet,Amount}`; `InitialBalance` defaults to 3. The
 Consumers startup reconciler seeds each **active** wallet once, applies each top-up `Id` once (⚠️ ids must be
-unique forever — a reused id is silently skipped), skips `MOCK_` values and **deactivates** (never deletes) a
-wallet you remove. ⚠️ Adding, removing or topping up a streamer needs a **full** `dotnet run -- deploy --env
+unique forever — a reused id is silently skipped), skips `MOCK_` values and only **inserts** missing wallets —
+the `StreamerWallets` table is the source of truth, so removing a wallet from config does nothing; switch its row's
+`Active` off instead. ⚠️ Adding or topping up a streamer via config needs a **full** `dotnet run -- deploy --env
 <env>`: a component deploy (`deploy consumers` / `deploy api`) only pushes an image and never runs the
 `terraform apply` that carries `appConfig` to Cloud Run. Before registering a wallet, cash out any real Orbit
 balance it holds (it is hidden, not moved, while it streams). See `features/streamer-wallets.md`.

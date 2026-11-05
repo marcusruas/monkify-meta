@@ -99,7 +99,7 @@ startup reconciler switches its enrolment off on **every** run (`Enabled = false
 cleared), the shared planner's `ResolveCandidates`, the solo loop's tick and pre-place re-check, the
 `orbit-solo-autobet-sweep` and the startup kick all exclude it, and `PATCH /orbit/settings` refuses it
 (`OrbitRequestInvalid`). Its real Orbit balance stays in custody, hidden from `GET /orbit` (which shows the
-play balance with `isStreamer: true`), until the wallet is deactivated. A real-money solo round already in
+play balance with `isStreamer: true`), until the wallet's `StreamerWallets` row is switched off. A real-money solo round already in
 flight when the wallet is registered still settles to custody normally.
 
 - **Every eligible enrolled player bets every round — no cap.** Filling only the gap to

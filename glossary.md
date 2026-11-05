@@ -243,10 +243,10 @@
   `TransactionLog` row, `ReferralCode = null`, never exposure, settled and refunded on the **play ledger**.
   Excluded from leaderboards, stats money figures and referral earnings; counted in participation. See
   `features/streamer-wallets.md`.
-- **Streamer wallet** — `StreamerWallet` (#201): a wallet registered in config
-  (`GeneralSettings:Operator:Streamers:Wallets`) and reconciled at Consumers startup
-  (`StreamerWalletReconciler`); seeded `InitialBalance` (3.7) once while active, deactivated — never
-  deleted — when it leaves config. While active it bets **only** play money (Hyper Roll + Monkey Duel VS
+- **Streamer wallet** — `StreamerWallet` (#201): an ACTIVE row in the `StreamerWallets` table (the source of
+  truth), inserted from config (`GeneralSettings:Operator:Streamers:Wallets`, insert-only) or by hand; the
+  Consumers startup pass (`StreamerWalletReconciler`) seeds `InitialBalance` (3) once while active. Removed
+  by switching the row's `Active` off — never deleted, and never by config. While active it bets **only** play money (Hyper Roll + Monkey Duel VS
   HOUSE via `POST /orbit/wagers`); every real-money bet and Orbit deposit / cash-out / settings / Telegram
   call is refused with existing vague copy. `GET /orbit` reports `isStreamer: true`.
 - **Play balance / play ledger** — `StreamerWallet.Balance` and its append-only `StreamerTransaction`
