@@ -3,13 +3,16 @@
 > **Status: Ready for implementation** — refined via Trello card
 > [#219 Monkey Duel quick flip — stake, pull, the $STROKE coin spins (design 2c)](https://trello.com/c/eQ4Dzxj8)
 > (refined 2026-11-10, short mode).
-> Repos affected: `monkify-front` (the feature), `monkify-lp` (one blurb), and this doc in `monkify-meta`.
-> **`monkify-backend` is untouched.**
+> Repos affected: `monkify-front` (the feature), `monkify-backend` (round 3: the seed-settled House duel, §0),
+> `monkify-lp` (one blurb), and this doc in `monkify-meta`.
 > Branch / worktree: `feature/duel-quick-flip` → `.worktrees/duel-quick-flip/<repo>` (`monkify-lp` is based on
 > `master`, the others on `main`).
-> Change level: **Minor change** ⇒ no new integration test and no new `features/<slug>.md`; the existing
+> Change level: **Feature** since round 3 (2026-11-10; it was `Minor change` while front-only) ⇒ a mandatory
+> happy-path integration test (§0) and a `features/duel-quick-flip.md` at ship; the existing
 > [`../features/monkey-duel.md`](../features/monkey-duel.md) and [`../features/frontend-ux.md`](../features/frontend-ux.md)
-> are corrected at ship. Builds on the shipped duel in [`../features/monkey-duel.md`](../features/monkey-duel.md).
+> are corrected at ship too. Builds on the shipped duel in [`../features/monkey-duel.md`](../features/monkey-duel.md).
+> ⚠️ **Read §0 first: round 3 supersedes §1, §3 (decisions 1, 3, 5, 6), §6, §7.2, §7.5, §10.1, §11.1 and ACs 2–4 and
+> 11 where they differ.** The rest of the document is the round-1/2 design as implemented.
 > Design: canvas option **1c THE COIN** and playable mock **2c** in the Claude Design project
 > <https://claude.ai/design/p/a7ae74b1-fd17-4d79-936f-8fd9df1a6d74> (`Quick Flip Directions.dc.html`, `PlayCoin.dc.html`).
 > ⚠️ The mock draws a generic orange coin; the real thing uses the **$STROKE coin** art (§7.4).
@@ -20,6 +23,69 @@
 > underneath is unchanged (Edson races two 6-letter words, the house word is drawn from the seed at the
 > pull, the winner is paid `S × (2 − rate)` by the treasury, the verifier reproduces the draw). Only the
 > screen and the plate change, and only on the **VS HOUSE** tab.
+
+---
+
+## 0. Round 3 (2026-11-10): the seed-settled flip
+
+The owner tested the round-2 build (coin over the typed proof strip, random words) and asked for three changes:
+**no "Edson is typing" part** (only the coin and the two words), **the words are PLAYER (the player) and STROKE
+(the house)**, and **each round lasts at most 2 seconds**. Mocked as turn `t3` of the Claude Design project
+(`Quick Flip Round 3.dc.html`: storyboard `OptionCoinV2`, playable `PlayCoinV2`). The owner then chose
+**option A** (backend settles VS HOUSE from the seed) over B (front-only cap, cannot guarantee 2 s) and C (keep).
+
+### 0.1 Decisions 14–17 (short mode)
+
+| # | Decision |
+| --- | --- |
+| 14 | **The server settles a House duel from the seed the instant the bet lands.** `SpaceStrokerTyper.IsHouseDuel` (a House duel with a drawn house word, `Game.HasDrawnHouseWord`) decides the winner at construction through the existing fallback draw (`ProvablyFair.FallbackIndex` over the ordinal-sorted {creator word, house word}, one-bet prefix), with `MaxCharacters = 0` and `CharactersTyped = 0`; `GameService.RunGame` types nothing and emits no terminal batch for it. Open rooms race exactly as before. **The verifier is unchanged**: `WinnerDecidedByFallback = CharactersTyped >= MaxCharacters` (0 ≥ 0), `verify.html` / `provablyFair.ts` replay zero characters and draw the fallback. Why: a 2 s cap is only honest if the server decides in 0 s; the fallback draw is already a verifiable 50/50 over two words. |
+| 15 | **Fixed words.** The front bets the literal word `player` on VS HOUSE (`DUEL_HOUSE_PLAYER_WORD`, six letters, outside the house pool and the quick list); the arena labels are PLAYER (heads, you) and STROKE (tails, the house). The house word is still drawn and published on the fairness page; the cabinet never shows either word. `pickDuelWord` stays for open rooms and for a type whose word is not six letters. |
+| 16 | **Screen = `DuelFlipArena.vue`** (pure view): PLAYER (HEADS · WINS payout) \| `DuelCoin` + a 2 s clock bar \| STROKE (TAILS · KEEPS stake). `DuelCoin` is a real 3D flip of the two PNG faces (`monk-coin-main.png` / `monk-coin-tails.png`, 0.28 s rotateY while spinning, 0.45 s land onto the reported face; the spin GIF stays with `DuelVsSplash`). Header `> FLIP · PLAYER vs STROKE` + POT; status line `> HEADS IS PLAYER. TAILS IS STROKE. THE ROUND SEED DECIDES.`; verdict `HEADS. PLAYER WINS.` / `TAILS. STROKE TAKES IT.` (+ `STROKE TOOK IT. -x` on a loss); idle prompt `> SET A STAKE AND PULL. HEADS IS PLAYER, TAILS IS STROKE.`; placing line `> THE ROUND SEED DECIDES THE FLIP.` No proof strip, no `GameTyper`, no outcome sentences, no stamp. The winner's side goes hazard yellow, the loser's dims. `DuelCard` stays for the board and other callers. |
+| 17 | **Timing** (`src/constants/duelCoin.ts`): spin ≥ 1400 ms, land 450 ms, clock 2000 ms. The coin lands when the Ended frame has brought `winnerChoice` **and** the minimum spin has passed (1850 ms on a prompt server; a late frame keeps it in the air). A House round is "settled on screen" when `status > InProgress && winnerChoice` (no `finishedTyping`); result lines and `RaceResultFx` wait for `landed`. **Practice**: timings `{opponentBetMs 0, countdownMs 0, runMs 1400, endedMs 450}`, no VS splash, the coin lands at `Ended` and the result shows at `RewardForWinnersCompleted`, house label `STROKE`, four reworded bubbles. |
+
+### 0.2 Backend (replaces §6)
+
+- `SpaceStroker.Domain/Games/Services/SpaceStrokerTyper.cs`: `IsHouseDuel`; after `CalculatePacing()` →
+  `SettleFromTheSeed()` (`MaxCharacters = 0`, `_targetMsPerChar = 0`, `DecideFallbackWinner()`).
+- `SpaceStroker.Infrastructure/Services/Games/GameService.cs` `RunGame`: the final "type the winner" batch is skipped
+  for `IsHouseDuel`.
+- Nothing else: no entity, migration, config, DTO, SignalR or money-path change. `RegisterDuelBet`, the duel lock, the
+  house word draw, coverage, `S × (2 − rate)`, Orbit auto-play and the verifier endpoint are untouched. The Ended
+  frame still carries `result.firstChoiceTyped`.
+- Round length now = the message hops (BetPlaced → RunGame → Ended broadcast); the typer part is 0 ms.
+
+### 0.3 Tests (replaces §11.1)
+
+- Unit (`SpaceStrokerTyperTests`): new `HouseDuel_SettlesFromTheSeedAtConstruction_NothingIsTyped`,
+  `HouseDuel_IsAFairCoin_AcrossSeeds` (4000 fixed-Random seeds, 46–54%), `OpenRoomDuel_StillRacesItsStream`;
+  adjusted `ADuel_PacesToItsOwnWindow…` (open room), `HouseDuel_KeystreamPrefix…` (asserts the draw),
+  `HouseDuel_WithoutAHouseWordYet…` (still types).
+- Integration (mandatory, Level Feature): `MonkeyDuelFlowTests.HouseDuel_SettlesFromTheSeedAtThePull_NothingIsTyped`
+  (bet `player`, no steering: `CharactersTyped` 0, `MaxCharacters` 0, `EndDate − StartDate < 1.5 s`, winner = the
+  fallback oracle, verification fallback-decided, money path unchanged either way).
+- `MonkeyDuelCoverageTests.SharedExposure…` loses its "while the House duel is unsettled" step: there is no in-flight
+  window any more; the duel row in the shared book is pinned by `HouseEdgeCoverageServiceTests`.
+- Front: `scripts/smoke-duel-coin.mjs` asserts the verdict line matches the face, PLAYER/STROKE on screen, no typed
+  copy, and spinning → landed ≤ 2600 ms.
+
+### 0.4 Acceptance criteria 16–19 (added to the card; 3, 4 and 11 are superseded, 2's 0.6 s figures by 17)
+
+16. Given a House round, when the bet lands, then the server settles it with no character typed (`charactersTyped` 0, `maxCharacters` 0, `winnerDecidedByFallback` true) and the fairness page reproduces the winner from the revealed seed and the one-bet prefix.
+17. Given a House round on screen, when it runs, then the only words on the arena are PLAYER and STROKE, no typed stream or Edson copy is shown, and the coin spins at least 1.4 s then lands in 0.45 s on heads if the player won and tails otherwise; on a prompt server the flip reads done in about 1.85 s.
+18. Given a landed coin, when the result shows, then it reads HEADS. PLAYER WINS. or TAILS. STROKE TAKES IT., the winning side lights up and the other dims, and the lever returns to FLIP.
+19. Given the practice duel, when it runs, then there is no VS splash, no bubble mentions typing or a proof strip, and the coin lands heads about 1.85 s after bubble 2 is dismissed.
+
+### 0.5 File checklist additions
+
+| Repo | File | Change |
+| --- | --- | --- |
+| backend | `SpaceStrokerTyper.cs`, `GameService.cs` | §0.2 |
+| backend | `SpaceStrokerTyperTests.cs`, `MonkeyDuelFlowTests.cs`, `MonkeyDuelCoverageTests.cs` | §0.3 |
+| front | `src/constants/duelCoin.ts` (new), `src/components/game/DuelFlipArena.vue` (new), `DuelCoin.vue` (rewrite: 3D flip, no stamp), `GameTerminal.vue`, `DuelConsole.vue`, `src/utils/duelQuickWord.ts` | §0.1 |
+| front | `src/constants/practiceGame.ts`, `src/hooks/usePracticeDuel.ts`, `src/components/practice/PracticeDuelScreen.vue` | practice |
+| front | `src/components/guide/sections/GuideCoinflip.vue` (+ re-cut `coinflip-coin.png`), `scripts/smoke-duel-coin.mjs` | guide, smoke |
+| lp | `src/components/GameModes.vue` | blurb: *"Flip the $STROKE coin against the house on the spot: heads is PLAYER, tails is STROKE, settled from the round seed in two seconds. Or take another player's open duel, where the first word Edson types takes both stakes."* |
+| meta | this spec, `INDEX.md`, `docs/superpowers/plans/2026-11-10-duel-quick-flip-round3.md`; at ship `features/duel-quick-flip.md` (new), `features/monkey-duel.md`, `features/frontend-ux.md` | |
 
 ---
 
@@ -568,3 +634,4 @@ the current `main` backend — a stale local API has mimicked front regressions 
 | Date | Change |
 | --- | --- |
 | 2026-11-10 | Initial spec from refined card #219 (short-mode refinement 2026-11-09/10; design 2c THE COIN with the $STROKE coin). |
+| 2026-11-10 | **Round 3 (§0)** after the owner tested the implemented build: no typing strip, fixed words PLAYER / STROKE, ≤ 2 s. Option A: the backend settles a House duel from the seed at the pull (`SpaceStrokerTyper.IsHouseDuel`), Level → **Feature**, integration test added, `monkify-backend` joins the branch. Design turn `t3` (`Quick Flip Round 3.dc.html`). |
