@@ -376,8 +376,14 @@
 - **Clean burn** — `IconBurnCheck` with `Outcome = Burned` and a null `Reason`; the only shape that can unlock.
 - **Swap card / `/#swap`** (#212) — the Jupiter Plugin swap inside the Home `$STROKE` card; every Buy / GET
   $STROKE link in the app routes there same-tab (`useSwapTarget().goToSwap`). Fallback `Swap on Jupiter ↗`.
-- **Duel quick play** — pulling the Monkey Duel lever with an empty word field: a themed word is picked for
-  that round only (`pickDuelWord`), not remembered. See `features/monkey-duel.md`.
+- **Duel quick play** — pulling the Monkey Duel lever on OPEN DUELS with an empty word field: a themed word
+  is picked for that round only (`pickDuelWord`), not remembered. On VS HOUSE there is no word field: the
+  bet is always the fixed word `player` (#219). See `features/monkey-duel.md`.
+- **Quick flip / PLAYER vs STROKE** — Monkey Duel's VS HOUSE since #219 (`features/duel-quick-flip.md`): the
+  server settles the House duel from the committed seed the instant the bet lands (the typer's fallback draw
+  over `{player, house word}`, nothing typed, `MaxCharacters = 0`), and the screen is the $STROKE coin flipping
+  between **PLAYER** (heads, the bettor) and **STROKE** (tails, the house), ~0.9 s. The two words are labels;
+  the house word is still drawn and published on the fairness page.
 - **Notification (🔔 feed)** — one row in `Notifications` for a wallet: `donation`, `trophyUnlocked`,
   `refundIssued` or `jackpotWon`, unique per `(Wallet, Type, DedupKey)` (signature / trophy key / bet id /
   game id), pushed live as `NotificationReceived` to `dm:{wallet}`. The chat's NOTIFICATIONS tab lists them

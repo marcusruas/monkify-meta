@@ -8,10 +8,13 @@
 
 ## What it does
 
-A **1v1 race**: two 6-letter words, one typer stream, the first word typed takes the 2-stake pot less
-the ordinary commission. One machine, two CRT tabs — **VS HOUSE** (the default landing: duel the house
-on the spot, nobody to wait for) and **OPEN DUELS** (a public board of player-posted rooms you can take,
-post to, or cancel). It is the **second** player-vs-house shape beside Hyper Roll, deliberately: Hyper
+A **1v1 duel** with two faces. One machine, two CRT tabs — **VS HOUSE** (the default landing: duel the
+house on the spot, nobody to wait for) and **OPEN DUELS** (a public board of player-posted rooms you can
+take, post to, or cancel). **Since #219 (2026-11-10, [`duel-quick-flip.md`](duel-quick-flip.md)) VS HOUSE is
+a coin flip:** the server settles it from the seed the instant the bet lands, nothing is typed, and the screen
+is the $STROKE coin between **PLAYER** (heads, you) and **STROKE** (tails, the house), done in under a second.
+**OPEN DUELS is still the race:** two 6-letter words, one typer stream, the first word typed takes the
+2-stake pot less the ordinary commission. It is the **second** player-vs-house shape beside Hyper Roll, deliberately: Hyper
 Roll is a weighted draw against a board, the duel is a genuine race. **Hyper Roll is untouched.**
 
 It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "Launch gate" below.
@@ -90,8 +93,11 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   `DeriveWord(serverSeed, gameId, attempt, poolSnapshot)` over the ordinal-sorted snapshot, prefix
   `duel|{gameId}|{attempt}`, attempts 0…9 (`MaxWordAttempts = 10`), skipping the creator's word.
 - **The round is full as soon as the creator's bet lands** (`Game.HasDrawnHouseWord`): `BetPlacedConsumer`
-  needs one player, as for Hyper Roll, and the typer races the creator's word against `HouseWord` (added
-  with count 0, Hyper Roll's board-word pattern — a house win has `NumberOfWinners = 0`).
+  needs one player, as for Hyper Roll. The typer registers the creator's word and `HouseWord` (added with
+  count 0, Hyper Roll's board-word pattern — a house win has `NumberOfWinners = 0`) and — **since #219 —
+  settles the round at construction from the seed** (`SpaceStrokerTyper.IsHouseDuel` → the fallback draw over
+  the ordinal-sorted pair, `MaxCharacters = 0`, nothing typed, no terminal batch). See
+  [`duel-quick-flip.md`](duel-quick-flip.md) → Settlement. The creator's word is the front's fixed `player`.
 - **Exposure:** an unsettled House duel holding a paid bet counts in `HouseEdgeCoverage` at its worst case
   `Stake × (2 − rate)` plus a fee reserve, so a Hyper Roll round and a House duel share one budget. The VS
   HOUSE quote is `min(MaximumStake, (balance − feeReserve − exposure) / (2 − rate))`, truncated to 9 dp
@@ -116,9 +122,8 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   takes `isDuelHouse`, which `GameService` passes as `game.DuelKind == House`. House rounds therefore skip the
   VS splash; open PvP rooms keep the 2 s countdown.
 - **House duels are one pull, like Hyper Roll** (front, `DuelConsole.vue`): the lever on a finished House
-  result closes it and places the next House bet with the remembered word (or, with an empty field, a word
-  picked at the pull) and the same stake (tag `PLAY x`, "PULL THE LEVER TO PLAY AGAIN."); only a half-typed
-  word makes it just END. PvP results keep END. Since #212 **the console unlocks as soon as the round is
+  result closes it and places the next House bet — since #219 always the fixed word `player`, no word LCD on
+  the house face — at the same stake (tag `FLIP x`, "PULL THE LEVER TO FLIP AGAIN."). PvP results keep END. Since #212 **the console unlocks as soon as the round is
   over**: on the result screen the word, stake and board keys work (touching one waves the result off), and
   a pull starts a new round. It stays locked only while a round or a bet is in flight.
 - No rollover, no startup open, no startup re-plan, **never seeded by the house seed bet**
@@ -130,8 +135,10 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
   gap. Orbit never posts or joins OPEN DUELS, and **never takes an `OrbitChoiceClaim` on the duel** (it would
   block that word in everyone's duels). See [`auto-bet-duel-hyper-roll.md`](auto-bet-duel-hyper-roll.md).
   `GET /games/rounds/{roundId}` now serves **House** duel rounds too (OpenRoom stays refused), and reading
-  an unbet House shell keeps it alive.
-- The typer races the two words over the union of their characters, but on its **own pacing window**
+  an unbet House shell keeps it alive. **Since #219 it also serves a SETTLED House duel** (winner and house
+  word included): the front's post-pull lookup routinely finds the seed-settled round already over.
+- **Open rooms only (since #219 a House duel types nothing):** the typer races the two words over the union
+  of their characters, but on its **own pacing window**
   (`GeneralSettings:Games:DuelTarget*`, 2026-09-29): mean target **4–6 s**, p95 **8 s** ⇒ a 5 s target and
   a 7.2 s cap. A duel usually ends at a natural win BEFORE the cap, so it **averages ~3.5–3.8 s**
   (measured 3.52 s over 10 local rounds, range 0.2–7.3 s) — not 5. ⚠️ The cap/mean ratio (1.44) is kept
@@ -203,6 +210,10 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 - ⚠️ The verifier **fails closed** on a House duel: the branch is entered on kind alone, and a missing
   pool snapshot / house word / creator word yields `houseWordOk = false` (reported "not published",
   distinct from "mismatch") — never `VERIFIED`.
+- **The House race itself (since #219):** a settled House duel publishes `charactersTyped = 0` and
+  `maxCharacters = 0`, so `winnerDecidedByFallback` is true and the replay is the fallback draw
+  (`FallbackIndex(serverSeed, prefix(gameId, creatorSeed), 2)` over the ordinal-sorted `{player, houseWord}`)
+  with zero characters — the same maths a capped round always used; nothing new to publish or mirror.
 
 ### Frontend
 
@@ -213,30 +224,32 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 - The machine: `DuelTabs` (VS HOUSE / OPEN DUELS N) · `DuelCard` (two corners either side of VS, red =
   you, blue = rival) · `DuelBoard` (room grid, `+ OPEN YOUR OWN DUEL` tile first; since Profile V2 each
   open room card shows its owner's Edson icon as a 34 px tile spanning the card's three lines,
-  [`profile-v2.md`](profile-v2.md)) · `DuelPlate` (pure
-  view: word LCD + `?`, − / stake LCD / +, slide switch, UP/DOWN, SORT/OK/CLEAR; since 2026-10-02 it
-  mounts on the shared `ConsolePlate`, which owns the plate, the lever and the row grid, so its keys and
-  rows match every other game's — see `frontend-ux.md` → "The game console") + `DuelConsole`
+  [`profile-v2.md`](profile-v2.md)) · `DuelPlate` (pure view, **tab-aware since #219**: house face = ½ · 2× ·
+  MAX + − / stake LCD / +, slide switch + `?` + LAST 6; board face = word LCD + `?`, stake row, slide switch,
+  UP/DOWN, SORT/OK/CLEAR; since 2026-10-02 it mounts on the shared `ConsolePlate`, which owns the plate, the
+  lever and the row grid, so its keys and rows match every other game's — see `frontend-ux.md` → "The game
+  console") + `DuelConsole`
   (live logic) · `DuelVsSplash`. **OK arms everything on the board**: JOIN a room, OPEN from the `+`
   tile, CANCEL your own. Lever tag `READY → PULL → PLACING… → LIVE`; the result lever is **END — no
   rematch**.
-- **The race and result use Cosmic Sprint's standard** (since 2026-10-06, #200 QA `8dfc5bc`; revised with
-  #212, 2026-10-29). A House pull runs **reveal beat → race → result**: a short word-vs-word reveal (your
-  word against `??????`, the house word typing itself in once drawn; skipped for a round found already
-  running, instant under reduced motion), then `RaceLanes` races **both words** (yours as `YOU`, theirs as
-  `HOUSE` / `RIVAL`; the house lane eases in once drawn), the typer stream filling the rest, and on the
-  result the lanes give way to plain outcome lines: *"EDSON TYPED YOUR WORD: X."* / *"EDSON TYPED THE
-  HOUSE'S WORD: X."* + *"NOT YOURS (Y)."*, and when the character cap hit first (`winnerWasTyped` false,
-  ~40% of rounds) *"NEITHER WORD CAME UP BEFORE THE LIMIT."* + *"YOU WON THE FAIR DRAW."* / *"THE FAIR DRAW
-  WENT TO THE HOUSE."* ⚠️ Never claim a word was typed when the fair draw decided. The result
-  moment is Sprint's **`RaceResultFx`** card (`YOU WON!` + the duel payout `S × (2 − rate)` / `NOT THIS
-  TIME` + `-stake`), shown to the duel's own player. ⚠️ The old dedicated **DUEL WON / DUEL LOST banner and
-  the near-miss dock are gone.** The winning word lights up yellow at the end of the stream
-  (`.winning-hit`), as in every mode.
-- **The VS splash shows the drawn house word.** `RegisterBetHandler` draws it at bet time, after the screen
-  loaded the round, so once the round leaves `WaitingBets` the front re-reads `GET /games/rounds/{id}` once
-  (`refreshDuelHouseWord`) and the splash reads `stroke VS nebula` instead of `??????`. A failed read is
-  silent and the splash keeps `??????`.
+- **VS HOUSE is the coin (#219, [`duel-quick-flip.md`](duel-quick-flip.md)):** `DuelFlipArena` (PLAYER |
+  3D `DuelCoin` + 1 s clock | STROKE), spin ≥ 0.6 s then a 0.3 s land on the server's face, one verdict line
+  (`HEADS. PLAYER WINS. +payout` / `TAILS. STROKE TAKES IT. -stake`) and `RaceResultFx`; no reveal beat, no
+  lanes, no typed stream, no seed on the cabinet; ½ · 2× · MAX keys and a LAST 6 strip on the plate; a bell
+  plim on the flip and the sting when the coin lands.
+- **Open rooms use Cosmic Sprint's standard** (since 2026-10-06, #200 QA `8dfc5bc`; revised with #212,
+  2026-10-29): the `GameStarting` VS splash (both words and the countdown), then `RaceLanes` races **both
+  words** (yours as `YOU`, theirs as `RIVAL`), the typer stream filling the rest, and on the result the lanes
+  give way to plain outcome lines: *"EDSON TYPED YOUR WORD: X."* / *"EDSON TYPED YOUR RIVAL'S WORD: X."* +
+  *"NOT YOURS (Y)."*, and when the character cap hit first (`winnerWasTyped` false) *"NEITHER WORD CAME UP
+  BEFORE THE LIMIT."* + *"YOU WON THE FAIR DRAW."* / *"THE FAIR DRAW WENT TO <rival>."* ⚠️ Never claim a
+  word was typed when the fair draw decided. The result moment is Sprint's **`RaceResultFx`** card
+  (`YOU WON!` + the duel payout `S × (2 − rate)` / `NOT THIS TIME` + `-stake`), shown to the duel's own
+  player; the result lever is END. ⚠️ The old dedicated **DUEL WON / DUEL LOST banner and the near-miss dock
+  are gone.** The winning word lights up yellow at the end of the stream (`.winning-hit`), as in every mode.
+- **The house word is re-read once** after the round leaves `WaitingBets` (`refreshDuelHouseWord`,
+  `GET /games/rounds/{id}`) — it is drawn at bet time, after the screen loaded the round. Since #219 the
+  cabinet never shows it (the fairness page does); a failed read is silent.
 - **Your own bet is re-derived from the round** on every load (`getBets()` after the pull never echoed it
   through the Bets stream), so the **victory / lose sting now plays in duels** (it never did before), and the
   lane appears. A duel round with no stake yet takes its stake from the first bet.
@@ -250,8 +263,8 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 - Copy reads the **live** `commissionPercentage` (2%) and the corrected formula `S × (2 − rate)` —
   never the artifact's 5% / `2S × (1 − rate)`.
 - **HOW TO PLAY** is a practice duel against the house at **`/game/practice?mode=duel`**
-  (`usePracticeDuel.ts`), running on the live `DuelPlate` / `DuelCard` / `DuelVsSplash` with Edson's
-  four-beat tutorial.
+  (`usePracticeDuel.ts`), running on the live `DuelPlate` / `DuelFlipArena` with Edson's four-beat tutorial
+  (since #219: no splash, the coin lands heads ~0.9 s after bubble 2, no typing beat).
 
 ### Launch gate (Monte Carlo)
 
@@ -290,10 +303,13 @@ It ships **live** (`ComingSoon: false`) with an **8-word house pool** — see "L
 
 **Frontend (`monkify-front`)** — `src/types/index.ts`, `src/services/mainService.ts`
 (`openDuelRoom`, `getDuelRooms`, `cancelDuelRoom`), `src/hooks/useDuel.ts`, `useGameHub.ts`,
-`useGame.ts` (`refreshDuelHouseWord`, own-bet/lane re-seed, `attachRound` for Orbit auto duels), `usePracticeDuel.ts`,
-`src/components/game/Duel{Tabs,Card,Board,Plate,Console,VsSplash}.vue`, the shared `RaceLanes.vue` /
-`RaceResultFx.vue` / `GameTyper.vue` / `GameTerminal.vue`, `src/utils/duelWord.ts`, `src/utils/lastStake.ts`,
+`useGame.ts` (`refreshDuelHouseWord`, own-bet/lane re-seed, `attachRound` for Orbit auto duels, the settled
+House round fallback), `usePracticeDuel.ts`,
+`src/components/game/Duel{Tabs,Card,Board,Plate,Console,VsSplash,Coin,FlipArena}.vue`, the shared `RaceLanes.vue` /
+`RaceResultFx.vue` / `GameTyper.vue` / `GameTerminal.vue`, `src/utils/duelWord.ts`, `src/utils/duelQuickWord.ts`,
+`src/utils/duelLastResults.ts`, `src/utils/lastStake.ts`, `src/constants/duelCoin.ts`,
 `src/utils/gameArchetype.ts`, `src/utils/gameArt.ts`, `src/utils/provablyFair.ts`, `public/verify.html`.
+The #219 files are listed in [`duel-quick-flip.md`](duel-quick-flip.md).
 
 **Tests** — unit: `BetDomainServiceTests`, `DuelHouseWordGeneratorTests` (golden vector),
 `DuelHouseRulesTests`, `DuelLockServiceTests`, `DuelWordRulesTests`, `RegisterBetHandlerTests`,

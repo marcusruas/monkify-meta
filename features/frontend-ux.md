@@ -310,7 +310,8 @@ the terminal unmounts; never under reduced motion). Styles live at the bottom of
 - **Cosmic Sprint** — the plates, then the bet cards, glide in from the left, staggered.
 - **Space Jackpot** — the plates, then the tickets, fade in as they slide up, staggered. (A "power-on" — plates
   opening out of a line — was rejected as wonky.)
-- **Monkey Duel** — YOU slides in from the left, THE HOUSE from the right, VS slams in between.
+- **Monkey Duel** — PLAYER slides in from the left, STROKE from the right (since #219 the coin in the middle is
+  left alone: a centre slam hid most of the sub-second flip; the board's `DuelCard` still slams its VS).
 - ⚠️ Transform and opacity only, smooth easing. The first Sprint / Jackpot cut (a stepped `clip-path`
   wipe and a neon flicker) was rejected as "laggy and weird": `clip-path` animates on the main thread
   while the round is still rendering, and stepped timing reads as dropped frames.
@@ -358,7 +359,10 @@ audio never affects bets, settlement, winners or game state.**
   rollover is silent and an invalid pull keeps the error buzz. Every mode's **loss sting** is now Edson's
   curse (`word-lines/edson-swore.wav`, garbled blips, no bleep) instead of `lose.mp3`. Word Lines' own SFX are
   in [`hyper-roll-word-lines.md`](hyper-roll-word-lines.md).
-- Own-bet, button and error SFX; **bettors-only** victory/lose cues at end of round.
+- Own-bet, button and error SFX; **bettors-only** victory/lose cues at end of round. **Monkey Duel VS HOUSE
+  (#219):** a short synthesized bell "plim" (`coin-flip.wav`) as the coin leaves the hand, and the victory /
+  lose sting plays **when the coin lands** rather than on the Ended frame (the server settles the round
+  before the coin is down) — `useGame` stays quiet for House duels, `GameTerminal` fires it on `landed`.
 - **Edson's phone beep on the player's own bet** (`phone_beep.mp3`, with the call animation) plays only on
   **Monkey Duel and Space Jackpot**. On **Hyper Roll and Cosmic Sprint** (archetypes `houseEdge` / `race`)
   the lever-pull sound marks the bet, so the beep is skipped (#209; Sprint since 2026-10-23). Live:

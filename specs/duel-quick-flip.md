@@ -1,6 +1,11 @@
 # SpaceStroker — "Monkey Duel quick flip" — Implementation Spec
 
-> **Status: Ready for implementation** — refined via Trello card
+> **Status: Shipped** — merged via `feature/duel-quick-flip` on 2026-11-10 (monkify-backend, monkify-front,
+> monkify-meta → `main`; monkify-lp → `master`). Distilled in [`../features/duel-quick-flip.md`](../features/duel-quick-flip.md).
+> Post-ship notes: the flip is 600 + 300 ms (not the 1400 + 450 first written in §0.1), the end sting plays on
+> the landed coin, the flip has a bell plim, and a settled House duel is served by `GET /games/rounds/{id}` so the
+> post-pull attach never drops the result (§0 decision 17 and the KB carry the final figures).
+> Originally refined via Trello card
 > [#219 Monkey Duel quick flip — stake, pull, the $STROKE coin spins (design 2c)](https://trello.com/c/eQ4Dzxj8)
 > (refined 2026-11-10, short mode).
 > Repos affected: `monkify-front` (the feature), `monkify-backend` (round 3: the seed-settled House duel, §0),
